@@ -198,15 +198,10 @@ impl Program {
         let gl = &self.gl;
 
         gl.viewport(0, 0, vp_w as i32, vp_h as i32);
-        gl.clear_color(0.0, 0.0, 0.0, 1.0);
         gl.clear(Gl::COLOR_BUFFER_BIT);
 
-        gl.active_texture(Gl::TEXTURE0);
-
         gl.bind_texture(Gl::TEXTURE_2D, Some(&texture.texture));
-
         gl.use_program(Some(&self.program));
-
         gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.position_buffer));
         gl.enable_vertex_attrib_array(self.position_location);
         gl.vertex_attrib_pointer_with_i32(self.position_location, 2, Gl::FLOAT, false, 0, 0);
@@ -215,8 +210,10 @@ impl Program {
         gl.vertex_attrib_pointer_with_i32(self.texcoord_location, 2, Gl::FLOAT, false, 0, 0);
     
         let mut matrix = m4_orthographic(0.0, vp_w, vp_h, 0.0, -1.0, 1.0);
-        m4_translate(&mut matrix, x, y, 0.0);
+        // m4_translate(&mut matrix, x, y, 0.0);
         m4_scale(&mut matrix, texture.width as f32, texture.height as f32, 1.0);
+
+        log_arr(&matrix);
 
         gl.uniform_matrix4fv_with_f32_array(Some(&self.matrix_location), false, &matrix);
         gl.uniform1i(Some(&self.texture_location), 0);
@@ -299,9 +296,11 @@ impl Canvas {
     /// viewport resize.
     fn configure_resize(&self) -> Result<(), JsError> {
         let canvas = self.element.clone();
+        let gl = self.gl.clone();
         let closure = Closure::wrap(Box::new(
             move |_event: UiEvent| {
                 Canvas::fill_window(&canvas).ok();
+                gl.viewport(0, 0, canvas.width() as i32, canvas.height() as i32);
             }
         ) as Box<dyn FnMut(_)>);    
 
@@ -369,7 +368,7 @@ impl Canvas {
                                 &url[..],
                                 Box::new(move |res| {
                                     match res {
-                                        Ok(texture) => pr_ref.draw_image(texture, 0.0, 0.0, 1400 as f32, 957 as f32),
+                                        Ok(texture) => pr_ref.draw_image(texture, 0.0, 0.0, 1250 as f32, 957 as f32),
                                         Err(_) => return
                                     }
                                 })
@@ -516,11 +515,7 @@ impl Texture {
         Ok(())
     }
 
-    fn load_html_image_gl_texture(
-        gl: &Gl,
-        image: &HtmlImageElement,
-        texture: &WebGlTexture
-    ) -> Result<(), JsError> {
+    fn load_html_image_gl_texture(gl: &Gl, image: &HtmlImageElement, texture: &WebGlTexture) -> Result<(), JsError> {
         gl.bind_texture(Gl::TEXTURE_2D, Some(texture));
 
         if let Err(_) = gl.tex_image_2d_with_u32_and_u32_and_html_image_element(
