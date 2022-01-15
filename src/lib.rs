@@ -1,5 +1,5 @@
-use std::any::Any;
 use std::rc::Rc;
+use js_sys::Float32Array;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{
@@ -146,26 +146,19 @@ impl Program {
         }
     
         let position_location = gl.get_attrib_location(&program, "a_position") as u32;
-        const POSITIONS: [f32; 12] = [
-            0.0, 0.0,
-            0.0, 1.0,
-            1.0, 0.0,
-            1.0, 0.0,
-            0.0, 1.0,
-            1.0, 1.0
-        ];
-        let position_buffer = create_buffer(&gl, &POSITIONS)?;
-    
         let texcoord_location = gl.get_attrib_location(&program, "a_texcoord") as u32;
-        const TEXCOORDS: [f32; 12] = [
+
+        let coords = Float32Array::new_with_length(12);
+        coords.copy_from(&[
             0.0, 0.0,
             0.0, 1.0,
             1.0, 0.0,
             1.0, 0.0,
             0.0, 1.0,
             1.0, 1.0
-        ];
-        let texcoord_buffer = create_buffer(&gl, &TEXCOORDS)?;
+        ]);
+        let position_buffer = create_buffer(&gl, &coords)?;    
+        let texcoord_buffer = create_buffer(&gl, &coords)?;
 
         let matrix_location = match gl.get_uniform_location(&program, "u_matrix") {
             Some(p) => p,
@@ -210,9 +203,8 @@ impl Program {
         gl.vertex_attrib_pointer_with_i32(self.texcoord_location, 2, Gl::FLOAT, false, 0, 0);
     
         let mut matrix = m4_orthographic(0.0, vp_w, vp_h, 0.0, -1.0, 1.0);
-        // m4_translate(&mut matrix, x, y, 0.0);
+        m4_translate(&mut matrix, x, y, 0.0);
         m4_scale(&mut matrix, texture.width as f32, texture.height as f32, 1.0);
-
         log_arr(&matrix);
 
         gl.uniform_matrix4fv_with_f32_array(Some(&self.matrix_location), false, &matrix);
@@ -593,18 +585,16 @@ fn create_shader(gl: &Gl, src: &str, stype: u32) -> Result<WebGlShader, JsError>
     Ok(shader)
 }
 
-fn create_buffer(gl: &Gl, data: &[f32]) -> Result<WebGlBuffer, JsError> {
+fn create_buffer(gl: &Gl, data: &Float32Array) -> Result<WebGlBuffer, JsError> {
     let buffer = match gl.create_buffer() {
         Some(b) => b,
         None => return Err(JsError::ResourceError("Failed to create WebGL buffer."))
     };
 
     gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&buffer));
-
-    let arr = unsafe { js_sys::Float32Array::view(data) };
     gl.buffer_data_with_opt_array_buffer(
         Gl::ARRAY_BUFFER,
-        Some(&arr.buffer()),
+        Some(&data.buffer()),
         Gl::STATIC_DRAW
     );
 

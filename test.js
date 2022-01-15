@@ -1,4 +1,4 @@
-window.onload = main
+// window.onload = main
 
 function main() {
     const canvas = document.createElement("canvas");
@@ -152,7 +152,41 @@ function createBuffer(gl, data) {
     return buffer;
 }
 
+function drawTextureAllProvided(
+    gl,
+    program,
+    texture,
+    width,
+    height,
+    positionBuffer,
+    positionLocation,
+    texcoordBuffer,
+    texcoordLocation,
+    matrixLocation,
+    textureLocation
+) {
+    const programInfo = {
+        program: program,
+        positionBuffer: positionBuffer,
+        positionLocation: positionLocation,
+        texcoordBuffer: texcoordBuffer,
+        texcoordLocation: texcoordLocation,
+        matrixLocation: matrixLocation,
+        textureLocation: textureLocation
+    };
+
+    const tex = {
+        texture: texture,
+        width: width,
+        height: height
+    };
+
+    drawImage(gl, programInfo, tex);
+}
+
 function drawImage(gl, programInfo, tex) {
+    console.log(programInfo);
+
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
@@ -177,4 +211,16 @@ function drawImage(gl, programInfo, tex) {
     gl.uniformMatrix4fv(programInfo.matrixLocation, false, m);
     gl.uniform1i(programInfo.textureLocation, 0);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
+
+function drawTexture(gl, texture, width, height) {
+    const tex = {
+        width: width,
+        height: height,
+        texture: texture 
+    };
+
+    const programInfo = createProgram(gl);
+    console.log(programInfo);
+    drawImage(gl, programInfo, tex);
 }
