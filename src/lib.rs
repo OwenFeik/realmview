@@ -1,4 +1,10 @@
+#![allow(dead_code)]
+
 use std::rc::Rc;
+use std::cell::RefCell;
+use std::sync::atomic::AtomicU32;
+use std::sync::atomic::Ordering;
+use js_sys::Array;
 use js_sys::Float32Array;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -24,13 +30,17 @@ use web_sys::{
     Window
 };
 
+
 type Gl = WebGl2RenderingContext;
+
 
 // 0 is the default and what is used here
 const GL_TEXTURE_DETAIL_LEVEL: i32 = 0;
 
+
 // Required to be 0 for textures
 const GL_TEXTURE_BORDER_WIDTH: i32 = 0;
+
 
 #[wasm_bindgen]
 extern "C" {
@@ -50,11 +60,14 @@ extern "C" {
     fn log_texture(v: &WebGlTexture);
 
     #[wasm_bindgen(js_namespace = console, js_name = log)]
-    fn log_arr(a: &[f32]);
+    fn log_arr(a: &Array);
 
     #[wasm_bindgen(js_namespace = console, js_name = log)]
     fn log_float(f: f32);
+
+    fn set_up_uploads(closure: &Closure<dyn FnMut(&JsValue)>);
 }
+
 
 #[derive(Debug)]
 enum JsError {
@@ -62,9 +75,11 @@ enum JsError {
     TypeError(&'static str)
 }
 
+
 struct Element {
     element: HtmlElement
 }
+
 
 impl Element {
     fn new(name: &str) -> Result<Element, JsError> {
@@ -89,6 +104,7 @@ impl Element {
             .or(Err(JsError::ResourceError("Failed to set element attribute.")))
     }
 }
+
 
 struct Program {
     gl: Rc<Gl>,
@@ -117,6 +133,7 @@ void main() {
 }
 ";
 
+
 const FRAGMENT_SHADER: &str = "
 precision mediump float;
 
@@ -129,8 +146,12 @@ void main() {
 }
 ";
 
+
 impl Program {
     fn new(gl: Rc<Gl>) -> Result<Program, JsError> {
+        gl.enable(Gl::BLEND);
+        gl.blend_func(Gl::SRC_ALPHA, Gl::ONE_MINUS_SRC_ALPHA);
+        
         let program = match gl.create_program() {
             Some(p) => p,
             None => return Err(JsError::ResourceError("WebGL program creation failed."))
@@ -183,17 +204,10 @@ impl Program {
         )
     }
 
-    fn new_rc(gl: Rc<Gl>) -> Result<Rc<Program>, JsError> {
-        Ok(Rc::new(Program::new(gl)?))
-    }
-
-    fn draw_image(&self, texture: Texture, x: f32, y: f32, vp_w: f32, vp_h: f32) {
+    fn draw_sprite(&self, sprite: &Sprite, vp_w: u32, vp_h: u32) {
         let gl = &self.gl;
 
-        gl.viewport(0, 0, vp_w as i32, vp_h as i32);
-        gl.clear(Gl::COLOR_BUFFER_BIT);
-
-        gl.bind_texture(Gl::TEXTURE_2D, Some(&texture.texture));
+        gl.bind_texture(Gl::TEXTURE_2D, Some(&sprite.texture.texture));
         gl.use_program(Some(&self.program));
         gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.position_buffer));
         gl.enable_vertex_attrib_array(self.position_location);
@@ -202,10 +216,9 @@ impl Program {
         gl.enable_vertex_attrib_array(self.texcoord_location);
         gl.vertex_attrib_pointer_with_i32(self.texcoord_location, 2, Gl::FLOAT, false, 0, 0);
     
-        let mut matrix = m4_orthographic(0.0, vp_w, vp_h, 0.0, -1.0, 1.0);
-        m4_translate(&mut matrix, x, y, 0.0);
-        m4_scale(&mut matrix, texture.width as f32, texture.height as f32, 1.0);
-        log_arr(&matrix);
+        let mut matrix = m4_orthographic(0.0, vp_w as f32, vp_h as f32, 0.0, -1.0, 1.0);
+        m4_translate(&mut matrix, sprite.x as f32, sprite.y as f32, 0.0);
+        m4_scale(&mut matrix, sprite.texture.width as f32, sprite.texture.height as f32, 1.0);
 
         gl.uniform_matrix4fv_with_f32_array(Some(&self.matrix_location), false, &matrix);
         gl.uniform1i(Some(&self.texture_location), 0);
@@ -213,17 +226,21 @@ impl Program {
     }
 }
 
+
 struct Canvas {
     element: Rc<HtmlCanvasElement>,
     gl: Rc<Gl>,
-    program: Rc<Program>
+    
+    // Array where MouseEvents are stored to be handled by the core loop.
+    events: Rc<Array>
 }
+
 
 impl Canvas {
     fn new(element: HtmlCanvasElement) -> Result<Canvas, JsError> {
         let gl = Rc::new(create_context(&element)?);
 
-        Ok(Canvas { element: Rc::new(element), gl: gl.clone(), program: Program::new_rc(gl)? })
+        Ok(Canvas { element: Rc::new(element), gl, events: Rc::new(Array::new()) })
     }
 
     /// Create a new canvas element and set it up to fill the screen.
@@ -254,7 +271,7 @@ impl Canvas {
     fn init(&self) -> Result<(), JsError> {
         self.position_top_left()?;
         self.configure_resize()?;
-        self.configure_upload()?;
+        self.configure_events()?;
         Canvas::fill_window(&self.element)?;
 
         Ok(())
@@ -306,12 +323,29 @@ impl Canvas {
         )
     }
 
+    fn configure_events(&self) -> Result<(), JsError> {
+        for event_name in vec!["mousedown", "mouseup", "mousemove"].iter() {
+            let events = self.events.clone();
+            let listener = Closure::wrap(Box::new(move |event: MouseEvent| {
+                events.push(&event);
+            }) as Box<dyn FnMut(MouseEvent)>);
+
+            match self.element.add_event_listener_with_callback(event_name, &listener.as_ref().unchecked_ref()) {
+                Ok(_) => (),
+                Err(_) => return Err(JsError::ResourceError("Failed to add mouse event listener to canvas."))
+            };
+
+            listener.forget();
+        }
+        
+        Ok(())
+    }
+
     fn configure_upload(&self) -> Result<(), JsError> {
         let input = Rc::new(create_file_upload()?);
         let result = {
             let c_input = input.clone();
             let gl = self.gl.clone();
-            let program = self.program.clone();
             let closure = Closure::wrap(Box::new(
                 move |_event: InputEvent| {
                     let file = match c_input.files() {
@@ -330,7 +364,6 @@ impl Canvas {
                     // File load handling
                     let fr_ref = file_reader.clone();
                     let gl_ref = gl.clone();
-                    let pr_ref = program.clone();
                     let closure = Closure::wrap(Box::new(
                         move |_event: ProgressEvent| {
                             let file = match fr_ref.result() {
@@ -354,13 +387,12 @@ impl Canvas {
                                 Err(_) => return
                             };
 
-                            let pr_ref = pr_ref.clone();
                             Texture::from_url(
                                 &gl_ref,
                                 &url[..],
                                 Box::new(move |res| {
                                     match res {
-                                        Ok(texture) => pr_ref.draw_image(texture, 0.0, 0.0, 1250 as f32, 957 as f32),
+                                        Ok(_t) => return,
                                         Err(_) => return
                                     }
                                 })
@@ -419,6 +451,7 @@ struct Texture {
     height: u32,
     texture: Rc<WebGlTexture>
 }
+
 
 impl Texture {
     fn new(gl: &Gl) -> Result<Texture, JsError> {
@@ -556,6 +589,239 @@ impl Texture {
     }
 }
 
+
+struct Context {
+    // WebGL context. Wrapped in Rc because various structs and closures want for references to it.
+    gl: Rc<Gl>,
+
+    // Holds information about the HTML canvas associated with the WebGL context.
+    canvas: Canvas,
+
+    // Rendering program, used to draw sprites.
+    program: Program,
+    
+    // A JS Array which the front end pushes uploaded images to. The Context then loads any images waiting in the queue
+    // before rendering each frame. Wrapped in Rc such that it can be accessed from a closure passed to JS.
+    texture_queue: Rc<Array>,
+}
+
+
+impl Context {
+    fn new() -> Result<Context, JsError> {
+        let canvas = Canvas::new_element()?;
+        let program = Program::new(canvas.gl.clone())?;
+
+        let ctx = Context{
+            gl: canvas.gl.clone(),
+            canvas,
+            program,
+            texture_queue: Rc::new(Array::new()),
+        };
+        ctx.configure_upload();
+
+        Ok(ctx)
+    }
+
+    fn configure_upload(&self) {
+        let texture_queue = self.texture_queue.clone();
+        let handler = Closure::wrap(Box::new(move |image: &JsValue| {
+            texture_queue.push(&image);
+        }) as Box<dyn FnMut(&JsValue)>);
+        set_up_uploads(&handler);
+        handler.forget();
+    }
+
+    fn load_queue(&self) -> Option<Vec<Sprite>> {
+        if self.texture_queue.length() == 0 {
+            return None;
+        }
+
+        let mut sprites = Vec::new();
+        while self.texture_queue.length() > 0 {
+            let img = self.texture_queue.pop();
+            
+            // Cast the img to a HTMLImageElement; this array will only contain such elements, so this cast is safe.
+            let img = img.unchecked_ref::<HtmlImageElement>();
+            match Texture::from_html_image(&self.gl, img) {
+                Ok(t) => sprites.push(Sprite::new(t)),
+                Err(_) => ()
+            };
+        }
+
+        Some(sprites)
+    }
+
+    fn render(&self, sprites: &Vec<Sprite>) {
+        let vp_w = self.canvas.element.width();
+        let vp_h = self.canvas.element.height();
+
+        self.gl.viewport(0, 0, vp_w as i32, vp_h as i32);
+        self.gl.clear(Gl::COLOR_BUFFER_BIT);
+        
+        for sprite in sprites.iter() {
+            self.program.draw_sprite(sprite, vp_w, vp_h);
+        }
+    }
+}
+
+
+struct HeldSprite {
+    sprite: u32,
+    dx: i32,
+    dy: i32
+}
+
+
+struct Sprite {
+    texture: Texture,
+    x: i32,
+    y: i32,
+
+    // Unique numeric ID, numbered from 1
+    id: u32
+}
+
+
+impl Sprite {
+    fn new(texture: Texture) -> Sprite {
+        static SPRITE_ID: AtomicU32 = AtomicU32::new(1);
+
+        Sprite { texture, x: 0, y: 0, id: SPRITE_ID.fetch_add(1, Ordering::Relaxed) }
+    }
+
+    fn new_at(texture: Texture, x: i32, y: i32) -> Sprite {
+        let mut sprite = Sprite::new(texture);
+        sprite.set_pos(x, y);
+        sprite
+    }
+
+    fn set_pos(&mut self, x: i32, y: i32) {
+        self.x = x;
+        self.y = y;
+    }
+
+    fn touches_point(&self, x: i32, y: i32) -> bool {
+        self.x <= x
+        && self.y <= y
+        && x <= self.x + self.texture.width as i32
+        && y <= self.y + self.texture.height as i32
+    }
+
+    fn grab(&self, x: i32, y: i32) -> HeldSprite {
+        HeldSprite {
+            sprite: self.id,
+            dx: x - self.x,
+            dy: y - self.y
+        }
+    } 
+}
+
+
+struct Scene {
+    context: Context,
+
+    // Sprites to be drawn each frame.
+    sprites: Vec<Sprite>,
+
+    // ID of the Sprite the user is currently dragging
+    holding: Option<HeldSprite>,
+
+    // Flag to indicate whether the canvas needs to be rendered (i.e. whether anything has changed).
+    redraw_needed: bool
+}
+
+
+impl Scene {
+    fn new() -> Result<Scene, JsError> {
+        Ok(
+            Scene {
+                context: Context::new()?,
+                sprites: Vec::new(),
+                holding: None,
+                redraw_needed: true
+            }
+        )
+    }
+
+    fn sprite(&mut self, id: u32) -> Option<&mut Sprite> {
+        for sprite in self.sprites.iter_mut() {
+            if sprite.id == id {
+                return Some(sprite);
+            }
+        }
+
+        None
+    }
+
+    fn sprite_at(&self, x: i32, y: i32) -> Option<&Sprite> {
+        // Reversing the iterator atm because the sprites are rendered from the front of the Vec to the back, hence the
+        // last Sprite in the Vec is rendered on top, and will be clicked first.
+        for sprite in self.sprites.iter().rev() {
+            if sprite.touches_point(x, y) {
+                return Some(&sprite);
+            }
+        }
+
+        None
+    }
+
+    fn update_held_pos(&mut self, x: i32, y: i32) {
+        let (held, dx, dy) = {
+            match &self.holding {
+                Some(h) => (h.sprite, h.dx, h.dy),
+                None => return
+            }
+        };
+
+        self.sprite(held).map(|s| s.set_pos(x - dx, y - dy));
+
+        self.redraw_needed = true;
+    }
+
+    fn handle_mouse_down(&mut self, x: i32, y: i32) {
+        self.holding = self.sprite_at(x, y).map(|s| s.grab(x, y));
+    }
+
+    fn handle_mouse_up(&mut self, x: i32, y: i32) {
+        self.update_held_pos(x, y);
+        self.holding = None;
+    }
+
+    fn handle_mouse_move(&mut self, x: i32, y: i32) {
+        self.update_held_pos(x, y);
+    }
+
+    fn process_events(&mut self) {
+        while self.context.canvas.events.length() > 0 {
+            let event = self.context.canvas.events.pop();
+            let event = event.unchecked_ref::<MouseEvent>();
+            match event.type_().as_str() {
+                "mousedown" => self.handle_mouse_down(event.x(), event.y()),
+                "mouseup" => self.handle_mouse_up(event.x(), event.y()),
+                "mousemove" => self.handle_mouse_move(event.x(), event.y()),
+                _ => ()
+            };
+        }
+    }
+
+    fn animation_frame(&mut self) {
+        // We can either process the mouse events and then handle newly loaded images or vice-versa. I choose to process
+        // events first because it strikes me as unlikely that the user will have intentionally interacted with a newly
+        // loaded image within a frame of it's appearing, and more likely that they instead clicked something that is
+        // now behind a newly loaded image.
+        self.process_events();
+        match self.context.load_queue() {
+            Some(mut new_sprites) => self.sprites.append(&mut new_sprites),
+            None => ()
+        };
+
+        if self.redraw_needed {
+            self.context.render(&self.sprites);
+        }
+    }
+}
+
+
 fn create_context(element: &HtmlCanvasElement) -> Result<Gl, JsError> {
     match element.get_context("webgl2") {
         Ok(Some(c)) => match c.dyn_into::<Gl>() {
@@ -565,6 +831,7 @@ fn create_context(element: &HtmlCanvasElement) -> Result<Gl, JsError> {
         _ => return Err(JsError::ResourceError("Failed to get rendering context."))
     }
 }
+
 
 fn create_shader(gl: &Gl, src: &str, stype: u32) -> Result<WebGlShader, JsError> {
     let shader = match gl.create_shader(stype) {
@@ -585,6 +852,7 @@ fn create_shader(gl: &Gl, src: &str, stype: u32) -> Result<WebGlShader, JsError>
     Ok(shader)
 }
 
+
 fn create_buffer(gl: &Gl, data: &Float32Array) -> Result<WebGlBuffer, JsError> {
     let buffer = match gl.create_buffer() {
         Some(b) => b,
@@ -601,6 +869,7 @@ fn create_buffer(gl: &Gl, data: &Float32Array) -> Result<WebGlBuffer, JsError> {
     Ok(buffer)
 }
 
+
 // see https://webglfundamentals.org/webgl/resources/m4.js
 fn m4_orthographic(l: f32, r: f32, b: f32, t: f32, n: f32, f: f32) -> [f32; 16] {
     [
@@ -611,6 +880,7 @@ fn m4_orthographic(l: f32, r: f32, b: f32, t: f32, n: f32, f: f32) -> [f32; 16] 
     ]
 }
 
+
 // Translates matrix m by tx units in the x direction and likewise for ty and tz.
 // NB: in place
 fn m4_translate(m: &mut [f32; 16], tx: f32, ty: f32, tz: f32) {
@@ -619,6 +889,7 @@ fn m4_translate(m: &mut [f32; 16], tx: f32, ty: f32, tz: f32) {
     m[14] = m[2] * tx + m[6] * ty + m[10] * tz + m[14];
     m[15] = m[3] * tx + m[7] * ty + m[11] * tz + m[15];
 }
+
 
 // NB: in place
 fn m4_scale(m: &mut [f32; 16], sx: f32, sy: f32, sz: f32) {
@@ -636,12 +907,14 @@ fn m4_scale(m: &mut [f32; 16], sx: f32, sy: f32, sz: f32) {
     m[11] = m[11] * sz;
 }
 
+
 fn get_window() -> Result<Window, JsError> {
     match web_sys::window() {
         Some(w) => Ok(w),
         None => Err(JsError::ResourceError("No Window."))
     }
 }
+
 
 fn get_document() -> Result<Document, JsError> {
     match get_window()?.document() {
@@ -650,6 +923,7 @@ fn get_document() -> Result<Document, JsError> {
     }
 }
 
+
 fn get_body() -> Result<HtmlElement, JsError> {
     match get_document()?.body() {
         Some(b) => Ok(b),
@@ -657,11 +931,13 @@ fn get_body() -> Result<HtmlElement, JsError> {
     }
 }
 
+
 fn create_element(name: &str) -> Result<web_sys::Element, JsError> {
     get_document()?
         .create_element(name)
         .or(Err(JsError::ResourceError("Element creation failed.")))
 }
+
 
 fn create_appended(name: &str) -> Result<web_sys::Element, JsError> {
     let element = create_element(name)?;
@@ -670,6 +946,7 @@ fn create_appended(name: &str) -> Result<web_sys::Element, JsError> {
         Err(_) => Err(JsError::ResourceError("Failed to append element."))
     }
 }
+
 
 fn get_window_dimensions() -> Result<(u32, u32), JsError> {
     let window = get_window()?;
@@ -683,6 +960,7 @@ fn get_window_dimensions() -> Result<(u32, u32), JsError> {
     }
 }
 
+
 fn create_file_upload() -> Result<HtmlInputElement, JsError> {
     let element = Element::new("input")?;
 
@@ -692,12 +970,31 @@ fn create_file_upload() -> Result<HtmlInputElement, JsError> {
     element
         .element
         .dyn_into::<HtmlInputElement>()
-        .or(Err(JsError::TypeError("Failed to cast element to HtmlInputElement")))
+        .or(Err(JsError::TypeError("Failed to cast element to HtmlInputElement.")))
 }
+
+
+fn request_animation_frame(f: &Closure<dyn FnMut()>) -> Result<(), JsError> {
+    match get_window()?.request_animation_frame(f.as_ref().unchecked_ref()) {
+        Ok(_) => Ok(()),
+        Err(_) => Err(JsError::ResourceError("Failed to get animation frame."))
+    }
+}
+
 
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
-    Canvas::new_element().unwrap();
+    let mut scene = Scene::new().unwrap();
+
+    let f = Rc::new(RefCell::new(None));
+    let g = f.clone();
+
+    *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
+        scene.animation_frame();
+        request_animation_frame(f.borrow().as_ref().unwrap()).unwrap();
+    }) as Box<dyn FnMut()>));
+
+    request_animation_frame(g.borrow().as_ref().unwrap()).unwrap();
 
     Ok(())
 }
