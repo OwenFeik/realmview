@@ -188,7 +188,10 @@ impl GridRenderer {
 
             let mut y = d * i - dy;
             if y <= h {
-                y = (2.0 * y - h) / h; // Map to [-1, 1]
+                // I negate the expression here but not for the x because the OpenGL coordinate system naturally matches
+                // the browser coordinate system in the x direction, but opposes it in the y direction. By negating the
+                // two coordinate systems are aligned, which makes things a little easier to work with.
+                y = -(2.0 * y - h) / h;
 
                 horizontals.push(-1.0);
                 horizontals.push(y);

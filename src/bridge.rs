@@ -578,17 +578,17 @@ impl Context {
         Some(sprites)
     }
 
-    pub fn render(&mut self, sprites: &Vec<Sprite>) {
+    pub fn render(&mut self, sprites: &Vec<Sprite>, grid_size: i32) {
         let vp = self.viewport();
 
         self.gl.viewport(0, 0, vp.w, vp.h);
         self.gl.clear(Gl::COLOR_BUFFER_BIT);
         
         for sprite in sprites.iter() {
-            self.texture_renderer.draw_texture(&vp, sprite.texture(), &sprite.position());
+            self.texture_renderer.draw_texture(&vp, sprite.texture(), &sprite.absolute_rect(grid_size));
         }
 
-        self.grid_renderer.render_grid(vp, 50);
+        self.grid_renderer.render_grid(vp, grid_size);
     }
 }
 
