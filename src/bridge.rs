@@ -528,13 +528,8 @@ impl Context {
         handler.forget();
     }
 
-    pub fn viewport(&self) -> Rect {
-        Rect {
-            x: 0,
-            y: 0,
-            w: self.canvas.element.width() as i32,
-            h: self.canvas.element.height() as i32
-        }
+    pub fn viewport_size(&self) -> (u32, u32) {
+        (self.canvas.element.width(), self.canvas.element.height())
     }
 
     pub fn events(&self) -> Option<Vec<MouseEvent>> {
@@ -578,9 +573,7 @@ impl Context {
         Some(sprites)
     }
 
-    pub fn render(&mut self, sprites: &Vec<Sprite>, grid_size: i32) {
-        let vp = self.viewport();
-
+    pub fn render(&mut self, vp: Rect, sprites: &Vec<Sprite>, grid_size: i32) {
         self.gl.viewport(0, 0, vp.w, vp.h);
         self.gl.clear(Gl::COLOR_BUFFER_BIT);
         

@@ -1,5 +1,5 @@
-use std::sync::atomic::AtomicU32;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::ops::{Add, Sub};
 
 use crate::bridge::{Context, EventType, JsError, Texture};
 
@@ -12,10 +12,13 @@ pub struct Rect {
     pub h: i32 
 }
 
-
 impl Rect {
     pub fn new(x: i32, y: i32, w: i32, h: i32) -> Rect {
         Rect { x, y, w, h }
+    }
+
+    fn from_point(point: ScenePoint, w: i32, h: i32) -> Rect {
+        Rect { x: point.x, y: point.y, w, h }
     }
 
     pub fn scaled_from(from: &Rect, factor: i32) -> Rect {
@@ -44,25 +47,18 @@ impl Rect {
         self.h = (self.h as f32 * factor).round() as i32;
     }
 
-    fn contains_point(&self, x: i32, y: i32) -> bool {
-        self.x <= x
-        && self.y <= y
-        && x <= self.x + self.w
-        && y <= self.y + self.h
+    fn contains_point(&self, point: ScenePoint) -> bool {
+        self.x <= point.x
+        && self.y <= point.y
+        && point.x <= self.x + self.w
+        && point.y <= self.y + self.h
     }
-}
-
-
-struct HeldSprite {
-    sprite: u32,
-    dx: i32,
-    dy: i32
 }
 
 
 // Sprites can be position either on the grid, using tile indexing, or absolutely within the scene, using scene
 // coordinates.
-pub enum Positioning {
+enum Positioning {
     Absolute,
     Tile
 }
@@ -70,13 +66,12 @@ pub enum Positioning {
 
 pub struct Sprite {
     pub tex: Texture,
-    pub positioning: Positioning,
     pub rect: Rect,
 
     // Unique numeric ID, numbered from 1
+    positioning: Positioning,
     id: u32
 }
-
 
 impl Sprite {
     pub fn new(tex: Texture) -> Sprite {
@@ -84,8 +79,8 @@ impl Sprite {
 
         Sprite {
             tex,
-            positioning: Positioning::Tile,
             rect: Rect::new(0, 0, 1, 1),
+            positioning: Positioning::Tile,
             id: SPRITE_ID.fetch_add(1, Ordering::Relaxed)
         }
     }
@@ -126,7 +121,7 @@ impl Sprite {
         };
     }
 
-    fn set_pos(&mut self, x: i32, y: i32) {
+    fn set_pos(&mut self, ScenePoint { x, y }: ScenePoint) {
         self.rect.x = x;
         self.rect.y = y;
     }
@@ -134,12 +129,6 @@ impl Sprite {
     fn set_size(&mut self, w: i32, h: i32) {
         self.rect.w = w;
         self.rect.h = h;
-    }
-
-    fn set_rect(&mut self, rect: Rect, positioning: Option<Positioning>) {
-        self.set_positioning_opt(positioning);
-        self.set_pos(rect.x, rect.y);
-        self.set_size(rect.w, rect.h);
     }
 
     fn tile_to_absolute(&mut self, grid_size: i32) {
@@ -162,38 +151,81 @@ impl Sprite {
         };
     }
 
-    fn grab(&mut self, x: i32, y: i32, grid_size: i32) -> HeldSprite {
+    fn grab(&mut self, at: ScenePoint, grid_size: i32) -> HeldObject {
         self.tile_to_absolute(grid_size);
-        HeldSprite {
-            sprite: self.id,
-            dx: x - self.x(grid_size),
-            dy: y - self.y(grid_size)
-        }
+        HeldObject::Sprite(self.id, ScenePoint { x: at.x - self.x(grid_size), y: at.y - self.y(grid_size) })
     } 
+}
+
+
+#[derive(Clone, Copy)]
+struct ScenePoint {
+    x: i32,
+    y: i32
+}
+
+impl Add for ScenePoint {
+    type Output = ScenePoint;
+
+    fn add(self, rhs: ScenePoint) -> ScenePoint {
+        ScenePoint { x: self.x + rhs.x, y: self.y + rhs.y }
+    }
+}
+
+impl Sub for ScenePoint {
+    type Output = ScenePoint;
+
+    fn sub(self, rhs: ScenePoint) -> ScenePoint {
+        ScenePoint { x: self.x - rhs.x, y: self.y - rhs.y }
+    }
+}
+
+
+#[derive(Clone, Copy)]
+struct ViewportPoint {
+    x: i32,
+    y: i32
+}
+
+
+impl ViewportPoint {
+    fn apply_offset(&self, offset: ScenePoint) -> ScenePoint {
+        ScenePoint { x: self.x + offset.x, y: self.y + offset.y }
+    }
+}
+
+
+enum HeldObject {
+    Map(ViewportPoint),
+    None,
+    Sprite(u32, ScenePoint)
 }
 
 
 pub struct Scene {
     context: Context,
 
+    // (x, y) position of the viewport in scene coordinates.
+    viewport_offset: ScenePoint,
+
     // Sprites to be drawn each frame.
     sprites: Vec<Sprite>,
 
-    // ID of the Sprite the user is currently dragging
-    holding: Option<HeldSprite>,
+    // ID of the Sprite the user is currently dragging.
+    holding: HeldObject,
 
     // Flag to indicate whether the canvas needs to be rendered (i.e. whether anything has changed).
     redraw_needed: bool
 }
-
 
 impl Scene {
     pub fn new() -> Result<Scene, JsError> {
         Ok(
             Scene {
                 context: Context::new()?,
+                viewport_offset: ScenePoint { x: 0, y: 0 },
                 sprites: Vec::new(),
-                holding: None,
+                holding: HeldObject::None,
                 redraw_needed: true
             }
         )
@@ -201,6 +233,11 @@ impl Scene {
 
     fn grid_size(&self) -> i32 {
         return 50;
+    }
+
+    fn viewport(&self) -> Rect {
+        let (w, h) = self.context.viewport_size();
+        Rect::from_point(self.viewport_offset, w as i32, h as i32)
     }
 
     fn sprite(&mut self, id: u32) -> Option<&mut Sprite> {
@@ -213,13 +250,13 @@ impl Scene {
         None
     }
 
-    fn sprite_at(&mut self, x: i32, y: i32) -> Option<&mut Sprite> {
+    fn sprite_at(&mut self, at: ScenePoint) -> Option<&mut Sprite> {
         let grid_size = self.grid_size();
         
         // Reversing the iterator atm because the sprites are rendered from the front of the Vec to the back, hence the
         // last Sprite in the Vec is rendered on top, and will be clicked first.
         for sprite in self.sprites.iter_mut().rev() {
-            if sprite.absolute_rect(grid_size).contains_point(x, y) {
+            if sprite.absolute_rect(grid_size).contains_point(at) {
                 return Some(sprite);
             }
         }
@@ -227,15 +264,22 @@ impl Scene {
         None
     }
 
-    fn update_held_pos(&mut self, x: i32, y: i32) {
-        let (held, dx, dy) = {
-            match &self.holding {
-                Some(h) => (h.sprite, h.dx, h.dy),
-                None => return
-            }
-        };
+    fn update_held_pos(&mut self, pos: ViewportPoint) {
+        match self.holding {
+            HeldObject::Map(ViewportPoint { x, y }) => {
+                self.viewport_offset = ScenePoint {
+                    x: self.viewport_offset.x + x - pos.x,
+                    y: self.viewport_offset.y + y - pos.y
+                };
+                self.holding = HeldObject::Map(pos);
+            },
+            HeldObject::Sprite(id, held_at) => {
+                let at = pos.apply_offset(self.viewport_offset);
 
-        self.sprite(held).map(|s| s.set_pos(x - dx, y - dy));
+                self.sprite(id).map(|s| s.set_pos(at - held_at));
+            },
+            HeldObject::None => return
+        };
 
         self.redraw_needed = true;
     }
@@ -244,28 +288,32 @@ impl Scene {
         let grid_size = self.grid_size();
 
         let held = {
-            match &self.holding {
-                Some(h) => h.sprite,
-                None => return
+            match self.holding {
+                HeldObject::Map(_) => { self.holding = HeldObject::None; return; },
+                HeldObject::Sprite(id, _) => id,
+                HeldObject::None => return
             }
         };
 
         self.sprite(held).map(|s| s.absolute_to_tile(grid_size));
-        self.holding = None;
+        self.holding = HeldObject::None;
     }
 
-    fn handle_mouse_down(&mut self, x: i32, y: i32) {
+    fn handle_mouse_down(&mut self, at: ViewportPoint) {
+        let scene_point = at.apply_offset(self.viewport_offset);
         let grid_size = self.grid_size();
-        self.holding = self.sprite_at(x, y).map(|s| s.grab(x, y, grid_size));
+        self.holding = self.sprite_at(scene_point)
+            .map(|s| s.grab(scene_point, grid_size))
+            .unwrap_or(HeldObject::Map(at));
     }
 
-    fn handle_mouse_up(&mut self, x: i32, y: i32) {
-        self.update_held_pos(x, y);
+    fn handle_mouse_up(&mut self, at: ViewportPoint) {
+        self.update_held_pos(at);
         self.release_held();
     }
 
-    fn handle_mouse_move(&mut self, x: i32, y: i32) {
-        self.update_held_pos(x, y);
+    fn handle_mouse_move(&mut self, at: ViewportPoint) {
+        self.update_held_pos(at);
     }
 
     fn process_events(&mut self) {
@@ -275,10 +323,11 @@ impl Scene {
         };
 
         for event in events.iter() {
+            let at = ViewportPoint { x: event.x, y: event.y };
             match event.event_type {
-                EventType::MouseDown => self.handle_mouse_down(event.x, event.y),
-                EventType::MouseUp => self.handle_mouse_up(event.x, event.y),
-                EventType::MouseMove => self.handle_mouse_move(event.x, event.y)
+                EventType::MouseDown => self.handle_mouse_down(at),
+                EventType::MouseUp => self.handle_mouse_up(at),
+                EventType::MouseMove => self.handle_mouse_move(at)
             };
         }
     }
@@ -298,7 +347,7 @@ impl Scene {
         };
 
         if self.redraw_needed {
-            self.context.render(&self.sprites, self.grid_size());
+            self.context.render(self.viewport(), &self.sprites, self.grid_size());
         }
         self.redraw_needed = false;
     }
