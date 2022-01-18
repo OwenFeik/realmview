@@ -1,5 +1,6 @@
 use std::rc::Rc;
 use js_sys::Array;
+use js_sys::Float32Array;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{
@@ -19,8 +20,7 @@ use web_sys::{
     Window
 };
 
-use crate::programs::GridRenderer;
-use crate::programs::TextureRenderer;
+use crate::programs::Renderer;
 use crate::scene::{Rect, Sprite};
 
 #[wasm_bindgen]
@@ -39,6 +39,9 @@ extern "C" {
 
     #[wasm_bindgen(js_namespace = console, js_name = log)]
     pub fn log_float(f: f32);
+
+    #[wasm_bindgen(js_namespace = console, js_name = log)]
+    pub fn log_arr(a: Float32Array);
 
     fn set_up_uploads(closure: &Closure<dyn FnMut(&JsValue)>);
 }
@@ -490,11 +493,8 @@ pub struct Context {
     // Holds information about the HTML canvas associated with the WebGL context.
     canvas: Canvas,
 
-    // Rendering program, used to draw sprites.
-    texture_renderer: TextureRenderer,
-
-    // To render map grid
-    grid_renderer: GridRenderer,
+    // Wrapper around OpenGL Rendering functions
+    renderer: Renderer,
     
     // A JS Array which the front end pushes uploaded images to. The Context then loads any images waiting in the queue
     // before rendering each frame. Wrapped in Rc such that it can be accessed from a closure passed to JS.
@@ -505,13 +505,11 @@ pub struct Context {
 impl Context {
     pub fn new() -> Result<Context, JsError> {
         let canvas = Canvas::new_element()?;
-        let texture_renderer = TextureRenderer::new(canvas.gl.clone())?;
-        let grid_renderer = GridRenderer::new(canvas.gl.clone())?;
+        let renderer = Renderer::new(canvas.gl.clone())?;
         let ctx = Context{
             gl: canvas.gl.clone(),
             canvas,
-            texture_renderer,
-            grid_renderer,
+            renderer,
             texture_queue: Rc::new(Array::new()),
         };
         ctx.configure_upload();
@@ -573,15 +571,23 @@ impl Context {
         Some(sprites)
     }
 
-    pub fn render(&mut self, vp: Rect, sprites: &Vec<Sprite>, grid_size: i32) {
+    pub fn clear(&self, vp: Rect) {
         self.gl.viewport(0, 0, vp.w, vp.h);
         self.gl.clear(Gl::COLOR_BUFFER_BIT);
-        
-        for sprite in sprites.iter() {
-            self.texture_renderer.draw_texture(&vp, sprite.texture(), &sprite.absolute_rect(grid_size));
-        }
+    }
 
-        self.grid_renderer.render_grid(vp, grid_size);
+    pub fn draw_grid(&mut self, vp: Rect, grid_size: i32) {
+        self.renderer.render_grid(vp, grid_size);
+    }
+
+    pub fn draw_sprites(&self, vp: Rect, sprites: &Vec<Sprite>, grid_size: i32) {
+        for sprite in sprites.iter() {
+            self.renderer.draw_texture(vp, sprite.texture(), sprite.absolute_rect(grid_size));
+        }
+    }
+
+    pub fn draw_outline(&mut self, vp: Rect, outline: Rect) {
+        self.renderer.draw_outline(vp, outline);
     }
 }
 

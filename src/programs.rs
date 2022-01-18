@@ -6,6 +6,7 @@ use web_sys::{WebGlBuffer, WebGlProgram, WebGlShader, WebGlTexture, WebGlUniform
 use crate::bridge::{Gl, JsError};
 use crate::scene::Rect;
 
+type Colour = [f32; 4];
 
 pub struct TextureRenderer {
     gl: Rc<Gl>,
@@ -91,7 +92,7 @@ impl TextureRenderer {
         )
     }
 
-    pub fn draw_texture(&self, viewport: &Rect, texture: &WebGlTexture, position: &Rect) {
+    pub fn draw_texture(&self, viewport: Rect, texture: &WebGlTexture, position: Rect) {
         let gl = &self.gl;
 
         gl.bind_texture(Gl::TEXTURE_2D, Some(texture));
@@ -114,7 +115,7 @@ impl TextureRenderer {
 }
 
 
-struct LineRenderer {
+pub struct LineRenderer {
     gl: Rc<Gl>,
     program: WebGlProgram,
     position_location: u32,
@@ -164,6 +165,19 @@ impl LineRenderer {
         )
     }
 
+    fn scale_and_load_points(&mut self, points: &mut Vec<f32>, vp_w: f32, vp_h: f32) {
+        for i in 0..points.len() {
+            // Point vectors are of form [x1, y1, x2, y2 ... xn, yn] so even indices are xs.
+            if i % 2 == 0 {
+                points[i] = (2.0 * points[i] - vp_w) / vp_w;
+            }
+            else {
+                points[i] = -(2.0 * points[i] - vp_h) / vp_h;
+            }
+        }
+        self.load_points(points);
+    }
+
     fn load_points(&mut self, points: &Vec<f32>) {
         let positions = Float32Array::from(&points[..]);
         
@@ -172,15 +186,24 @@ impl LineRenderer {
         self.point_count = (points.len() / 2) as i32;
     }
 
-    fn render(&self, colour: Option<&[f32; 4]>) {
+    fn prepare_render(&self, colour: Option<Colour>) {
         let gl = &self.gl;
 
         gl.use_program(Some(&self.program));
         gl.enable_vertex_attrib_array(self.position_location);
         gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.position_buffer));
         gl.vertex_attrib_pointer_with_i32(self.position_location, 2, Gl::FLOAT, false, 0, 0);
-        gl.uniform4fv_with_f32_array(Some(&self.colour_location), colour.unwrap_or(&[0.5, 0.5, 0.5, 0.75]));
-        gl.draw_arrays(Gl::LINES, 0, self.point_count);
+        gl.uniform4fv_with_f32_array(Some(&self.colour_location), &colour.unwrap_or([0.5, 0.5, 0.5, 0.75]));
+    }
+
+    fn render_lines(&self, colour: Option<Colour>) {
+        self.prepare_render(colour);
+        self.gl.draw_arrays(Gl::LINES, 0, self.point_count);
+    }
+
+    fn render_line_loop(&self, colour: Option<Colour>) {
+        self.prepare_render(colour);
+        self.gl.draw_arrays(Gl::LINE_LOOP, 0, self.point_count);
     }
 }
 
@@ -250,20 +273,66 @@ impl GridRenderer {
 
         verticals.append(&mut horizontals);
         self.line_renderer.load_points(&verticals);
-        self.current_grid_rect = Some(vp);
+        self.current_grid_rect = Some(vp.clone());
         self.current_grid_size = Some(grid_size);
         self.current_line_count = Some(verticals.len() as i32 / 2);
     }
 
     pub fn render_grid(&mut self, vp: Rect, grid_size: i32) {
-        if let Some(rect) = &self.current_grid_rect {
-            if *rect != vp || self.current_grid_size != Some(grid_size) {
+        if let Some(rect) = self.current_grid_rect {
+            if rect != vp || self.current_grid_size != Some(grid_size) {
                 self.create_grid(vp, grid_size);
             }
         }
         else { self.create_grid(vp, grid_size); }
 
-        self.line_renderer.render(None);
+        self.line_renderer.render_lines(None);
+    }
+}
+
+
+pub struct Renderer {
+    // Rendering program, used to draw sprites.
+    texture_renderer: TextureRenderer,
+
+    // To render outlines &c
+    line_renderer: LineRenderer,
+
+    // To render map grid
+    grid_renderer: GridRenderer
+}
+
+
+impl Renderer {
+    pub fn new(gl: Rc<Gl>) -> Result<Renderer, JsError> {
+        Ok(
+            Renderer {
+                texture_renderer: TextureRenderer::new(gl.clone())?,
+                line_renderer: LineRenderer::new(gl.clone())?,
+                grid_renderer: GridRenderer::new(gl)?
+            }
+        )
+    }
+
+    pub fn render_grid(&mut self, vp: Rect, grid_size: i32) {
+        self.grid_renderer.render_grid(vp, grid_size);
+    }
+
+    pub fn draw_texture(&self, vp: Rect, texture: &WebGlTexture, position: Rect) {
+        self.texture_renderer.draw_texture(vp, texture, position);
+    }
+
+    pub fn draw_outline(&mut self, vp: Rect, outline: Rect) {
+        let (vp_x, vp_y, vp_w, vp_h) = vp.as_floats();
+        let (x, y, w, h) = outline.as_floats();
+        
+        self.line_renderer.scale_and_load_points(&mut vec![
+            x - vp_x, y - vp_y,
+            x - vp_x + w, y - vp_y,
+            x - vp_x + w, y - vp_y + h,
+            x - vp_x, y - vp_y + h
+        ], vp_w, vp_h);
+        self.line_renderer.render_line_loop(Some([0.5, 0.5, 1.0, 0.9]));
     }
 }
 

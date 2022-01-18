@@ -1,11 +1,10 @@
-use std::cmp::max;
 use std::ops::{Add, Sub};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::bridge::{Context, EventType, JsError, Texture};
 
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct Rect {
     pub x: i32,
     pub y: i32,
@@ -22,19 +21,19 @@ impl Rect {
         Rect { x: point.x, y: point.y, w, h }
     }
 
-    pub fn scaled_from(from: &Rect, factor: i32) -> Rect {
+    pub fn scaled_from(from: Rect, factor: i32) -> Rect {
         let mut rect  = from.clone();
         rect.scale(factor);
         rect
     }
 
-    pub fn scaled_from_float(from: &Rect, factor: f32) -> Rect {
+    pub fn scaled_from_float(from: Rect, factor: f32) -> Rect {
         let mut rect = from.clone();
         rect.scale_float(factor);
         rect
     }
 
-    fn as_floats(&self) -> (f32, f32, f32, f32) {
+    pub fn as_floats(&self) -> (f32, f32, f32, f32) {
         (self.x as f32, self.y as f32, self.w as f32, self.h as f32)
     }
 
@@ -131,7 +130,7 @@ impl Sprite {
     pub fn absolute_rect(&self, grid_size: i32) -> Rect {
         match self.positioning {
             Positioning::Absolute => self.rect.clone(),
-            Positioning::Tile => Rect::scaled_from(&self.rect, grid_size)
+            Positioning::Tile => Rect::scaled_from(self.rect, grid_size)
         }
     }
 
@@ -324,14 +323,35 @@ impl Scene {
         Rect::from_point(self.viewport_offset, w as i32, h as i32)
     }
 
-    fn sprite(&mut self, id: u32) -> Option<&mut Sprite> {
-        for sprite in self.sprites.iter_mut() {
-            if sprite.id == id {
-                return Some(sprite);
-            }
+    fn bsearch_sprite(&mut self, id: u32, lo: usize, hi: usize) -> Option<&mut Sprite> {
+        if lo == hi {
+            return None;
         }
 
-        None
+        let m = (lo + hi) / 2;
+        match self.sprites.get(m) {
+            Some(s) if s.id == id => self.sprites.get_mut(m),
+            Some(s) if s.id > id => self.bsearch_sprite(id, m, hi),
+            Some(s) if s.id < id => self.bsearch_sprite(id, lo, m),
+            _ => None
+        }
+    }
+
+    fn sprite(&mut self, id: u32) -> Option<&mut Sprite> {
+        if id == 0 {
+            return None;
+        }
+        self.bsearch_sprite(id, 0, self.sprites.len())
+    }
+
+    fn held_sprite(&mut self) -> Option<&mut Sprite> {
+        self.sprite(
+            match self.holding {
+                HeldObject::Sprite(id, _) => id,
+                HeldObject::Anchor(id, _, _) => id,
+                _ => 0
+            }
+        )
     }
 
     fn sprite_at(&mut self, at: ScenePoint) -> Option<&mut Sprite> {
@@ -437,7 +457,19 @@ impl Scene {
         };
 
         if self.redraw_needed {
-            self.context.render(self.viewport(), &self.sprites, self.grid_size());
+            let vp = self.viewport();
+            let grid_size = self.grid_size();
+
+            self.context.clear(vp);
+            self.context.draw_grid(vp, grid_size);
+            self.context.draw_sprites(vp, &self.sprites, grid_size);    
+
+
+            let outline = self.held_sprite().map(|s| s.absolute_rect(grid_size));
+            
+            if let Some(rect) = outline {
+                self.context.draw_outline(vp, rect);
+            }
         }
         self.redraw_needed = false;
     }
