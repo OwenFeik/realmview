@@ -114,18 +114,16 @@ impl TextureRenderer {
 }
 
 
-pub struct GridRenderer {
+struct LineRenderer {
     gl: Rc<Gl>,
     program: WebGlProgram,
     position_location: u32,
     position_buffer: WebGlBuffer,
-    current_grid_rect: Option<Rect>,
-    current_grid_size: Option<i32>,
-    current_line_count: Option<i32>
+    colour_location: WebGlUniformLocation,
+    point_count: i32
 }
 
-
-const GRID_VERTEX_SHADER: &str = "
+const LINE_VERTEX_SHADER: &str = "
 attribute vec4 a_position;
 
 void main() {
@@ -134,30 +132,77 @@ void main() {
 ";
 
 
-const GRID_FRAGMENT_SHADER: &str = "
+const LINE_FRAGMENT_SHADER: &str = "
 precision mediump float;
 
+uniform vec4 u_color;
+
 void main() {
-  gl_FragColor = vec4(0.5, 0.5, 0.5, 0.75);
+    gl_FragColor = u_color;
 }
 ";
 
+impl LineRenderer {
+    fn new(gl: Rc<Gl>) -> Result<LineRenderer, JsError> {
+        let program = create_program(&gl, LINE_VERTEX_SHADER, LINE_FRAGMENT_SHADER)?;
+        let position_location = gl.get_attrib_location(&program, "a_position") as u32;
+        let position_buffer = create_buffer(&gl, None)?;
+        let colour_location = match gl.get_uniform_location(&program, "u_color") {
+            Some(l) => l,
+            None => return Err(JsError::ResourceError("Failed to get location for colour vector."))
+        };
+
+        Ok(
+            LineRenderer {
+                gl,
+                program,
+                position_location,
+                position_buffer,
+                colour_location,
+                point_count: 0
+            }
+        )
+    }
+
+    fn load_points(&mut self, points: &Vec<f32>) {
+        let positions = Float32Array::from(&points[..]);
+        
+        self.gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.position_buffer));
+        self.gl.buffer_data_with_opt_array_buffer(Gl::ARRAY_BUFFER, Some(&positions.buffer()), Gl::STATIC_DRAW);
+        self.point_count = (points.len() / 2) as i32;
+    }
+
+    fn render(&self, colour: Option<&[f32; 4]>) {
+        let gl = &self.gl;
+
+        gl.use_program(Some(&self.program));
+        gl.enable_vertex_attrib_array(self.position_location);
+        gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.position_buffer));
+        gl.vertex_attrib_pointer_with_i32(self.position_location, 2, Gl::FLOAT, false, 0, 0);
+        gl.uniform4fv_with_f32_array(Some(&self.colour_location), colour.unwrap_or(&[0.5, 0.5, 0.5, 0.75]));
+        gl.draw_arrays(Gl::LINES, 0, self.point_count);
+    }
+}
+
+
+pub struct GridRenderer {
+    line_renderer: LineRenderer,
+    current_grid_rect: Option<Rect>,
+    current_grid_size: Option<i32>,
+    current_line_count: Option<i32>
+}
 
 impl GridRenderer {
     pub fn new(gl: Rc<Gl>) -> Result<GridRenderer, JsError> {
-        let program = create_program(&gl, GRID_VERTEX_SHADER, GRID_FRAGMENT_SHADER)?;
-        let position_location = gl.get_attrib_location(&program, "a_position") as u32;
-        let position_buffer = create_buffer(&gl, None)?;
-        Ok(GridRenderer {
-            gl,
-            program,
-            position_location,
-            position_buffer,
-            current_grid_rect: None,
-            current_grid_size: None,
-            current_line_count: None
-        })
-    }
+        Ok(
+            GridRenderer {
+                line_renderer: LineRenderer::new(gl)?,
+                current_grid_rect: None,
+                current_grid_size: None,
+                current_line_count: None
+            }
+        )
+    }    
 
     pub fn create_grid(&mut self, vp: Rect, grid_size: i32) {
         let mut verticals = Vec::new();
@@ -204,13 +249,7 @@ impl GridRenderer {
         }
 
         verticals.append(&mut horizontals);
-
-
-        let positions = Float32Array::from(&verticals[..]);
-        
-        self.gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.position_buffer));
-        self.gl.buffer_data_with_opt_array_buffer(Gl::ARRAY_BUFFER, Some(&positions.buffer()), Gl::STATIC_DRAW);
-
+        self.line_renderer.load_points(&verticals);
         self.current_grid_rect = Some(vp);
         self.current_grid_size = Some(grid_size);
         self.current_line_count = Some(verticals.len() as i32 / 2);
@@ -224,13 +263,7 @@ impl GridRenderer {
         }
         else { self.create_grid(vp, grid_size); }
 
-        let gl = &self.gl;
-
-        gl.use_program(Some(&self.program));
-        gl.enable_vertex_attrib_array(self.position_location);
-        gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.position_buffer));
-        gl.vertex_attrib_pointer_with_i32(self.position_location, 2, Gl::FLOAT, false, 0, 0);
-        gl.draw_arrays(Gl::LINES, 0, self.current_line_count.unwrap_or(0));
+        self.line_renderer.render(None);
     }
 }
 
