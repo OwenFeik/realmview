@@ -205,6 +205,11 @@ impl LineRenderer {
         self.prepare_render(colour);
         self.gl.draw_arrays(Gl::LINE_LOOP, 0, self.point_count);
     }
+
+    fn render_solid(&self, colour: Option<Colour>) {
+        self.prepare_render(colour);
+        self.gl.draw_arrays(Gl::TRIANGLES, 0, self.point_count);
+    }
 }
 
 
