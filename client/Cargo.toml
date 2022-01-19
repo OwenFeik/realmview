@@ -1,0 +1,39 @@
+[package]
+name = "client"
+authors = ["OwenFeik <owenhfeik@gmail.com>"]
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+js-sys = "0.3"
+wasm-bindgen = {version = "0.2", features = ["nightly"]}
+
+[dependencies.web-sys]
+version = "0.3"
+features = [
+    'Blob',
+    'CssStyleDeclaration',
+    'Document',
+    'Element',
+    'File',
+    'FileList',
+    'FileReader',
+    'HtmlCanvasElement',
+    'HtmlElement',
+    'HtmlImageElement',
+    'HtmlInputElement',
+    'InputEvent',
+    'MouseEvent',
+    'ProgressEvent',
+    'Url',
+    'WebGlBuffer',
+    'WebGlProgram',
+    'WebGl2RenderingContext',
+    'WebGlShader',
+    'WebGlTexture',
+    'WebGlUniformLocation',
+    'Window',
+]

@@ -23,6 +23,7 @@ use web_sys::{
 use crate::programs::Renderer;
 use crate::scene::{Rect, Sprite};
 
+
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
