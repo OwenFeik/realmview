@@ -42,8 +42,6 @@ extern "C" {
 
     #[wasm_bindgen(js_namespace = console, js_name = log)]
     pub fn log_arr(a: Float32Array);
-
-    fn set_up_uploads(closure: &Closure<dyn FnMut(&JsValue)>);
 }
 
 
@@ -192,7 +190,7 @@ impl Canvas {
     }
 
     fn configure_events(&self) -> Result<(), JsError> {
-        for event_name in vec!["mousedown", "mouseup", "mousemove"].iter() {
+        for event_name in vec!["mousedown", "mouseup", "mouseleave", "mousemove"].iter() {
             let events = self.events.clone();
             let listener = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
                 events.push(&event);
@@ -209,11 +207,11 @@ impl Canvas {
         Ok(())
     }
 
-    fn configure_upload(&self) -> Result<(), JsError> {
+    fn configure_upload(&self, texture_queue: Rc<Array>) -> Result<(), JsError> {
         let input = Rc::new(create_file_upload()?);
         let result = {
             let c_input = input.clone();
-            let gl = self.gl.clone();
+            let texture_queue = texture_queue.clone();
             let closure = Closure::wrap(Box::new(
                 move |_event: InputEvent| {
                     let file = match c_input.files() {
@@ -231,40 +229,39 @@ impl Canvas {
 
                     // File load handling
                     let fr_ref = file_reader.clone();
-                    let gl_ref = gl.clone();
+                    let tq_ref = texture_queue.clone();
                     let closure = Closure::wrap(Box::new(
                         move |_event: ProgressEvent| {
                             let file = match fr_ref.result() {
-                                Ok(f) => f,
-                                Err(_) => return
+                                Ok(f) => f, Err(_) => return
                             };
 
                             let array = js_sys::Array::new(); 
                             array.push(&file);                           
                             
-                            let result =
-                                Blob::new_with_buffer_source_sequence(&array);
-
-                            let blob = match result {
+                            let blob = match Blob::new_with_buffer_source_sequence(&array) {
                                 Ok(b) => b, Err(_) => return
                             };
 
-                            let url =
-                            match Url::create_object_url_with_blob(&blob) {
-                                Ok(s) => s,
-                                Err(_) => return
+                            let src = match Url::create_object_url_with_blob(&blob) {
+                                Ok(s) => s, Err(_) => return
                             };
 
-                            Texture::from_url(
-                                &gl_ref,
-                                &url[..],
-                                Box::new(move |res| {
-                                    match res {
-                                        Ok(_t) => return,
-                                        Err(_) => return
-                                    }
-                                })
-                            ).ok();
+                            let image = match HtmlImageElement::new() {
+                                Ok(i) => Rc::new(i), Err(_) => return   
+                            };
+
+                            {
+                                let im_ref = image.clone();
+                                let tq_ref = tq_ref.clone();
+                                let closure = Closure::wrap(Box::new(move || {
+                                    tq_ref.push(&im_ref);
+                                }) as Box<dyn FnMut()>);
+                                image.set_onload(Some(closure.as_ref().unchecked_ref()));
+                                closure.forget();    
+                            }
+
+                            image.set_src(&src);
                         }
                     ) as Box<dyn FnMut(_)>);
                     
@@ -283,10 +280,7 @@ impl Canvas {
                     ()
                 }
             ) as Box<dyn FnMut(_)>);
-            let result = input.add_event_listener_with_callback(
-                "input",
-                closure.as_ref().unchecked_ref()
-            );
+            let result = input.add_event_listener_with_callback("input", closure.as_ref().unchecked_ref());
             closure.forget();
             result
         };
@@ -303,10 +297,7 @@ impl Canvas {
             let closure = Closure::wrap(Box::new(
                 move |_event: web_sys::MouseEvent| { input.click(); }
             ) as Box<dyn FnMut(_)>);
-            let result = self.element.add_event_listener_with_callback(
-                "click",
-                closure.as_ref().unchecked_ref()
-            );
+            let result = self.element.add_event_listener_with_callback("auxclick", closure.as_ref().unchecked_ref());
             closure.forget();
             result
         }.or(Err(JsError::ResourceError("Failed to add click listener.")))
@@ -461,6 +452,7 @@ impl Texture {
 pub enum EventType {
     MouseDown,
     MouseUp,
+    MouseLeave,
     MouseMove
 }
 
@@ -476,8 +468,9 @@ impl MouseEvent {
     fn from_web_sys(event: &web_sys::MouseEvent) -> Option<MouseEvent> {
         let event_type = match event.type_().as_str() {
             "mousedown" => EventType::MouseDown,
-            "mouseup" => EventType::MouseUp,
+            "mouseleave" => EventType::MouseLeave,
             "mousemove" => EventType::MouseMove,
+            "mouseup" => EventType::MouseUp,
             _ => return None
         };
 
@@ -518,12 +511,7 @@ impl Context {
     }
 
     fn configure_upload(&self) {
-        let texture_queue = self.texture_queue.clone();
-        let handler = Closure::wrap(Box::new(move |image: &JsValue| {
-            texture_queue.push(&image);
-        }) as Box<dyn FnMut(&JsValue)>);
-        set_up_uploads(&handler); // rust-analyzer dislikes but this compiles and functions fine.
-        handler.forget();
+        self.canvas.configure_upload(self.texture_queue.clone()).ok();
     }
 
     pub fn viewport_size(&self) -> (u32, u32) {

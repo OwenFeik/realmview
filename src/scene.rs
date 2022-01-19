@@ -74,6 +74,10 @@ impl Rect {
 
         in_x && in_y
     }
+
+    fn top_left(&self) -> ScenePoint {
+        ScenePoint { x: self.x, y: self.y }
+    }
 }
 
 
@@ -289,7 +293,7 @@ pub struct Scene {
     context: Context,
 
     // (x, y) position of the viewport in scene coordinates.
-    viewport_offset: ScenePoint,
+    viewport: Rect,
 
     // Sprites to be drawn each frame.
     sprites: Vec<Sprite>,
@@ -306,7 +310,7 @@ impl Scene {
         Ok(
             Scene {
                 context: Context::new()?,
-                viewport_offset: ScenePoint { x: 0, y: 0 },
+                viewport: Rect { x: 0, y: 0, w: 0, h: 0 },
                 sprites: Vec::new(),
                 holding: HeldObject::None,
                 redraw_needed: true
@@ -318,9 +322,17 @@ impl Scene {
         return 50;
     }
 
-    fn viewport(&self) -> Rect {
+    fn update_viewport(&mut self) -> bool {
         let (w, h) = self.context.viewport_size();
-        Rect::from_point(self.viewport_offset, w as i32, h as i32)
+        let w = w as i32;
+        let h = h as i32;
+
+        if w != self.viewport.w || h != self.viewport.h {
+            self.viewport = Rect { x: self.viewport.x, y: self.viewport.y, w, h};
+            return true;
+        }
+
+        false
     }
 
     fn bsearch_sprite(&mut self, id: u32, lo: usize, hi: usize) -> Option<&mut Sprite> {
@@ -371,10 +383,8 @@ impl Scene {
     fn update_held_pos(&mut self, pos: ViewportPoint) {
         let id = match self.holding {
             HeldObject::Map(ViewportPoint { x, y }) => {
-                self.viewport_offset = ScenePoint {
-                    x: self.viewport_offset.x + x - pos.x,
-                    y: self.viewport_offset.y + y - pos.y
-                };
+                self.viewport.x += x - pos.x;
+                self.viewport.y += y - pos.y;
                 self.holding = HeldObject::Map(pos);
                 self.redraw_needed = true;
                 return;
@@ -385,7 +395,7 @@ impl Scene {
         };
 
         let holding = self.holding;
-        let at = pos.apply_offset(self.viewport_offset);
+        let at = pos.apply_offset(self.viewport.top_left());
         let grid_size = self.grid_size();
         self.sprite(id).map(|s| s.update_held_pos(holding, at, grid_size));
 
@@ -410,7 +420,7 @@ impl Scene {
     }
 
     fn handle_mouse_down(&mut self, at: ViewportPoint) {
-        let scene_point = at.apply_offset(self.viewport_offset);
+        let scene_point = at.apply_offset(self.viewport.top_left());
         let grid_size = self.grid_size();
         self.holding = self.sprite_at(scene_point)
             .map(|s| s.grab(scene_point, grid_size))
@@ -436,8 +446,9 @@ impl Scene {
             let at = ViewportPoint { x: event.x, y: event.y };
             match event.event_type {
                 EventType::MouseDown => self.handle_mouse_down(at),
-                EventType::MouseUp => self.handle_mouse_up(at),
-                EventType::MouseMove => self.handle_mouse_move(at)
+                EventType::MouseLeave => self.handle_mouse_up(at),
+                EventType::MouseMove => self.handle_mouse_move(at),
+                EventType::MouseUp => self.handle_mouse_up(at)
             };
         }
     }
@@ -456,8 +467,8 @@ impl Scene {
             None => ()
         };
 
-        if self.redraw_needed {
-            let vp = self.viewport();
+        if self.redraw_needed || self.update_viewport() {
+            let vp = self.viewport;
             let grid_size = self.grid_size();
 
             self.context.clear(vp);
