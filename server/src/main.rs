@@ -7,8 +7,8 @@ mod handlers;
 
 
 #[tokio::main]
-async fn main() {
-    let data_dir = std::env::args().nth(1).expect("Usage: server path/to/data");
+async fn main() -> anyhow::Result<()> {
+    let data_dir = std::env::var("DATABASE_URL")?;
     
     let pool = database::connect(data_dir.as_str()).await;
     
@@ -20,4 +20,6 @@ async fn main() {
         .or(handlers::filters(pool));
 
     warp::serve(route).run(([127, 0, 0, 1], 3030)).await;
+
+    Ok(())
 }

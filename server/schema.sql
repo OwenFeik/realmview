@@ -3,10 +3,10 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY,
     username TEXT NOT NULL,
-    salt CHAR(32) NOT NULL,
-    hashed_password CHAR(128) NOT NULL,
-    recovery_key CHAR(32) NOT NULL,
-    created_time INTEGER
+    salt CHAR(64) NOT NULL,
+    hashed_password CHAR(64) NOT NULL,
+    recovery_key CHAR(64) NOT NULL,
+    created_time INTEGER DEFAULT strftime('%s', CURRENT_TIMESTAMP) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS user_sessions (

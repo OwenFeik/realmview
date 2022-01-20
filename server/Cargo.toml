@@ -6,6 +6,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
+ring = "0.16"
 serde = "1"
 serde_derive = "1"
 sqlx = {version = "0.5", features = ["runtime-tokio-rustls", "sqlite"]}

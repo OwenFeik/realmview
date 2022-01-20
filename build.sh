@@ -12,4 +12,7 @@ cd "$dir/client" \
     && cp "$dir/client/index.html" "$content/" \
     && sqlite3 "$data/database.db" < "$dir/server/schema.sql" \
     && echo "serving $content" \
-    && RUST_BACKTRACE=1 "$dir/target/debug/server" "$data"
+    && \
+        RUST_BACKTRACE=1 \
+        DATABASE_URL="$data/database.db" \
+        "$dir/target/debug/server" "$content"
