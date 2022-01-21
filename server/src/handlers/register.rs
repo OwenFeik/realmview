@@ -4,9 +4,8 @@ use std::num::NonZeroU32;
 
 use ring::{pbkdf2, rand::{SecureRandom, SystemRandom}};
 use serde_derive::{Deserialize, Serialize};
-use sqlx::{sqlite::SqlitePool};
-use sqlx::Sqlite;
-use warp::{Filter, http::StatusCode};
+use sqlx::{sqlite::SqlitePool, Sqlite};
+use warp::Filter;
 
 use crate::handlers::common::*;
 
@@ -73,7 +72,7 @@ async fn username_taken(pool: &SqlitePool, username: &str) -> anyhow::Result<boo
         .fetch_optional(pool)
         .await?;
 
-    Ok(row.is_none())
+    Ok(row.is_some())
 }
 
 
@@ -82,13 +81,17 @@ async fn register_user(
     username: &str,
     salt: &str,
     hashed_password: &str,
-    recovery_key: &str
+    recovery_key: &str,
+    created_time: u64
 ) -> anyhow::Result<i64> {
-    let id = sqlx::query("INSERT INTO users (username, salt, hashed_password, recovery_key) VALUES (?1, ?2, ?3, ?4);")
+    let id = sqlx::query(
+        "INSERT INTO users (username, salt, hashed_password, recovery_key, created_time) VALUES (?1, ?2, ?3, ?4, ?5);"
+    )
         .bind(username)
         .bind(salt)
         .bind(hashed_password)
         .bind(recovery_key)
+        .bind(created_time as i64)
         .execute(&mut pool.acquire().await?)
         .await?
         .last_insert_rowid();
@@ -102,44 +105,64 @@ fn get_hex_strings(salt: &Key, hashed_password: &Key, recovery_key: &Key) -> any
 }
 
 
-async fn register(details: Registration, pool: SqlitePool) -> Result<impl warp::Reply, Infallible> {
-    if !valid_username(&details.username) {
-        return Ok(StatusCode::OK);
-    }
-    
-    match username_taken(&pool, details.username.as_str()).await {
-        Ok(true) => return Ok(StatusCode::OK),
-        Ok(false) => (),
-        Err(_) => return Ok(StatusCode::INTERNAL_SERVER_ERROR) 
-    };
-
-    if !valid_password(&details.password) {
-        return Ok(StatusCode::OK);
-    }
-
+fn generate_keys(password: &str) -> Option<(String, String, String)> {
     let salt = match generate_salt() {
         Some(s) => s,
-        None => return Ok(StatusCode::INTERNAL_SERVER_ERROR)
+        None => return None
     };
     
-    let hashed_password = match hash_password(&salt, details.password.as_str()) {
+    let hashed_password = match hash_password(&salt, password) {
         Ok(h) => h,
-        Err(_) => return Ok(StatusCode::INTERNAL_SERVER_ERROR)
+        Err(_) => return None
     };
 
     let recovery_key = match generate_salt() {
         Some(s) => s,
-        None => return Ok(StatusCode::INTERNAL_SERVER_ERROR)
+        None => return None
     };
 
-    let (ssalt, shpw, srkey) = match get_hex_strings(&salt, &hashed_password, &recovery_key) {
-        Ok(strings) => strings,
-        Err(_) => return Ok(StatusCode::INTERNAL_SERVER_ERROR)
+    match get_hex_strings(&salt, &hashed_password, &recovery_key) {
+        Ok(strings) => Some(strings),
+        Err(_) => None
+    }
+}
+
+
+async fn register(details: Registration, pool: SqlitePool) -> Result<impl warp::Reply, Infallible> {
+    if !valid_username(&details.username) {
+        return response::Binary::reply_failure("Invalid username.");
+    }
+    
+    match username_taken(&pool, details.username.as_str()).await {
+        Ok(true) => return response::Binary::reply_failure("Username in use."),
+        Ok(false) => (),
+        Err(_) => return response::Binary::reply_error("Database error.")
     };
 
-    match register_user(&pool, details.username.as_str(), ssalt.as_str(), shpw.as_str(), srkey.as_str()).await {
-        Ok(_id) => Ok(StatusCode::OK),
-        Err(_) => Ok(StatusCode::INTERNAL_SERVER_ERROR)
+    if !valid_password(&details.password) {
+        return response::Binary::reply_failure("Invalid password.");
+    }
+
+    let (ssalt, shpw, srkey) = match generate_keys(details.password.as_str()) {
+        Some(strings) => strings,
+        None => return response::Binary::reply_error("Cryptography error.")
+    };
+
+    let created_time = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+        Ok(d) => d.as_secs(),
+        Err(_) => return response::Binary::reply_error("Server time issue.")
+    };
+    
+    match register_user(
+        &pool,
+        details.username.as_str(),
+        ssalt.as_str(),
+        shpw.as_str(),
+        srkey.as_str(),
+        created_time
+    ).await {
+        Ok(_id) => response::Binary::reply_success("User registered."),
+        Err(_) => response::Binary::reply_error("Database error.")
     }
 }
 

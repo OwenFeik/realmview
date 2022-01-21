@@ -1,19 +1,21 @@
 #![feature(type_alias_impl_trait)]
 
+use sqlx::sqlite::SqlitePool;
 use warp::Filter;
 
-mod database;
 mod handlers;
 
+async fn connect_to_db() -> SqlitePool {
+    SqlitePool::connect(std::env::var("DATABASE_URL").expect("DATABASE_URL not set").as_str())
+        .await
+        .expect("Database pool creation failed.")
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let data_dir = std::env::var("DATABASE_URL")?;
+    let content_dir = std::env::args().nth(1).expect("Usage: ./server content/");
     
-    let pool = database::connect(data_dir.as_str()).await;
-    
-    let mut content_dir = data_dir.clone();
-    content_dir.push_str("/content");
+    let pool = connect_to_db().await;
     
     let route = warp::path("static")
         .and(warp::fs::dir(content_dir))
