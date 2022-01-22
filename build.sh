@@ -1,5 +1,9 @@
 dir=$(realpath $(dirname "$0"))
 
+if [ "$1" == "hard" ]; then
+    rm -rf "$dir/target"
+fi
+
 cd "$dir/client" \
     && wasm-pack build --target web \
     && cd "$dir" \
@@ -11,7 +15,7 @@ cd "$dir/client" \
     && ln -sf "$dir/client/pkg" "$content/pkg" \
     && cp "$dir/client/index.html" "$content/" \
     && sqlite3 "$data/database.db" < "$dir/server/schema.sql" \
-    && echo "serving $content" \
+    && echo "serving $content at http://localhost:3030/static/" \
     && \
         RUST_BACKTRACE=1 \
         DATABASE_URL="$data/database.db" \
