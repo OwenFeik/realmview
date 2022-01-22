@@ -33,6 +33,31 @@ pub fn current_time() -> anyhow::Result<u64> {
 }
 
 
+fn parse_cookie(cookies: String, goal_key: &str) -> Option<String> {
+    for cookie in cookies.split(";") {
+        let parts = cookie.splitn(2, "=").collect::<Vec<&str>>();
+        if let Some(key) = parts.get(0) {
+            if key.trim() == goal_key {
+                return parts.get(1).map(|s| String::from(s.trim()));
+            }
+        }
+    }
+
+    None
+}
+
+
+pub fn with_session() -> impl Filter<Extract = (Option<String>,), Error = warp::Rejection> + Clone {
+    warp::filters::header::optional::<String>("Cookie")
+        .map(|c: Option<String>| {
+            match c {
+                Some(s) => parse_cookie(s, "session_key"),
+                None => None
+            }
+        })
+}
+
+
 pub mod response {
     use std::convert::Infallible;
 

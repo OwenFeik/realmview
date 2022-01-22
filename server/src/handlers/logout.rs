@@ -3,7 +3,7 @@ use std::convert::Infallible;
 use sqlx::SqlitePool;
 use warp::Filter;
 
-use super::{current_time, with_db};
+use super::{current_time, with_db, with_session};
 use super::response::Binary;
 
 
@@ -19,27 +19,10 @@ async fn end_session(pool: &SqlitePool, session_key: &str) -> anyhow::Result<boo
 }
 
 
-fn parse_session_key(cookies: String) -> Option<String> {
-    for cookie in cookies.split(";") {
-        let parts: Vec<&str> = cookie.splitn(2, "=").collect::<Vec<&str>>();
-        if let Some(key) = parts.get(0) {
-            if key.trim() == "session_key" {
-                return parts.get(1).map(|s| String::from(s.trim()));
-            }
-        }
+async fn logout(pool: SqlitePool, session_key: Option<String>) -> Result<impl warp::Reply, Infallible> {
+    if let Some(session_key) = session_key {
+        end_session(&pool, session_key.as_str()).await.ok();
     }
-
-    None
-}
-
-
-async fn logout(pool: SqlitePool, cookies: Option<String>) -> Result<impl warp::Reply, Infallible> {
-    if let Some(cookies) = cookies {
-        if let Some(skey) = parse_session_key(cookies) {
-            end_session(&pool, skey.as_str()).await.ok();
-        }
-    }
-    
 
     Binary::result_success("Logged out.")
 }
@@ -49,6 +32,6 @@ pub fn filter(pool: SqlitePool) -> impl Filter<Extract = impl warp::Reply, Error
     warp::path!("logout")
         .and(warp::post())
         .and(with_db(pool))
-        .and(warp::filters::header::optional("Cookie"))
+        .and(with_session())
         .and_then(logout)
 }
