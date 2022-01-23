@@ -18,8 +18,8 @@ async fn main() -> anyhow::Result<()> {
     let pool = connect_to_db().await;
     
     let route = warp::path("static")
-        .and(warp::fs::dir(content_dir))
-        .or(handlers::filters(pool));
+        .and(warp::fs::dir(content_dir.clone()))
+        .or(handlers::filters(pool, content_dir));
 
     warp::serve(route).run(([127, 0, 0, 1], 3030)).await;
 

@@ -7,12 +7,16 @@ use warp::Filter;
 mod login;
 mod logout;
 mod register;
+mod upload;
 
 
-pub fn filters(pool: SqlitePool) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+pub fn filters(pool: SqlitePool, content_dir: String)
+    -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone
+{
     login::filter(pool.clone())
         .or(register::filter(pool.clone()))
-        .or(logout::filter(pool))
+        .or(logout::filter(pool.clone()))
+        .or(upload::filter(pool, content_dir))
 }
 
 
@@ -158,6 +162,10 @@ pub mod crypto {
         }
     }
 
+    pub fn random_hex_string(length: usize) -> anyhow::Result<String> {
+        Ok(to_hex_string(&generate_salt()?)?[..length].to_string())
+    }
+
     const ITERATIONS: u32 = 10_000;
     pub fn hash_password(salt: &Key, password: &str) -> Key {
         let mut hashed = [0u8; KEY_LENGTH];
@@ -204,6 +212,45 @@ pub mod models {
                 .fetch_optional(pool)
                 .await?;
             Ok(user)
+        }
+
+        pub async fn get_by_id(pool: &SqlitePool, id: i64) -> anyhow::Result<Option<User>> {
+            let user = sqlx::query_as("SELECT * FROM users WHERE id = ?1;")
+                .bind(id)
+                .fetch_optional(pool)
+                .await?;
+            Ok(user)
+        }
+
+        pub fn upload_dir(&self, content_dir: &str) -> String {
+            format!("{}/uploads/{}", content_dir, self.username.as_str())
+        }
+    }
+
+    #[derive(FromRow)]
+    pub struct UserSession {
+        pub id: i64,
+
+        #[sqlx(rename = "user")]
+        pub user_id: i64,
+
+        pub session_key: String,
+        pub active: bool,
+        pub start_time: i64,
+        pub end_time: Option<i64>
+    }
+
+    impl UserSession {
+        pub async fn get(pool: &SqlitePool, session_key: &str) -> anyhow::Result<Option<UserSession>> {
+            let user_sesion = sqlx::query_as("SELECT * FROM user_sessions WHERE session_key = ?1;")
+            .bind(session_key)
+            .fetch_optional(pool)
+            .await?;
+            Ok(user_sesion)
+        }
+
+        pub async fn user(&self, pool: &SqlitePool) -> anyhow::Result<Option<User>> {
+            User::get_by_id(pool, self.user_id).await
         }
     }
 }

@@ -12,9 +12,8 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS user_sessions (
     id INTEGER PRIMARY KEY,
     user INTEGER REFERENCES users(id) NOT NULL,
-    session_key CHAR(128) NOT NULL,
+    session_key CHAR(128) NOT NULL UNIQUE,
     active BOOLEAN DEFAULT TRUE NOT NULL,
     start_time INTEGER NOT NULL,
-    end_time INTEGER,
-    UNIQUE (user, session_key)
+    end_time INTEGER
 );

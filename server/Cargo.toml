@@ -6,6 +6,8 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
+bytes = "1"
+futures = {vesrion = "0.3", default-features = false}
 ring = "0.16"
 serde = "1"
 serde_derive = "1"
