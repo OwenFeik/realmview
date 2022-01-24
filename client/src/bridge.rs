@@ -194,6 +194,7 @@ impl Canvas {
         for event_name in vec!["mousedown", "mouseup", "mouseleave", "mousemove"].iter() {
             let events = self.events.clone();
             let listener = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
+                event.prevent_default();
                 events.push(&event);
             }) as Box<dyn FnMut(web_sys::MouseEvent)>);
 

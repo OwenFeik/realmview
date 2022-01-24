@@ -18,6 +18,7 @@ features = [
     'CssStyleDeclaration',
     'Document',
     'Element',
+    'Event',
     'File',
     'FileList',
     'FileReader',
