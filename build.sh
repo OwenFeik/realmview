@@ -21,8 +21,8 @@ mkdir -p "$data"
 schema="$data/schema.sql"
 if [ ! -f "$schema" ] || cmp --silent "$dir/server/schema.sql" "$schema"; then
     rm -f "$data/database.db"
-    cp "$dir/server/schema.sql" "$data/"
-    sqlite3 "$data/database.db" < "$data/schema.sql"
+    cp "$dir/server/schema.sql" "$schema"
+    sqlite3 "$data/database.db" < "$schema"
 fi
 
 # Copy across content

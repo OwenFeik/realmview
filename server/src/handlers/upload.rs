@@ -18,7 +18,7 @@ fn hash_file(raw: &Vec<u8>) -> anyhow::Result<String> {
 
 
 async fn file_exists(pool: &SqlitePool, hash: &str) -> anyhow::Result<Option<String>> {
-    let row_opt = sqlx::query("SELECT relative_path FROM media WHERE hashed_value = ?1;")
+    let row_opt = sqlx::query("SELECT title FROM media WHERE hashed_value = ?1;")
         .bind(hash)
         .fetch_optional(pool)
         .await?;
@@ -96,7 +96,7 @@ async fn upload(pool: SqlitePool, session_key: Option<String>, content_dir: Stri
 
         match file_exists(&pool, &hash).await {
             Err(_) => return Binary::result_error("Database error checking for duplicate."),
-            Ok(Some(path)) => return Binary::result_failure(&format!("File already exists at {}", &path)),
+            Ok(Some(title)) => return Binary::result_failure(&format!("File already uploaded as {}", &title)),
             _ => ()
         };
 
