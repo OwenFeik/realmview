@@ -1,7 +1,7 @@
 use std::ops::{Add, Sub};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use crate::bridge::{Context, EventType, JsError, Texture};
+use crate::bridge::{Context, EventType, JsError, Texture, log_float};
 
 
 #[derive(Clone, Copy, PartialEq)]
@@ -295,6 +295,8 @@ pub struct Scene {
     // (x, y) position of the viewport in scene coordinates.
     viewport: Rect,
 
+    zoom_level: f32,
+
     // Sprites to be drawn each frame.
     sprites: Vec<Sprite>,
 
@@ -311,6 +313,7 @@ impl Scene {
             Scene {
                 context: Context::new()?,
                 viewport: Rect { x: 0, y: 0, w: 0, h: 0 },
+                zoom_level: 5.0,
                 sprites: Vec::new(),
                 holding: HeldObject::None,
                 redraw_needed: true
@@ -319,7 +322,7 @@ impl Scene {
     }
 
     fn grid_size(&self) -> i32 {
-        return 50;
+        (10.0 * self.zoom_level) as i32
     }
 
     fn update_viewport(&mut self) -> bool {
@@ -335,6 +338,8 @@ impl Scene {
         false
     }
 
+    // Because sprites are added as they are created, they are in the vector ordered by id. Thus they can be binary
+    // searched to improve lookup speed to O(log n)
     fn bsearch_sprite(&mut self, id: u32, lo: usize, hi: usize) -> Option<&mut Sprite> {
         if lo == hi {
             return None;
@@ -436,6 +441,18 @@ impl Scene {
         self.update_held_pos(at);
     }
 
+    fn handle_scroll(&mut self, dx: i32, dy: i32, dz: i32) {
+        const ZOOM_COEFFICIENT: f32 = 0.01;
+        const ZOOM_MIN: f32 = 1.0;
+        const ZOOM_MAX: f32 = 24.0;
+
+        self.viewport.x += dx;
+        self.viewport.y += dy;
+        self.zoom_level = (self.zoom_level - ZOOM_COEFFICIENT * dz as f32).clamp(ZOOM_MIN, ZOOM_MAX);
+
+        self.redraw_needed = true;
+    }
+
     fn process_events(&mut self) {
         let events = match self.context.events() {
             Some(e) => e,
@@ -448,7 +465,8 @@ impl Scene {
                 EventType::MouseDown => self.handle_mouse_down(at),
                 EventType::MouseLeave => self.handle_mouse_up(at),
                 EventType::MouseMove => self.handle_mouse_move(at),
-                EventType::MouseUp => self.handle_mouse_up(at)
+                EventType::MouseUp => self.handle_mouse_up(at),
+                EventType::MouseWheel(dx, dy, dz) => self.handle_scroll(dx, dy, dz)
             };
         }
     }

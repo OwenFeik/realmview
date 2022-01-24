@@ -191,7 +191,7 @@ impl Canvas {
     }
 
     fn configure_events(&self) -> Result<(), JsError> {
-        for event_name in vec!["mousedown", "mouseup", "mouseleave", "mousemove"].iter() {
+        for event_name in vec!["mousedown", "mouseup", "mouseleave", "mousemove", "wheel"].iter() {
             let events = self.events.clone();
             let listener = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
                 event.prevent_default();
@@ -455,7 +455,8 @@ pub enum EventType {
     MouseDown,
     MouseUp,
     MouseLeave,
-    MouseMove
+    MouseMove,
+    MouseWheel(i32, i32, i32),
 }
 
 
@@ -467,12 +468,34 @@ pub struct MouseEvent {
 
 
 impl MouseEvent {
+    fn type_from_wheel_event(event: &web_sys::MouseEvent) -> EventType {
+        let event = event.unchecked_ref::<web_sys::WheelEvent>();
+
+        let x = event.delta_x() as i32;
+        let y = event.delta_y() as i32;
+        let z = event.delta_z() as i32;
+
+        // We want shift + scroll to scroll horizontally but browsers (Firefox anyway) only do this when the page is
+        // wider than the viewport, which it never is in this case. Thus this check for shift. Likewise for ctrl +
+        // scroll and zooming.
+        if x == 0 && event.shift_key() {
+            EventType::MouseWheel(y, 0, z)
+        }
+        else if z == 0 && event.ctrl_key() {
+            EventType::MouseWheel(x, 0, y)
+        } 
+        else {
+            EventType::MouseWheel(x, y, z)
+        }
+    }
+
     fn from_web_sys(event: &web_sys::MouseEvent) -> Option<MouseEvent> {
         let event_type = match event.type_().as_str() {
             "mousedown" => EventType::MouseDown,
             "mouseleave" => EventType::MouseLeave,
             "mousemove" => EventType::MouseMove,
             "mouseup" => EventType::MouseUp,
+            "wheel" => MouseEvent::type_from_wheel_event(event),
             _ => return None
         };
 
