@@ -17,3 +17,12 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     start_time INTEGER NOT NULL,
     end_time INTEGER
 );
+
+CREATE TABLE IF NOT EXISTS media (
+    id INTEGER PRIMARY KEY,
+    user INTEGER REFERENCES users(id) NOT NULL,
+    relative_path TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    hashed_value CHAR(128) NOT NULL,
+    UNIQUE(user, hashed_value)
+);

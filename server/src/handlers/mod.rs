@@ -154,6 +154,13 @@ pub mod crypto {
         Ok(s)
     }
 
+    pub fn to_hex_string_unsized(data: &[u8]) -> anyhow::Result<String> {
+
+        let key = &<[u8; 64]>::try_from(data)
+            .map_err(|_| anyhow::anyhow!("Failed to convert Vec to Key."))?;
+        to_hex_string(key)
+    }
+
     pub fn from_hex_string(string: &str) -> anyhow::Result<Key> {
         let err = Err(anyhow::anyhow!("Failed to decode hex."));
         match ring::test::from_hex(string) {
@@ -170,7 +177,7 @@ pub mod crypto {
     pub fn hash_password(salt: &Key, password: &str) -> Key {
         let mut hashed = [0u8; KEY_LENGTH];
         pbkdf2::derive(
-            pbkdf2::PBKDF2_HMAC_SHA256,
+            pbkdf2::PBKDF2_HMAC_SHA512,
             NonZeroU32::new(ITERATIONS).unwrap(),
             salt,
             password.as_bytes(),
@@ -182,7 +189,7 @@ pub mod crypto {
 
     pub fn check_password(provided: &str, salt: &Key, hashed_password: &Key) -> bool {
         pbkdf2::verify(
-            pbkdf2::PBKDF2_HMAC_SHA256,
+            pbkdf2::PBKDF2_HMAC_SHA512,
             NonZeroU32::new(ITERATIONS).unwrap(),
             salt,
             provided.as_bytes(),
@@ -222,8 +229,12 @@ pub mod models {
             Ok(user)
         }
 
+        pub fn relative_dir(&self) -> String {
+            format!("uploads/{}", &self.username)
+        }
+
         pub fn upload_dir(&self, content_dir: &str) -> String {
-            format!("{}/uploads/{}", content_dir, self.username.as_str())
+            format!("{}/{}", content_dir, &self.relative_dir())
         }
     }
 
