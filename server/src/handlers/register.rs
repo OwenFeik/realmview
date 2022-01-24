@@ -101,7 +101,7 @@ async fn register(details: RegistrationRequest, pool: SqlitePool) -> Result<impl
     match username_taken(&pool, details.username.as_str()).await {
         Ok(true) => return Binary::result_failure("Username in use."),
         Ok(false) => (),
-        Err(_) => return Binary::result_error("Database error.")
+        Err(_) => return Binary::result_error("Database error when checking username availability.")
     };
 
     if !valid_password(&details.password) {
@@ -127,7 +127,7 @@ async fn register(details: RegistrationRequest, pool: SqlitePool) -> Result<impl
         created_time
     ).await {
         Ok(_id) => as_result(&RegistrationResponse::new(s_rkey, details.username), StatusCode::OK),
-        Err(_) => Binary::result_error("Database error.")
+        Err(_) => Binary::result_error("Database error on insertion.")
     }
 }
 

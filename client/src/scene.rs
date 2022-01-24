@@ -1,7 +1,7 @@
 use std::ops::{Add, Sub};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use crate::bridge::{Context, EventType, JsError, Texture, log_float};
+use crate::bridge::{Context, EventType, JsError, Texture};
 
 
 #[derive(Clone, Copy, PartialEq)]
@@ -92,9 +92,9 @@ enum Positioning {
 pub struct Sprite {
     pub tex: Texture,
     pub rect: Rect,
+    positioning: Positioning,
 
     // Unique numeric ID, numbered from 1
-    positioning: Positioning,
     id: u32
 }
 

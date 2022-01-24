@@ -19,7 +19,11 @@ mkdir -p "$data"
 
 # Create database if schema changed / not run
 schema="$data/schema.sql"
-if [ ! -f "$schema" ] || cmp --silent "$dir/server/schema.sql" "$schema"; then
+if \
+    [ ! -f "$schema" ] || \
+    [ ! -f "$data/database.db" ] || \
+    ! cmp --silent "$dir/server/schema.sql" "$schema"
+then
     rm -f "$data/database.db"
     cp "$dir/server/schema.sql" "$schema"
     sqlite3 "$data/database.db" < "$schema"

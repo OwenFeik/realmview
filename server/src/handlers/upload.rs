@@ -8,8 +8,28 @@ use warp::{Filter, multipart::{FormData, Part}};
 
 use super::crypto::{random_hex_string, to_hex_string_unsized};
 use super::models::UserSession;
-use super::response::Binary;
+use super::response::{Binary, as_result};
 use super::{with_db, with_session};
+
+
+#[derive(serde_derive::Serialize)]
+struct UploadResponse {
+    message: String,
+    success: bool,
+    id: i64,
+    url: String
+}
+
+impl UploadResponse {
+    fn new(id: i64, url: String) -> UploadResponse {
+        UploadResponse {
+            message: String::from("Uploaded successfully."),
+            success: true,
+            id,
+            url
+        }
+    }
+}
 
 
 fn hash_file(raw: &Vec<u8>) -> anyhow::Result<String> {
@@ -109,30 +129,41 @@ async fn upload(pool: SqlitePool, session_key: Option<String>, content_dir: Stri
             return Binary::result_error("Failed to create upload dir.");
         }
 
-        let real_path = format!("{}/{}", content_dir, relative_path);
+        let real_path = format!("{}/{}", content_dir, &relative_path);
         match tokio::fs::write(&real_path, data).await {
             Err(_) => return Binary::result_error("Failed to write file."),
             _ => ()
         };
 
-        match sqlx::query("INSERT INTO media (user, relative_path, title, hashed_value) VALUES (?1, ?2, ?3, ?4);")
+        return match sqlx::query(
+            "INSERT INTO media (user, relative_path, title, hashed_value) VALUES (?1, ?2, ?3, ?4) RETURNING id;"
+        )
             .bind(user.id)
-            .bind(relative_path)
+            .bind(&relative_path)
             .bind(title)
             .bind(hash)
-            .execute(&pool)
+            .fetch_one(&pool)
             .await
         {
+            Ok(row) => match row.try_get(0) {
+                Ok(id) => {
+                    let url = format!("/static/{}", &relative_path);
+                    as_result(&UploadResponse::new(id, url), warp::http::StatusCode::OK)
+                },
+                Err(_) => {
+                    tokio::fs::remove_file(&real_path).await.ok();
+                    Binary::result_error("Database error.")
+                }
+            },
             Err(_) => {
                 // Remove file as part of cleanup.
                 tokio::fs::remove_file(&real_path).await.ok();
-                return Binary::result_error("Database error.")
-            },
-            _ => ()
+                Binary::result_error("Database error.")
+            }
         };
     }
 
-    Binary::result_success("Uploaded successfully.")
+    Binary::result_failure("No image provided.")
 }
 
 fn with_string(string: String) -> impl Filter<Extract = (String,), Error = Infallible> + Clone {
