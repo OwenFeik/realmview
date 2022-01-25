@@ -456,50 +456,42 @@ pub enum EventType {
     MouseUp,
     MouseLeave,
     MouseMove,
-    MouseWheel(i32, i32, i32),
+    MouseWheel(f32, f32, f32),
 }
 
 
 pub struct MouseEvent {
-    pub x: i32,
-    pub y: i32,
-    pub event_type: EventType
+    pub x: f32,
+    pub y: f32,
+    pub event_type: EventType,
+    pub shift: bool,
+    pub ctrl: bool,
+    pub alt: bool
 }
 
 
 impl MouseEvent {
-    fn type_from_wheel_event(event: &web_sys::MouseEvent) -> EventType {
-        let event = event.unchecked_ref::<web_sys::WheelEvent>();
-
-        let x = event.delta_x() as i32;
-        let y = event.delta_y() as i32;
-        let z = event.delta_z() as i32;
-
-        // We want shift + scroll to scroll horizontally but browsers (Firefox anyway) only do this when the page is
-        // wider than the viewport, which it never is in this case. Thus this check for shift. Likewise for ctrl +
-        // scroll and zooming.
-        if x == 0 && event.shift_key() {
-            EventType::MouseWheel(y, 0, z)
-        }
-        else if z == 0 && event.ctrl_key() {
-            EventType::MouseWheel(x, 0, y)
-        } 
-        else {
-            EventType::MouseWheel(x, y, z)
-        }
-    }
-
     fn from_web_sys(event: &web_sys::MouseEvent) -> Option<MouseEvent> {
         let event_type = match event.type_().as_str() {
             "mousedown" => EventType::MouseDown,
             "mouseleave" => EventType::MouseLeave,
             "mousemove" => EventType::MouseMove,
             "mouseup" => EventType::MouseUp,
-            "wheel" => MouseEvent::type_from_wheel_event(event),
+            "wheel" => {
+                let event = event.unchecked_ref::<web_sys::WheelEvent>();
+                EventType::MouseWheel(event.delta_x() as f32, event.delta_y() as f32, event.delta_z() as f32)        
+            },
             _ => return None
         };
 
-        Some(MouseEvent { x: event.x(), y: event.y(), event_type })
+        Some(MouseEvent {
+            x: event.x() as f32,
+            y: event.y() as f32,
+            event_type,
+            shift: event.shift_key(),
+            ctrl: event.ctrl_key(),
+            alt: event.alt_key()
+        })
     }
 }
 
@@ -585,17 +577,17 @@ impl Context {
     }
 
     pub fn clear(&self, vp: Rect) {
-        self.gl.viewport(0, 0, vp.w, vp.h);
+        self.gl.viewport(0, 0, vp.w as i32, vp.h as i32);
         self.gl.clear(Gl::COLOR_BUFFER_BIT);
     }
 
-    pub fn draw_grid(&mut self, vp: Rect, grid_size: i32) {
+    pub fn draw_grid(&mut self, vp: Rect, grid_size: f32) {
         self.renderer.render_grid(vp, grid_size);
     }
 
-    pub fn draw_sprites(&self, vp: Rect, sprites: &Vec<Sprite>, grid_size: i32) {
+    pub fn draw_sprites(&self, vp: Rect, sprites: &Vec<Sprite>, grid_size: f32) {
         for sprite in sprites.iter() {
-            self.renderer.draw_texture(vp, sprite.texture(), sprite.absolute_rect(grid_size));
+            self.renderer.draw_texture(vp, sprite.texture(), Rect::scaled_from(sprite.rect, grid_size));
         }
     }
 

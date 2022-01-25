@@ -1,35 +1,29 @@
 use std::ops::{Add, Sub};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use crate::bridge::{Context, EventType, JsError, Texture};
+use crate::bridge::{Context, EventType, JsError, Texture, log_float};
 
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct Rect {
-    pub x: i32,
-    pub y: i32,
-    pub w: i32,
-    pub h: i32 
+    pub x: f32,
+    pub y: f32,
+    pub w: f32,
+    pub h: f32 
 }
 
 impl Rect {
-    pub fn new(x: i32, y: i32, w: i32, h: i32) -> Rect {
+    pub fn new(x: f32, y: f32, w: f32, h: f32) -> Rect {
         Rect { x, y, w, h }
     }
 
-    fn from_point(point: ScenePoint, w: i32, h: i32) -> Rect {
+    fn from_point(point: ScenePoint, w: f32, h: f32) -> Rect {
         Rect { x: point.x, y: point.y, w, h }
     }
 
-    pub fn scaled_from(from: Rect, factor: i32) -> Rect {
+    pub fn scaled_from(from: Rect, factor: f32) -> Rect {
         let mut rect  = from.clone();
         rect.scale(factor);
-        rect
-    }
-
-    pub fn scaled_from_float(from: Rect, factor: f32) -> Rect {
-        let mut rect = from.clone();
-        rect.scale_float(factor);
         rect
     }
 
@@ -37,18 +31,26 @@ impl Rect {
         (self.x as f32, self.y as f32, self.w as f32, self.h as f32)
     }
 
-    fn scale(&mut self, factor: i32) {
+    fn scale(&mut self, factor: f32) {
         self.x *= factor;
         self.y *= factor;
         self.w *= factor;
         self.h *= factor;
     }
 
-    fn scale_float(&mut self, factor: f32) {
-        self.x = (self.x as f32 * factor).round() as i32;
-        self.y = (self.y as f32 * factor).round() as i32;
-        self.w = (self.w as f32 * factor).round() as i32;
-        self.h = (self.h as f32 * factor).round() as i32;
+    fn round(&mut self) {
+        self.x = self.x.round();
+        self.y = self.y.round();
+        self.w = self.w.round();
+        self.h = self.h.round();
+    
+        if self.w < 1.0 {
+            self.w = 1.0;
+        }
+
+        if self.h < 1.0 {
+            self.h = 1.0;
+        }
     }
 
     fn contains_point(&self, point: ScenePoint) -> bool {
@@ -57,7 +59,7 @@ impl Rect {
         // Hence the special cases for negative width and height.
 
         let in_x;
-        if self.w < 0 {
+        if self.w < 0.0 {
             in_x = self.x + self.w <= point.x && point.x <= self.x;
         }
         else {
@@ -65,7 +67,7 @@ impl Rect {
         }
 
         let in_y;
-        if self.h < 0 {
+        if self.h < 0.0 {
             in_y = self.y + self.h <= point.y && point.y <= self.y;
         }
         else {
@@ -81,18 +83,9 @@ impl Rect {
 }
 
 
-// Sprites can be position either on the grid, using tile indexing, or absolutely within the scene, using scene
-// coordinates.
-enum Positioning {
-    Absolute,
-    Tile
-}
-
-
 pub struct Sprite {
     pub tex: Texture,
     pub rect: Rect,
-    positioning: Positioning,
 
     // Unique numeric ID, numbered from 1
     id: u32
@@ -107,8 +100,7 @@ impl Sprite {
 
         Sprite {
             tex,
-            rect: Rect::new(0, 0, 1, 1),
-            positioning: Positioning::Tile,
+            rect: Rect::new(0.0, 0.0, 1.0, 1.0),
             id: SPRITE_ID.fetch_add(1, Ordering::Relaxed)
         }
     }
@@ -117,72 +109,22 @@ impl Sprite {
         &self.tex.texture
     }
 
-    fn x(&self, grid_size: i32) -> i32 {
-        match self.positioning {
-            Positioning::Absolute => self.rect.x,
-            Positioning::Tile => self.rect.x * grid_size
-        }
-    }
-
-    fn y(&self, grid_size: i32) -> i32 {
-        match self.positioning {
-            Positioning::Absolute => self.rect.y,
-            Positioning::Tile => self.rect.y * grid_size
-        }
-    }
-
-    pub fn absolute_rect(&self, grid_size: i32) -> Rect {
-        match self.positioning {
-            Positioning::Absolute => self.rect.clone(),
-            Positioning::Tile => Rect::scaled_from(self.rect, grid_size)
-        }
-    }
-
-    fn set_positioning(&mut self, positioning: Positioning) {
-        self.positioning = positioning;
-    }
-
-    fn set_positioning_opt(&mut self, positioning: Option<Positioning>) {
-        match positioning {
-            Some(p) => self.set_positioning(p),
-            None => return
-        };
-    }
-
     fn set_pos(&mut self, ScenePoint { x, y }: ScenePoint) {
         self.rect.x = x;
         self.rect.y = y;
     }
 
-    fn set_size(&mut self, w: i32, h: i32) {
+    fn set_size(&mut self, w: f32, h: f32) {
         self.rect.w = w;
         self.rect.h = h;
     }
 
-    fn tile_to_absolute(&mut self, grid_size: i32) {
-        match self.positioning {
-            Positioning::Absolute => return,
-            Positioning::Tile => {
-                self.set_positioning(Positioning::Absolute);
-                self.rect.scale(grid_size);
-            }
-        };
+    fn snap_to_grid(&mut self) {
+        self.rect.round();
     }
 
-    fn absolute_to_tile(&mut self, grid_size: i32) {
-        match self.positioning {
-            Positioning::Absolute => {
-                self.set_positioning(Positioning::Tile);
-                self.rect.scale_float(1.0 / grid_size as f32);
-            },
-            Positioning::Tile => return
-        };
-    }
-
-    fn grab_anchor(&mut self, at: ScenePoint, grid_size: i32) -> Option<HeldObject> {
-        let (x, y, w, h) = self.absolute_rect(grid_size).as_floats();
-        let at_x = at.x as f32;
-        let at_y = at.y as f32;
+    fn grab_anchor(&mut self, at: ScenePoint) -> Option<HeldObject> {
+        let Rect {x, y, w, h} = self.rect;
 
         for dx in -1..2 {
             for dy in -1..2 {
@@ -193,13 +135,11 @@ impl Sprite {
                 let anchor_x = x + (w / 2.0) * (dx + 1) as f32;
                 let anchor_y = y + (h / 2.0) * (dy + 1) as f32;
 
-                let delta_x = anchor_x - at_x;
-                let delta_y = anchor_y - at_y;
+                let delta_x = anchor_x - at.x;
+                let delta_y = anchor_y - at.y;
 
                 if (delta_x.powi(2) + delta_y.powi(2)).sqrt() <= Sprite::ANCHOR_RADIUS {
-                    return Some(
-                        HeldObject::Anchor(self.id, dx, dy)
-                    );
+                    return Some(HeldObject::Anchor(self.id, dx, dy));
                 }
             }
         }
@@ -207,10 +147,9 @@ impl Sprite {
         None
     }
 
-    fn grab(&mut self, at: ScenePoint, grid_size: i32) -> HeldObject {
-        self.tile_to_absolute(grid_size);
-        self.grab_anchor(at, grid_size).unwrap_or_else(
-            || HeldObject::Sprite(self.id, ScenePoint { x: at.x - self.x(grid_size), y: at.y - self.y(grid_size) })
+    fn grab(&mut self, at: ScenePoint) -> HeldObject {
+        self.grab_anchor(at).unwrap_or_else(
+            || HeldObject::Sprite(self.id, ScenePoint { x: at.x - self.rect.x, y: at.y - self.rect.y })
         )
     }
 
@@ -218,22 +157,22 @@ impl Sprite {
         ScenePoint { x: self.rect.x, y: self.rect.y }
     }
 
-    fn anchor_point(&mut self, dx: i32, dy: i32, grid_size: i32) -> ScenePoint {
-        let Rect {x, y, w, h} = self.absolute_rect(grid_size);
-        ScenePoint { x: x + (w / 2) * (dx + 1), y: y + (h / 2) * (dy + 1) }
+    fn anchor_point(&mut self, dx: i32, dy: i32) -> ScenePoint {
+        let Rect {x, y, w, h} = self.rect;
+        ScenePoint { x: x + (w / 2.0) * (dx + 1) as f32, y: y + (h / 2.0) * (dy + 1) as f32 }
     }
 
-    fn update_held_pos(&mut self, holding: HeldObject, at: ScenePoint, grid_size: i32) {
+    fn update_held_pos(&mut self, holding: HeldObject, at: ScenePoint) {
         match holding {
             HeldObject::Sprite(_, offset) => {
                 self.set_pos(at - offset);
             },
             HeldObject::Anchor(_, dx, dy) => {
-                let ScenePoint { x: delta_x, y: delta_y } = at - self.anchor_point(dx, dy, grid_size);
-                let x = self.rect.x + (if dx == -1 { delta_x } else {0});
-                let y = self.rect.y + (if dy == -1 { delta_y } else {0});
-                let w = delta_x * dx + self.rect.w;
-                let h = delta_y * dy + self.rect.h;
+                let ScenePoint { x: delta_x, y: delta_y } = at - self.anchor_point(dx, dy);
+                let x = self.rect.x + (if dx == -1 { delta_x } else { 0.0 });
+                let y = self.rect.y + (if dy == -1 { delta_y } else { 0.0 });
+                let w = delta_x * (dx as f32) + self.rect.w;
+                let h = delta_y * (dy as f32) + self.rect.h;
 
                 self.rect = Rect { x, y, w, h }
             },
@@ -245,8 +184,8 @@ impl Sprite {
 
 #[derive(Clone, Copy)]
 struct ScenePoint {
-    x: i32,
-    y: i32
+    x: f32,
+    y: f32
 }
 
 impl Add for ScenePoint {
@@ -267,22 +206,8 @@ impl Sub for ScenePoint {
 
 
 #[derive(Clone, Copy)]
-struct ViewportPoint {
-    x: i32,
-    y: i32
-}
-
-
-impl ViewportPoint {
-    fn apply_offset(&self, offset: ScenePoint) -> ScenePoint {
-        ScenePoint { x: self.x + offset.x, y: self.y + offset.y }
-    }
-}
-
-
-#[derive(Clone, Copy)]
 enum HeldObject {
-    Map(ViewportPoint),
+    Map(ScenePoint),
     None,
     Sprite(u32, ScenePoint),
     Anchor(u32, i32, i32)
@@ -308,12 +233,15 @@ pub struct Scene {
 }
 
 impl Scene {
+    const BASE_ZOOM_LEVEL: f32 = 50.0;
+    const BASE_GRID_SIZE: f32 = 1.0;
+
     pub fn new() -> Result<Scene, JsError> {
         Ok(
             Scene {
                 context: Context::new()?,
-                viewport: Rect { x: 0, y: 0, w: 0, h: 0 },
-                zoom_level: 5.0,
+                viewport: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 },
+                zoom_level: Scene::BASE_ZOOM_LEVEL,
                 sprites: Vec::new(),
                 holding: HeldObject::None,
                 redraw_needed: true
@@ -321,14 +249,14 @@ impl Scene {
         )
     }
 
-    fn grid_size(&self) -> i32 {
-        (10.0 * self.zoom_level) as i32
+    fn grid_size(&self) -> f32 {
+        (Scene::BASE_GRID_SIZE * self.zoom_level) as f32
     }
 
     fn update_viewport(&mut self) -> bool {
         let (w, h) = self.context.viewport_size();
-        let w = w as i32;
-        let h = h as i32;
+        let w = w as f32;
+        let h = h as f32;
 
         if w != self.viewport.w || h != self.viewport.h {
             self.viewport = Rect { x: self.viewport.x, y: self.viewport.y, w, h};
@@ -366,18 +294,16 @@ impl Scene {
             match self.holding {
                 HeldObject::Sprite(id, _) => id,
                 HeldObject::Anchor(id, _, _) => id,
-                _ => 0
+                _ => return None
             }
         )
     }
 
     fn sprite_at(&mut self, at: ScenePoint) -> Option<&mut Sprite> {
-        let grid_size = self.grid_size();
-        
         // Reversing the iterator atm because the sprites are rendered from the front of the Vec to the back, hence the
         // last Sprite in the Vec is rendered on top, and will be clicked first.
         for sprite in self.sprites.iter_mut().rev() {
-            if sprite.absolute_rect(grid_size).contains_point(at) {
+            if sprite.rect.contains_point(at) {
                 return Some(sprite);
             }
         }
@@ -385,12 +311,16 @@ impl Scene {
         None
     }
 
-    fn update_held_pos(&mut self, pos: ViewportPoint) {
+    fn update_held_pos(&mut self, at: ScenePoint) {
         let id = match self.holding {
-            HeldObject::Map(ViewportPoint { x, y }) => {
-                self.viewport.x += x - pos.x;
-                self.viewport.y += y - pos.y;
-                self.holding = HeldObject::Map(pos);
+            HeldObject::Map(ScenePoint { x, y }) => {
+                log_float(x - at.x);
+                log_float(y - at.y);
+        
+
+                self.viewport.x += x - at.x;
+                self.viewport.y += y - at.y;
+                self.holding = HeldObject::Map(at);
                 self.redraw_needed = true;
                 return;
             },
@@ -400,16 +330,12 @@ impl Scene {
         };
 
         let holding = self.holding;
-        let at = pos.apply_offset(self.viewport.top_left());
-        let grid_size = self.grid_size();
-        self.sprite(id).map(|s| s.update_held_pos(holding, at, grid_size));
+        self.sprite(id).map(|s| s.update_held_pos(holding, at));
 
         self.redraw_needed = true;
     }
 
-    fn release_held(&mut self) {
-        let grid_size = self.grid_size();
-
+    fn release_held(&mut self, alt: bool) {
         let held = {
             match self.holding {
                 HeldObject::Map(_) => { self.holding = HeldObject::None; return; },
@@ -419,38 +345,63 @@ impl Scene {
             }
         };
 
-        self.sprite(held).map(|s| s.absolute_to_tile(grid_size));
+        // If alt is held as the sprite is released, the absolute positioning is maintained.
+        if !alt {
+            self.sprite(held).map(|s| s.snap_to_grid());
+        }
         self.holding = HeldObject::None;
         self.redraw_needed = true;
     }
 
-    fn handle_mouse_down(&mut self, at: ViewportPoint) {
-        let scene_point = at.apply_offset(self.viewport.top_left());
-        let grid_size = self.grid_size();
-        self.holding = self.sprite_at(scene_point)
-            .map(|s| s.grab(scene_point, grid_size))
+    fn handle_mouse_down(&mut self, at: ScenePoint) {
+        self.holding = self.sprite_at(at)
+            .map(|s| s.grab(at))
             .unwrap_or(HeldObject::Map(at));
     }
 
-    fn handle_mouse_up(&mut self, at: ViewportPoint) {
+    fn handle_mouse_up(&mut self, at: ScenePoint, alt: bool) {
         self.update_held_pos(at);
-        self.release_held();
+        self.release_held(alt);
     }
 
-    fn handle_mouse_move(&mut self, at: ViewportPoint) {
+    fn handle_mouse_move(&mut self, at: ScenePoint) {
         self.update_held_pos(at);
     }
 
-    fn handle_scroll(&mut self, dx: i32, dy: i32, dz: i32) {
-        const ZOOM_COEFFICIENT: f32 = 0.01;
-        const ZOOM_MIN: f32 = 1.0;
-        const ZOOM_MAX: f32 = 24.0;
+    fn handle_scroll(&mut self, dx: f32, dy: f32, dz: f32, shift: bool, ctrl: bool) {
+        const ZOOM_COEFFICIENT: f32 = 0.1 / Scene::BASE_ZOOM_LEVEL;
+        const ZOOM_MIN: f32 = Scene::BASE_ZOOM_LEVEL / 5.0;
+        const ZOOM_MAX: f32 = Scene::BASE_ZOOM_LEVEL * 5.0;
 
-        self.viewport.x += dx;
-        self.viewport.y += dy;
+        // We want shift + scroll to scroll horizontally but browsers (Firefox anyway) only do this when the page is
+        // wider than the viewport, which it never is in this case. Thus this check for shift. Likewise for ctrl +
+        // scroll and zooming.
+        let (dx, dy, dz) = {
+            if dx == 0.0 && shift {            
+                (dy, 0.0, dz)
+            }
+            else if dz == 0.0 && ctrl {
+                (dx, 0.0, dy)
+            }
+            else {
+                (dx, dy, dz)
+            }
+        };
+
+        self.viewport.x += dx / self.zoom_level;
+        self.viewport.y += dy / self.zoom_level;
         self.zoom_level = (self.zoom_level - ZOOM_COEFFICIENT * dz as f32).clamp(ZOOM_MIN, ZOOM_MAX);
 
         self.redraw_needed = true;
+    }
+
+    fn viewport_to_scene(&self, x: f32, y: f32) -> ScenePoint {
+        let p = ScenePoint {
+            x: (x / self.zoom_level) + self.viewport.x,
+            y: (y / self.zoom_level) + self.viewport.y
+        };
+
+        p
     }
 
     fn process_events(&mut self) {
@@ -460,13 +411,13 @@ impl Scene {
         };
 
         for event in events.iter() {
-            let at = ViewportPoint { x: event.x, y: event.y };
+            let at = self.viewport_to_scene(event.x, event.y);
             match event.event_type {
                 EventType::MouseDown => self.handle_mouse_down(at),
-                EventType::MouseLeave => self.handle_mouse_up(at),
+                EventType::MouseLeave => self.handle_mouse_up(at, event.alt),
                 EventType::MouseMove => self.handle_mouse_move(at),
-                EventType::MouseUp => self.handle_mouse_up(at),
-                EventType::MouseWheel(dx, dy, dz) => self.handle_scroll(dx, dy, dz)
+                EventType::MouseUp => self.handle_mouse_up(at, event.alt),
+                EventType::MouseWheel(dx, dy, dz) => self.handle_scroll(dx, dy, dz, event.shift, event.ctrl)
             };
         }
     }
@@ -494,7 +445,7 @@ impl Scene {
             self.context.draw_sprites(vp, &self.sprites, grid_size);    
 
 
-            let outline = self.held_sprite().map(|s| s.absolute_rect(grid_size));
+            let outline = self.held_sprite().map(|s| Rect::scaled_from(s.rect, grid_size));
             
             if let Some(rect) = outline {
                 self.context.draw_outline(vp, rect);

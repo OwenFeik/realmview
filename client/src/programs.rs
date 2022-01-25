@@ -216,7 +216,7 @@ impl LineRenderer {
 pub struct GridRenderer {
     line_renderer: LineRenderer,
     current_grid_rect: Option<Rect>,
-    current_grid_size: Option<i32>,
+    current_grid_size: Option<f32>,
     current_line_count: Option<i32>
 }
 
@@ -232,16 +232,16 @@ impl GridRenderer {
         )
     }    
 
-    pub fn create_grid(&mut self, vp: Rect, grid_size: i32) {
+    pub fn create_grid(&mut self, vp: Rect, grid_size: f32) {
         let mut verticals = Vec::new();
         let mut horizontals = Vec::new();
 
-        let d = grid_size as f32;
-        let dx = (vp.x % grid_size) as f32;
-        let dy = (vp.y % grid_size) as f32;
+        let d = grid_size;
+        let dx = vp.x % grid_size;
+        let dy = vp.y % grid_size;
 
-        let w = vp.w as f32;
-        let h = vp.h as f32;
+        let w = vp.w;
+        let h = vp.h;
 
         let mut finished = false;
         let mut i = 0.0;
@@ -283,7 +283,7 @@ impl GridRenderer {
         self.current_line_count = Some(verticals.len() as i32 / 2);
     }
 
-    pub fn render_grid(&mut self, vp: Rect, grid_size: i32) {
+    pub fn render_grid(&mut self, vp: Rect, grid_size: f32) {
         if let Some(rect) = self.current_grid_rect {
             if rect != vp || self.current_grid_size != Some(grid_size) {
                 self.create_grid(vp, grid_size);
@@ -319,7 +319,7 @@ impl Renderer {
         )
     }
 
-    pub fn render_grid(&mut self, vp: Rect, grid_size: i32) {
+    pub fn render_grid(&mut self, vp: Rect, grid_size: f32) {
         self.grid_renderer.render_grid(vp, grid_size);
     }
 
