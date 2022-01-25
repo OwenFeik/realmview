@@ -4,11 +4,11 @@ use std::cell::RefCell;
 use wasm_bindgen::prelude::*;
 
 use crate::bridge::request_animation_frame;
-use crate::scene::Scene;
+use crate::viewport::Viewport;
 
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
-    let mut scene = Scene::new().unwrap();
+    let mut scene = Viewport::new().unwrap();
 
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();

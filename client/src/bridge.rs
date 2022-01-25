@@ -22,6 +22,7 @@ use web_sys::{
 
 use crate::programs::Renderer;
 use crate::scene::{Rect, Sprite};
+use crate::viewport::ViewportPoint;
 
 
 #[wasm_bindgen]
@@ -461,8 +462,7 @@ pub enum EventType {
 
 
 pub struct MouseEvent {
-    pub x: f32,
-    pub y: f32,
+    pub at: ViewportPoint,
     pub event_type: EventType,
     pub shift: bool,
     pub ctrl: bool,
@@ -485,8 +485,7 @@ impl MouseEvent {
         };
 
         Some(MouseEvent {
-            x: event.x() as f32,
-            y: event.y() as f32,
+            at: ViewportPoint::new(event.x(), event.y()),
             event_type,
             shift: event.shift_key(),
             ctrl: event.ctrl_key(),

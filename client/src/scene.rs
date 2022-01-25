@@ -1,7 +1,7 @@
 use std::ops::{Add, Sub};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use crate::bridge::{Context, EventType, JsError, Texture, log_float};
+use crate::bridge::Texture;
 
 
 #[derive(Clone, Copy, PartialEq)]
@@ -183,9 +183,15 @@ impl Sprite {
 
 
 #[derive(Clone, Copy)]
-struct ScenePoint {
+pub struct ScenePoint {
     x: f32,
     y: f32
+}
+
+impl ScenePoint {
+    pub fn new(x: f32, y: f32) -> ScenePoint {
+        ScenePoint { x, y }
+    }
 }
 
 impl Add for ScenePoint {
@@ -207,7 +213,6 @@ impl Sub for ScenePoint {
 
 #[derive(Clone, Copy)]
 enum HeldObject {
-    Map(ScenePoint),
     None,
     Sprite(u32, ScenePoint),
     Anchor(u32, i32, i32)
@@ -215,55 +220,26 @@ enum HeldObject {
 
 
 pub struct Scene {
-    context: Context,
-
-    // (x, y) position of the viewport in scene coordinates.
-    viewport: Rect,
-
-    zoom_level: f32,
-
     // Sprites to be drawn each frame.
-    sprites: Vec<Sprite>,
+    pub sprites: Vec<Sprite>,
 
     // ID of the Sprite the user is currently dragging.
     holding: HeldObject,
-
-    // Flag to indicate whether the canvas needs to be rendered (i.e. whether anything has changed).
-    redraw_needed: bool
 }
 
 impl Scene {
-    const BASE_ZOOM_LEVEL: f32 = 50.0;
+
     const BASE_GRID_SIZE: f32 = 1.0;
 
-    pub fn new() -> Result<Scene, JsError> {
-        Ok(
-            Scene {
-                context: Context::new()?,
-                viewport: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 },
-                zoom_level: Scene::BASE_ZOOM_LEVEL,
-                sprites: Vec::new(),
-                holding: HeldObject::None,
-                redraw_needed: true
-            }
-        )
-    }
-
-    fn grid_size(&self) -> f32 {
-        (Scene::BASE_GRID_SIZE * self.zoom_level) as f32
-    }
-
-    fn update_viewport(&mut self) -> bool {
-        let (w, h) = self.context.viewport_size();
-        let w = w as f32;
-        let h = h as f32;
-
-        if w != self.viewport.w || h != self.viewport.h {
-            self.viewport = Rect { x: self.viewport.x, y: self.viewport.y, w, h};
-            return true;
+    pub fn new() -> Scene {
+        Scene {
+            sprites: Vec::new(),
+            holding: HeldObject::None
         }
+    }
 
-        false
+    pub fn add_sprites(&mut self, sprites: &mut Vec<Sprite>) {
+        self.sprites.append(sprites);
     }
 
     // Because sprites are added as they are created, they are in the vector ordered by id. Thus they can be binary
@@ -289,7 +265,7 @@ impl Scene {
         self.bsearch_sprite(id, 0, self.sprites.len())
     }
 
-    fn held_sprite(&mut self) -> Option<&mut Sprite> {
+    pub fn held_sprite(&mut self) -> Option<&mut Sprite> {
         self.sprite(
             match self.holding {
                 HeldObject::Sprite(id, _) => id,
@@ -311,146 +287,32 @@ impl Scene {
         None
     }
 
-    fn update_held_pos(&mut self, at: ScenePoint) {
-        let id = match self.holding {
-            HeldObject::Map(ScenePoint { x, y }) => {
-                log_float(x - at.x);
-                log_float(y - at.y);
-        
-
-                self.viewport.x += x - at.x;
-                self.viewport.y += y - at.y;
-                self.holding = HeldObject::Map(at);
-                self.redraw_needed = true;
-                return;
-            },
-            HeldObject::None => return,
-            HeldObject::Sprite(id, _) => id,
-            HeldObject::Anchor(id, _, _) => id,
-        };
-
+    pub fn update_held_pos(&mut self, at: ScenePoint) -> bool {
         let holding = self.holding;
-        self.sprite(id).map(|s| s.update_held_pos(holding, at));
-
-        self.redraw_needed = true;
+        self.held_sprite().map(|s| s.update_held_pos(holding, at)).is_some()
     }
 
-    fn release_held(&mut self, alt: bool) {
-        let held = {
-            match self.holding {
-                HeldObject::Map(_) => { self.holding = HeldObject::None; return; },
-                HeldObject::Sprite(id, _) => id,
-                HeldObject::Anchor(id, _, _) => id,
-                HeldObject::None => return
-            }
-        };
-
-        // If alt is held as the sprite is released, the absolute positioning is maintained.
-        if !alt {
-            self.sprite(held).map(|s| s.snap_to_grid());
-        }
-        self.holding = HeldObject::None;
-        self.redraw_needed = true;
-    }
-
-    fn handle_mouse_down(&mut self, at: ScenePoint) {
-        self.holding = self.sprite_at(at)
-            .map(|s| s.grab(at))
-            .unwrap_or(HeldObject::Map(at));
-    }
-
-    fn handle_mouse_up(&mut self, at: ScenePoint, alt: bool) {
-        self.update_held_pos(at);
-        self.release_held(alt);
-    }
-
-    fn handle_mouse_move(&mut self, at: ScenePoint) {
-        self.update_held_pos(at);
-    }
-
-    fn handle_scroll(&mut self, dx: f32, dy: f32, dz: f32, shift: bool, ctrl: bool) {
-        const ZOOM_COEFFICIENT: f32 = 0.1 / Scene::BASE_ZOOM_LEVEL;
-        const ZOOM_MIN: f32 = Scene::BASE_ZOOM_LEVEL / 5.0;
-        const ZOOM_MAX: f32 = Scene::BASE_ZOOM_LEVEL * 5.0;
-
-        // We want shift + scroll to scroll horizontally but browsers (Firefox anyway) only do this when the page is
-        // wider than the viewport, which it never is in this case. Thus this check for shift. Likewise for ctrl +
-        // scroll and zooming.
-        let (dx, dy, dz) = {
-            if dx == 0.0 && shift {            
-                (dy, 0.0, dz)
-            }
-            else if dz == 0.0 && ctrl {
-                (dx, 0.0, dy)
+    pub fn release_held(&mut self, snap_to_grid: bool) -> bool {
+        let redraw_needed = {
+            if snap_to_grid {
+                self.held_sprite().map(|s| s.snap_to_grid()).is_some()
             }
             else {
-                (dx, dy, dz)
+                false
             }
         };
 
-        self.viewport.x += dx / self.zoom_level;
-        self.viewport.y += dy / self.zoom_level;
-        self.zoom_level = (self.zoom_level - ZOOM_COEFFICIENT * dz as f32).clamp(ZOOM_MIN, ZOOM_MAX);
-
-        self.redraw_needed = true;
+        self.holding = HeldObject::None;
+        redraw_needed
     }
 
-    fn viewport_to_scene(&self, x: f32, y: f32) -> ScenePoint {
-        let p = ScenePoint {
-            x: (x / self.zoom_level) + self.viewport.x,
-            y: (y / self.zoom_level) + self.viewport.y
-        };
-
-        p
-    }
-
-    fn process_events(&mut self) {
-        let events = match self.context.events() {
-            Some(e) => e,
-            None => return
-        };
-
-        for event in events.iter() {
-            let at = self.viewport_to_scene(event.x, event.y);
-            match event.event_type {
-                EventType::MouseDown => self.handle_mouse_down(at),
-                EventType::MouseLeave => self.handle_mouse_up(at, event.alt),
-                EventType::MouseMove => self.handle_mouse_move(at),
-                EventType::MouseUp => self.handle_mouse_up(at, event.alt),
-                EventType::MouseWheel(dx, dy, dz) => self.handle_scroll(dx, dy, dz, event.shift, event.ctrl)
-            };
-        }
-    }
-
-    pub fn animation_frame(&mut self) {
-        // We can either process the mouse events and then handle newly loaded images or vice-versa. I choose to process
-        // events first because it strikes me as unlikely that the user will have intentionally interacted with a newly
-        // loaded image within a frame of it's appearing, and more likely that they instead clicked something that is
-        // now behind a newly loaded image.
-        self.process_events();
-        match self.context.load_queue() {
-            Some(mut new_sprites) => {
-                self.sprites.append(&mut new_sprites);
-                self.redraw_needed = true;
+    pub fn grab(&mut self, at: ScenePoint) -> bool {
+        match self.sprite_at(at) {
+            Some(s) => {
+                self.holding = s.grab(at);
+                true
             },
-            None => ()
-        };
-
-        if self.redraw_needed || self.update_viewport() {
-            let vp = self.viewport;
-            let grid_size = self.grid_size();
-
-            self.context.clear(vp);
-            self.context.draw_grid(vp, grid_size);
-            self.context.draw_sprites(vp, &self.sprites, grid_size);    
-
-
-            let outline = self.held_sprite().map(|s| Rect::scaled_from(s.rect, grid_size));
-            
-            if let Some(rect) = outline {
-                self.context.draw_outline(vp, rect);
-            }
+            None => false
         }
-        self.redraw_needed = false;
     }
 }
