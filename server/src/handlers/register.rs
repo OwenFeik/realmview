@@ -17,28 +17,57 @@ struct RegistrationRequest {
 #[derive(Serialize)]
 struct RegistrationResponse {
     message: String,
-    recovery_key: String,
+    recovery_key: Option<String>,
     success: bool,
-    username: String,
+    username: Option<String>,
+    problem_field: Option<String>,
 }
 
 impl RegistrationResponse {
-    fn new(recovery_key: String, username: String) -> RegistrationResponse {
-        RegistrationResponse {
-            message: String::from("Registration successful."),
-            recovery_key,
-            success: true,
-            username,
-        }
+    fn success(
+        recovery_key: String,
+        username: String,
+    ) -> Result<warp::reply::WithStatus<warp::reply::Json>, Infallible> {
+        as_result(
+            &RegistrationResponse {
+                message: String::from("Registration successful."),
+                recovery_key: Some(recovery_key),
+                success: true,
+                username: Some(username),
+                problem_field: None,
+            },
+            StatusCode::OK,
+        )
+    }
+
+    fn failure(
+        message: &str,
+        problem_field: &str,
+    ) -> Result<warp::reply::WithStatus<warp::reply::Json>, Infallible> {
+        as_result(
+            &RegistrationResponse {
+                message: message.to_string(),
+                recovery_key: None,
+                success: false,
+                username: None,
+                problem_field: Some(problem_field.to_string()),
+            },
+            StatusCode::OK,
+        )
     }
 }
 
+// Usernames are 4-32 alphanumeric characters
 fn valid_username(username: &String) -> bool {
-    username.len() >= 2 && username.len() <= 32
+    username.chars().all(char::is_alphanumeric) && username.len() >= 4 && username.len() <= 32
 }
 
+// Passwords are 8 or more characters with at least one letter and at least one
+// number
 fn valid_password(password: &String) -> bool {
-    password.len() >= 8
+    password.chars().any(char::is_numeric)
+        && password.chars().any(char::is_alphabetic)
+        && password.len() >= 8
 }
 
 async fn username_taken(pool: &SqlitePool, username: &str) -> anyhow::Result<bool> {
@@ -97,11 +126,11 @@ async fn register(
     pool: SqlitePool,
 ) -> Result<impl warp::Reply, Infallible> {
     if !valid_username(&details.username) {
-        return Binary::result_failure("Invalid username.");
+        return RegistrationResponse::failure("Invalid username.", "username");
     }
 
     match username_taken(&pool, details.username.as_str()).await {
-        Ok(true) => return Binary::result_failure("Username in use."),
+        Ok(true) => return RegistrationResponse::failure("Username in use.", "username"),
         Ok(false) => (),
         Err(_) => {
             return Binary::result_error("Database error when checking username availability.")
@@ -109,7 +138,7 @@ async fn register(
     };
 
     if !valid_password(&details.password) {
-        return Binary::result_failure("Invalid password.");
+        return RegistrationResponse::failure("Invalid password.", "password");
     }
 
     let (s_salt, s_hpw, s_rkey) = match generate_keys(details.password.as_str()) {
@@ -132,10 +161,7 @@ async fn register(
     )
     .await
     {
-        Ok(_id) => as_result(
-            &RegistrationResponse::new(s_rkey, details.username),
-            StatusCode::OK,
-        ),
+        Ok(_id) => RegistrationResponse::success(s_rkey, details.username),
         Err(_) => Binary::result_error("Database error on insertion."),
     }
 }

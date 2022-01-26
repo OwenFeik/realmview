@@ -32,8 +32,10 @@ fi
 # Copy across content
 content="$data/content"
 mkdir -p "$content"
-ln -sf "$dir/client/pkg" "$content/pkg"
-cp "$dir/client/index.html" "$content/"
+cp "$dir/client/web/"* "$content/"
+if [ ! -d "$content/pkg" ]; then
+    ln -sf "$dir/client/pkg" "$content/pkg"
+fi
 
 # Start server
 echo "serving $content at http://localhost:3030/static/"

@@ -5,7 +5,7 @@ use warp::Filter;
 
 mod login;
 mod logout;
-mod register;
+pub mod register;
 mod upload;
 
 pub fn filters(
