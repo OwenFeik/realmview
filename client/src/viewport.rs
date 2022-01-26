@@ -1,23 +1,27 @@
 use crate::bridge::{Context, EventType, JsError};
 use crate::scene::{Rect, Scene, ScenePoint};
 
-
 #[derive(Clone, Copy)]
 pub struct ViewportPoint {
     x: f32,
-    y: f32
+    y: f32,
 }
 
 impl ViewportPoint {
     pub fn new(x: i32, y: i32) -> Self {
-        ViewportPoint { x: x as f32, y: y as f32 }
+        ViewportPoint {
+            x: x as f32,
+            y: y as f32,
+        }
     }
 
     fn to_scene(&self, viewport: Rect, grid_zoom: f32) -> ScenePoint {
-        ScenePoint::new((self.x / grid_zoom) + viewport.x, (self.y / grid_zoom) + viewport.y)
+        ScenePoint::new(
+            (self.x / grid_zoom) + viewport.x,
+            (self.y / grid_zoom) + viewport.y,
+        )
     }
 }
-
 
 pub struct Viewport {
     context: Context,
@@ -33,23 +37,26 @@ pub struct Viewport {
     redraw_needed: bool,
 
     // Position where the viewport is being dragged from
-    grabbed_at: Option<ViewportPoint>
+    grabbed_at: Option<ViewportPoint>,
 }
 
 impl Viewport {
     const BASE_GRID_ZOOM: f32 = 50.0;
 
     pub fn new() -> Result<Self, JsError> {
-        Ok(
-            Viewport {
-                context: Context::new()?,
-                scene: Scene::new(),
-                viewport: Rect { x: 0.0, y: 0.0, w: 0.0, h: 0.0 },
-                grid_zoom: Viewport::BASE_GRID_ZOOM,
-                redraw_needed: true,
-                grabbed_at: None
-            }
-        )
+        Ok(Viewport {
+            context: Context::new()?,
+            scene: Scene::new(),
+            viewport: Rect {
+                x: 0.0,
+                y: 0.0,
+                w: 0.0,
+                h: 0.0,
+            },
+            grid_zoom: Viewport::BASE_GRID_ZOOM,
+            redraw_needed: true,
+            grabbed_at: None,
+        })
     }
 
     fn update_viewport(&mut self) -> bool {
@@ -58,7 +65,12 @@ impl Viewport {
         let h = h as f32 / self.grid_zoom;
 
         if w != self.viewport.w || h != self.viewport.h {
-            self.viewport = Rect { x: self.viewport.x, y: self.viewport.y, w, h };
+            self.viewport = Rect {
+                x: self.viewport.x,
+                y: self.viewport.y,
+                w,
+                h,
+            };
             return true;
         }
 
@@ -80,7 +92,10 @@ impl Viewport {
     }
 
     fn handle_mouse_move(&mut self, at: ViewportPoint) {
-        if self.scene.update_held_pos(at.to_scene(self.viewport, self.grid_zoom)) {
+        if self
+            .scene
+            .update_held_pos(at.to_scene(self.viewport, self.grid_zoom))
+        {
             self.redraw_needed = true;
         }
 
@@ -101,10 +116,9 @@ impl Viewport {
         // We want shift + scroll to scroll horizontally but browsers (Firefox anyway) only do this when the page is
         // wider than the viewport, which it never is in this case. Thus this check for shift. Likewise for ctrl +
         // scroll and zooming.
-        if shift {            
+        if shift {
             self.viewport.x += SCROLL_COEFFICIENT * delta / self.grid_zoom;
-        }
-        else if ctrl {
+        } else if ctrl {
             // Need to calculate these before changing the zoom level
             let scene_point = at.to_scene(self.viewport, self.grid_zoom);
             let fraction_x = at.x / (self.viewport.w * self.grid_zoom);
@@ -117,8 +131,7 @@ impl Viewport {
             // Update viewport such that the mouse is at the same viewport port as before zooming.
             self.viewport.x = scene_point.x - self.viewport.w * fraction_x;
             self.viewport.y = scene_point.y - self.viewport.h * fraction_y;
-        }
-        else {
+        } else {
             self.viewport.y += SCROLL_COEFFICIENT * delta / self.grid_zoom;
         }
 
@@ -128,7 +141,7 @@ impl Viewport {
     fn process_events(&mut self) {
         let events = match self.context.events() {
             Some(e) => e,
-            None => return
+            None => return,
         };
 
         for event in events.iter() {
@@ -137,7 +150,9 @@ impl Viewport {
                 EventType::MouseLeave => self.handle_mouse_up(event.at, event.alt),
                 EventType::MouseMove => self.handle_mouse_move(event.at),
                 EventType::MouseUp => self.handle_mouse_up(event.at, event.alt),
-                EventType::MouseWheel(delta) => self.handle_scroll(event.at, delta, event.shift, event.ctrl)
+                EventType::MouseWheel(delta) => {
+                    self.handle_scroll(event.at, delta, event.shift, event.ctrl)
+                }
             };
         }
     }
@@ -152,8 +167,8 @@ impl Viewport {
             Some(mut new_sprites) => {
                 self.scene.add_sprites(&mut new_sprites);
                 self.redraw_needed = true;
-            },
-            None => ()
+            }
+            None => (),
         };
 
         if self.redraw_needed || self.update_viewport() {
@@ -161,11 +176,14 @@ impl Viewport {
 
             self.context.clear(vp);
             self.context.draw_grid(vp, self.grid_zoom);
-            self.context.draw_sprites(vp, &self.scene.sprites, self.grid_zoom);    
+            self.context
+                .draw_sprites(vp, &self.scene.sprites, self.grid_zoom);
 
+            let outline = self
+                .scene
+                .held_sprite()
+                .map(|s| Rect::scaled_from(s.rect, self.grid_zoom));
 
-            let outline = self.scene.held_sprite().map(|s| Rect::scaled_from(s.rect, self.grid_zoom));
-            
             if let Some(rect) = outline {
                 self.context.draw_outline(vp, rect);
             }
@@ -173,5 +191,3 @@ impl Viewport {
         self.redraw_needed = false;
     }
 }
-
-

@@ -1,29 +1,16 @@
-use std::rc::Rc;
 use js_sys::Array;
 use js_sys::Float32Array;
+use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{
-    Blob,
-    Document,
-    FileReader,
-    HtmlCanvasElement,
-    HtmlElement,
-    HtmlImageElement,
-    HtmlInputElement,
-    InputEvent,
-    ProgressEvent,
-    UiEvent,
-    Url,
-    WebGlTexture,
-    WebGl2RenderingContext,
-    Window
+    Blob, Document, FileReader, HtmlCanvasElement, HtmlElement, HtmlImageElement, HtmlInputElement,
+    InputEvent, ProgressEvent, UiEvent, Url, WebGl2RenderingContext, WebGlTexture, Window,
 };
 
 use crate::programs::Renderer;
 use crate::scene::{Rect, Sprite};
 use crate::viewport::ViewportPoint;
-
 
 #[wasm_bindgen]
 extern "C" {
@@ -46,37 +33,29 @@ extern "C" {
     pub fn log_arr(a: Float32Array);
 }
 
-
 pub type Gl = WebGl2RenderingContext;
-
 
 // 0 is the default and what is used here
 const GL_TEXTURE_DETAIL_LEVEL: i32 = 0;
 
-
 // Required to be 0 for textures
 const GL_TEXTURE_BORDER_WIDTH: i32 = 0;
-
 
 #[derive(Debug)]
 pub enum JsError {
     ResourceError(&'static str),
-    TypeError(&'static str)
+    TypeError(&'static str),
 }
-
 
 struct Element {
-    element: HtmlElement
+    element: HtmlElement,
 }
-
 
 impl Element {
     fn new(name: &str) -> Result<Element, JsError> {
         match create_element(name)?.dyn_into::<HtmlElement>() {
             Ok(e) => Ok(Element { element: e }),
-            Err(_) => Err(
-                JsError::TypeError("Couldn't cast to HtmlElement.")
-            )
+            Err(_) => Err(JsError::TypeError("Couldn't cast to HtmlElement.")),
         }
     }
 
@@ -90,25 +69,29 @@ impl Element {
     fn set_attr(&self, name: &str, value: &str) -> Result<(), JsError> {
         self.element
             .set_attribute(name, value)
-            .or(Err(JsError::ResourceError("Failed to set element attribute.")))
+            .or(Err(JsError::ResourceError(
+                "Failed to set element attribute.",
+            )))
     }
 }
-
 
 struct Canvas {
     element: Rc<HtmlCanvasElement>,
     gl: Rc<Gl>,
-    
-    // Array where MouseEvents are stored to be handled by the core loop.
-    events: Rc<Array>
-}
 
+    // Array where MouseEvents are stored to be handled by the core loop.
+    events: Rc<Array>,
+}
 
 impl Canvas {
     fn new(element: HtmlCanvasElement) -> Result<Canvas, JsError> {
         let gl = Rc::new(create_context(&element)?);
 
-        Ok(Canvas { element: Rc::new(element), gl, events: Rc::new(Array::new()) })
+        Ok(Canvas {
+            element: Rc::new(element),
+            gl,
+            events: Rc::new(Array::new()),
+        })
     }
 
     /// Create a new canvas element and set it up to fill the screen.
@@ -116,11 +99,11 @@ impl Canvas {
         let element = create_appended("canvas")?;
         let canvas = match element.dyn_into::<HtmlCanvasElement>() {
             Ok(c) => Canvas::new(c)?,
-            Err(_) => return Err(JsError::TypeError("Couldn't cast Element to HtmlCanvas."))
+            Err(_) => return Err(JsError::TypeError("Couldn't cast Element to HtmlCanvas.")),
         };
 
         canvas.init()?;
-        
+
         Ok(canvas)
     }
 
@@ -174,21 +157,17 @@ impl Canvas {
     fn configure_resize(&self) -> Result<(), JsError> {
         let canvas = self.element.clone();
         let gl = self.gl.clone();
-        let closure = Closure::wrap(Box::new(
-            move |_event: UiEvent| {
-                Canvas::fill_window(&canvas).ok();
-                gl.viewport(0, 0, canvas.width() as i32, canvas.height() as i32);
-            }
-        ) as Box<dyn FnMut(_)>);    
+        let closure = Closure::wrap(Box::new(move |_event: UiEvent| {
+            Canvas::fill_window(&canvas).ok();
+            gl.viewport(0, 0, canvas.width() as i32, canvas.height() as i32);
+        }) as Box<dyn FnMut(_)>);
 
-        let result = get_window()?.add_event_listener_with_callback(
-            "resize",
-            closure.as_ref().unchecked_ref()
-        );
+        let result = get_window()?
+            .add_event_listener_with_callback("resize", closure.as_ref().unchecked_ref());
         closure.forget();
-        result.or(
-            Err(JsError::ResourceError("Failed to add resize listener."))
-        )
+        result.or(Err(JsError::ResourceError(
+            "Failed to add resize listener.",
+        )))
     }
 
     fn configure_events(&self) -> Result<(), JsError> {
@@ -199,14 +178,21 @@ impl Canvas {
                 events.push(&event);
             }) as Box<dyn FnMut(web_sys::MouseEvent)>);
 
-            match self.element.add_event_listener_with_callback(event_name, &listener.as_ref().unchecked_ref()) {
+            match self
+                .element
+                .add_event_listener_with_callback(event_name, &listener.as_ref().unchecked_ref())
+            {
                 Ok(_) => (),
-                Err(_) => return Err(JsError::ResourceError("Failed to add mouse event listener to canvas."))
+                Err(_) => {
+                    return Err(JsError::ResourceError(
+                        "Failed to add mouse event listener to canvas.",
+                    ))
+                }
             };
 
             listener.forget();
         }
-        
+
         Ok(())
     }
 
@@ -215,115 +201,112 @@ impl Canvas {
         let result = {
             let c_input = input.clone();
             let texture_queue = texture_queue.clone();
-            let closure = Closure::wrap(Box::new(
-                move |_event: InputEvent| {
-                    let file = match c_input.files() {
-                        Some(fs) => match fs.get(0) {
-                            Some(f) => f,
-                            None => return
-                        },
-                        None => return
+            let closure = Closure::wrap(Box::new(move |_event: InputEvent| {
+                let file = match c_input.files() {
+                    Some(fs) => match fs.get(0) {
+                        Some(f) => f,
+                        None => return,
+                    },
+                    None => return,
+                };
+
+                let file_reader = match FileReader::new() {
+                    Ok(fr) => Rc::new(fr),
+                    Err(_) => return,
+                };
+
+                // File load handling
+                let fr_ref = file_reader.clone();
+                let tq_ref = texture_queue.clone();
+                let closure = Closure::wrap(Box::new(move |_event: ProgressEvent| {
+                    let file = match fr_ref.result() {
+                        Ok(f) => f,
+                        Err(_) => return,
                     };
 
-                    let file_reader = match FileReader::new() {
-                        Ok(fr) => Rc::new(fr),
-                        Err(_) => return
+                    let array = js_sys::Array::new();
+                    array.push(&file);
+
+                    let blob = match Blob::new_with_buffer_source_sequence(&array) {
+                        Ok(b) => b,
+                        Err(_) => return,
                     };
 
-                    // File load handling
-                    let fr_ref = file_reader.clone();
-                    let tq_ref = texture_queue.clone();
-                    let closure = Closure::wrap(Box::new(
-                        move |_event: ProgressEvent| {
-                            let file = match fr_ref.result() {
-                                Ok(f) => f, Err(_) => return
-                            };
+                    let src = match Url::create_object_url_with_blob(&blob) {
+                        Ok(s) => s,
+                        Err(_) => return,
+                    };
 
-                            let array = js_sys::Array::new(); 
-                            array.push(&file);                           
-                            
-                            let blob = match Blob::new_with_buffer_source_sequence(&array) {
-                                Ok(b) => b, Err(_) => return
-                            };
+                    let image = match HtmlImageElement::new() {
+                        Ok(i) => Rc::new(i),
+                        Err(_) => return,
+                    };
 
-                            let src = match Url::create_object_url_with_blob(&blob) {
-                                Ok(s) => s, Err(_) => return
-                            };
-
-                            let image = match HtmlImageElement::new() {
-                                Ok(i) => Rc::new(i), Err(_) => return   
-                            };
-
-                            {
-                                let im_ref = image.clone();
-                                let tq_ref = tq_ref.clone();
-                                let closure = Closure::wrap(Box::new(move || {
-                                    tq_ref.push(&im_ref);
-                                }) as Box<dyn FnMut()>);
-                                image.set_onload(Some(closure.as_ref().unchecked_ref()));
-                                closure.forget();    
-                            }
-
-                            image.set_src(&src);
-                        }
-                    ) as Box<dyn FnMut(_)>);
-                    
-                    if let Err(_) = file_reader.add_event_listener_with_callback(
-                        "loadend",
-                        closure.as_ref().unchecked_ref()
-                    ) {
-                        return;
-                    }
-                    closure.forget();
-
-                    if let Err(_) = file_reader.read_as_array_buffer(&file) {
-                        return;
+                    {
+                        let im_ref = image.clone();
+                        let tq_ref = tq_ref.clone();
+                        let closure = Closure::wrap(Box::new(move || {
+                            tq_ref.push(&im_ref);
+                        }) as Box<dyn FnMut()>);
+                        image.set_onload(Some(closure.as_ref().unchecked_ref()));
+                        closure.forget();
                     }
 
-                    ()
+                    image.set_src(&src);
+                }) as Box<dyn FnMut(_)>);
+
+                if let Err(_) = file_reader
+                    .add_event_listener_with_callback("loadend", closure.as_ref().unchecked_ref())
+                {
+                    return;
                 }
-            ) as Box<dyn FnMut(_)>);
-            let result = input.add_event_listener_with_callback("input", closure.as_ref().unchecked_ref());
+                closure.forget();
+
+                if let Err(_) = file_reader.read_as_array_buffer(&file) {
+                    return;
+                }
+
+                ()
+            }) as Box<dyn FnMut(_)>);
+            let result =
+                input.add_event_listener_with_callback("input", closure.as_ref().unchecked_ref());
             closure.forget();
             result
         };
 
         match result {
             Ok(()) => (),
-            Err(_) => return Err(
-                JsError::ResourceError("Failed to add event listener.")
-            )
+            Err(_) => return Err(JsError::ResourceError("Failed to add event listener.")),
         };
 
         {
             let input = input.clone();
-            let closure = Closure::wrap(Box::new(
-                move |_event: web_sys::MouseEvent| { input.click(); }
-            ) as Box<dyn FnMut(_)>);
-            let result = self.element.add_event_listener_with_callback("auxclick", closure.as_ref().unchecked_ref());
+            let closure = Closure::wrap(Box::new(move |_event: web_sys::MouseEvent| {
+                input.click();
+            }) as Box<dyn FnMut(_)>);
+            let result = self
+                .element
+                .add_event_listener_with_callback("auxclick", closure.as_ref().unchecked_ref());
             closure.forget();
             result
-        }.or(Err(JsError::ResourceError("Failed to add click listener.")))
+        }
+        .or(Err(JsError::ResourceError("Failed to add click listener.")))
     }
 }
-
 
 pub struct Texture {
     pub width: u32,
     pub height: u32,
-    pub texture: Rc<WebGlTexture>
+    pub texture: Rc<WebGlTexture>,
 }
-
 
 impl Texture {
     fn new(gl: &Gl) -> Result<Texture, JsError> {
-        Ok(
-            Texture {
-                width: 0,
-                height: 0,
-                texture: Rc::new(Texture::create_gl_texture(gl)?)
-            }
-        )
+        Ok(Texture {
+            width: 0,
+            height: 0,
+            texture: Rc::new(Texture::create_gl_texture(gl)?),
+        })
     }
 
     fn gen_mipmap(&self, gl: &Gl) {
@@ -333,14 +316,10 @@ impl Texture {
         gl.tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MIN_FILTER, Gl::LINEAR as i32);
     }
 
-    fn create_gl_texture(
-        gl: &Gl
-    ) -> Result<WebGlTexture, JsError> {
+    fn create_gl_texture(gl: &Gl) -> Result<WebGlTexture, JsError> {
         match gl.create_texture() {
             Some(t) => Ok(t),
-            None => return Err(
-                JsError::ResourceError("Unable to create texture.")
-            )
+            None => return Err(JsError::ResourceError("Unable to create texture.")),
         }
     }
 
@@ -349,21 +328,23 @@ impl Texture {
         gl: &Gl,
         width: u32,
         height: u32,
-        data: &[u8]
+        data: &[u8],
     ) -> Result<(), JsError> {
         gl.bind_texture(Gl::TEXTURE_2D, Some(&self.texture));
 
-        if let Err(_) = gl.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
-            Gl::TEXTURE_2D,
-            GL_TEXTURE_DETAIL_LEVEL,
-            Gl::RGBA as i32,
-            width as i32,
-            height as i32,
-            GL_TEXTURE_BORDER_WIDTH,
-            Gl::RGBA,
-            Gl::UNSIGNED_BYTE, // u8
-            Some(data)
-        ) {
+        if let Err(_) = gl
+            .tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
+                Gl::TEXTURE_2D,
+                GL_TEXTURE_DETAIL_LEVEL,
+                Gl::RGBA as i32,
+                width as i32,
+                height as i32,
+                GL_TEXTURE_BORDER_WIDTH,
+                Gl::RGBA,
+                Gl::UNSIGNED_BYTE, // u8
+                Some(data),
+            )
+        {
             return Err(JsError::ResourceError("Unable to load array."));
         }
 
@@ -375,12 +356,7 @@ impl Texture {
         Ok(())
     }
 
-    fn from_u8_array(
-        gl: &Gl,
-        width: u32,
-        height: u32,
-        data: &[u8]
-    ) -> Result<Texture, JsError> {
+    fn from_u8_array(gl: &Gl, width: u32, height: u32, data: &[u8]) -> Result<Texture, JsError> {
         let mut texture = Texture::new(gl)?;
         texture.load_u8_array(gl, width, height, data)?;
         Ok(texture)
@@ -402,7 +378,11 @@ impl Texture {
         Ok(())
     }
 
-    fn load_html_image_gl_texture(gl: &Gl, image: &HtmlImageElement, texture: &WebGlTexture) -> Result<(), JsError> {
+    fn load_html_image_gl_texture(
+        gl: &Gl,
+        image: &HtmlImageElement,
+        texture: &WebGlTexture,
+    ) -> Result<(), JsError> {
         gl.bind_texture(Gl::TEXTURE_2D, Some(texture));
 
         if let Err(_) = gl.tex_image_2d_with_u32_and_u32_and_html_image_element(
@@ -411,28 +391,26 @@ impl Texture {
             Gl::RGBA as i32,
             Gl::RGBA,
             Gl::UNSIGNED_BYTE,
-            image
+            image,
         ) {
             return Err(JsError::ResourceError("Failed to create WebGL image."));
         }
-    
+
         Ok(())
     }
 
     fn from_url(
         gl: &Gl,
         url: &str,
-        callback: Box<dyn Fn(Result<Texture, JsError>)>
+        callback: Box<dyn Fn(Result<Texture, JsError>)>,
     ) -> Result<(), JsError> {
         // Create HTML image to load image from url
         let image = match HtmlImageElement::new() {
             Ok(i) => Rc::new(i),
-            Err(_) => return Err(
-                JsError::ResourceError("Unable to create image element.")
-            )
+            Err(_) => return Err(JsError::ResourceError("Unable to create image element.")),
         };
         image.set_cross_origin(Some("")); // ?
-    
+
         // Set callback to update texture once image is loaded
         {
             let gl = Rc::new(gl.clone());
@@ -443,14 +421,13 @@ impl Texture {
             image.set_onload(Some(closure.as_ref().unchecked_ref()));
             closure.forget();
         }
-    
+
         // Load image
         image.set_src(url);
-    
+
         Ok(())
     }
 }
-
 
 pub enum EventType {
     MouseDown,
@@ -460,15 +437,13 @@ pub enum EventType {
     MouseWheel(f32),
 }
 
-
 pub struct MouseEvent {
     pub at: ViewportPoint,
     pub event_type: EventType,
     pub shift: bool,
     pub ctrl: bool,
-    pub alt: bool
+    pub alt: bool,
 }
-
 
 impl MouseEvent {
     fn from_web_sys(event: &web_sys::MouseEvent) -> Option<MouseEvent> {
@@ -479,11 +454,11 @@ impl MouseEvent {
             "mouseup" => EventType::MouseUp,
             "wheel" => {
                 let event = event.unchecked_ref::<web_sys::WheelEvent>();
-                
+
                 // Because the app never has scroll bars, the delta is always reported in the y
-                EventType::MouseWheel(event.delta_y() as f32)        
-            },
-            _ => return None
+                EventType::MouseWheel(event.delta_y() as f32)
+            }
+            _ => return None,
         };
 
         Some(MouseEvent {
@@ -491,11 +466,10 @@ impl MouseEvent {
             event_type,
             shift: event.shift_key(),
             ctrl: event.ctrl_key(),
-            alt: event.alt_key()
+            alt: event.alt_key(),
         })
     }
 }
-
 
 pub struct Context {
     // WebGL context. Wrapped in Rc because various structs and closures want for references to it.
@@ -506,18 +480,17 @@ pub struct Context {
 
     // Wrapper around OpenGL Rendering functions
     renderer: Renderer,
-    
+
     // A JS Array which the front end pushes uploaded images to. The Context then loads any images waiting in the queue
     // before rendering each frame. Wrapped in Rc such that it can be accessed from a closure passed to JS.
     texture_queue: Rc<Array>,
 }
 
-
 impl Context {
     pub fn new() -> Result<Context, JsError> {
         let canvas = Canvas::new_element()?;
         let renderer = Renderer::new(canvas.gl.clone())?;
-        let ctx = Context{
+        let ctx = Context {
             gl: canvas.gl.clone(),
             canvas,
             renderer,
@@ -529,7 +502,9 @@ impl Context {
     }
 
     fn configure_upload(&self) {
-        self.canvas.configure_upload(self.texture_queue.clone()).ok();
+        self.canvas
+            .configure_upload(self.texture_queue.clone())
+            .ok();
     }
 
     pub fn viewport_size(&self) -> (u32, u32) {
@@ -547,13 +522,13 @@ impl Context {
             let event = event.unchecked_ref::<web_sys::MouseEvent>();
             match MouseEvent::from_web_sys(event) {
                 Some(e) => events.push(e),
-                None => ()
+                None => (),
             };
         }
 
         match events.len() {
             0 => None,
-            _ => Some(events)
+            _ => Some(events),
         }
     }
 
@@ -565,12 +540,12 @@ impl Context {
         let mut sprites = Vec::new();
         while self.texture_queue.length() > 0 {
             let img = self.texture_queue.pop();
-            
+
             // Cast the img to a HTMLImageElement; this array will only contain such elements, so this cast is safe.
             let img = img.unchecked_ref::<HtmlImageElement>();
             match Texture::from_html_image(&self.gl, img) {
                 Ok(t) => sprites.push(Sprite::new(t)),
-                Err(_) => ()
+                Err(_) => (),
             };
         }
 
@@ -588,7 +563,11 @@ impl Context {
 
     pub fn draw_sprites(&self, vp: Rect, sprites: &Vec<Sprite>, grid_size: f32) {
         for sprite in sprites.iter() {
-            self.renderer.draw_texture(vp, sprite.texture(), Rect::scaled_from(sprite.rect, grid_size));
+            self.renderer.draw_texture(
+                vp,
+                sprite.texture(),
+                Rect::scaled_from(sprite.rect, grid_size),
+            );
         }
     }
 
@@ -597,14 +576,13 @@ impl Context {
     }
 }
 
-
 fn create_context(element: &HtmlCanvasElement) -> Result<Gl, JsError> {
     let gl = match element.get_context("webgl2") {
         Ok(Some(c)) => match c.dyn_into::<Gl>() {
             Ok(c) => c,
-            Err(_) => return Err(JsError::TypeError("Failed to cast to WebGL context."))
+            Err(_) => return Err(JsError::TypeError("Failed to cast to WebGL context.")),
         },
-        _ => return Err(JsError::ResourceError("Failed to get rendering context."))
+        _ => return Err(JsError::ResourceError("Failed to get rendering context.")),
     };
 
     // Enable transparency
@@ -614,30 +592,26 @@ fn create_context(element: &HtmlCanvasElement) -> Result<Gl, JsError> {
     Ok(gl)
 }
 
-
 fn get_window() -> Result<Window, JsError> {
     match web_sys::window() {
         Some(w) => Ok(w),
-        None => Err(JsError::ResourceError("No Window."))
+        None => Err(JsError::ResourceError("No Window.")),
     }
 }
-
 
 fn get_document() -> Result<Document, JsError> {
     match get_window()?.document() {
         Some(d) => Ok(d),
-        None => Err(JsError::ResourceError("No Document."))
+        None => Err(JsError::ResourceError("No Document.")),
     }
 }
-
 
 fn get_body() -> Result<HtmlElement, JsError> {
     match get_document()?.body() {
         Some(b) => Ok(b),
-        None => Err(JsError::ResourceError("No Body."))
+        None => Err(JsError::ResourceError("No Body.")),
     }
 }
-
 
 fn create_element(name: &str) -> Result<web_sys::Element, JsError> {
     get_document()?
@@ -645,15 +619,13 @@ fn create_element(name: &str) -> Result<web_sys::Element, JsError> {
         .or(Err(JsError::ResourceError("Element creation failed.")))
 }
 
-
 fn create_appended(name: &str) -> Result<web_sys::Element, JsError> {
     let element = create_element(name)?;
     match get_body()?.append_child(&element) {
         Ok(_) => Ok(element),
-        Err(_) => Err(JsError::ResourceError("Failed to append element."))
+        Err(_) => Err(JsError::ResourceError("Failed to append element.")),
     }
 }
-
 
 fn get_window_dimensions() -> Result<(u32, u32), JsError> {
     let window = get_window()?;
@@ -661,12 +633,11 @@ fn get_window_dimensions() -> Result<(u32, u32), JsError> {
     match (window.inner_width(), window.inner_height()) {
         (Ok(w), Ok(h)) => match (w.as_f64(), h.as_f64()) {
             (Some(w), Some(h)) => Ok((w as u32, h as u32)),
-            _ => return Err(JsError::TypeError("Window dimensions non-numeric."))
+            _ => return Err(JsError::TypeError("Window dimensions non-numeric.")),
         },
-        _ => return Err(JsError::ResourceError("No Window dimensions."))
+        _ => return Err(JsError::ResourceError("No Window dimensions.")),
     }
 }
-
 
 fn create_file_upload() -> Result<HtmlInputElement, JsError> {
     let element = Element::new("input")?;
@@ -677,13 +648,14 @@ fn create_file_upload() -> Result<HtmlInputElement, JsError> {
     element
         .element
         .dyn_into::<HtmlInputElement>()
-        .or(Err(JsError::TypeError("Failed to cast element to HtmlInputElement.")))
+        .or(Err(JsError::TypeError(
+            "Failed to cast element to HtmlInputElement.",
+        )))
 }
-
 
 pub fn request_animation_frame(f: &Closure<dyn FnMut()>) -> Result<(), JsError> {
     match get_window()?.request_animation_frame(f.as_ref().unchecked_ref()) {
         Ok(_) => Ok(()),
-        Err(_) => Err(JsError::ResourceError("Failed to get animation frame."))
+        Err(_) => Err(JsError::ResourceError("Failed to get animation frame.")),
     }
 }

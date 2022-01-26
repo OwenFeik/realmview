@@ -16,7 +16,7 @@ pub struct TextureRenderer {
     texcoord_buffer: WebGlBuffer,
     texcoord_location: u32,
     matrix_location: WebGlUniformLocation,
-    texture_location: WebGlUniformLocation
+    texture_location: WebGlUniformLocation,
 }
 
 // GLSL Shaders for the TextureRenderer program
@@ -35,7 +35,6 @@ void main() {
 }
 ";
 
-
 const IMAGE_FRAGMENT_SHADER: &str = "
 precision mediump float;
 
@@ -48,48 +47,46 @@ void main() {
 }
 ";
 
-
 impl TextureRenderer {
     pub fn new(gl: Rc<Gl>) -> Result<TextureRenderer, JsError> {
         let program = create_program(&gl, IMAGE_VERTEX_SHADER, IMAGE_FRAGMENT_SHADER)?;
-    
+
         let position_location = gl.get_attrib_location(&program, "a_position") as u32;
         let texcoord_location = gl.get_attrib_location(&program, "a_texcoord") as u32;
 
         // Just a square. A 4x4 matrix is used to transform this to the appropriate dimensions when rendering textures.
         let coords = Float32Array::new_with_length(12);
-        coords.copy_from(&[
-            0.0, 0.0,
-            0.0, 1.0,
-            1.0, 0.0,
-            1.0, 0.0,
-            0.0, 1.0,
-            1.0, 1.0
-        ]);
+        coords.copy_from(&[0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0]);
         let position_buffer = create_buffer(&gl, Some(&coords))?;
         let texcoord_buffer = create_buffer(&gl, Some(&coords))?;
 
         let matrix_location = match gl.get_uniform_location(&program, "u_matrix") {
             Some(p) => p,
-            None => return Err(JsError::ResourceError("Couldn't find shader matrix location."))
+            None => {
+                return Err(JsError::ResourceError(
+                    "Couldn't find shader matrix location.",
+                ))
+            }
         };
         let texture_location = match gl.get_uniform_location(&program, "u_texture") {
             Some(l) => l,
-            None => return Err(JsError::ResourceError("Couldn't find texture matrix location."))
+            None => {
+                return Err(JsError::ResourceError(
+                    "Couldn't find texture matrix location.",
+                ))
+            }
         };
 
-        Ok(
-            TextureRenderer {
-                gl,
-                program,
-                position_buffer,
-                position_location,
-                texcoord_buffer,
-                texcoord_location,
-                matrix_location,
-                texture_location
-            }
-        )
+        Ok(TextureRenderer {
+            gl,
+            program,
+            position_buffer,
+            position_location,
+            texcoord_buffer,
+            texcoord_location,
+            matrix_location,
+            texture_location,
+        })
     }
 
     pub fn draw_texture(&self, viewport: Rect, texture: &WebGlTexture, position: Rect) {
@@ -103,9 +100,14 @@ impl TextureRenderer {
         gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.texcoord_buffer));
         gl.enable_vertex_attrib_array(self.texcoord_location);
         gl.vertex_attrib_pointer_with_i32(self.texcoord_location, 2, Gl::FLOAT, false, 0, 0);
-    
+
         let mut matrix = m4_orthographic(0.0, viewport.w as f32, viewport.h as f32, 0.0, -1.0, 1.0);
-        m4_translate(&mut matrix, (position.x - viewport.x) as f32, (position.y - viewport.y) as f32, 0.0);
+        m4_translate(
+            &mut matrix,
+            (position.x - viewport.x) as f32,
+            (position.y - viewport.y) as f32,
+            0.0,
+        );
         m4_scale(&mut matrix, position.w as f32, position.h as f32, 1.0);
 
         gl.uniform_matrix4fv_with_f32_array(Some(&self.matrix_location), false, &matrix);
@@ -114,14 +116,13 @@ impl TextureRenderer {
     }
 }
 
-
 pub struct LineRenderer {
     gl: Rc<Gl>,
     program: WebGlProgram,
     position_location: u32,
     position_buffer: WebGlBuffer,
     colour_location: WebGlUniformLocation,
-    point_count: i32
+    point_count: i32,
 }
 
 const LINE_VERTEX_SHADER: &str = "
@@ -131,7 +132,6 @@ void main() {
     gl_Position = a_position;
 }
 ";
-
 
 const LINE_FRAGMENT_SHADER: &str = "
 precision mediump float;
@@ -150,19 +150,21 @@ impl LineRenderer {
         let position_buffer = create_buffer(&gl, None)?;
         let colour_location = match gl.get_uniform_location(&program, "u_color") {
             Some(l) => l,
-            None => return Err(JsError::ResourceError("Failed to get location for colour vector."))
+            None => {
+                return Err(JsError::ResourceError(
+                    "Failed to get location for colour vector.",
+                ))
+            }
         };
 
-        Ok(
-            LineRenderer {
-                gl,
-                program,
-                position_location,
-                position_buffer,
-                colour_location,
-                point_count: 0
-            }
-        )
+        Ok(LineRenderer {
+            gl,
+            program,
+            position_location,
+            position_buffer,
+            colour_location,
+            point_count: 0,
+        })
     }
 
     fn scale_and_load_points(&mut self, points: &mut Vec<f32>, vp_w: f32, vp_h: f32) {
@@ -170,8 +172,7 @@ impl LineRenderer {
             // Point vectors are of form [x1, y1, x2, y2 ... xn, yn] so even indices are xs.
             if i % 2 == 0 {
                 points[i] = (2.0 * points[i] - vp_w) / vp_w;
-            }
-            else {
+            } else {
                 points[i] = -(2.0 * points[i] - vp_h) / vp_h;
             }
         }
@@ -180,9 +181,14 @@ impl LineRenderer {
 
     fn load_points(&mut self, points: &Vec<f32>) {
         let positions = Float32Array::from(&points[..]);
-        
-        self.gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.position_buffer));
-        self.gl.buffer_data_with_opt_array_buffer(Gl::ARRAY_BUFFER, Some(&positions.buffer()), Gl::STATIC_DRAW);
+
+        self.gl
+            .bind_buffer(Gl::ARRAY_BUFFER, Some(&self.position_buffer));
+        self.gl.buffer_data_with_opt_array_buffer(
+            Gl::ARRAY_BUFFER,
+            Some(&positions.buffer()),
+            Gl::STATIC_DRAW,
+        );
         self.point_count = (points.len() / 2) as i32;
     }
 
@@ -193,7 +199,10 @@ impl LineRenderer {
         gl.enable_vertex_attrib_array(self.position_location);
         gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.position_buffer));
         gl.vertex_attrib_pointer_with_i32(self.position_location, 2, Gl::FLOAT, false, 0, 0);
-        gl.uniform4fv_with_f32_array(Some(&self.colour_location), &colour.unwrap_or([0.5, 0.5, 0.5, 0.75]));
+        gl.uniform4fv_with_f32_array(
+            Some(&self.colour_location),
+            &colour.unwrap_or([0.5, 0.5, 0.5, 0.75]),
+        );
     }
 
     fn render_lines(&self, colour: Option<Colour>) {
@@ -212,25 +221,22 @@ impl LineRenderer {
     }
 }
 
-
 pub struct GridRenderer {
     line_renderer: LineRenderer,
     current_grid_rect: Option<Rect>,
     current_grid_size: Option<f32>,
-    current_line_count: Option<i32>
+    current_line_count: Option<i32>,
 }
 
 impl GridRenderer {
     pub fn new(gl: Rc<Gl>) -> Result<GridRenderer, JsError> {
-        Ok(
-            GridRenderer {
-                line_renderer: LineRenderer::new(gl)?,
-                current_grid_rect: None,
-                current_grid_size: None,
-                current_line_count: None
-            }
-        )
-    }    
+        Ok(GridRenderer {
+            line_renderer: LineRenderer::new(gl)?,
+            current_grid_rect: None,
+            current_grid_size: None,
+            current_line_count: None,
+        })
+    }
 
     pub fn create_grid(&mut self, vp: Rect, grid_size: f32) {
         let mut verticals = Vec::new();
@@ -255,7 +261,7 @@ impl GridRenderer {
                 verticals.push(x);
                 verticals.push(-1.0);
                 verticals.push(x);
-                verticals.push(1.0);    
+                verticals.push(1.0);
                 finished = false;
             }
 
@@ -288,13 +294,13 @@ impl GridRenderer {
             if rect != vp || self.current_grid_size != Some(grid_size) {
                 self.create_grid(vp, grid_size);
             }
+        } else {
+            self.create_grid(vp, grid_size);
         }
-        else { self.create_grid(vp, grid_size); }
 
         self.line_renderer.render_lines(None);
     }
 }
-
 
 pub struct Renderer {
     // Rendering program, used to draw sprites.
@@ -304,19 +310,16 @@ pub struct Renderer {
     line_renderer: LineRenderer,
 
     // To render map grid
-    grid_renderer: GridRenderer
+    grid_renderer: GridRenderer,
 }
-
 
 impl Renderer {
     pub fn new(gl: Rc<Gl>) -> Result<Renderer, JsError> {
-        Ok(
-            Renderer {
-                texture_renderer: TextureRenderer::new(gl.clone())?,
-                line_renderer: LineRenderer::new(gl.clone())?,
-                grid_renderer: GridRenderer::new(gl)?
-            }
-        )
+        Ok(Renderer {
+            texture_renderer: TextureRenderer::new(gl.clone())?,
+            line_renderer: LineRenderer::new(gl.clone())?,
+            grid_renderer: GridRenderer::new(gl)?,
+        })
     }
 
     pub fn render_grid(&mut self, vp: Rect, grid_size: f32) {
@@ -330,42 +333,54 @@ impl Renderer {
     pub fn draw_outline(&mut self, vp: Rect, outline: Rect) {
         let (vp_x, vp_y, vp_w, vp_h) = vp.as_floats();
         let (x, y, w, h) = outline.as_floats();
-        
-        self.line_renderer.scale_and_load_points(&mut vec![
-            x - vp_x, y - vp_y,
-            x - vp_x + w, y - vp_y,
-            x - vp_x + w, y - vp_y + h,
-            x - vp_x, y - vp_y + h
-        ], vp_w, vp_h);
-        self.line_renderer.render_line_loop(Some([0.5, 0.5, 1.0, 0.9]));
+
+        self.line_renderer.scale_and_load_points(
+            &mut vec![
+                x - vp_x,
+                y - vp_y,
+                x - vp_x + w,
+                y - vp_y,
+                x - vp_x + w,
+                y - vp_y + h,
+                x - vp_x,
+                y - vp_y + h,
+            ],
+            vp_w,
+            vp_h,
+        );
+        self.line_renderer
+            .render_line_loop(Some([0.5, 0.5, 1.0, 0.9]));
     }
 }
-
 
 fn create_shader(gl: &Gl, src: &str, stype: u32) -> Result<WebGlShader, JsError> {
     let shader = match gl.create_shader(stype) {
         Some(s) => s,
-        None => return Err(JsError::ResourceError("Failed to create shader."))
+        None => return Err(JsError::ResourceError("Failed to create shader.")),
     };
 
     gl.shader_source(&shader, src);
     gl.compile_shader(&shader);
 
-    if gl.get_shader_parameter(&shader, Gl::COMPILE_STATUS).is_falsy() {
+    if gl
+        .get_shader_parameter(&shader, Gl::COMPILE_STATUS)
+        .is_falsy()
+    {
         return match gl.get_shader_info_log(&shader) {
             Some(_) => Err(JsError::ResourceError("Shader compilation failed.")),
-            None => Err(JsError::ResourceError("Shader compilation failed, no error message."))
-        }
+            None => Err(JsError::ResourceError(
+                "Shader compilation failed, no error message.",
+            )),
+        };
     }
 
     Ok(shader)
 }
 
-
 fn create_program(gl: &Gl, vert: &str, frag: &str) -> Result<WebGlProgram, JsError> {
     let program = match gl.create_program() {
         Some(p) => p,
-        None => return Err(JsError::ResourceError("WebGL program creation failed."))
+        None => return Err(JsError::ResourceError("WebGL program creation failed.")),
     };
 
     gl.attach_shader(&program, &create_shader(&gl, vert, Gl::VERTEX_SHADER)?);
@@ -373,7 +388,10 @@ fn create_program(gl: &Gl, vert: &str, frag: &str) -> Result<WebGlProgram, JsErr
 
     gl.link_program(&program);
 
-    if gl.get_program_parameter(&program, Gl::LINK_STATUS).is_falsy() {
+    if gl
+        .get_program_parameter(&program, Gl::LINK_STATUS)
+        .is_falsy()
+    {
         gl.delete_program(Some(&program));
         return Err(JsError::ResourceError("WebGL program linking failed."));
     }
@@ -381,11 +399,10 @@ fn create_program(gl: &Gl, vert: &str, frag: &str) -> Result<WebGlProgram, JsErr
     Ok(program)
 }
 
-
 fn create_buffer(gl: &Gl, data_opt: Option<&Float32Array>) -> Result<WebGlBuffer, JsError> {
     let buffer = match gl.create_buffer() {
         Some(b) => b,
-        None => return Err(JsError::ResourceError("Failed to create WebGL buffer."))
+        None => return Err(JsError::ResourceError("Failed to create WebGL buffer.")),
     };
 
     if let Some(data) = data_opt {
@@ -393,24 +410,34 @@ fn create_buffer(gl: &Gl, data_opt: Option<&Float32Array>) -> Result<WebGlBuffer
         gl.buffer_data_with_opt_array_buffer(
             Gl::ARRAY_BUFFER,
             Some(&data.buffer()),
-            Gl::STATIC_DRAW
-        );    
+            Gl::STATIC_DRAW,
+        );
     }
 
     Ok(buffer)
 }
 
-
 // see https://webglfundamentals.org/webgl/resources/m4.js
 fn m4_orthographic(l: f32, r: f32, b: f32, t: f32, n: f32, f: f32) -> [f32; 16] {
     [
-        2.0 / (r - l)    , 0.0              , 0.0              , 0.0,
-        0.0              , 2.0 / (t - b)    , 0.0              , 0.0,
-        0.0              , 0.0              , 2.0 / (n - f)    , 0.0,
-        (l + r) / (l - r), (b + t) / (b - t), (n + f) / (n - f), 1.0
+        2.0 / (r - l),
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        2.0 / (t - b),
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        2.0 / (n - f),
+        0.0,
+        (l + r) / (l - r),
+        (b + t) / (b - t),
+        (n + f) / (n - f),
+        1.0,
     ]
 }
-
 
 // Translates matrix m by tx units in the x direction and likewise for ty and tz.
 // NB: in place
@@ -420,7 +447,6 @@ fn m4_translate(m: &mut [f32; 16], tx: f32, ty: f32, tz: f32) {
     m[14] = m[2] * tx + m[6] * ty + m[10] * tz + m[14];
     m[15] = m[3] * tx + m[7] * ty + m[11] * tz + m[15];
 }
-
 
 // NB: in place
 fn m4_scale(m: &mut [f32; 16], sx: f32, sy: f32, sz: f32) {

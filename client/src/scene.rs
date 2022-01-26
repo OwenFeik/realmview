@@ -3,13 +3,12 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::bridge::Texture;
 
-
 #[derive(Clone, Copy, PartialEq)]
 pub struct Rect {
     pub x: f32,
     pub y: f32,
     pub w: f32,
-    pub h: f32 
+    pub h: f32,
 }
 
 impl Rect {
@@ -18,11 +17,16 @@ impl Rect {
     }
 
     fn from_point(point: ScenePoint, w: f32, h: f32) -> Rect {
-        Rect { x: point.x, y: point.y, w, h }
+        Rect {
+            x: point.x,
+            y: point.y,
+            w,
+            h,
+        }
     }
 
     pub fn scaled_from(from: Rect, factor: f32) -> Rect {
-        let mut rect  = from.clone();
+        let mut rect = from.clone();
         rect.scale(factor);
         rect
     }
@@ -43,18 +47,16 @@ impl Rect {
         self.y = self.y.round();
         self.w = self.w.round();
         self.h = self.h.round();
-    
+
         if self.w > 0.0 && self.w < 1.0 {
             self.w = 1.0;
-        }
-        else if self.w < 0.0 && self.w > -1.0 {
+        } else if self.w < 0.0 && self.w > -1.0 {
             self.w = -1.0;
         }
 
         if self.h > 0.0 && self.h < 1.0 {
             self.h = 1.0;
-        }
-        else if self.h < 0.0 && self.h > -1.0 {
+        } else if self.h < 0.0 && self.h > -1.0 {
             self.h = -1.0;
         }
     }
@@ -67,16 +69,14 @@ impl Rect {
         let in_x;
         if self.w < 0.0 {
             in_x = self.x + self.w <= point.x && point.x <= self.x;
-        }
-        else {
+        } else {
             in_x = self.x <= point.x && point.x <= self.x + self.w;
         }
 
         let in_y;
         if self.h < 0.0 {
             in_y = self.y + self.h <= point.y && point.y <= self.y;
-        }
-        else {
+        } else {
             in_y = self.y <= point.y && point.y <= self.y + self.h;
         }
 
@@ -84,17 +84,19 @@ impl Rect {
     }
 
     fn top_left(&self) -> ScenePoint {
-        ScenePoint { x: self.x, y: self.y }
+        ScenePoint {
+            x: self.x,
+            y: self.y,
+        }
     }
 }
-
 
 pub struct Sprite {
     pub tex: Texture,
     pub rect: Rect,
 
     // Unique numeric ID, numbered from 1
-    id: u32
+    id: u32,
 }
 
 impl Sprite {
@@ -107,7 +109,7 @@ impl Sprite {
         Sprite {
             tex,
             rect: Rect::new(0.0, 0.0, 1.0, 1.0),
-            id: SPRITE_ID.fetch_add(1, Ordering::Relaxed)
+            id: SPRITE_ID.fetch_add(1, Ordering::Relaxed),
         }
     }
 
@@ -130,7 +132,7 @@ impl Sprite {
     }
 
     fn grab_anchor(&mut self, at: ScenePoint) -> Option<HeldObject> {
-        let Rect {x, y, w, h} = self.rect;
+        let Rect { x, y, w, h } = self.rect;
 
         for dx in -1..2 {
             for dy in -1..2 {
@@ -154,44 +156,58 @@ impl Sprite {
     }
 
     fn grab(&mut self, at: ScenePoint) -> HeldObject {
-        self.grab_anchor(at).unwrap_or_else(
-            || HeldObject::Sprite(self.id, ScenePoint { x: at.x - self.rect.x, y: at.y - self.rect.y })
-        )
+        self.grab_anchor(at).unwrap_or_else(|| {
+            HeldObject::Sprite(
+                self.id,
+                ScenePoint {
+                    x: at.x - self.rect.x,
+                    y: at.y - self.rect.y,
+                },
+            )
+        })
     }
 
     fn pos(&mut self) -> ScenePoint {
-        ScenePoint { x: self.rect.x, y: self.rect.y }
+        ScenePoint {
+            x: self.rect.x,
+            y: self.rect.y,
+        }
     }
 
     fn anchor_point(&mut self, dx: i32, dy: i32) -> ScenePoint {
-        let Rect {x, y, w, h} = self.rect;
-        ScenePoint { x: x + (w / 2.0) * (dx + 1) as f32, y: y + (h / 2.0) * (dy + 1) as f32 }
+        let Rect { x, y, w, h } = self.rect;
+        ScenePoint {
+            x: x + (w / 2.0) * (dx + 1) as f32,
+            y: y + (h / 2.0) * (dy + 1) as f32,
+        }
     }
 
     fn update_held_pos(&mut self, holding: HeldObject, at: ScenePoint) {
         match holding {
             HeldObject::Sprite(_, offset) => {
                 self.set_pos(at - offset);
-            },
+            }
             HeldObject::Anchor(_, dx, dy) => {
-                let ScenePoint { x: delta_x, y: delta_y } = at - self.anchor_point(dx, dy);
+                let ScenePoint {
+                    x: delta_x,
+                    y: delta_y,
+                } = at - self.anchor_point(dx, dy);
                 let x = self.rect.x + (if dx == -1 { delta_x } else { 0.0 });
                 let y = self.rect.y + (if dy == -1 { delta_y } else { 0.0 });
                 let w = delta_x * (dx as f32) + self.rect.w;
                 let h = delta_y * (dy as f32) + self.rect.h;
 
                 self.rect = Rect { x, y, w, h }
-            },
-            _ => return // Other types aren't sprite-related
+            }
+            _ => return, // Other types aren't sprite-related
         };
     }
 }
 
-
 #[derive(Clone, Copy)]
 pub struct ScenePoint {
     pub x: f32,
-    pub y: f32
+    pub y: f32,
 }
 
 impl ScenePoint {
@@ -204,7 +220,10 @@ impl Add for ScenePoint {
     type Output = ScenePoint;
 
     fn add(self, rhs: ScenePoint) -> ScenePoint {
-        ScenePoint { x: self.x + rhs.x, y: self.y + rhs.y }
+        ScenePoint {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
     }
 }
 
@@ -212,18 +231,19 @@ impl Sub for ScenePoint {
     type Output = ScenePoint;
 
     fn sub(self, rhs: ScenePoint) -> ScenePoint {
-        ScenePoint { x: self.x - rhs.x, y: self.y - rhs.y }
+        ScenePoint {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
     }
 }
-
 
 #[derive(Clone, Copy)]
 enum HeldObject {
     None,
     Sprite(u32, ScenePoint),
-    Anchor(u32, i32, i32)
+    Anchor(u32, i32, i32),
 }
-
 
 pub struct Scene {
     // Sprites to be drawn each frame.
@@ -234,13 +254,12 @@ pub struct Scene {
 }
 
 impl Scene {
-
     const BASE_GRID_SIZE: f32 = 1.0;
 
     pub fn new() -> Scene {
         Scene {
             sprites: Vec::new(),
-            holding: HeldObject::None
+            holding: HeldObject::None,
         }
     }
 
@@ -260,7 +279,7 @@ impl Scene {
             Some(s) if s.id == id => self.sprites.get_mut(m),
             Some(s) if s.id > id => self.bsearch_sprite(id, m, hi),
             Some(s) if s.id < id => self.bsearch_sprite(id, lo, m),
-            _ => None
+            _ => None,
         }
     }
 
@@ -272,13 +291,11 @@ impl Scene {
     }
 
     pub fn held_sprite(&mut self) -> Option<&mut Sprite> {
-        self.sprite(
-            match self.holding {
-                HeldObject::Sprite(id, _) => id,
-                HeldObject::Anchor(id, _, _) => id,
-                _ => return None
-            }
-        )
+        self.sprite(match self.holding {
+            HeldObject::Sprite(id, _) => id,
+            HeldObject::Anchor(id, _, _) => id,
+            _ => return None,
+        })
     }
 
     fn sprite_at(&mut self, at: ScenePoint) -> Option<&mut Sprite> {
@@ -295,15 +312,16 @@ impl Scene {
 
     pub fn update_held_pos(&mut self, at: ScenePoint) -> bool {
         let holding = self.holding;
-        self.held_sprite().map(|s| s.update_held_pos(holding, at)).is_some()
+        self.held_sprite()
+            .map(|s| s.update_held_pos(holding, at))
+            .is_some()
     }
 
     pub fn release_held(&mut self, snap_to_grid: bool) -> bool {
         let redraw_needed = {
             if snap_to_grid {
                 self.held_sprite().map(|s| s.snap_to_grid()).is_some()
-            }
-            else {
+            } else {
                 false
             }
         };
@@ -317,8 +335,8 @@ impl Scene {
             Some(s) => {
                 self.holding = s.grab(at);
                 true
-            },
-            None => false
+            }
+            None => false,
         }
     }
 }

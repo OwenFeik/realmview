@@ -3,39 +3,37 @@ use std::convert::Infallible;
 use sqlx::SqlitePool;
 use warp::Filter;
 
-
 mod login;
 mod logout;
 mod register;
 mod upload;
 
-
-pub fn filters(pool: SqlitePool, content_dir: String)
-    -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone
-{
+pub fn filters(
+    pool: SqlitePool,
+    content_dir: String,
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     login::filter(pool.clone())
         .or(register::filter(pool.clone()))
         .or(logout::filter(pool.clone()))
         .or(upload::filter(pool, content_dir))
 }
 
-
-pub fn json_body<T: std::marker::Send + for<'de> serde::Deserialize<'de>>() ->
-    impl Filter<Extract = (T,), Error = warp::Rejection> + Clone
-{
+pub fn json_body<T: std::marker::Send + for<'de> serde::Deserialize<'de>>(
+) -> impl Filter<Extract = (T,), Error = warp::Rejection> + Clone {
     warp::body::content_length_limit(1024 * 16).and(warp::body::json())
 }
 
-
-pub fn with_db(pool: SqlitePool) -> impl Filter<Extract = (SqlitePool,), Error = Infallible> + Clone {
+pub fn with_db(
+    pool: SqlitePool,
+) -> impl Filter<Extract = (SqlitePool,), Error = Infallible> + Clone {
     warp::any().map(move || pool.clone())
 }
 
-
 pub fn current_time() -> anyhow::Result<u64> {
-    Ok(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs())
+    Ok(std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs())
 }
-
 
 fn parse_cookie(cookies: String, goal_key: &str) -> Option<String> {
     for cookie in cookies.split(";") {
@@ -50,17 +48,12 @@ fn parse_cookie(cookies: String, goal_key: &str) -> Option<String> {
     None
 }
 
-
 pub fn with_session() -> impl Filter<Extract = (Option<String>,), Error = warp::Rejection> + Clone {
-    warp::filters::header::optional::<String>("Cookie")
-        .map(|c: Option<String>| {
-            match c {
-                Some(s) => parse_cookie(s, "session_key"),
-                None => None
-            }
-        })
+    warp::filters::header::optional::<String>("Cookie").map(|c: Option<String>| match c {
+        Some(s) => parse_cookie(s, "session_key"),
+        None => None,
+    })
 }
-
 
 pub mod response {
     use std::convert::Infallible;
@@ -69,25 +62,27 @@ pub mod response {
     use serde_derive::Serialize;
     use warp::http::StatusCode;
 
-
     type JsonReply = warp::reply::WithStatus<warp::reply::Json>;
     type ResultReply = Result<JsonReply, Infallible>;
 
     #[derive(Serialize)]
     pub struct Binary {
         message: String,
-        success: bool
+        success: bool,
     }
 
     impl Binary {
         pub fn new(message: &str, success: bool) -> Binary {
-            Binary { message: String::from(message), success }
+            Binary {
+                message: String::from(message),
+                success,
+            }
         }
-    
+
         pub fn new_success(message: &str) -> Binary {
             Binary::new(message, true)
         }
-    
+
         pub fn new_failure(message: &str) -> Binary {
             Binary::new(message, false)
         }
@@ -95,13 +90,16 @@ pub mod response {
         pub fn result_success(message: &str) -> ResultReply {
             as_result(&Binary::new_success(message), StatusCode::OK)
         }
-    
+
         pub fn result_failure(message: &str) -> ResultReply {
             as_result(&Binary::new_failure(message), StatusCode::OK)
         }
 
         pub fn result_error(message: &str) -> ResultReply {
-            as_result(&Binary::new_failure(message), StatusCode::INTERNAL_SERVER_ERROR)
+            as_result(
+                &Binary::new_failure(message),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            )
         }
     }
 
@@ -113,25 +111,34 @@ pub mod response {
         Ok(as_reply(body, status))
     }
 
-    pub fn cookie_result(body: &impl Serialize, status: StatusCode, key: &str, value: Option<&str>)
-        -> Result<impl warp::Reply, Infallible>
-    {
+    pub fn cookie_result(
+        body: &impl Serialize,
+        status: StatusCode,
+        key: &str,
+        value: Option<&str>,
+    ) -> Result<impl warp::Reply, Infallible> {
         let cookie = match value {
             Some(s) => s,
-            None => ""
+            None => "",
         };
         let cookie = format!("{}={}", key, cookie);
 
-        Ok(warp::reply::with_header(as_reply(&body, status), "Set-Cookie", cookie.as_str()))
+        Ok(warp::reply::with_header(
+            as_reply(&body, status),
+            "Set-Cookie",
+            cookie.as_str(),
+        ))
     }
 }
-
 
 pub mod crypto {
     use std::fmt::Write;
     use std::num::NonZeroU32;
 
-    use ring::{pbkdf2, rand::{SecureRandom, SystemRandom}};
+    use ring::{
+        pbkdf2,
+        rand::{SecureRandom, SystemRandom},
+    };
 
     const KEY_LENGTH: usize = ring::digest::SHA512_OUTPUT_LEN;
     pub type Key = [u8; KEY_LENGTH];
@@ -141,7 +148,7 @@ pub mod crypto {
         let rng = SystemRandom::new();
         match rng.fill(&mut bytes) {
             Ok(()) => Ok(bytes),
-            Err(_) => Err(anyhow::anyhow!("Random byte generation failed."))
+            Err(_) => Err(anyhow::anyhow!("Random byte generation failed.")),
         }
     }
 
@@ -150,12 +157,11 @@ pub mod crypto {
         for byte in *key {
             write!(s, "{:02X}", byte)?;
         }
-    
+
         Ok(s)
     }
 
     pub fn to_hex_string_unsized(data: &[u8]) -> anyhow::Result<String> {
-
         let key = &<[u8; 64]>::try_from(data)
             .map_err(|_| anyhow::anyhow!("Failed to convert Vec to Key."))?;
         to_hex_string(key)
@@ -165,7 +171,7 @@ pub mod crypto {
         let err = Err(anyhow::anyhow!("Failed to decode hex."));
         match ring::test::from_hex(string) {
             Ok(v) => Ok(v.try_into().or(err)?),
-            Err(_) => err
+            Err(_) => err,
         }
     }
 
@@ -181,7 +187,7 @@ pub mod crypto {
             NonZeroU32::new(ITERATIONS).unwrap(),
             salt,
             password.as_bytes(),
-            &mut hashed
+            &mut hashed,
         );
 
         hashed
@@ -193,14 +199,14 @@ pub mod crypto {
             NonZeroU32::new(ITERATIONS).unwrap(),
             salt,
             provided.as_bytes(),
-            hashed_password
-        ).is_ok()
+            hashed_password,
+        )
+        .is_ok()
     }
 }
 
-
 pub mod models {
-    use sqlx::{SqlitePool, FromRow};
+    use sqlx::{FromRow, SqlitePool};
 
     #[derive(FromRow)]
     pub struct User {
@@ -209,13 +215,13 @@ pub mod models {
         pub salt: String,
         pub hashed_password: String,
         pub recovery_key: String,
-        pub created_time: i64
+        pub created_time: i64,
     }
 
     impl User {
         pub async fn get(pool: &SqlitePool, username: &str) -> anyhow::Result<Option<User>> {
             let user = sqlx::query_as("SELECT * FROM users WHERE username = ?1;")
-                .bind(username)    
+                .bind(username)
                 .fetch_optional(pool)
                 .await?;
             Ok(user)
@@ -248,15 +254,18 @@ pub mod models {
         pub session_key: String,
         pub active: bool,
         pub start_time: i64,
-        pub end_time: Option<i64>
+        pub end_time: Option<i64>,
     }
 
     impl UserSession {
-        pub async fn get(pool: &SqlitePool, session_key: &str) -> anyhow::Result<Option<UserSession>> {
+        pub async fn get(
+            pool: &SqlitePool,
+            session_key: &str,
+        ) -> anyhow::Result<Option<UserSession>> {
             let user_sesion = sqlx::query_as("SELECT * FROM user_sessions WHERE session_key = ?1;")
-            .bind(session_key)
-            .fetch_optional(pool)
-            .await?;
+                .bind(session_key)
+                .fetch_optional(pool)
+                .await?;
             Ok(user_sesion)
         }
 
