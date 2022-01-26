@@ -44,12 +44,18 @@ impl Rect {
         self.w = self.w.round();
         self.h = self.h.round();
     
-        if self.w < 1.0 {
+        if self.w > 0.0 && self.w < 1.0 {
             self.w = 1.0;
         }
+        else if self.w < 0.0 && self.w > -1.0 {
+            self.w = -1.0;
+        }
 
-        if self.h < 1.0 {
+        if self.h > 0.0 && self.h < 1.0 {
             self.h = 1.0;
+        }
+        else if self.h < 0.0 && self.h > -1.0 {
+            self.h = -1.0;
         }
     }
 
@@ -93,7 +99,7 @@ pub struct Sprite {
 
 impl Sprite {
     // Distance in scene units from which anchor points (corners, edges) of the sprite can be dragged.
-    const ANCHOR_RADIUS: f32 = 10.0;
+    const ANCHOR_RADIUS: f32 = 0.2;
 
     pub fn new(tex: Texture) -> Sprite {
         static SPRITE_ID: AtomicU32 = AtomicU32::new(1);
@@ -184,8 +190,8 @@ impl Sprite {
 
 #[derive(Clone, Copy)]
 pub struct ScenePoint {
-    x: f32,
-    y: f32
+    pub x: f32,
+    pub y: f32
 }
 
 impl ScenePoint {

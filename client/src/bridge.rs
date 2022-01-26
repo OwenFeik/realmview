@@ -457,7 +457,7 @@ pub enum EventType {
     MouseUp,
     MouseLeave,
     MouseMove,
-    MouseWheel(f32, f32, f32),
+    MouseWheel(f32),
 }
 
 
@@ -479,7 +479,9 @@ impl MouseEvent {
             "mouseup" => EventType::MouseUp,
             "wheel" => {
                 let event = event.unchecked_ref::<web_sys::WheelEvent>();
-                EventType::MouseWheel(event.delta_x() as f32, event.delta_y() as f32, event.delta_z() as f32)        
+                
+                // Because the app never has scroll bars, the delta is always reported in the y
+                EventType::MouseWheel(event.delta_y() as f32)        
             },
             _ => return None
         };
