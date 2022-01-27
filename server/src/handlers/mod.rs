@@ -121,7 +121,17 @@ pub mod response {
             Some(s) => s,
             None => "",
         };
-        let cookie = format!("{}={}", key, cookie);
+
+        // SameSite=Strict causes the cookie to be sent only on requests from
+        // this website to this website.
+        //
+        // Max-Age=15552000 causes the cookie to be retained for up to 6 months
+        // unless cleared (manually or by logging out).
+        let cookie = format!(
+            "{}={}; SameSite=Strict; Max-Age=15552000;",
+            key,
+            cookie
+        );
 
         Ok(warp::reply::with_header(
             as_reply(&body, status),

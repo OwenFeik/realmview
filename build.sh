@@ -38,7 +38,7 @@ if [ ! -d "$content/pkg" ]; then
 fi
 
 # Start server
-echo "serving $content at http://localhost:3030/static/"
+echo "serving $content at http://localhost:3030/"
 RUST_BACKTRACE=1 \
     DATABASE_URL="$data/database.db" \
     "$dir/target/debug/server" "$content"

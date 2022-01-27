@@ -15,7 +15,31 @@ function form_to_json(form) {
     return JSON.stringify(data);
 }
 
-function post_form_json(form, route) {
+function field_error(form, field_name, message) {
+    let input = form.querySelector("#" + field_name);
+    input.setCustomValidity(message);
+
+    let feedback = form.querySelector(`[data-feedback-for="${field_name}"]`);
+    let feedback_text;
+    if (feedback) {
+        feedback_text = feedback.innerText;
+        feedback.innerText = message;
+    }
+
+    const listener = () => {
+        input.setCustomValidity("");
+    
+        if (feedback) {
+            feedback.innerText = feedback_text;
+        }
+
+        input.removeEventListener("input", listener);
+    };
+
+    input.addEventListener("input", listener);
+}
+
+function post_form_json(form) {
     let req = new XMLHttpRequest();
 
     req.onerror = () => {
@@ -25,12 +49,10 @@ function post_form_json(form, route) {
 
     req.onload = () => {
         if (req.response.success) {
-            alert("Registered!");
+            window.location = form.getAttribute("data-redirect");
         }
         else if (req.response.problem_field) {
-            let input = form.querySelector("#" + req.response.problem_field);
-            input.setCustomValidity(req.response.message);
-            input.oninput = () => input.setCustomValidity("");
+            field_error(form, req.response.problem_field, req.response.message);
         }
         else {
             form.querySelector("#error_message")
@@ -39,7 +61,7 @@ function post_form_json(form, route) {
     }
 
     req.responseType = "json";
-    req.open("POST", route);
+    req.open("POST", form.action);
     req.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
     req.send(form_to_json(form));
 }
