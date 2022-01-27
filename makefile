@@ -1,7 +1,7 @@
 build := build
 content := ${build}/content
 
-serve: server client
+serve: server content
 	echo "Serving at http://localhost:3030/"
 	RUST_BACKTRACE=1 \
 		DATBASE_URL=${build}/database.db \
