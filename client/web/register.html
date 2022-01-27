@@ -19,13 +19,13 @@
           <label for="username" class="form-label">Username</label>
           <input type="text" class="form-control" id="username" aria-describedby="username_help" required="" minlength="4" maxlength="32">
           <div id="username_help" class="form-text">Your username must be 4-32 alphanumeric characters.</div>
-          <div class="invalid-feedback">Please choose a valid username.</div>
+          <div class="invalid-feedback" data-feedback-for="username">Please choose a valid username.</div>
         </div>
         <div class="mb-3">
           <label for="password" class="form-label">Password</label>
           <input type="password" class="form-control" id="password" aria-describedby="password_help" required="" minlength="8" maxlength="256">
           <div id="password_help" class="form-text">Your password must be 8 or more characters, including at least one number and one letter.</div>
-          <div class="invalid-feedback">Please choose a valid password.</div>
+          <div class="invalid-feedback" data-feedback-for="password">Please choose a valid password.</div>
         </div>
         <div class="mb-3">
           <label for="confirm_password" class="form-label">Confirm Password</label>
@@ -34,7 +34,7 @@
           <div class="invalid-feedback">Please type you password again.</div>
         </div>
         <button onclick="submit_form(this.parentNode);" class="btn btn-primary">Submit</button>
-        <div id="error_message" class="form-text danger"></div>
+        <div id="error_message" class="form-text text-danger"></div>
       </form>
     </div>
   </body>
