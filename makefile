@@ -1,26 +1,26 @@
-build := build
+build := $(shell pwd)/build
 content := ${build}/content
 
 serve: server content
 	echo "Serving at http://localhost:3030/"
 	RUST_BACKTRACE=1 \
-		DATBASE_URL=${build}/database.db \
+		DATABASE_URL=${build}/database.db \
 		${build}/server ${content}
 
 server: content database
 	cargo build -p server
-	ln -sf target/debug/server ${build}/server
+	cp target/debug/server ${build}/server
 
 content: build-dir
 	mkdir -p ${content}
-	wasm-pack build client/ --out-dir ${content}/pkg
+	wasm-pack build client/ --out-dir ${content}/pkg --target web
 	cp client/web/* ${content}/
 
 database: build-dir
 	if \
 		[ ! -f ${build}/schema.sql ] \
-		|| [! -f ${build}/database.db ] \
-		|| ! cmp -q server/schema.sql ${build}/schema.sql; \
+		|| [ ! -f ${build}/database.db ] \
+		|| ! cmp -s server/schema.sql ${build}/schema.sql; \
 	then \
 		rm -f ${build}/database.db; \
 		cp server/schema.sql ${build}/schema.sql; \
