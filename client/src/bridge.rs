@@ -31,6 +31,9 @@ extern "C" {
 
     #[wasm_bindgen(js_namespace = console, js_name = log)]
     pub fn log_arr(a: Float32Array);
+
+    #[wasm_bindgen(js_namespace = console, js_name = log)]
+    pub fn log_image(i: &HtmlImageElement);
 }
 
 pub type Gl = WebGl2RenderingContext;
@@ -402,7 +405,8 @@ impl Context {
 
             // Cast the img to a HTMLImageElement; this array will only contain such elements, so this cast is safe.
             let img = img.unchecked_ref::<HtmlImageElement>();
-            sprites.push(Sprite::new(self.renderer.load_image(img)));            
+            img.set_attribute("data-id", "1").ok();
+            sprites.push(Sprite::new(self.renderer.load_image(img)));
         }
 
         Some(sprites)

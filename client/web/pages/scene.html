@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+    <head>
+        {{ head_common.html }}
+        <meta charset="utf-8">
+        <title>Scene</title>
+    </head>
+    <body style="margin: 0; overflow: hidden;">
+        <script type="module">
+            import init from "./pkg/client.js";
+            init();
+        </script>
+        <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvas_left" aria-labelledby="offcanvas_left_label">
+            <div class="offcanvas-header">
+                <h5 class="offcanvas-title" id="offcanvas_left_label">Sprites</h5>
+                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+        </div>
+    </body>
+</html>

@@ -1,9 +1,11 @@
-use std::rc::Rc;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use js_sys::Float32Array;
 use wasm_bindgen::{closure::Closure, JsCast};
-use web_sys::{HtmlImageElement, WebGlBuffer, WebGlProgram, WebGlShader, WebGlTexture, WebGlUniformLocation};
+use web_sys::{
+    HtmlImageElement, WebGlBuffer, WebGlProgram, WebGlShader, WebGlTexture, WebGlUniformLocation,
+};
 
 use crate::bridge::{Gl, JsError};
 use crate::scene::Rect;
@@ -153,13 +155,16 @@ impl Texture {
 
 struct TextureManager {
     gl: Rc<Gl>,
-    textures: HashMap<u32, Texture>
+    textures: HashMap<u32, Texture>,
 }
 
 impl TextureManager {
     fn new(gl: Rc<Gl>) -> Result<TextureManager, JsError> {
-        let missing_texture = Texture::from_u8_array(&gl, 1, 1, &[0, 0, 255, 255])?; 
-        let mut tm = TextureManager { gl, textures: HashMap::new() };
+        let missing_texture = Texture::from_u8_array(&gl, 1, 1, &[0, 0, 255, 255])?;
+        let mut tm = TextureManager {
+            gl,
+            textures: HashMap::new(),
+        };
         tm.add_texture(0, missing_texture);
         Ok(tm)
     }
@@ -167,13 +172,13 @@ impl TextureManager {
     fn load_image(&mut self, image: &HtmlImageElement) -> u32 {
         let id = match image.get_attribute("data-id") {
             Some(s) => s.parse::<u32>().unwrap_or(0),
-            None => 0
+            None => 0,
         };
-        
+
         if id != 0 {
             match Texture::from_html_image(&self.gl, &image) {
                 Ok(t) => self.textures.insert(id, t),
-                Err(_) => return 0
+                Err(_) => return 0,
             };
         }
 
@@ -188,8 +193,7 @@ impl TextureManager {
     fn get_texture(&self, id: u32) -> &WebGlTexture {
         if let Some(tex) = self.textures.get(&id) {
             &tex.texture
-        }
-        else {
+        } else {
             // This unwrap is safe because we always add a missing texture
             // texture as id 0 in the constructor.
             &self.textures.get(&0).unwrap().texture
@@ -243,7 +247,8 @@ impl TextureRenderer {
         let position_location = gl.get_attrib_location(&program, "a_position") as u32;
         let texcoord_location = gl.get_attrib_location(&program, "a_texcoord") as u32;
 
-        // Just a square. A 4x4 matrix is used to transform this to the appropriate dimensions when rendering textures.
+        // Just a square. A 4x4 matrix is used to transform this to the
+        // appropriate dimensions when rendering textures.
         let coords = Float32Array::new_with_length(12);
         coords.copy_from(&[0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0]);
         let position_buffer = create_buffer(&gl, Some(&coords))?;
@@ -524,7 +529,11 @@ impl Renderer {
     }
 
     pub fn draw_texture(&self, vp: Rect, texture: u32, position: Rect) {
-        self.texture_renderer.draw_texture(vp, &self.texture_library.get_texture(texture), position);
+        self.texture_renderer.draw_texture(
+            vp,
+            &self.texture_library.get_texture(texture),
+            position,
+        );
     }
 
     pub fn draw_outline(&mut self, vp: Rect, outline: Rect) {

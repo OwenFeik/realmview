@@ -100,7 +100,8 @@ pub struct Sprite {
 }
 
 impl Sprite {
-    // Distance in scene units from which anchor points (corners, edges) of the sprite can be dragged.
+    // Distance in scene units from which anchor points (corners, edges) of the
+    // sprite can be dragged.
     const ANCHOR_RADIUS: f32 = 0.2;
 
     pub fn new(texture: u32) -> Sprite {
@@ -263,8 +264,9 @@ impl Scene {
         self.sprites.append(sprites);
     }
 
-    // Because sprites are added as they are created, they are in the vector ordered by id. Thus they can be binary
-    // searched to improve lookup speed to O(log n)
+    // Because sprites are added as they are created, they are in the vector
+    // ordered by id. Thus they can be binary searched to improve lookup speed
+    // to O(log n)
     fn bsearch_sprite(&mut self, id: u32, lo: usize, hi: usize) -> Option<&mut Sprite> {
         if lo == hi {
             return None;
@@ -273,8 +275,8 @@ impl Scene {
         let m = (lo + hi) / 2;
         match self.sprites.get(m) {
             Some(s) if s.id == id => self.sprites.get_mut(m),
-            Some(s) if s.id > id => self.bsearch_sprite(id, m, hi),
-            Some(s) if s.id < id => self.bsearch_sprite(id, lo, m),
+            Some(s) if s.id < id => self.bsearch_sprite(id, m, hi),
+            Some(s) if s.id > id => self.bsearch_sprite(id, lo, m),
             _ => None,
         }
     }

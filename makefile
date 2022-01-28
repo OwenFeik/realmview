@@ -14,7 +14,7 @@ server: content database
 content: build-dir
 	mkdir -p ${content}
 	wasm-pack build client/ --out-dir ${content}/pkg --target web
-	cp client/web/* ${content}/
+	python3 client/web/build.py ${content}/
 
 database: build-dir
 	if \
