@@ -1,8 +1,6 @@
 use std::ops::{Add, Sub};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use crate::bridge::Texture;
-
 #[derive(Clone, Copy, PartialEq)]
 pub struct Rect {
     pub x: f32,
@@ -92,8 +90,10 @@ impl Rect {
 }
 
 pub struct Sprite {
-    pub tex: Texture,
     pub rect: Rect,
+
+    // id pointing to the texture associated with this Sprite
+    pub texture: u32,
 
     // Unique numeric ID, numbered from 1
     id: u32,
@@ -103,18 +103,14 @@ impl Sprite {
     // Distance in scene units from which anchor points (corners, edges) of the sprite can be dragged.
     const ANCHOR_RADIUS: f32 = 0.2;
 
-    pub fn new(tex: Texture) -> Sprite {
+    pub fn new(texture: u32) -> Sprite {
         static SPRITE_ID: AtomicU32 = AtomicU32::new(1);
 
         Sprite {
-            tex,
+            texture,
             rect: Rect::new(0.0, 0.0, 1.0, 1.0),
             id: SPRITE_ID.fetch_add(1, Ordering::Relaxed),
         }
-    }
-
-    pub fn texture(&self) -> &web_sys::WebGlTexture {
-        &self.tex.texture
     }
 
     fn set_pos(&mut self, ScenePoint { x, y }: ScenePoint) {

@@ -1,14 +1,203 @@
 use std::rc::Rc;
+use std::collections::HashMap;
 
 use js_sys::Float32Array;
-use web_sys::{WebGlBuffer, WebGlProgram, WebGlShader, WebGlTexture, WebGlUniformLocation};
+use wasm_bindgen::{closure::Closure, JsCast};
+use web_sys::{HtmlImageElement, WebGlBuffer, WebGlProgram, WebGlShader, WebGlTexture, WebGlUniformLocation};
 
 use crate::bridge::{Gl, JsError};
 use crate::scene::Rect;
 
 type Colour = [f32; 4];
 
-pub struct TextureRenderer {
+// 0 is the default and what is used here
+const GL_TEXTURE_DETAIL_LEVEL: i32 = 0;
+
+// Required to be 0 for textures
+const GL_TEXTURE_BORDER_WIDTH: i32 = 0;
+
+struct Texture {
+    pub width: u32,
+    pub height: u32,
+    pub texture: WebGlTexture,
+}
+
+impl Texture {
+    fn new(gl: &Gl) -> Result<Texture, JsError> {
+        Ok(Texture {
+            width: 0,
+            height: 0,
+            texture: Texture::create_gl_texture(gl)?,
+        })
+    }
+
+    fn gen_mipmap(&self, gl: &Gl) {
+        gl.bind_texture(Gl::TEXTURE_2D, Some(&self.texture));
+        gl.tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_WRAP_S, Gl::CLAMP_TO_EDGE as i32);
+        gl.tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_WRAP_T, Gl::CLAMP_TO_EDGE as i32);
+        gl.tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MIN_FILTER, Gl::LINEAR as i32);
+    }
+
+    fn create_gl_texture(gl: &Gl) -> Result<WebGlTexture, JsError> {
+        match gl.create_texture() {
+            Some(t) => Ok(t),
+            None => return Err(JsError::ResourceError("Unable to create texture.")),
+        }
+    }
+
+    fn load_u8_array(
+        &mut self,
+        gl: &Gl,
+        width: u32,
+        height: u32,
+        data: &[u8],
+    ) -> Result<(), JsError> {
+        gl.bind_texture(Gl::TEXTURE_2D, Some(&self.texture));
+
+        if let Err(_) = gl
+            .tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
+                Gl::TEXTURE_2D,
+                GL_TEXTURE_DETAIL_LEVEL,
+                Gl::RGBA as i32,
+                width as i32,
+                height as i32,
+                GL_TEXTURE_BORDER_WIDTH,
+                Gl::RGBA,
+                Gl::UNSIGNED_BYTE, // u8
+                Some(data),
+            )
+        {
+            return Err(JsError::ResourceError("Unable to load array."));
+        }
+
+        self.gen_mipmap(gl);
+
+        self.width = width;
+        self.height = height;
+
+        Ok(())
+    }
+
+    fn from_u8_array(gl: &Gl, width: u32, height: u32, data: &[u8]) -> Result<Texture, JsError> {
+        let mut texture = Texture::new(gl)?;
+        texture.load_u8_array(gl, width, height, data)?;
+        Ok(texture)
+    }
+
+    fn from_html_image(gl: &Gl, image: &HtmlImageElement) -> Result<Texture, JsError> {
+        let mut texture = Texture::new(gl)?;
+        texture.load_html_image(gl, image)?;
+
+        Ok(texture)
+    }
+
+    fn load_html_image(&mut self, gl: &Gl, image: &HtmlImageElement) -> Result<(), JsError> {
+        Texture::load_html_image_gl_texture(gl, image, &self.texture)?;
+        self.width = image.natural_width();
+        self.height = image.natural_height();
+        self.gen_mipmap(gl);
+
+        Ok(())
+    }
+
+    fn load_html_image_gl_texture(
+        gl: &Gl,
+        image: &HtmlImageElement,
+        texture: &WebGlTexture,
+    ) -> Result<(), JsError> {
+        gl.bind_texture(Gl::TEXTURE_2D, Some(texture));
+
+        if let Err(_) = gl.tex_image_2d_with_u32_and_u32_and_html_image_element(
+            Gl::TEXTURE_2D,
+            GL_TEXTURE_DETAIL_LEVEL,
+            Gl::RGBA as i32,
+            Gl::RGBA,
+            Gl::UNSIGNED_BYTE,
+            image,
+        ) {
+            return Err(JsError::ResourceError("Failed to create WebGL image."));
+        }
+
+        Ok(())
+    }
+
+    fn from_url(
+        gl: &Gl,
+        url: &str,
+        callback: Box<dyn Fn(Result<Texture, JsError>)>,
+    ) -> Result<(), JsError> {
+        // Create HTML image to load image from url
+        let image = match HtmlImageElement::new() {
+            Ok(i) => Rc::new(i),
+            Err(_) => return Err(JsError::ResourceError("Unable to create image element.")),
+        };
+        image.set_cross_origin(Some("")); // ?
+
+        // Set callback to update texture once image is loaded
+        {
+            let gl = Rc::new(gl.clone());
+            let image_ref = image.clone();
+            let closure = Closure::wrap(Box::new(move || {
+                callback(Texture::from_html_image(&gl, &image_ref));
+            }) as Box<dyn FnMut()>);
+            image.set_onload(Some(closure.as_ref().unchecked_ref()));
+            closure.forget();
+        }
+
+        // Load image
+        image.set_src(url);
+
+        Ok(())
+    }
+}
+
+struct TextureManager {
+    gl: Rc<Gl>,
+    textures: HashMap<u32, Texture>
+}
+
+impl TextureManager {
+    fn new(gl: Rc<Gl>) -> Result<TextureManager, JsError> {
+        let missing_texture = Texture::from_u8_array(&gl, 1, 1, &[0, 0, 255, 255])?; 
+        let mut tm = TextureManager { gl, textures: HashMap::new() };
+        tm.add_texture(0, missing_texture);
+        Ok(tm)
+    }
+
+    fn load_image(&mut self, image: &HtmlImageElement) -> u32 {
+        let id = match image.get_attribute("data-id") {
+            Some(s) => s.parse::<u32>().unwrap_or(0),
+            None => 0
+        };
+        
+        if id != 0 {
+            match Texture::from_html_image(&self.gl, &image) {
+                Ok(t) => self.textures.insert(id, t),
+                Err(_) => return 0
+            };
+        }
+
+        id
+    }
+
+    // NB will overwrite existing texture of this id
+    fn add_texture(&mut self, id: u32, texture: Texture) {
+        self.textures.insert(id, texture);
+    }
+
+    fn get_texture(&self, id: u32) -> &WebGlTexture {
+        if let Some(tex) = self.textures.get(&id) {
+            &tex.texture
+        }
+        else {
+            // This unwrap is safe because we always add a missing texture
+            // texture as id 0 in the constructor.
+            &self.textures.get(&0).unwrap().texture
+        }
+    }
+}
+
+struct TextureRenderer {
     gl: Rc<Gl>,
     program: WebGlProgram,
     position_buffer: WebGlBuffer,
@@ -303,6 +492,9 @@ impl GridRenderer {
 }
 
 pub struct Renderer {
+    // Loads and stores references to textures
+    texture_library: TextureManager,
+
     // Rendering program, used to draw sprites.
     texture_renderer: TextureRenderer,
 
@@ -316,6 +508,7 @@ pub struct Renderer {
 impl Renderer {
     pub fn new(gl: Rc<Gl>) -> Result<Renderer, JsError> {
         Ok(Renderer {
+            texture_library: TextureManager::new(gl.clone())?,
             texture_renderer: TextureRenderer::new(gl.clone())?,
             line_renderer: LineRenderer::new(gl.clone())?,
             grid_renderer: GridRenderer::new(gl)?,
@@ -326,8 +519,12 @@ impl Renderer {
         self.grid_renderer.render_grid(vp, grid_size);
     }
 
-    pub fn draw_texture(&self, vp: Rect, texture: &WebGlTexture, position: Rect) {
-        self.texture_renderer.draw_texture(vp, texture, position);
+    pub fn load_image(&mut self, image: &HtmlImageElement) -> u32 {
+        self.texture_library.load_image(image)
+    }
+
+    pub fn draw_texture(&self, vp: Rect, texture: u32, position: Rect) {
+        self.texture_renderer.draw_texture(vp, &self.texture_library.get_texture(texture), position);
     }
 
     pub fn draw_outline(&mut self, vp: Rect, outline: Rect) {
