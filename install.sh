@@ -1,1 +1,0 @@
-cargo install wasm-pack

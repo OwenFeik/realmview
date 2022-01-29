@@ -11,10 +11,8 @@ server: content database
 	cargo build -p server
 	cp target/debug/server ${build}/server
 
-content: build-dir
-	mkdir -p ${content}
+content: html
 	wasm-pack build client/ --out-dir ${content}/pkg --target web
-	python3 client/web/build.py ${content}/
 
 database: build-dir
 	if \
@@ -27,5 +25,20 @@ database: build-dir
 		sqlite3 ${build}/database.db < ${build}/schema.sql; \
 	fi
 
+html: content-dir
+	python3 client/web/build.py ${content}/
+
+content-dir: build-dir
+	mkdir -p ${content}
+
 build-dir:
 	mkdir -p ${build}
+
+lint:
+	cargo fmt
+	python3 -m black client/web/build.py
+	python3 -m mypy client/web/build.py
+
+install:
+	cargo install wasm-pack
+	python3 -m pip install -r client/web/requirements.txt
