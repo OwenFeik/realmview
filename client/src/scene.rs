@@ -24,7 +24,7 @@ impl Rect {
     }
 
     pub fn scaled_from(from: Rect, factor: f32) -> Rect {
-        let mut rect = from.clone();
+        let mut rect = from;
         rect.scale(factor);
         rect
     }
@@ -64,19 +64,21 @@ impl Rect {
         // Rects are supported. To that end a different treatment is required for checking if a point is contained.
         // Hence the special cases for negative width and height.
 
-        let in_x;
-        if self.w < 0.0 {
-            in_x = self.x + self.w <= point.x && point.x <= self.x;
-        } else {
-            in_x = self.x <= point.x && point.x <= self.x + self.w;
-        }
+        let in_x = {
+            if self.w < 0.0 {
+                self.x + self.w <= point.x && point.x <= self.x
+            } else {
+                self.x <= point.x && point.x <= self.x + self.w
+            }
+        };
 
-        let in_y;
-        if self.h < 0.0 {
-            in_y = self.y + self.h <= point.y && point.y <= self.y;
-        } else {
-            in_y = self.y <= point.y && point.y <= self.y + self.h;
-        }
+        let in_y = {
+            if self.h < 0.0 {
+                self.y + self.h <= point.y && point.y <= self.y
+            } else {
+                self.y <= point.y && point.y <= self.y + self.h
+            }
+        };
 
         in_x && in_y
     }
@@ -153,7 +155,7 @@ impl Sprite {
     }
 
     fn grab(&mut self, at: ScenePoint) -> HeldObject {
-        self.grab_anchor(at).unwrap_or_else(|| {
+        self.grab_anchor(at).unwrap_or({
             HeldObject::Sprite(
                 self.id,
                 ScenePoint {
@@ -196,8 +198,8 @@ impl Sprite {
 
                 self.rect = Rect { x, y, w, h }
             }
-            _ => return, // Other types aren't sprite-related
-        };
+            _ => (), // Other types aren't sprite-related
+        }
     }
 }
 

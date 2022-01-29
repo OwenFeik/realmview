@@ -36,6 +36,7 @@ build-dir:
 
 lint:
 	cargo fmt
+	cargo clippy
 	python3 -m black client/web/build.py
 	python3 -m mypy client/web/build.py
 

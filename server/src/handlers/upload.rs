@@ -33,8 +33,8 @@ impl UploadResponse {
     }
 }
 
-fn hash_file(raw: &Vec<u8>) -> anyhow::Result<String> {
-    to_hex_string_unsized(digest::digest(&digest::SHA512, raw.as_ref()).as_ref())
+fn hash_file(raw: &[u8]) -> anyhow::Result<String> {
+    to_hex_string_unsized(digest::digest(&digest::SHA512, raw).as_ref())
 }
 
 async fn file_exists(pool: &SqlitePool, hash: &str) -> anyhow::Result<Option<String>> {
@@ -141,14 +141,16 @@ async fn upload(
             Err(_) => return Binary::result_error("File name generation failed."),
         };
 
-        if let Err(_) = tokio::fs::create_dir_all(user.upload_dir(&content_dir)).await {
+        if tokio::fs::create_dir_all(user.upload_dir(&content_dir))
+            .await
+            .is_err()
+        {
             return Binary::result_error("Failed to create upload dir.");
         }
 
         let real_path = format!("{}/{}", content_dir, &relative_path);
-        match tokio::fs::write(&real_path, data).await {
-            Err(_) => return Binary::result_error("Failed to write file."),
-            _ => (),
+        if tokio::fs::write(&real_path, data).await.is_err() {
+            return Binary::result_error("Failed to write file.");
         };
 
         return match sqlx::query(

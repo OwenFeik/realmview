@@ -15,7 +15,7 @@ impl ViewportPoint {
         }
     }
 
-    fn to_scene(&self, viewport: Rect, grid_zoom: f32) -> ScenePoint {
+    fn scene_point(&self, viewport: Rect, grid_zoom: f32) -> ScenePoint {
         ScenePoint::new(
             (self.x / grid_zoom) + viewport.x,
             (self.y / grid_zoom) + viewport.y,
@@ -78,7 +78,10 @@ impl Viewport {
     }
 
     fn handle_mouse_down(&mut self, at: ViewportPoint) {
-        if !self.scene.grab(at.to_scene(self.viewport, self.grid_zoom)) {
+        if !self
+            .scene
+            .grab(at.scene_point(self.viewport, self.grid_zoom))
+        {
             self.grabbed_at = Some(at)
         }
     }
@@ -94,17 +97,17 @@ impl Viewport {
     fn handle_mouse_move(&mut self, at: ViewportPoint) {
         if self
             .scene
-            .update_held_pos(at.to_scene(self.viewport, self.grid_zoom))
+            .update_held_pos(at.scene_point(self.viewport, self.grid_zoom))
         {
             self.redraw_needed = true;
         }
 
-        self.grabbed_at.map(|ViewportPoint { x, y }| {
+        if let Some(ViewportPoint { x, y }) = self.grabbed_at {
             self.viewport.x += (x - at.x) / self.grid_zoom;
             self.viewport.y += (y - at.y) / self.grid_zoom;
             self.grabbed_at = Some(at);
             self.redraw_needed = true;
-        });
+        }
     }
 
     fn handle_scroll(&mut self, at: ViewportPoint, delta: f32, shift: bool, ctrl: bool) {
@@ -120,7 +123,7 @@ impl Viewport {
             self.viewport.x += SCROLL_COEFFICIENT * delta / self.grid_zoom;
         } else if ctrl {
             // Need to calculate these before changing the zoom level
-            let scene_point = at.to_scene(self.viewport, self.grid_zoom);
+            let scene_point = at.scene_point(self.viewport, self.grid_zoom);
             let fraction_x = at.x / (self.viewport.w * self.grid_zoom);
             let fraction_y = at.y / (self.viewport.h * self.grid_zoom);
 
@@ -163,12 +166,9 @@ impl Viewport {
         // loaded image within a frame of it's appearing, and more likely that they instead clicked something that is
         // now behind a newly loaded image.
         self.process_events();
-        match self.context.load_queue() {
-            Some(mut new_sprites) => {
-                self.scene.add_sprites(&mut new_sprites);
-                self.redraw_needed = true;
-            }
-            None => (),
+        if let Some(mut new_sprites) = self.context.load_queue() {
+            self.scene.add_sprites(&mut new_sprites);
+            self.redraw_needed = true;
         };
 
         if self.redraw_needed || self.update_viewport() {

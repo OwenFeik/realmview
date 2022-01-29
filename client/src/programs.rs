@@ -43,7 +43,7 @@ impl Texture {
     fn create_gl_texture(gl: &Gl) -> Result<WebGlTexture, JsError> {
         match gl.create_texture() {
             Some(t) => Ok(t),
-            None => return Err(JsError::ResourceError("Unable to create texture.")),
+            None => Err(JsError::ResourceError("Unable to create texture.")),
         }
     }
 
@@ -56,7 +56,7 @@ impl Texture {
     ) -> Result<(), JsError> {
         gl.bind_texture(Gl::TEXTURE_2D, Some(&self.texture));
 
-        if let Err(_) = gl
+        if gl
             .tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
                 Gl::TEXTURE_2D,
                 GL_TEXTURE_DETAIL_LEVEL,
@@ -68,6 +68,7 @@ impl Texture {
                 Gl::UNSIGNED_BYTE, // u8
                 Some(data),
             )
+            .is_err()
         {
             return Err(JsError::ResourceError("Unable to load array."));
         }
@@ -109,14 +110,17 @@ impl Texture {
     ) -> Result<(), JsError> {
         gl.bind_texture(Gl::TEXTURE_2D, Some(texture));
 
-        if let Err(_) = gl.tex_image_2d_with_u32_and_u32_and_html_image_element(
-            Gl::TEXTURE_2D,
-            GL_TEXTURE_DETAIL_LEVEL,
-            Gl::RGBA as i32,
-            Gl::RGBA,
-            Gl::UNSIGNED_BYTE,
-            image,
-        ) {
+        if gl
+            .tex_image_2d_with_u32_and_u32_and_html_image_element(
+                Gl::TEXTURE_2D,
+                GL_TEXTURE_DETAIL_LEVEL,
+                Gl::RGBA as i32,
+                Gl::RGBA,
+                Gl::UNSIGNED_BYTE,
+                image,
+            )
+            .is_err()
+        {
             return Err(JsError::ResourceError("Failed to create WebGL image."));
         }
 
@@ -176,7 +180,7 @@ impl TextureManager {
         };
 
         if id != 0 {
-            match Texture::from_html_image(&self.gl, &image) {
+            match Texture::from_html_image(&self.gl, image) {
                 Ok(t) => self.textures.insert(id, t),
                 Err(_) => return 0,
             };
@@ -373,8 +377,8 @@ impl LineRenderer {
         self.load_points(points);
     }
 
-    fn load_points(&mut self, points: &Vec<f32>) {
-        let positions = Float32Array::from(&points[..]);
+    fn load_points(&mut self, points: &[f32]) {
+        let positions = Float32Array::from(points);
 
         self.gl
             .bind_buffer(Gl::ARRAY_BUFFER, Some(&self.position_buffer));
@@ -478,7 +482,7 @@ impl GridRenderer {
 
         verticals.append(&mut horizontals);
         self.line_renderer.load_points(&verticals);
-        self.current_grid_rect = Some(vp.clone());
+        self.current_grid_rect = Some(vp);
         self.current_grid_size = Some(grid_size);
         self.current_line_count = Some(verticals.len() as i32 / 2);
     }
@@ -529,11 +533,8 @@ impl Renderer {
     }
 
     pub fn draw_texture(&self, vp: Rect, texture: u32, position: Rect) {
-        self.texture_renderer.draw_texture(
-            vp,
-            &self.texture_library.get_texture(texture),
-            position,
-        );
+        self.texture_renderer
+            .draw_texture(vp, self.texture_library.get_texture(texture), position);
     }
 
     pub fn draw_outline(&mut self, vp: Rect, outline: Rect) {
@@ -589,8 +590,8 @@ fn create_program(gl: &Gl, vert: &str, frag: &str) -> Result<WebGlProgram, JsErr
         None => return Err(JsError::ResourceError("WebGL program creation failed.")),
     };
 
-    gl.attach_shader(&program, &create_shader(&gl, vert, Gl::VERTEX_SHADER)?);
-    gl.attach_shader(&program, &create_shader(&gl, frag, Gl::FRAGMENT_SHADER)?);
+    gl.attach_shader(&program, &create_shader(gl, vert, Gl::VERTEX_SHADER)?);
+    gl.attach_shader(&program, &create_shader(gl, frag, Gl::FRAGMENT_SHADER)?);
 
     gl.link_program(&program);
 
@@ -648,24 +649,24 @@ fn m4_orthographic(l: f32, r: f32, b: f32, t: f32, n: f32, f: f32) -> [f32; 16] 
 // Translates matrix m by tx units in the x direction and likewise for ty and tz.
 // NB: in place
 fn m4_translate(m: &mut [f32; 16], tx: f32, ty: f32, tz: f32) {
-    m[12] = m[0] * tx + m[4] * ty + m[8] * tz + m[12];
-    m[13] = m[1] * tx + m[5] * ty + m[9] * tz + m[13];
-    m[14] = m[2] * tx + m[6] * ty + m[10] * tz + m[14];
-    m[15] = m[3] * tx + m[7] * ty + m[11] * tz + m[15];
+    m[12] += m[0] * tx + m[4] * ty + m[8] * tz;
+    m[13] += m[1] * tx + m[5] * ty + m[9] * tz;
+    m[14] += m[2] * tx + m[6] * ty + m[10] * tz;
+    m[15] += m[3] * tx + m[7] * ty + m[11] * tz;
 }
 
 // NB: in place
 fn m4_scale(m: &mut [f32; 16], sx: f32, sy: f32, sz: f32) {
-    m[0] = m[0] * sx;
-    m[1] = m[1] * sx;
-    m[2] = m[2] * sx;
-    m[3] = m[3] * sx;
-    m[4] = m[4] * sy;
-    m[5] = m[5] * sy;
-    m[6] = m[6] * sy;
-    m[7] = m[7] * sy;
-    m[8] = m[8] * sz;
-    m[9] = m[9] * sz;
-    m[10] = m[10] * sz;
-    m[11] = m[11] * sz;
+    m[0] *= sx;
+    m[1] *= sx;
+    m[2] *= sx;
+    m[3] *= sx;
+    m[4] *= sy;
+    m[5] *= sy;
+    m[6] *= sy;
+    m[7] *= sy;
+    m[8] *= sz;
+    m[9] *= sz;
+    m[10] *= sz;
+    m[11] *= sz;
 }

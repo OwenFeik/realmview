@@ -36,8 +36,8 @@ pub fn current_time() -> anyhow::Result<u64> {
 }
 
 fn parse_cookie(cookies: String, goal_key: &str) -> Option<String> {
-    for cookie in cookies.split(";") {
-        let parts = cookie.splitn(2, "=").collect::<Vec<&str>>();
+    for cookie in cookies.split(';') {
+        let parts = cookie.splitn(2, '=').collect::<Vec<&str>>();
         if let Some(key) = parts.get(0) {
             if key.trim() == goal_key {
                 return parts.get(1).map(|s| String::from(s.trim()));
@@ -117,10 +117,7 @@ pub mod response {
         key: &str,
         value: Option<&str>,
     ) -> Result<impl warp::Reply, Infallible> {
-        let cookie = match value {
-            Some(s) => s,
-            None => "",
-        };
+        let cookie = value.unwrap_or("");
 
         // SameSite=Strict causes the cookie to be sent only on requests from
         // this website to this website.

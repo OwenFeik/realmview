@@ -58,13 +58,13 @@ impl RegistrationResponse {
 }
 
 // Usernames are 4-32 alphanumeric characters
-fn valid_username(username: &String) -> bool {
+fn valid_username(username: &str) -> bool {
     username.chars().all(char::is_alphanumeric) && username.len() >= 4 && username.len() <= 32
 }
 
 // Passwords are 8 or more characters with at least one letter and at least one
 // number
-fn valid_password(password: &String) -> bool {
+fn valid_password(password: &str) -> bool {
     password.chars().any(char::is_numeric)
         && password.chars().any(char::is_alphabetic)
         && password.len() >= 8

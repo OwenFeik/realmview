@@ -184,7 +184,7 @@ impl Canvas {
 
             match self
                 .element
-                .add_event_listener_with_callback(event_name, &listener.as_ref().unchecked_ref())
+                .add_event_listener_with_callback(event_name, listener.as_ref().unchecked_ref())
             {
                 Ok(_) => (),
                 Err(_) => {
@@ -204,7 +204,6 @@ impl Canvas {
         let input = Rc::new(create_file_upload()?);
         let result = {
             let c_input = input.clone();
-            let texture_queue = texture_queue.clone();
             let closure = Closure::wrap(Box::new(move |_event: InputEvent| {
                 let file = match c_input.files() {
                     Some(fs) => match fs.get(0) {
@@ -259,18 +258,15 @@ impl Canvas {
                     image.set_src(&src);
                 }) as Box<dyn FnMut(_)>);
 
-                if let Err(_) = file_reader
+                if file_reader
                     .add_event_listener_with_callback("loadend", closure.as_ref().unchecked_ref())
+                    .is_err()
                 {
                     return;
                 }
                 closure.forget();
 
-                if let Err(_) = file_reader.read_as_array_buffer(&file) {
-                    return;
-                }
-
-                ()
+                file_reader.read_as_array_buffer(&file).ok();
             }) as Box<dyn FnMut(_)>);
             let result =
                 input.add_event_listener_with_callback("input", closure.as_ref().unchecked_ref());
@@ -284,7 +280,6 @@ impl Canvas {
         };
 
         {
-            let input = input.clone();
             let closure = Closure::wrap(Box::new(move |_event: web_sys::MouseEvent| {
                 input.click();
             }) as Box<dyn FnMut(_)>);
@@ -389,9 +384,8 @@ impl Context {
         while self.canvas.events.length() > 0 {
             let event = self.canvas.events.pop();
             let event = event.unchecked_ref::<web_sys::MouseEvent>();
-            match MouseEvent::from_web_sys(event) {
-                Some(e) => events.push(e),
-                None => (),
+            if let Some(e) = MouseEvent::from_web_sys(event) {
+                events.push(e);
             };
         }
 
@@ -428,7 +422,7 @@ impl Context {
         self.renderer.render_grid(vp, grid_size);
     }
 
-    pub fn draw_sprites(&self, vp: Rect, sprites: &Vec<Sprite>, grid_size: f32) {
+    pub fn draw_sprites(&self, vp: Rect, sprites: &[Sprite], grid_size: f32) {
         for sprite in sprites.iter() {
             self.renderer.draw_texture(
                 vp,
@@ -500,9 +494,9 @@ fn get_window_dimensions() -> Result<(u32, u32), JsError> {
     match (window.inner_width(), window.inner_height()) {
         (Ok(w), Ok(h)) => match (w.as_f64(), h.as_f64()) {
             (Some(w), Some(h)) => Ok((w as u32, h as u32)),
-            _ => return Err(JsError::TypeError("Window dimensions non-numeric.")),
+            _ => Err(JsError::TypeError("Window dimensions non-numeric.")),
         },
-        _ => return Err(JsError::ResourceError("No Window dimensions.")),
+        _ => Err(JsError::ResourceError("No Window dimensions.")),
     }
 }
 
