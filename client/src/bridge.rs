@@ -93,7 +93,14 @@ impl Canvas {
 
     /// Create a new canvas element and set it up to fill the screen.
     fn new_element() -> Result<Canvas, JsError> {
-        let element = create_appended("canvas")?;
+        let element = {
+            if let Some(e) = get_document()?.get_element_by_id("canvas") {
+                e
+            } else {
+                create_appended("canvas")?
+            }
+        };
+
         let canvas = match element.dyn_into::<HtmlCanvasElement>() {
             Ok(c) => Canvas::new(c)?,
             Err(_) => return Err(JsError::TypeError("Couldn't cast Element to HtmlCanvas.")),

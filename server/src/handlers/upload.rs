@@ -121,8 +121,17 @@ async fn upload(
 
         match file_exists(&pool, &hash).await {
             Err(_) => return Binary::result_error("Database error checking for duplicate."),
-            Ok(Some(title)) => {
-                return Binary::result_failure(&format!("File already uploaded as {}", &title))
+            Ok(Some(existing_title)) => {
+                return {
+                    if existing_title == title {
+                        Binary::result_failure("File already uploaded.")
+                    } else {
+                        Binary::result_failure(&format!(
+                            "File already uploaded as {}",
+                            &existing_title
+                        ))
+                    }
+                }
             }
             _ => (),
         };

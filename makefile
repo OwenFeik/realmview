@@ -9,7 +9,7 @@ serve: server content
 
 server: content database
 	cargo build -p server
-	cp target/debug/server ${build}/server
+	cp --remove-destination target/debug/server ${build}/server
 
 content: html
 	wasm-pack build client/ --out-dir ${content}/pkg --target web

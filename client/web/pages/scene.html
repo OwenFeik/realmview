@@ -4,17 +4,53 @@
         {{ head_common.html }}
         <meta charset="utf-8">
         <title>Scene</title>
+        <style>
+          #show_offcanvas {
+            left: 0.5em;
+            top: 0.5em;
+          }
+
+          #offcanvas_left {
+            width: 500px;
+          }
+
+          .status-indicator {
+            width: 1.25em;
+            height: 1.25em;
+            position: absolute;
+            top: 0.5em;
+            right: 0.5em;
+          }
+        </style>
+        <script>{{ scene.js }}</script>
     </head>
     <body style="margin: 0; overflow: hidden;">
         <script type="module">
             import init from "./pkg/client.js";
             init();
         </script>
-        <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvas_left" aria-labelledby="offcanvas_left_label">
+        <canvas id="canvas" tabindex="-1"></canvas>
+        <div class="position-absolute" id="show_offcanvas" style="left: 0.5em; top: 0.5em;">
+          <button class="btn btn-dark btn-sm shadow-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvas_left" aria-controls="offcanvas_left">
+            Media {{ bootstrap_icon(chevron-right) }}
+          </button>
+        </div>
+        <div class="offcanvas offcanvas-start" tabindex="-2" id="offcanvas_left" aria-labelledby="offcanvas_left_label">
             <div class="offcanvas-header">
-                <h5 class="offcanvas-title" id="offcanvas_left_label">Sprites</h5>
+                <h5 class="offcanvas-title" id="offcanvas_left_label">Media</h5>
                 <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
             </div>
+            <div class="offcanvas-body">
+              <div>
+                <label for="media_upload" class="form-label">Upload media</label>  
+                <input class="form-control" type="file" id="media_upload" accept="image/png,image/jpg" multiple>
+                <div class="row row-cols-3" id="media_upload_previews"></div>
+                <div class="row p-1 pt-2 gx-2">
+                  <btn class="btn btn-primary" onclick="upload_media();">Submit</btn>
+                </div>
+              </div>
+            </div>
         </div>
+        {{ boostrap_js.html }}
     </body>
 </html>
