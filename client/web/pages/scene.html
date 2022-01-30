@@ -65,7 +65,7 @@
                   role="tab"
                   aria-controls="view_media"
                   aria-selected="true"
-                >View</button>
+                >Library</button>
               </li>
               <li class="nav-item" role="presentation">
                 <button
@@ -112,7 +112,39 @@
             </div>
           </div>
         </div>
+        <div
+          class="modal fade"
+          id="media_details_modal"
+          tabindex="-1"
+          aria-labelledby="media_details_modal_label"
+          aria-hidden="true"
+        >
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="media_details_modal_label">Edit media details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <form id="media_details_form" action="/media_details">
+                  <div class="mb-3">
+                    <label for="media_details_title" class="form-label">Title</label>
+                    <input type="text" class="form-control" id="media_details_title" required maxlength="256">
+                  </div>
+                  <input type="hidden" id="media_details_id">
+                  <div data-role="error_message" class="form-text text-danger"></div>
+                </form>
+              </div>
+              <div class="modal-footer">
+                <span class="spinner-border me-2 fade" id="media_details_loading"></span>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="media_details_save">Save</button>
+              </div>  
+            </div>
+          </div>
+        </div>
         {{ boostrap_js.html }}
+        <script>{{ form.js }}</script>
         <script>{{ scene.js }}</script>
     </body>
 </html>

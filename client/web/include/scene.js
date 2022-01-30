@@ -1,59 +1,79 @@
 const Icons = {
     check_circle: `{{ bootstrap_icon(check-circle) }}`,
-    exclamation_triangle: `{{ bootstrap_icon(exclamation-triangle) }}`,
-    plus_lg: `{{ bootstrap_icon(plus-lg) }}`
+    exclamation_triangle: `{{ bootstrap_icon(exclamation-triangle) }}`
 };
 
 window.onload = () => {
-    view_media();  
+    view_media();
+    configure_media_details_modal();
 };
 
-function preview_card(src, name, status_indicator = true) {
-    let parent = document.createElement("div");
-    parent.classList.add("col", "pt-2");
-    let card = document.createElement("div");
-    card.classList.add("card");
-    parent.appendChild(card);
-    let image = document.createElement("img");
-    image.classList.add("card-img-top");
-    image.style.height = "6em";
-    image.style.objectFit = "cover";
-    image.src = src;
-    card.appendChild(image);
-    let body = document.createElement("div");
-    body.classList.add("card-body");
-    card.appendChild(body);
-    let title = document.createElement("p");
-    title.classList.add("card-text", "text-truncate");
-    title.innerText = name;
-    body.appendChild(title);
-    let error = document.createElement("p");
-    error.classList.add("card-text", "text-danger");
-    body.appendChild(error);
-    
-    if (status_indicator) {
-        let spinner = document.createElement("div");
-        spinner.classList.add("spinner-border", "status-indicator");
-        spinner.role = "status";
-        card.appendChild(spinner);    
-    }
+function configure_media_details_modal() {
+    document
+        .getElementById("media_details_modal")
+        .addEventListener("show.bs.modal", e => {
+            let button = e.relatedTarget;
+            
+            let el = button.parentNode;
+            while (!el.classList.contains("card")) {
+                el = el.parentNode;
+            }
 
-    return parent;
+            let image = el.querySelector(".card-img-top");
+            document
+                .getElementById("media_details_title")
+                .value = image.getAttribute("data-title");
+            document
+                .getElementById("media_details_id")
+                .value = image.getAttribute("data-id");
+
+            form_error(document.getElementById("media_details_form"), "");
+        });
+
+    document.getElementById("media_details_save").onclick = () => {
+        let loading = document.getElementById("media_details_loading");
+        loading.classList.add("show");
+
+        post_form_json(
+            document.getElementById("media_details_form"),
+            success => {
+                loading.classList.remove("show");
+                if (success) {
+                    document
+                        .getElementById("media_details_modal")
+                        .querySelector(".btn-close")
+                        .click();
+                    view_media();
+                }
+            }
+        );
+    };
+}
+
+function template_to_element(html) {
+    return document
+        .createRange()
+        .createContextualFragment(html)
+        .firstElementChild;
+}
+
+function preview_card(src, name) {
+    // uses src and name
+    return template_to_element(`{{ preview_card.html }}`);
 }
 
 function media_card(media_item) {
-    let card = preview_card(media_item.url, media_item.title, false);
+    // Variables used in template
+    let src = media_item.url;
+    let id = media_item.id;
+    let title = media_item.title;
+    let card = template_to_element(`{{ media_card.html }}`);
     
     let image = card.querySelector(".card-img-top");
-    image.style.height = "8rem";
-    image.setAttribute("data-id", media_item.id);
 
-    let add = document.createElement("button");
-    add.classList.add("btn", "btn-primary");
-    add.innerHTML = "Add " + Icons.plus_lg;
-    add.onclick = () => add_to_scene(image);
-
-    card.querySelector(".card-body").appendChild(add);
+    // Buttons: [Add, Edit]
+    let buttons = card.querySelectorAll("button");
+    buttons[0].onclick = () => add_to_scene(image);
 
     return card;
 }
@@ -63,8 +83,8 @@ function spinner_to_icon(spinner, icon, klasse) {
     spinner.innerHTML = icon;
     spinner.classList.add(klasse);
     spinner.firstChild.style.display = "block";
-    spinner.firstChild.style.width = "1.25em";
-    spinner.firstChild.style.height = "1.25em";
+    spinner.firstChild.style.width = "1.25rem";
+    spinner.firstChild.style.height = "1.25rem";
 }
 
 function set_card_error(card, message) {
@@ -125,9 +145,16 @@ function view_media() {
     req.onerror = () => {
         label.classList.remove("d-none");
         label.innerText = "Network error.";
+        loading.classList.remove("show");
     };
 
     req.onload = () => {
+        if (!req.response) {
+            label.classList.remove("d-none");
+            label.innerText = "Network error.";
+            loading.classList.remove("show");    
+        }
+
         if (req.response.success) {
             label.classList.add("d-none");
             req.response.items.forEach(item => {

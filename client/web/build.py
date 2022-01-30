@@ -22,7 +22,7 @@ def output_directory() -> str:
 
 def substitution_regex() -> re.Pattern:
     ic = r"a-zA-Z0-9_.\-"
-    function_regex = rf"(?P<func>[{ic}]*)\(\"?(?P<arg>[{ic}:/@]+)\"?\)"
+    function_regex = rf"(?P<func>[{ic}]*)\((?P<arg>[{ic}:/@]+)\)"
     include_regex = rf"(?P<file>[{ic}]*)"
     overall_regex = r"{{ *(" + function_regex + r"|" + include_regex + r") *}}"
 
@@ -112,7 +112,8 @@ def function_substitution(func: str, arg: str) -> str:
         f.__name__: f for f in [bootstrap_icon, stylesheet, javascript]
     }
     try:
-        return functions[func](arg)
+        args = [s.strip() for s in arg.split(",")]
+        return functions[func](*args)
     except KeyError:
         print(f"Missing function: {func}. Aborting.")
         exit(os.EX_NOINPUT)

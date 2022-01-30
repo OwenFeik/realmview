@@ -1,4 +1,6 @@
 function form_to_json(form) {
+    let form_prefix = form.id.replace("_form", "") + "_";
+
     let data = {};
     let i = 0;
     while (true) {
@@ -8,7 +10,7 @@ function form_to_json(form) {
         }
         
         if (element.tagName === "INPUT") {
-            data[element.id] = element.value;
+            data[element.id.replace(form_prefix, "")] = element.value;
         }
     }
 
@@ -39,24 +41,43 @@ function field_error(form, field_name, message) {
     input.addEventListener("input", listener);
 }
 
-function post_form_json(form) {
+function form_error(form, message) {
+    form.querySelector("[data-role='error_message']").innerText = message;
+
+}
+
+function post_form_json(form, callback = null) {
     let req = new XMLHttpRequest();
 
     req.onerror = () => {
-        form.querySelector("#error_message")
-            .innerText = "Network error. Please try again later.";
+        if (callback) {
+            callback();
+        }
+
+        form_error(form, "Network error. Please try again later.");
     }
 
     req.onload = () => {
+        if (callback) {
+            callback(req.response ? req.response.success : false);
+        }
+
+        if (!req.response) {
+            form_error(form, "Network error. Please try again later.");
+            return;
+        }
+
         if (req.response.success) {
-            window.location = form.getAttribute("data-redirect");
+            let redirect = form.getAttribute("data-redirect");
+            if (redirect) {
+                window.location = redirect;
+            }
         }
         else if (req.response.problem_field) {
             field_error(form, req.response.problem_field, req.response.message);
         }
         else {
-            form.querySelector("#error_message")
-                .innerText = req.response.message;
+            form_error(form, req.response.message);
         }
     }
 
@@ -66,7 +87,7 @@ function post_form_json(form) {
     req.send(form_to_json(form));
 }
 
-function submit_form(form, route) {
+function submit_form(form) {
     if (form.classList.contains("needs-validation")) {
         form.classList.add("was-validated");
         if (!form.checkValidity()) {
@@ -74,5 +95,5 @@ function submit_form(form, route) {
         }
     }
 
-    post_form_json(form, route);
+    post_form_json(form);
 }

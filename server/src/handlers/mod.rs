@@ -6,6 +6,7 @@ use warp::Filter;
 mod login;
 mod logout;
 mod media;
+mod media_details;
 mod register;
 mod upload;
 
@@ -17,7 +18,8 @@ pub fn filters(
         .or(register::filter(pool.clone()))
         .or(logout::filter(pool.clone()))
         .or(upload::filter(pool.clone(), content_dir))
-        .or(media::filter(pool))
+        .or(media::filter(pool.clone()))
+        .or(media_details::filter(pool))
 }
 
 pub fn json_body<T: std::marker::Send + for<'de> serde::Deserialize<'de>>(

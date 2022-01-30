@@ -1,0 +1,24 @@
+<div class="col pt-2">
+  <div class="card">
+    <img
+      class="card-img-top"
+      style="height: 8rem; object-fit: cover;"
+      src="${src}"
+      data-id="${id}"
+      data-title="${title}"
+    >
+    <div class="card-body">
+      <p class="card-text text-truncate">${title}</p>
+      <button
+        class="btn btn-primary"
+        aria-roledescription="Add to scene"
+      >Add {{ bootstrap_icon(plus-square) }}</button>
+      <button
+        class="btn btn-primary"
+        data-bs-toggle="modal"
+        data-bs-target="#media_details_modal"
+        aria-roledescription="Edit details"
+      >Edit {{ bootstrap_icon(pencil-square) }}</button>
+    </div>
+  </div>
+</div>
