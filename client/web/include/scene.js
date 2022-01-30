@@ -1,9 +1,14 @@
 const Icons = {
     check_circle: `{{ bootstrap_icon(check-circle) }}`,
-    exclamation_triangle: `{{ bootstrap_icon(exclamation-triangle) }}`
+    exclamation_triangle: `{{ bootstrap_icon(exclamation-triangle) }}`,
+    plus_lg: `{{ bootstrap_icon(plus-lg) }}`
 };
 
-function preview_card(file) {
+window.onload = () => {
+    view_media();  
+};
+
+function preview_card(src, name, status_indicator = true) {
     let parent = document.createElement("div");
     parent.classList.add("col", "pt-2");
     let card = document.createElement("div");
@@ -13,23 +18,44 @@ function preview_card(file) {
     image.classList.add("card-img-top");
     image.style.height = "6em";
     image.style.objectFit = "cover";
-    image.src = URL.createObjectURL(file);
+    image.src = src;
     card.appendChild(image);
-    let spinner = document.createElement("div");
-    spinner.classList.add("spinner-border", "status-indicator");
-    spinner.role = "status";
-    card.appendChild(spinner);
     let body = document.createElement("div");
     body.classList.add("card-body");
     card.appendChild(body);
     let title = document.createElement("p");
     title.classList.add("card-text", "text-truncate");
-    title.innerText = file.name;
+    title.innerText = name;
     body.appendChild(title);
     let error = document.createElement("p");
     error.classList.add("card-text", "text-danger");
     body.appendChild(error);
+    
+    if (status_indicator) {
+        let spinner = document.createElement("div");
+        spinner.classList.add("spinner-border", "status-indicator");
+        spinner.role = "status";
+        card.appendChild(spinner);    
+    }
+
     return parent;
+}
+
+function media_card(media_item) {
+    let card = preview_card(media_item.url, media_item.title, false);
+    
+    let image = card.querySelector(".card-img-top");
+    image.style.height = "8rem";
+    image.setAttribute("data-id", media_item.id);
+
+    let add = document.createElement("button");
+    add.classList.add("btn", "btn-primary");
+    add.innerHTML = "Add " + Icons.plus_lg;
+    add.onclick = () => add_to_scene(image);
+
+    card.querySelector(".card-body").appendChild(add);
+
+    return card;
 }
 
 function spinner_to_icon(spinner, icon, klasse) {
@@ -58,7 +84,7 @@ function upload_media() {
 
     media_preview.innerHTML = "";
     for (const file of media_input.files) {
-        let card = preview_card(file);
+        let card = preview_card(URL.createObjectURL(file), file.name);
 
         media_preview.appendChild(card);
 
@@ -84,4 +110,39 @@ function upload_media() {
         req.open("POST", "/upload");
         req.send(data);
     }
+}
+
+function view_media() {
+    let req = new XMLHttpRequest();
+    let label = document.getElementById("media_view_error");
+
+    let loading = document.getElementById("media_view_loading");
+    loading.classList.add("show");
+    
+    let media_preview = document.getElementById("media_view_previews");
+    media_preview.innerHTML = "";
+
+    req.onerror = () => {
+        label.classList.remove("d-none");
+        label.innerText = "Network error.";
+    };
+
+    req.onload = () => {
+        if (req.response.success) {
+            label.classList.add("d-none");
+            req.response.items.forEach(item => {
+                media_preview.appendChild(media_card(item));
+            });
+        }
+        else {
+            label.classList.remove("d-none");
+            label.innerText = req.response.message;
+        }
+
+        loading.classList.remove("show");
+    };
+    
+    req.responseType = "json";
+    req.open("GET", "/media");
+    req.send();
 }

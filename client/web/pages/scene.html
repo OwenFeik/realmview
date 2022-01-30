@@ -13,12 +13,21 @@
             right: 0.5em;
           }
         </style>
-        <script>{{ scene.js }}</script>
+        <script>
+          const texture_queue = [];
+          function get_texture_queue() {
+            return texture_queue;
+          }
+
+          function add_to_scene(image) {
+            texture_queue.push(image);
+          }
+        </script>
     </head>
     <body style="margin: 0; overflow: hidden;">
         <script type="module">
-            import init from "./pkg/client.js";
-            init();
+          import init from "./pkg/client.js";
+          init();
         </script>
         <canvas id="canvas" tabindex="-1"></canvas>
         <div class="position-absolute" id="show_offcanvas" style="left: 0.5em; top: 0.5em;">
@@ -73,11 +82,20 @@
             </ul>  
             <div class="tab-content">
               <div
-                class="tab-pane fade show"
+                class="tab-pane fade show active"
                 id="view_media"
                 role="tabpanel"
                 aria-labelledby="view_media_tab"
               >
+                <div class="d-flex justify-content-md-end align-items-center">
+                  <span class="spinner-border me-2 fade" id="media_view_loading"></span>
+                  <p class="text-danger m-0 me-2 d-none" id="media_view_error">Network error.</p>
+                  <button
+                    class="btn btn-primary"
+                    onclick="view_media();"
+                  >Refresh {{ bootstrap_icon(arrow-clockwise) }}</button>
+                </div>
+                <div class="row row-cols-2" id="media_view_previews"></div>
               </div>
               <div
                 class="tab-pane fade show"
@@ -85,7 +103,6 @@
                 role="tabpanel"
                 aria-labelledby="upload_media_tab"
               >
-                <h3 class="p-2">Upload media</h3>  
                 <input class="form-control" type="file" id="media_upload" accept="image/png,image/jpg" multiple>
                 <div class="row row-cols-3" id="media_upload_previews"></div>
                 <div class="row p-1 pt-2 gx-2">
@@ -96,5 +113,6 @@
           </div>
         </div>
         {{ boostrap_js.html }}
+        <script>{{ scene.js }}</script>
     </body>
 </html>

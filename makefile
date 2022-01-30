@@ -14,6 +14,9 @@ server: content database
 content: html
 	wasm-pack build client/ --out-dir ${content}/pkg --target web
 
+db: database
+	sqlite3 ${build}/database.db
+
 database: build-dir
 	if \
 		[ ! -f ${build}/schema.sql ] \

@@ -10,9 +10,8 @@ use warp::{
 };
 
 use super::crypto::{random_hex_string, to_hex_string_unsized};
-use super::models::UserSession;
 use super::response::{as_result, Binary};
-use super::{with_db, with_session};
+use super::{session_user, with_db, with_session};
 
 #[derive(serde_derive::Serialize)]
 struct UploadResponse {
@@ -59,17 +58,9 @@ async fn upload(
     content_dir: String,
     form: FormData,
 ) -> Result<impl warp::Reply, Infallible> {
-    let user = match session_key {
-        Some(k) => match UserSession::get(&pool, k.as_str()).await {
-            Ok(Some(session)) => match session.user(&pool).await {
-                Ok(Some(user)) => user,
-                Ok(None) => return Binary::result_failure("User not found."),
-                Err(_) => return Binary::result_error("Database error."),
-            },
-            Ok(None) => return Binary::result_failure("Session not found."),
-            Err(_) => return Binary::result_error("Database error."),
-        },
-        None => return Binary::result_failure("Session required."),
+    let user = match session_user(&pool, session_key).await {
+        Ok(u) => u,
+        Err(r) => return r
     };
 
     let parts: Vec<Part> = match form.try_collect().await {

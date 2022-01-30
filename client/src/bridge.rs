@@ -14,6 +14,8 @@ use crate::viewport::ViewportPoint;
 
 #[wasm_bindgen]
 extern "C" {
+    pub fn get_texture_queue() -> Array;
+
     #[wasm_bindgen(js_namespace = console)]
     pub fn log(s: &str);
 
@@ -336,17 +338,20 @@ impl MouseEvent {
 }
 
 pub struct Context {
-    // WebGL context. Wrapped in Rc because various structs and closures want for references to it.
+    // WebGL context. Wrapped in Rc because various structs and closures want
+    // for references to it.
     gl: Rc<Gl>,
 
-    // Holds information about the HTML canvas associated with the WebGL context.
+    // Holds information about the HTML canvas associated with the WebGL
+    // context.
     canvas: Canvas,
 
     // Wrapper around OpenGL Rendering functions
     renderer: Renderer,
 
-    // A JS Array which the front end pushes uploaded images to. The Context then loads any images waiting in the queue
-    // before rendering each frame. Wrapped in Rc such that it can be accessed from a closure passed to JS.
+    // A JS Array which the front end pushes uploaded images to. The Context
+    // then loads any images waiting in the queue before rendering each frame.
+    // Wrapped in Rc such that it can be accessed from a closure passed to JS.
     texture_queue: Rc<Array>,
 }
 
@@ -358,7 +363,8 @@ impl Context {
             gl: canvas.gl.clone(),
             canvas,
             renderer,
-            texture_queue: Rc::new(Array::new()),
+            // rust-analyzer doesn't like the Extern
+            texture_queue: Rc::new(get_texture_queue()),
         };
         ctx.configure_upload();
 
@@ -404,9 +410,9 @@ impl Context {
         while self.texture_queue.length() > 0 {
             let img = self.texture_queue.pop();
 
-            // Cast the img to a HTMLImageElement; this array will only contain such elements, so this cast is safe.
+            // Cast the img to a HTMLImageElement; this array will only contain
+            // such elements, so this cast is safe.
             let img = img.unchecked_ref::<HtmlImageElement>();
-            img.set_attribute("data-id", "1").ok();
             sprites.push(Sprite::new(self.renderer.load_image(img)));
         }
 

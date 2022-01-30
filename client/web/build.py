@@ -72,7 +72,7 @@ def bootstrap_icon(name: str) -> str:
     filename = f"{name}.svg"
     if cached_file := load_cached_file(filename):
         return cached_file
-    svg = download_resource(URL_FORMAT.format(name))
+    svg = download_resource(URL_FORMAT.format(filename))
     cache_file(filename, svg)
     return svg
 
