@@ -1,5 +1,5 @@
 use crate::bridge::{Context, EventType, JsError};
-use crate::scene::{Rect, Scene, ScenePoint};
+use scene::{Rect, Scene, ScenePoint};
 
 #[derive(Clone, Copy)]
 pub struct ViewportPoint {

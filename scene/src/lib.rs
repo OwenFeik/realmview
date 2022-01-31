@@ -14,7 +14,7 @@ impl Rect {
         Rect { x, y, w, h }
     }
 
-    fn from_point(point: ScenePoint, w: f32, h: f32) -> Rect {
+    pub fn from_point(point: ScenePoint, w: f32, h: f32) -> Rect {
         Rect {
             x: point.x,
             y: point.y,
@@ -83,7 +83,7 @@ impl Rect {
         in_x && in_y
     }
 
-    fn top_left(&self) -> ScenePoint {
+    pub fn top_left(&self) -> ScenePoint {
         ScenePoint {
             x: self.x,
             y: self.y,
@@ -121,7 +121,7 @@ impl Sprite {
         self.rect.y = y;
     }
 
-    fn set_size(&mut self, w: f32, h: f32) {
+    pub fn set_size(&mut self, w: f32, h: f32) {
         self.rect.w = w;
         self.rect.h = h;
     }
@@ -166,7 +166,7 @@ impl Sprite {
         })
     }
 
-    fn pos(&mut self) -> ScenePoint {
+    pub fn pos(&mut self) -> ScenePoint {
         ScenePoint {
             x: self.rect.x,
             y: self.rect.y,
@@ -253,8 +253,6 @@ pub struct Scene {
 }
 
 impl Scene {
-    const BASE_GRID_SIZE: f32 = 1.0;
-
     pub fn new() -> Scene {
         Scene {
             sprites: Vec::new(),

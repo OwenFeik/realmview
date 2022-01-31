@@ -33,7 +33,7 @@ impl UploadResponse {
 }
 
 fn hash_file(raw: &[u8]) -> anyhow::Result<String> {
-    to_hex_string_unsized(digest::digest(&digest::SHA512, raw).as_ref())
+    to_hex_string_unsized(digest::digest(&digest::SHA256, raw).as_ref())
 }
 
 async fn file_exists(pool: &SqlitePool, hash: &str) -> anyhow::Result<Option<String>> {

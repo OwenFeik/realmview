@@ -3,16 +3,16 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
-    salt CHAR(128) NOT NULL,
-    hashed_password CHAR(128) NOT NULL,
-    recovery_key CHAR(128) NOT NULL,
+    salt CHAR(64) NOT NULL,
+    hashed_password CHAR(64) NOT NULL,
+    recovery_key CHAR(64) NOT NULL,
     created_time INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS user_sessions (
     id INTEGER PRIMARY KEY,
     user INTEGER REFERENCES users(id) ON DELETE CASCADE NOT NULL,
-    session_key CHAR(128) NOT NULL UNIQUE,
+    session_key CHAR(64) NOT NULL UNIQUE,
     active BOOLEAN DEFAULT TRUE NOT NULL,
     start_time INTEGER NOT NULL,
     end_time INTEGER
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS media (
     user INTEGER REFERENCES users(id) ON DELETE CASCADE NOT NULL,
     relative_path TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
-    hashed_value CHAR(128) NOT NULL,
+    hashed_value CHAR(64) NOT NULL,
     UNIQUE(user, hashed_value)
 );
 

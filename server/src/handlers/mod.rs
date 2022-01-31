@@ -10,7 +10,7 @@ mod media_details;
 mod register;
 mod upload;
 
-pub fn filters(
+pub fn routes(
     pool: SqlitePool,
     content_dir: String,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
@@ -162,7 +162,7 @@ pub mod crypto {
         rand::{SecureRandom, SystemRandom},
     };
 
-    const KEY_LENGTH: usize = ring::digest::SHA512_OUTPUT_LEN;
+    const KEY_LENGTH: usize = ring::digest::SHA256_OUTPUT_LEN;
     pub type Key = [u8; KEY_LENGTH];
 
     pub fn generate_salt() -> anyhow::Result<Key> {
@@ -184,7 +184,7 @@ pub mod crypto {
     }
 
     pub fn to_hex_string_unsized(data: &[u8]) -> anyhow::Result<String> {
-        let key = &<[u8; 64]>::try_from(data)
+        let key = &<Key>::try_from(data)
             .map_err(|_| anyhow::anyhow!("Failed to convert Vec to Key."))?;
         to_hex_string(key)
     }
@@ -205,7 +205,7 @@ pub mod crypto {
     pub fn hash_password(salt: &Key, password: &str) -> Key {
         let mut hashed = [0u8; KEY_LENGTH];
         pbkdf2::derive(
-            pbkdf2::PBKDF2_HMAC_SHA512,
+            pbkdf2::PBKDF2_HMAC_SHA256,
             NonZeroU32::new(ITERATIONS).unwrap(),
             salt,
             password.as_bytes(),
@@ -217,7 +217,7 @@ pub mod crypto {
 
     pub fn check_password(provided: &str, salt: &Key, hashed_password: &Key) -> bool {
         pbkdf2::verify(
-            pbkdf2::PBKDF2_HMAC_SHA512,
+            pbkdf2::PBKDF2_HMAC_SHA256,
             NonZeroU32::new(ITERATIONS).unwrap(),
             salt,
             provided.as_bytes(),

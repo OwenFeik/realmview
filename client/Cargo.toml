@@ -8,6 +8,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
+scene = { path = "../scene" }
 js-sys = "0.3"
 wasm-bindgen = {version = "0.2", features = ["nightly"]}
 

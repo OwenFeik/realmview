@@ -1,0 +1,5 @@
+[package]
+name = "scene"
+authors = ["OwenFeik <owenhfeik@gmail.com>"]
+version = "0.1.0"
+edition = "2021"

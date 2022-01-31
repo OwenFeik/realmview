@@ -7,8 +7,9 @@ use web_sys::{
     HtmlImageElement, WebGlBuffer, WebGlProgram, WebGlShader, WebGlTexture, WebGlUniformLocation,
 };
 
+use scene::Rect;
+
 use crate::bridge::{Gl, JsError};
-use crate::scene::Rect;
 
 type Colour = [f32; 4];
 

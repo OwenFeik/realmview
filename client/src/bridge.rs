@@ -8,8 +8,9 @@ use web_sys::{
     InputEvent, ProgressEvent, UiEvent, Url, WebGl2RenderingContext, Window,
 };
 
+use scene::{Rect, Sprite};
+
 use crate::programs::Renderer;
-use crate::scene::{Rect, Sprite};
 use crate::viewport::ViewportPoint;
 
 #[wasm_bindgen]
