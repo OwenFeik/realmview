@@ -10,17 +10,14 @@ type Clients = Arc<RwLock<HashMap<String, Client>>>;
 
 struct Client {
     user: i64,
-    sender: Option<mpsc::UnboundedSender<Result<Message, warp::Error>>>
+    sender: Option<mpsc::UnboundedSender<Result<Message, warp::Error>>>,
 }
-
 
 struct Session {
     scene: Scene,
-    clients: Clients
+    clients: Clients,
 }
 
 impl Session {
-    fn event() {
-
-    }
+    fn event() {}
 }

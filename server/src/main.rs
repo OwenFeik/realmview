@@ -4,7 +4,6 @@ use warp::Filter;
 mod handlers;
 mod session;
 
-
 async fn connect_to_db() -> SqlitePool {
     SqlitePool::connect(
         std::env::var("DATABASE_URL")

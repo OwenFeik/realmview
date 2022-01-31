@@ -59,10 +59,13 @@ pub fn with_session() -> impl Filter<Extract = (Option<String>,), Error = warp::
     })
 }
 
-pub async fn session_user(pool: &SqlitePool, session_key: Option<String>) -> Result<models::User, response::ResultReply> {
+pub async fn session_user(
+    pool: &SqlitePool,
+    session_key: Option<String>,
+) -> Result<models::User, response::ResultReply> {
     match session_key {
         Some(k) => match models::UserSession::get(pool, &k).await {
-            Ok(Some(session)) => match session.user(&pool).await {
+            Ok(Some(session)) => match session.user(pool).await {
                 Ok(Some(user)) => Ok(user),
                 Ok(None) => Err(response::Binary::result_failure("User not found.")),
                 Err(_) => Err(response::Binary::result_error("Database error.")),
@@ -184,8 +187,8 @@ pub mod crypto {
     }
 
     pub fn to_hex_string_unsized(data: &[u8]) -> anyhow::Result<String> {
-        let key = &<Key>::try_from(data)
-            .map_err(|_| anyhow::anyhow!("Failed to convert Vec to Key."))?;
+        let key =
+            &<Key>::try_from(data).map_err(|_| anyhow::anyhow!("Failed to convert Vec to Key."))?;
         to_hex_string(key)
     }
 

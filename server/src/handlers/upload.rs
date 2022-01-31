@@ -60,7 +60,7 @@ async fn upload(
 ) -> Result<impl warp::Reply, Infallible> {
     let user = match session_user(&pool, session_key).await {
         Ok(u) => u,
-        Err(r) => return r
+        Err(r) => return r,
     };
 
     let parts: Vec<Part> = match form.try_collect().await {

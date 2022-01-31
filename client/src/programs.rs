@@ -160,7 +160,7 @@ impl Texture {
 
 struct TextureManager {
     gl: Rc<Gl>,
-    textures: HashMap<u32, Texture>,
+    textures: HashMap<scene::Id, Texture>,
 }
 
 impl TextureManager {
@@ -174,9 +174,9 @@ impl TextureManager {
         Ok(tm)
     }
 
-    fn load_image(&mut self, image: &HtmlImageElement) -> u32 {
+    fn load_image(&mut self, image: &HtmlImageElement) -> scene::Id {
         let id = match image.get_attribute("data-id") {
-            Some(s) => s.parse::<u32>().unwrap_or(0),
+            Some(s) => s.parse::<scene::Id>().unwrap_or(0),
             None => 0,
         };
 
@@ -191,11 +191,11 @@ impl TextureManager {
     }
 
     // NB will overwrite existing texture of this id
-    fn add_texture(&mut self, id: u32, texture: Texture) {
+    fn add_texture(&mut self, id: scene::Id, texture: Texture) {
         self.textures.insert(id, texture);
     }
 
-    fn get_texture(&self, id: u32) -> &WebGlTexture {
+    fn get_texture(&self, id: scene::Id) -> &WebGlTexture {
         if let Some(tex) = self.textures.get(&id) {
             &tex.texture
         } else {
@@ -529,11 +529,11 @@ impl Renderer {
         self.grid_renderer.render_grid(vp, grid_size);
     }
 
-    pub fn load_image(&mut self, image: &HtmlImageElement) -> u32 {
+    pub fn load_image(&mut self, image: &HtmlImageElement) -> scene::Id {
         self.texture_library.load_image(image)
     }
 
-    pub fn draw_texture(&self, vp: Rect, texture: u32, position: Rect) {
+    pub fn draw_texture(&self, vp: Rect, texture: scene::Id, position: Rect) {
         self.texture_renderer
             .draw_texture(vp, self.texture_library.get_texture(texture), position);
     }

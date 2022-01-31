@@ -1,5 +1,7 @@
 use std::ops::{Add, Sub};
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicI64, Ordering};
+
+pub type Id = i64;
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct Rect {
@@ -94,11 +96,13 @@ impl Rect {
 pub struct Sprite {
     pub rect: Rect,
 
+    pub z: i32,
+
     // id pointing to the texture associated with this Sprite
-    pub texture: u32,
+    pub texture: Id,
 
     // Unique numeric ID, numbered from 1
-    id: u32,
+    id: Id,
 }
 
 impl Sprite {
@@ -106,12 +110,13 @@ impl Sprite {
     // sprite can be dragged.
     const ANCHOR_RADIUS: f32 = 0.2;
 
-    pub fn new(texture: u32) -> Sprite {
-        static SPRITE_ID: AtomicU32 = AtomicU32::new(1);
+    pub fn new(texture: Id) -> Sprite {
+        static SPRITE_ID: AtomicI64 = AtomicI64::new(1);
 
         Sprite {
-            texture,
             rect: Rect::new(0.0, 0.0, 1.0, 1.0),
+            z: 1,
+            texture,
             id: SPRITE_ID.fetch_add(1, Ordering::Relaxed),
         }
     }
@@ -240,8 +245,8 @@ impl Sub for ScenePoint {
 #[derive(Clone, Copy)]
 enum HeldObject {
     None,
-    Sprite(u32, ScenePoint),
-    Anchor(u32, i32, i32),
+    Sprite(Id, ScenePoint),
+    Anchor(Id, i32, i32),
 }
 
 pub struct Scene {
@@ -253,8 +258,8 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn new() -> Scene {
-        Scene {
+    pub fn new() -> Self {
+        Self {
             sprites: Vec::new(),
             holding: HeldObject::None,
         }
@@ -267,7 +272,7 @@ impl Scene {
     // Because sprites are added as they are created, they are in the vector
     // ordered by id. Thus they can be binary searched to improve lookup speed
     // to O(log n)
-    fn bsearch_sprite(&mut self, id: u32, lo: usize, hi: usize) -> Option<&mut Sprite> {
+    fn bsearch_sprite(&mut self, id: Id, lo: usize, hi: usize) -> Option<&mut Sprite> {
         if lo == hi {
             return None;
         }
@@ -281,7 +286,7 @@ impl Scene {
         }
     }
 
-    fn sprite(&mut self, id: u32) -> Option<&mut Sprite> {
+    fn sprite(&mut self, id: Id) -> Option<&mut Sprite> {
         if id == 0 {
             return None;
         }
@@ -297,8 +302,9 @@ impl Scene {
     }
 
     fn sprite_at(&mut self, at: ScenePoint) -> Option<&mut Sprite> {
-        // Reversing the iterator atm because the sprites are rendered from the front of the Vec to the back, hence the
-        // last Sprite in the Vec is rendered on top, and will be clicked first.
+        // Reversing the iterator atm because the sprites are rendered from the
+        // front of the Vec to the back, hence the last Sprite in the Vec is
+        // rendered on top, and will be clicked first.
         for sprite in self.sprites.iter_mut().rev() {
             if sprite.rect.contains_point(at) {
                 return Some(sprite);
@@ -336,5 +342,11 @@ impl Scene {
             }
             None => false,
         }
+    }
+}
+
+impl Default for Scene {
+    fn default() -> Self {
+        Self::new()
     }
 }
