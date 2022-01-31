@@ -80,7 +80,7 @@ impl Viewport {
     fn handle_mouse_down(&mut self, at: ViewportPoint) {
         if !self
             .scene
-            .grab(at.scene_point(self.viewport, self.grid_zoom))
+            .grab(at.scene_point(self.viewport, self.grid_zoom), true)
         {
             self.grabbed_at = Some(at)
         }
@@ -161,13 +161,15 @@ impl Viewport {
     }
 
     pub fn animation_frame(&mut self) {
-        // We can either process the mouse events and then handle newly loaded images or vice-versa. I choose to process
-        // events first because it strikes me as unlikely that the user will have intentionally interacted with a newly
-        // loaded image within a frame of it's appearing, and more likely that they instead clicked something that is
-        // now behind a newly loaded image.
+        // We can either process the mouse events and then handle newly loaded
+        // images or vice-versa. I choose to process events first because it
+        // strikes me as unlikely that the user will have intentionally
+        // interacted with a newly loaded image within a frame of it's
+        // appearing, and more likely that they instead clicked something that
+        // is now behind a newly loaded image.
         self.process_events();
         if let Some(mut new_sprites) = self.context.load_queue() {
-            self.scene.add_sprites(&mut new_sprites);
+            self.scene.add_tokens(&mut new_sprites);
             self.redraw_needed = true;
         };
 
@@ -175,9 +177,10 @@ impl Viewport {
             let vp = Rect::scaled_from(self.viewport, self.grid_zoom);
 
             self.context.clear(vp);
+            self.context.draw_sprites(vp, self.scene.scenery(), self.grid_zoom);
             self.context.draw_grid(vp, self.grid_zoom);
             self.context
-                .draw_sprites(vp, &self.scene.sprites, self.grid_zoom);
+                .draw_sprites(vp, self.scene.tokens(), self.grid_zoom);
 
             let outline = self
                 .scene

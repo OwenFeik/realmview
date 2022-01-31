@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::ops::{Add, Sub};
 use std::sync::atomic::{AtomicI64, Ordering};
 
@@ -249,56 +251,51 @@ enum HeldObject {
     Anchor(Id, i32, i32),
 }
 
-pub struct Scene {
-    // Sprites to be drawn each frame.
-    pub sprites: Vec<Sprite>,
 
-    // ID of the Sprite the user is currently dragging.
-    holding: HeldObject,
+struct SpriteSet {
+    sprites: Vec<Sprite>,
+    z_min: i32,
+    z_max: i32
 }
 
-impl Scene {
-    pub fn new() -> Self {
-        Self {
+impl SpriteSet {
+    fn new() -> Self {
+        SpriteSet {
             sprites: Vec::new(),
-            holding: HeldObject::None,
-        }
-    }
-
-    pub fn add_sprites(&mut self, sprites: &mut Vec<Sprite>) {
-        self.sprites.append(sprites);
-    }
-
-    // Because sprites are added as they are created, they are in the vector
-    // ordered by id. Thus they can be binary searched to improve lookup speed
-    // to O(log n)
-    fn bsearch_sprite(&mut self, id: Id, lo: usize, hi: usize) -> Option<&mut Sprite> {
-        if lo == hi {
-            return None;
-        }
-
-        let m = (lo + hi) / 2;
-        match self.sprites.get(m) {
-            Some(s) if s.id == id => self.sprites.get_mut(m),
-            Some(s) if s.id < id => self.bsearch_sprite(id, m, hi),
-            Some(s) if s.id > id => self.bsearch_sprite(id, lo, m),
-            _ => None,
+            z_min: 0,
+            z_max: 0
         }
     }
 
     fn sprite(&mut self, id: Id) -> Option<&mut Sprite> {
-        if id == 0 {
-            return None;
-        }
-        self.bsearch_sprite(id, 0, self.sprites.len())
+        self.sprites.iter_mut().find(|s| s.id == id)
     }
 
-    pub fn held_sprite(&mut self) -> Option<&mut Sprite> {
-        self.sprite(match self.holding {
-            HeldObject::Sprite(id, _) => id,
-            HeldObject::Anchor(id, _, _) => id,
-            _ => return None,
-        })
+    fn sort_sprites(&mut self) {
+        self.sprites.sort_by(|a, b| a.z.cmp(&b.z));
+    }
+
+    fn update_z_bounds(&mut self, sprite: &Sprite) {
+        if sprite.z > self.z_max {
+            self.z_max = sprite.z;
+        }
+        else if sprite.z < self.z_min {
+            self.z_min = sprite.z;
+        }    
+    }
+
+    fn add_sprite(&mut self, sprite: Sprite) {
+        self.update_z_bounds(&sprite);
+        self.sprites.push(sprite);
+        self.sort_sprites();
+    }
+
+    fn add_sprites(&mut self, sprites: &mut Vec<Sprite>) {
+        for s in sprites.iter() {
+            self.update_z_bounds(s);
+        }
+        self.sprites.append(sprites);
+        self.sort_sprites();
     }
 
     fn sprite_at(&mut self, at: ScenePoint) -> Option<&mut Sprite> {
@@ -312,6 +309,64 @@ impl Scene {
         }
 
         None
+    }
+}
+
+
+pub struct Scene {
+    scenery: SpriteSet,
+    tokens: SpriteSet,
+
+    // ID of the Sprite the user is currently dragging.
+    holding: HeldObject,
+}
+
+impl Scene {
+    pub fn new() -> Self {
+        Self {
+            scenery: SpriteSet::new(),
+            tokens: SpriteSet::new(),
+            holding: HeldObject::None,
+        }
+    }
+
+    fn sprite(&mut self, id: Id) -> Option<&mut Sprite> {
+        self.tokens.sprite(id).or_else(|| self.scenery.sprite(id))
+    } 
+
+    fn sprite_at(&mut self, at: ScenePoint, include_scenery: bool) -> Option<&mut Sprite> {
+        self.tokens.sprite_at(at).or_else(|| {
+            if include_scenery {
+                self.scenery.sprite_at(at)
+            }
+            else {
+                None
+            }
+        })
+    }
+
+    pub fn scenery(&self) -> &Vec<Sprite> {
+        &self.scenery.sprites
+    }
+
+    pub fn add_scenery(&mut self, sprites: &mut Vec<Sprite>) {
+        self.scenery.add_sprites(sprites);
+    }
+
+    pub fn tokens(&self) -> &Vec<Sprite> {
+        &self.tokens.sprites
+    }
+
+    pub fn add_tokens(&mut self, sprites: &mut Vec<Sprite>) {
+        self.tokens.add_sprites(sprites);
+    }
+
+    pub fn held_sprite(&mut self) -> Option<&mut Sprite> {
+        self.sprite(match self.holding {
+            HeldObject::Sprite(id, _) => id,
+            HeldObject::Anchor(id, _, _) => id,
+            _ => return None,
+        })
     }
 
     pub fn update_held_pos(&mut self, at: ScenePoint) -> bool {
@@ -334,8 +389,8 @@ impl Scene {
         redraw_needed
     }
 
-    pub fn grab(&mut self, at: ScenePoint) -> bool {
-        match self.sprite_at(at) {
+    pub fn grab(&mut self, at: ScenePoint, include_scenery: bool) -> bool {
+        match self.sprite_at(at, include_scenery) {
             Some(s) => {
                 self.holding = s.grab(at);
                 true
