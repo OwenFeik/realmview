@@ -1,7 +1,10 @@
+#![feature(async_closure)]
+
 use sqlx::sqlite::SqlitePool;
 use warp::Filter;
 
 mod handlers;
+mod models;
 mod session;
 
 async fn connect_to_db() -> SqlitePool {

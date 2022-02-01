@@ -3,7 +3,7 @@
 use std::ops::{Add, Sub};
 use std::sync::atomic::{AtomicI64, Ordering};
 
-use serde_derive::{Serialize, Deserialize};
+use serde_derive::{Deserialize, Serialize};
 
 pub type Id = i64;
 
@@ -258,11 +258,10 @@ enum HeldObject {
     Anchor(Id, i32, i32),
 }
 
-
 struct SpriteSet {
     sprites: Vec<Sprite>,
     z_min: i32,
-    z_max: i32
+    z_max: i32,
 }
 
 impl SpriteSet {
@@ -270,7 +269,7 @@ impl SpriteSet {
         SpriteSet {
             sprites: Vec::new(),
             z_min: 0,
-            z_max: 0
+            z_max: 0,
         }
     }
 
@@ -285,10 +284,9 @@ impl SpriteSet {
     fn update_z_bounds(&mut self, sprite: &Sprite) {
         if sprite.z > self.z_max {
             self.z_max = sprite.z;
-        }
-        else if sprite.z < self.z_min {
+        } else if sprite.z < self.z_min {
             self.z_min = sprite.z;
-        }    
+        }
     }
 
     fn add_sprite(&mut self, sprite: Sprite) {
@@ -319,12 +317,11 @@ impl SpriteSet {
     }
 }
 
-
 #[derive(Deserialize, Serialize)]
 pub enum SceneEvent {
-    SpriteNew(Sprite, bool), // (new_sprite, is_token) 
+    SpriteNew(Sprite, bool),                // (new_sprite, is_token)
     SpriteMove(Id, ScenePoint, ScenePoint), // (sprite_id, from, to)
-    SpriteTextureChange(Id, Id, Id), // (sprite_id, old_texture, new_texture)
+    SpriteTextureChange(Id, Id, Id),        // (sprite_id, old_texture, new_texture)
 }
 
 pub struct Scene {
@@ -346,14 +343,13 @@ impl Scene {
 
     fn sprite(&mut self, id: Id) -> Option<&mut Sprite> {
         self.tokens.sprite(id).or_else(|| self.scenery.sprite(id))
-    } 
+    }
 
     fn sprite_at(&mut self, at: ScenePoint, include_scenery: bool) -> Option<&mut Sprite> {
         self.tokens.sprite_at(at).or_else(|| {
             if include_scenery {
                 self.scenery.sprite_at(at)
-            }
-            else {
+            } else {
                 None
             }
         })
@@ -378,8 +374,7 @@ impl Scene {
     pub fn add_sprite(&mut self, sprite: Sprite, is_scenery: bool) {
         if is_scenery {
             self.scenery.add_sprite(sprite);
-        }
-        else {
+        } else {
             self.tokens.add_sprite(sprite);
         }
     }
@@ -395,7 +390,7 @@ impl Scene {
     pub fn held_sprite(&mut self) -> Option<&mut Sprite> {
         match self.held_id() {
             Some(id) => self.sprite(id),
-            None => None 
+            None => None,
         }
     }
 
@@ -435,35 +430,32 @@ impl Scene {
                 if self.sprite(s.id).is_none() {
                     self.add_sprite(s, is_scenery);
                     true
-                }
-                else {
+                } else {
                     false
                 }
-            },
+            }
             SceneEvent::SpriteMove(id, from, to) => {
-                self.held_id().map(|held| {
+                if let Some(held) = self.held_id() {
                     if held == id {
                         self.release_held(false);
                     }
-                });
+                }
 
                 match self.sprite(id) {
                     Some(s) if s.pos() == from || canonical => {
-                            s.set_pos(to);
-                            true
-                    }
-                    _ => false
-                }
-            },
-            SceneEvent::SpriteTextureChange(id, old, new) => {
-                match self.sprite(id) {
-                    Some(s) if s.texture == old || canonical => {
-                        s.set_texture(new);
+                        s.set_pos(to);
                         true
-                    },
-                    _ => false
+                    }
+                    _ => false,
                 }
             }
+            SceneEvent::SpriteTextureChange(id, old, new) => match self.sprite(id) {
+                Some(s) if s.texture == old || canonical => {
+                    s.set_texture(new);
+                    true
+                }
+                _ => false,
+            },
         }
     }
 }

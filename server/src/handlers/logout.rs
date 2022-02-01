@@ -18,14 +18,8 @@ async fn end_session(pool: &SqlitePool, session_key: &str) -> anyhow::Result<boo
     Ok(rows_affected > 0)
 }
 
-async fn logout(
-    pool: SqlitePool,
-    session_key: Option<String>,
-) -> Result<impl warp::Reply, Infallible> {
-    if let Some(session_key) = session_key {
-        end_session(&pool, session_key.as_str()).await.ok();
-    }
-
+async fn logout(pool: SqlitePool, session_key: String) -> Result<impl warp::Reply, Infallible> {
+    end_session(&pool, session_key.as_str()).await.ok();
     Binary::result_success("Logged out.")
 }
 

@@ -3,10 +3,11 @@ use std::convert::Infallible;
 use sqlx::SqlitePool;
 use warp::Filter;
 
+use crate::models::{User, UserSession};
+
 mod login;
 mod logout;
 mod media;
-mod media_details;
 mod register;
 mod upload;
 
@@ -19,7 +20,7 @@ pub fn routes(
         .or(logout::filter(pool.clone()))
         .or(upload::filter(pool.clone(), content_dir))
         .or(media::filter(pool.clone()))
-        .or(media_details::filter(pool))
+        .or(media::filter(pool))
 }
 
 pub fn json_body<T: std::marker::Send + for<'de> serde::Deserialize<'de>>(
@@ -52,29 +53,35 @@ fn parse_cookie(cookies: String, goal_key: &str) -> Option<String> {
     None
 }
 
-pub fn with_session() -> impl Filter<Extract = (Option<String>,), Error = warp::Rejection> + Clone {
-    warp::filters::header::optional::<String>("Cookie").map(|c: Option<String>| match c {
-        Some(s) => parse_cookie(s, "session_key"),
-        None => None,
-    })
+async fn session_key(cookies: String) -> Result<String, warp::Rejection> {
+    match parse_cookie(cookies, "session_key") {
+        Some(skey) => Ok(skey),
+        None => Err(warp::reject()),
+    }
 }
 
-pub async fn session_user(
-    pool: &SqlitePool,
-    session_key: Option<String>,
-) -> Result<models::User, response::ResultReply> {
-    match session_key {
-        Some(k) => match models::UserSession::get(pool, &k).await {
-            Ok(Some(session)) => match session.user(pool).await {
-                Ok(Some(user)) => Ok(user),
-                Ok(None) => Err(response::Binary::result_failure("User not found.")),
-                Err(_) => Err(response::Binary::result_error("Database error.")),
-            },
-            Ok(None) => Err(response::Binary::result_failure("Session not found.")),
-            Err(_) => Err(response::Binary::result_failure("Database error.")),
+pub fn with_session() -> impl Filter<Extract = (String,), Error = warp::Rejection> + Clone {
+    warp::header("Cookie").and_then(session_key)
+}
+
+pub async fn user_from_cookie(
+    (pool, cookie): (SqlitePool, String),
+) -> Result<User, warp::Rejection> {
+    match parse_cookie(cookie, "session_key") {
+        Some(skey) => match User::get_by_session(&pool, &skey).await {
+            Ok(Some(user)) => Ok(user),
+            _ => Err(warp::reject()),
         },
-        None => Err(response::Binary::result_failure("Session required.")),
+        None => Err(warp::reject()),
     }
+}
+
+pub async fn with_user(
+    pool: SqlitePool,
+) -> impl Filter<Extract = (User,), Error = warp::Rejection> + Clone {
+    warp::header::header("Cookie")
+        .map(move |s| (pool.clone(), s))
+        .and_then(user_from_cookie)
 }
 
 pub mod response {
@@ -227,75 +234,5 @@ pub mod crypto {
             hashed_password,
         )
         .is_ok()
-    }
-}
-
-pub mod models {
-    use sqlx::{FromRow, SqlitePool};
-
-    #[derive(FromRow)]
-    pub struct User {
-        pub id: i64,
-        pub username: String,
-        pub salt: String,
-        pub hashed_password: String,
-        pub recovery_key: String,
-        pub created_time: i64,
-    }
-
-    impl User {
-        pub async fn get(pool: &SqlitePool, username: &str) -> anyhow::Result<Option<User>> {
-            let user = sqlx::query_as("SELECT * FROM users WHERE username = ?1;")
-                .bind(username)
-                .fetch_optional(pool)
-                .await?;
-            Ok(user)
-        }
-
-        pub async fn get_by_id(pool: &SqlitePool, id: i64) -> anyhow::Result<Option<User>> {
-            let user = sqlx::query_as("SELECT * FROM users WHERE id = ?1;")
-                .bind(id)
-                .fetch_optional(pool)
-                .await?;
-            Ok(user)
-        }
-
-        pub fn relative_dir(&self) -> String {
-            format!("uploads/{}", &self.username)
-        }
-
-        pub fn upload_dir(&self, content_dir: &str) -> String {
-            format!("{}/{}", content_dir, &self.relative_dir())
-        }
-    }
-
-    #[derive(FromRow)]
-    pub struct UserSession {
-        pub id: i64,
-
-        #[sqlx(rename = "user")]
-        pub user_id: i64,
-
-        pub session_key: String,
-        pub active: bool,
-        pub start_time: i64,
-        pub end_time: Option<i64>,
-    }
-
-    impl UserSession {
-        pub async fn get(
-            pool: &SqlitePool,
-            session_key: &str,
-        ) -> anyhow::Result<Option<UserSession>> {
-            let user_sesion = sqlx::query_as("SELECT * FROM user_sessions WHERE session_key = ?1;")
-                .bind(session_key)
-                .fetch_optional(pool)
-                .await?;
-            Ok(user_sesion)
-        }
-
-        pub async fn user(&self, pool: &SqlitePool) -> anyhow::Result<Option<User>> {
-            User::get_by_id(pool, self.user_id).await
-        }
     }
 }

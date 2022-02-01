@@ -9,9 +9,11 @@ use warp::{
     Filter,
 };
 
+use crate::models::User;
+
 use super::crypto::{random_hex_string, to_hex_string_unsized};
 use super::response::{as_result, Binary};
-use super::{session_user, with_db, with_session};
+use super::{with_db, with_session};
 
 #[derive(serde_derive::Serialize)]
 struct UploadResponse {
@@ -54,13 +56,13 @@ async fn file_exists(pool: &SqlitePool, hash: &str) -> anyhow::Result<Option<Str
 
 async fn upload(
     pool: SqlitePool,
-    session_key: Option<String>,
+    session_key: String,
     content_dir: String,
     form: FormData,
 ) -> Result<impl warp::Reply, Infallible> {
-    let user = match session_user(&pool, session_key).await {
-        Ok(u) => u,
-        Err(r) => return r,
+    let user = match User::get_by_session(&pool, &session_key).await {
+        Ok(Some(user)) => user,
+        _ => return Binary::result_failure("Invalid session."),
     };
 
     let parts: Vec<Part> = match form.try_collect().await {

@@ -177,7 +177,8 @@ impl Viewport {
             let vp = Rect::scaled_from(self.viewport, self.grid_zoom);
 
             self.context.clear(vp);
-            self.context.draw_sprites(vp, self.scene.scenery(), self.grid_zoom);
+            self.context
+                .draw_sprites(vp, self.scene.scenery(), self.grid_zoom);
             self.context.draw_grid(vp, self.grid_zoom);
             self.context
                 .draw_sprites(vp, self.scene.tokens(), self.grid_zoom);
