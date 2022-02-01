@@ -3,7 +3,7 @@ use std::convert::Infallible;
 use sqlx::SqlitePool;
 use warp::Filter;
 
-use crate::models::{User, UserSession};
+use crate::models::User;
 
 mod login;
 mod logout;

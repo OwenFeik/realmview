@@ -1,4 +1,4 @@
-#![feature(async_closure)]
+#![allow(dead_code)]
 
 use sqlx::sqlite::SqlitePool;
 use warp::Filter;

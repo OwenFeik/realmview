@@ -14,4 +14,5 @@ serde = "1"
 serde_derive = "1"
 sqlx = {version = "0.5", features = ["runtime-tokio-rustls", "sqlite"]}
 tokio = {version = "1", features = ["full"]}
+tokio-stream = "0.1"
 warp = "0.3"
