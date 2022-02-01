@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use futures::{FutureExt, StreamExt};
@@ -11,17 +12,31 @@ struct Client {
     sender: Option<mpsc::UnboundedSender<Result<Message, warp::Error>>>,
 }
 
-struct Session {
+pub struct Game {
+    owner: i64,
     scene: Scene,
 }
 
-impl Session {
+impl Game {
+    fn new(owner: i64, scene: Scene) -> Self {
+        Game { owner, scene }
+    }
+
+    pub fn new_ref(owner: i64, scene: Scene) -> GameRef {
+        Arc::new(RwLock::new(Self::new(owner, scene)))
+    }
+
     fn event(&self, user: i64) {
         println!("Event from user {}", user);
     }
 }
 
-async fn client_connection(ws: WebSocket, mut client: Client, session: Arc<RwLock<Session>>) {
+pub type GameRef = Arc<RwLock<Game>>;
+pub type Games = Arc<RwLock<HashMap<String, GameRef>>>;
+
+pub const GAME_KEY_LENGTH: usize = 6;
+
+async fn client_connection(ws: WebSocket, mut client: Client, game: Arc<RwLock<Game>>) {
     let (client_ws_send, mut client_ws_recv) = ws.split();
     let (client_send, client_recv) = mpsc::unbounded_channel();
     let client_recv = tokio_stream::wrappers::UnboundedReceiverStream::new(client_recv);
@@ -42,6 +57,6 @@ async fn client_connection(ws: WebSocket, mut client: Client, session: Arc<RwLoc
             }
         };
 
-        session.read().await.event(client.user);
+        game.read().await.event(client.user);
     }
 }

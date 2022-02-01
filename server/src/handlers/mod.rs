@@ -5,6 +5,7 @@ use warp::Filter;
 
 use crate::models::User;
 
+mod game;
 mod login;
 mod logout;
 mod media;
