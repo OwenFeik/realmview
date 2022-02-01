@@ -3,9 +3,11 @@
 use std::ops::{Add, Sub};
 use std::sync::atomic::{AtomicI64, Ordering};
 
+use serde_derive::{Serialize, Deserialize};
+
 pub type Id = i64;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Deserialize, Serialize)]
 pub struct Rect {
     pub x: f32,
     pub y: f32,
@@ -95,6 +97,7 @@ impl Rect {
     }
 }
 
+#[derive(Clone, Copy, Deserialize, Serialize)]
 pub struct Sprite {
     pub rect: Rect,
 
@@ -128,9 +131,13 @@ impl Sprite {
         self.rect.y = y;
     }
 
-    pub fn set_size(&mut self, w: f32, h: f32) {
+    fn set_size(&mut self, w: f32, h: f32) {
         self.rect.w = w;
         self.rect.h = h;
+    }
+
+    fn set_texture(&mut self, new: Id) {
+        self.texture = new;
     }
 
     fn snap_to_grid(&mut self) {
@@ -173,7 +180,7 @@ impl Sprite {
         })
     }
 
-    pub fn pos(&mut self) -> ScenePoint {
+    pub fn pos(&self) -> ScenePoint {
         ScenePoint {
             x: self.rect.x,
             y: self.rect.y,
@@ -210,7 +217,7 @@ impl Sprite {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Deserialize, Serialize, PartialEq)]
 pub struct ScenePoint {
     pub x: f32,
     pub y: f32,
@@ -313,6 +320,13 @@ impl SpriteSet {
 }
 
 
+#[derive(Deserialize, Serialize)]
+pub enum SceneEvent {
+    SpriteNew(Sprite, bool), // (new_sprite, is_token) 
+    SpriteMove(Id, ScenePoint, ScenePoint), // (sprite_id, from, to)
+    SpriteTextureChange(Id, Id, Id), // (sprite_id, old_texture, new_texture)
+}
+
 pub struct Scene {
     scenery: SpriteSet,
     tokens: SpriteSet,
@@ -361,12 +375,28 @@ impl Scene {
         self.tokens.add_sprites(sprites);
     }
 
+    pub fn add_sprite(&mut self, sprite: Sprite, is_scenery: bool) {
+        if is_scenery {
+            self.scenery.add_sprite(sprite);
+        }
+        else {
+            self.tokens.add_sprite(sprite);
+        }
+    }
+
+    pub fn held_id(&self) -> Option<Id> {
+        match self.holding {
+            HeldObject::Sprite(id, _) => Some(id),
+            HeldObject::Anchor(id, _, _) => Some(id),
+            _ => None,
+        }
+    }
+
     pub fn held_sprite(&mut self) -> Option<&mut Sprite> {
-        self.sprite(match self.holding {
-            HeldObject::Sprite(id, _) => id,
-            HeldObject::Anchor(id, _, _) => id,
-            _ => return None,
-        })
+        match self.held_id() {
+            Some(id) => self.sprite(id),
+            None => None 
+        }
     }
 
     pub fn update_held_pos(&mut self, at: ScenePoint) -> bool {
@@ -396,6 +426,44 @@ impl Scene {
                 true
             }
             None => false,
+        }
+    }
+
+    pub fn apply_event(&mut self, event: SceneEvent, canonical: bool) -> bool {
+        match event {
+            SceneEvent::SpriteNew(s, is_scenery) => {
+                if self.sprite(s.id).is_none() {
+                    self.add_sprite(s, is_scenery);
+                    true
+                }
+                else {
+                    false
+                }
+            },
+            SceneEvent::SpriteMove(id, from, to) => {
+                self.held_id().map(|held| {
+                    if held == id {
+                        self.release_held(false);
+                    }
+                });
+
+                match self.sprite(id) {
+                    Some(s) if s.pos() == from || canonical => {
+                            s.set_pos(to);
+                            true
+                    }
+                    _ => false
+                }
+            },
+            SceneEvent::SpriteTextureChange(id, old, new) => {
+                match self.sprite(id) {
+                    Some(s) if s.texture == old || canonical => {
+                        s.set_texture(new);
+                        true
+                    },
+                    _ => false
+                }
+            }
         }
     }
 }
