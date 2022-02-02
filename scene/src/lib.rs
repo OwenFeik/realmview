@@ -1,11 +1,12 @@
 #![allow(dead_code)]
 
-mod comms;
-
+use serde_derive::{Deserialize, Serialize};
 use std::ops::{Add, Sub};
 use std::sync::atomic::{AtomicI64, Ordering};
 
-use serde_derive::{Deserialize, Serialize};
+pub mod comms;
+
+use comms::SceneEvent;
 
 pub type Id = i64;
 
@@ -319,13 +320,6 @@ impl SpriteSet {
     }
 }
 
-#[derive(Deserialize, Serialize)]
-pub enum SceneEvent {
-    SpriteNew(Sprite, bool),                // (new_sprite, is_token)
-    SpriteMove(Id, ScenePoint, ScenePoint), // (sprite_id, from, to)
-    SpriteTextureChange(Id, Id, Id),        // (sprite_id, old_texture, new_texture)
-}
-
 pub struct Scene {
     scenery: SpriteSet,
     tokens: SpriteSet,
@@ -426,8 +420,8 @@ impl Scene {
         }
     }
 
-    pub fn apply_event(&mut self, event: SceneEvent, canonical: bool) -> bool {
-        match event {
+    pub fn apply_event(&mut self, event: &SceneEvent, canonical: bool) -> bool {
+        match *event {
             SceneEvent::SpriteNew(s, is_scenery) => {
                 if self.sprite(s.id).is_none() {
                     self.add_sprite(s, is_scenery);
