@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+mod comms;
+
 use std::ops::{Add, Sub};
 use std::sync::atomic::{AtomicI64, Ordering};
 

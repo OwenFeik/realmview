@@ -4,7 +4,16 @@ use warp::Filter;
 
 use crate::game::Games;
 
-pub fn with_games(games: Games) -> impl Filter<Extract = (Games,), Error = Infallible> + Clone {
+pub fn routes(
+    pool: sqlx::SqlitePool,
+    games: Games,
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    new::filter(pool.clone(), games.clone())
+        .or(join::filter(pool, games.clone()))
+        .or(connect::filter(games))
+}
+
+fn with_games(games: Games) -> impl Filter<Extract = (Games,), Error = Infallible> + Clone {
     warp::any().map(move || games.clone())
 }
 
@@ -50,7 +59,7 @@ mod join {
     use warp::Filter;
 
     use crate::game::{generate_game_key, GameRef, Games};
-    use crate::handlers::response::{as_result, Binary};
+    use crate::handlers::response::{as_result, Binary, ResultReply};
     use crate::models::User;
 
     #[derive(Serialize)]
@@ -82,28 +91,32 @@ mod join {
         Ok(client_key)
     }
 
-    async fn join_game(
-        game_key: String,
-        games: Games,
-        pool: sqlx::SqlitePool,
-        skey: String,
-    ) -> Result<impl warp::Reply, super::Infallible> {
+    pub async fn join_game(games: Games, game_key: String, user_id: i64) -> ResultReply {
         let game = match games.read().await.get(&game_key) {
             Some(game_ref) => game_ref.clone(),
             None => return Binary::result_error("Game key invalid."),
         };
 
-        let user = match User::get_by_session(&pool, &skey).await {
-            Ok(Some(u)) => u,
-            _ => return Binary::result_failure("Bad session."),
-        };
-
-        match add_client(game, user.id).await {
+        match add_client(game, user_id).await {
             Ok(client_key) => {
                 as_result(&JoinGameResponse::new(game_key, client_key), StatusCode::OK)
             }
             Err(_) => Binary::result_error("Crypography error."),
         }
+    }
+
+    async fn join_game_handler(
+        game_key: String,
+        games: Games,
+        pool: sqlx::SqlitePool,
+        skey: String,
+    ) -> Result<impl warp::Reply, super::Infallible> {
+        let user = match User::get_by_session(&pool, &skey).await {
+            Ok(Some(u)) => u,
+            _ => return Binary::result_failure("Bad session."),
+        };
+
+        join_game(games, game_key, user.id).await
     }
 
     pub fn filter(
@@ -114,41 +127,22 @@ mod join {
             .and(super::with_games(games))
             .and(crate::handlers::with_db(pool))
             .and(crate::handlers::with_session())
-            .and_then(join_game)
+            .and_then(join_game_handler)
     }
 }
 
 mod new {
     use std::convert::Infallible;
 
-    use serde_derive::Serialize;
     use sqlx::SqlitePool;
     use warp::Filter;
 
     use crate::crypto::random_hex_string;
     use crate::game;
-    use crate::handlers::{
-        response::{as_result, Binary},
-        with_db, with_session,
-    };
+    use crate::handlers::{response::Binary, with_db, with_session};
     use crate::models::User;
 
     use super::with_games;
-
-    #[derive(Serialize)]
-    struct NewGameResponse {
-        game_key: String,
-        success: bool,
-    }
-
-    impl NewGameResponse {
-        fn new(game_key: String) -> Self {
-            NewGameResponse {
-                game_key,
-                success: true,
-            }
-        }
-    }
 
     async fn new_game(
         pool: SqlitePool,
@@ -160,22 +154,25 @@ mod new {
             _ => return Binary::result_failure("Bad session."),
         };
 
-        let mut games = games.write().await;
-        let game_key = loop {
-            if let Ok(game_key) = random_hex_string(game::GAME_KEY_LENGTH) {
-                if !games.contains_key(&game_key) {
-                    break game_key;
+        let game_key = {
+            let games = games.read().await;
+            loop {
+                if let Ok(game_key) = random_hex_string(game::GAME_KEY_LENGTH) {
+                    if !games.contains_key(&game_key) {
+                        break game_key;
+                    }
+                } else {
+                    return Binary::result_error("Crypto error.");
                 }
-            } else {
-                return Binary::result_error("Crypto error.");
             }
         };
 
-        games.insert(
+        games.write().await.insert(
             game_key.clone(),
             game::Game::new_ref(user.id, scene::Scene::new()),
         );
-        as_result(&NewGameResponse::new(game_key), warp::http::StatusCode::OK)
+
+        super::join::join_game(games, game_key, user.id).await
     }
 
     pub fn filter(

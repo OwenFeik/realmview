@@ -14,6 +14,7 @@ mod upload;
 
 pub fn routes(
     pool: SqlitePool,
+    games: crate::game::Games,
     content_dir: String,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     login::filter(pool.clone())
@@ -21,7 +22,7 @@ pub fn routes(
         .or(logout::filter(pool.clone()))
         .or(upload::filter(pool.clone(), content_dir))
         .or(media::filter(pool.clone()))
-        .or(media::filter(pool))
+        .or(game::routes(pool, games))
 }
 
 pub fn json_body<T: std::marker::Send + for<'de> serde::Deserialize<'de>>(
