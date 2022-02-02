@@ -7,6 +7,7 @@ use sqlx::sqlite::SqlitePool;
 use tokio::sync::RwLock;
 use warp::Filter;
 
+mod crypto;
 mod game;
 mod handlers;
 mod models;
