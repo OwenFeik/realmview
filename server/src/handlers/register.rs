@@ -4,7 +4,8 @@ use serde_derive::{Deserialize, Serialize};
 use sqlx::{sqlite::SqlitePool, Sqlite};
 use warp::{http::StatusCode, Filter};
 
-use super::crypto::{generate_salt, hash_password, to_hex_string, Key};
+use crate::crypto::{generate_salt, hash_password, to_hex_string, Key};
+
 use super::response::{as_result, Binary};
 use super::{current_time, json_body, with_db};
 
