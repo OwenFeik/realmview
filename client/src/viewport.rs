@@ -116,9 +116,10 @@ impl Viewport {
         const ZOOM_MIN: f32 = Viewport::BASE_GRID_ZOOM / 2.0;
         const ZOOM_MAX: f32 = Viewport::BASE_GRID_ZOOM * 5.0;
 
-        // We want shift + scroll to scroll horizontally but browsers (Firefox anyway) only do this when the page is
-        // wider than the viewport, which it never is in this case. Thus this check for shift. Likewise for ctrl +
-        // scroll and zooming.
+        // We want shift + scroll to scroll horizontally but browsers (Firefox
+        // anyway) only do this when the page is wider than the viewport, which
+        // it never is in this case. Thus this check for shift. Likewise for
+        // ctrl + scroll and zooming.
         if shift {
             self.viewport.x += SCROLL_COEFFICIENT * delta / self.grid_zoom;
         } else if ctrl {
@@ -141,7 +142,7 @@ impl Viewport {
         self.redraw_needed = true;
     }
 
-    fn process_events(&mut self) {
+    fn process_ui_events(&mut self) {
         let events = match self.context.events() {
             Some(e) => e,
             None => return,
@@ -167,7 +168,7 @@ impl Viewport {
         // interacted with a newly loaded image within a frame of it's
         // appearing, and more likely that they instead clicked something that
         // is now behind a newly loaded image.
-        self.process_events();
+        self.process_ui_events();
         if let Some(mut new_sprites) = self.context.load_queue() {
             self.scene.add_tokens(&mut new_sprites);
             self.redraw_needed = true;
