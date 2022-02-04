@@ -179,7 +179,8 @@ mod new {
         pool: SqlitePool,
         games: crate::Games,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        warp::path("game/new")
+        warp::path("game")
+            .and(warp::path("new"))
             .and(with_db(pool))
             .and(with_session())
             .and(with_games(games))

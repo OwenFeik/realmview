@@ -66,7 +66,8 @@ mod details {
     pub fn filter(
         pool: SqlitePool,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        warp::path!("media/details")
+        warp::path("media")
+            .and(warp::path("details"))
             .and(warp::post())
             .and(with_db(pool))
             .and(with_session())
@@ -126,7 +127,8 @@ mod list {
     pub fn filter(
         pool: SqlitePool,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        warp::path("media/list")
+        warp::path("media")
+            .and(warp::path("list"))
             .and(with_db(pool))
             .and(with_session())
             .and_then(list_media)

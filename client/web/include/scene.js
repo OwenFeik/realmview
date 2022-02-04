@@ -154,8 +154,7 @@ function view_media() {
             label.innerText = "Network error.";
             loading.classList.remove("show");    
         }
-
-        if (req.response.success) {
+        else if (req.response.success) {
             label.classList.add("d-none");
             req.response.items.forEach(item => {
                 media_preview.appendChild(media_card(item));
