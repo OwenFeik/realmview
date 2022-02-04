@@ -110,7 +110,10 @@ pub struct Sprite {
     pub texture: Id,
 
     // Unique numeric ID, numbered from 1
-    id: Id,
+    local_id: Id,
+
+    // ID of the Sprite on the server side
+    canonical_id: Option<Id>,
 }
 
 impl Sprite {
@@ -125,13 +128,30 @@ impl Sprite {
             rect: Rect::new(0.0, 0.0, 1.0, 1.0),
             z: 1,
             texture,
-            id: SPRITE_ID.fetch_add(1, Ordering::Relaxed),
+            local_id: SPRITE_ID.fetch_add(1, Ordering::Relaxed),
+            canonical_id: None,
         }
     }
 
-    fn set_pos(&mut self, ScenePoint { x, y }: ScenePoint) {
+    fn from_remote(sprite: Sprite) -> Sprite {
+        let mut new = Sprite::new(sprite.texture);
+        new.set_rect(sprite.rect);
+        new.z = sprite.z;
+        new.canonical_id = sprite.canonical_id;
+        new
+    }
+
+    fn set_pos(&mut self, ScenePoint { x, y }: ScenePoint) -> Option<SceneEvent> {
+        let from = self.rect;
         self.rect.x = x;
         self.rect.y = y;
+
+        self.canonical_id
+            .map(|id| SceneEvent::SpriteMove(id, from, self.rect))
+    }
+
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
     }
 
     fn set_size(&mut self, w: f32, h: f32) {
@@ -143,8 +163,11 @@ impl Sprite {
         self.texture = new;
     }
 
-    fn snap_to_grid(&mut self) {
+    fn snap_to_grid(&mut self) -> Option<SceneEvent> {
+        let from = self.rect;
         self.rect.round();
+        self.canonical_id
+            .map(|id| SceneEvent::SpriteMove(id, from, self.rect))
     }
 
     fn grab_anchor(&mut self, at: ScenePoint) -> Option<HeldObject> {
@@ -163,7 +186,7 @@ impl Sprite {
                 let delta_y = anchor_y - at.y;
 
                 if (delta_x.powi(2) + delta_y.powi(2)).sqrt() <= Sprite::ANCHOR_RADIUS {
-                    return Some(HeldObject::Anchor(self.id, dx, dy));
+                    return Some(HeldObject::Anchor(self.local_id, dx, dy));
                 }
             }
         }
@@ -174,7 +197,7 @@ impl Sprite {
     fn grab(&mut self, at: ScenePoint) -> HeldObject {
         self.grab_anchor(at).unwrap_or({
             HeldObject::Sprite(
-                self.id,
+                self.local_id,
                 ScenePoint {
                     x: at.x - self.rect.x,
                     y: at.y - self.rect.y,
@@ -198,12 +221,12 @@ impl Sprite {
         }
     }
 
-    fn update_held_pos(&mut self, holding: HeldObject, at: ScenePoint) {
+    fn update_held_pos(&mut self, holding: HeldObject, at: ScenePoint) -> Option<SceneEvent> {
         match holding {
-            HeldObject::Sprite(_, offset) => {
-                self.set_pos(at - offset);
-            }
+            HeldObject::Sprite(_, offset) => self.set_pos(at - offset),
             HeldObject::Anchor(_, dx, dy) => {
+                let old_rect = self.rect;
+
                 let ScenePoint {
                     x: delta_x,
                     y: delta_y,
@@ -213,9 +236,11 @@ impl Sprite {
                 let w = delta_x * (dx as f32) + self.rect.w;
                 let h = delta_y * (dy as f32) + self.rect.h;
 
-                self.rect = Rect { x, y, w, h }
+                self.rect = Rect { x, y, w, h };
+                self.canonical_id
+                    .map(|id| SceneEvent::SpriteMove(id, old_rect, self.rect))
             }
-            _ => (), // Other types aren't sprite-related
+            HeldObject::None => None, // Other types aren't sprite-related
         }
     }
 }
@@ -276,8 +301,14 @@ impl SpriteSet {
         }
     }
 
-    fn sprite(&mut self, id: Id) -> Option<&mut Sprite> {
-        self.sprites.iter_mut().find(|s| s.id == id)
+    fn sprite(&mut self, local_id: Id) -> Option<&mut Sprite> {
+        self.sprites.iter_mut().find(|s| s.local_id == local_id)
+    }
+
+    fn sprite_canonical(&mut self, canonical_id: Id) -> Option<&mut Sprite> {
+        self.sprites
+            .iter_mut()
+            .find(|s| s.canonical_id == Some(canonical_id))
     }
 
     fn sort_sprites(&mut self) {
@@ -306,6 +337,10 @@ impl SpriteSet {
         self.sort_sprites();
     }
 
+    fn remove_sprite(&mut self, local_id: Id) {
+        self.sprites.retain(|s| s.local_id != local_id);
+    }
+
     fn sprite_at(&mut self, at: ScenePoint) -> Option<&mut Sprite> {
         // Reversing the iterator atm because the sprites are rendered from the
         // front of the Vec to the back, hence the last Sprite in the Vec is
@@ -324,7 +359,8 @@ pub struct Scene {
     scenery: SpriteSet,
     tokens: SpriteSet,
 
-    // ID of the Sprite the user is currently dragging.
+    // Local ID of the most recently added sprite.
+    pub latest_sprite: Option<Id>,
     holding: HeldObject,
 }
 
@@ -333,12 +369,21 @@ impl Scene {
         Self {
             scenery: SpriteSet::new(),
             tokens: SpriteSet::new(),
+            latest_sprite: None,
             holding: HeldObject::None,
         }
     }
 
-    fn sprite(&mut self, id: Id) -> Option<&mut Sprite> {
-        self.tokens.sprite(id).or_else(|| self.scenery.sprite(id))
+    fn sprite(&mut self, local_id: Id) -> Option<&mut Sprite> {
+        self.tokens
+            .sprite(local_id)
+            .or_else(|| self.scenery.sprite(local_id))
+    }
+
+    fn sprite_canonical(&mut self, canonical_id: Id) -> Option<&mut Sprite> {
+        self.tokens
+            .sprite_canonical(canonical_id)
+            .or_else(|| self.scenery.sprite_canonical(canonical_id))
     }
 
     fn sprite_at(&mut self, at: ScenePoint, include_scenery: bool) -> Option<&mut Sprite> {
@@ -368,6 +413,7 @@ impl Scene {
     }
 
     pub fn add_sprite(&mut self, sprite: Sprite, is_scenery: bool) {
+        self.latest_sprite = Some(sprite.local_id);
         if is_scenery {
             self.scenery.add_sprite(sprite);
         } else {
@@ -375,7 +421,7 @@ impl Scene {
         }
     }
 
-    pub fn held_id(&self) -> Option<Id> {
+    fn held_id(&self) -> Option<Id> {
         match self.holding {
             HeldObject::Sprite(id, _) => Some(id),
             HeldObject::Anchor(id, _, _) => Some(id),
@@ -390,24 +436,29 @@ impl Scene {
         }
     }
 
-    pub fn update_held_pos(&mut self, at: ScenePoint) -> bool {
+    pub fn update_held_pos(&mut self, at: ScenePoint) -> Option<SceneEvent> {
         let holding = self.holding;
-        self.held_sprite()
-            .map(|s| s.update_held_pos(holding, at))
-            .is_some()
+        if let Some(s) = self.held_sprite() {
+            s.update_held_pos(holding, at)
+        } else {
+            None
+        }
     }
 
-    pub fn release_held(&mut self, snap_to_grid: bool) -> bool {
-        let redraw_needed = {
+    pub fn release_held(&mut self, snap_to_grid: bool) -> Option<SceneEvent> {
+        let event = {
             if snap_to_grid {
-                self.held_sprite().map(|s| s.snap_to_grid()).is_some()
+                match self.held_sprite() {
+                    Some(s) => s.snap_to_grid(),
+                    None => None,
+                }
             } else {
-                false
+                None
             }
         };
 
         self.holding = HeldObject::None;
-        redraw_needed
+        event
     }
 
     pub fn grab(&mut self, at: ScenePoint, include_scenery: bool) -> bool {
@@ -420,38 +471,76 @@ impl Scene {
         }
     }
 
+    fn release_sprite(&mut self, canonical_id: Id) {
+        if let Some(sprite) = self.held_sprite() {
+            if sprite.canonical_id == Some(canonical_id) {
+                self.release_held(false);
+            }
+        }
+    }
+
+    pub fn set_canonical_id(&mut self, local_id: Id, canonical_id: Id) {
+        if let Some(s) = self.sprite(local_id) {
+            s.canonical_id = Some(canonical_id);
+        }
+    }
+
     pub fn apply_event(&mut self, event: &SceneEvent, canonical: bool) -> bool {
         match *event {
             SceneEvent::SpriteNew(s, is_scenery) => {
-                if self.sprite(s.id).is_none() {
-                    self.add_sprite(s, is_scenery);
-                    true
+                if let Some(canonical_id) = s.canonical_id {
+                    if self.sprite_canonical(canonical_id).is_none() {
+                        let sprite = Sprite::from_remote(s);
+                        self.add_sprite(sprite, is_scenery);
+                        true
+                    } else {
+                        false
+                    }
                 } else {
-                    false
+                    let mut sprite = Sprite::from_remote(s);
+                    sprite.canonical_id = Some(sprite.local_id);
+                    true
                 }
             }
             SceneEvent::SpriteMove(id, from, to) => {
-                if let Some(held) = self.held_id() {
-                    if held == id {
-                        self.release_held(false);
-                    }
-                }
-
-                match self.sprite(id) {
-                    Some(s) if s.pos() == from || canonical => {
-                        s.set_pos(to);
+                self.release_sprite(id);
+                match self.sprite_canonical(id) {
+                    Some(s) if s.rect == from || canonical => {
+                        s.set_rect(to);
                         true
                     }
                     _ => false,
                 }
             }
-            SceneEvent::SpriteTextureChange(id, old, new) => match self.sprite(id) {
+            SceneEvent::SpriteTextureChange(id, old, new) => match self.sprite_canonical(id) {
                 Some(s) if s.texture == old || canonical => {
                     s.set_texture(new);
                     true
                 }
                 _ => false,
             },
+        }
+    }
+
+    pub fn unwind_event(&mut self, event: &SceneEvent) {
+        match *event {
+            SceneEvent::SpriteNew(s, is_scenery) => {
+                if is_scenery {
+                    self.scenery.remove_sprite(s.local_id);
+                } else {
+                    self.tokens.remove_sprite(s.local_id);
+                }
+            }
+            SceneEvent::SpriteMove(id, from, _to) => {
+                if let Some(s) = self.sprite_canonical(id) {
+                    s.set_rect(from);
+                }
+            }
+            SceneEvent::SpriteTextureChange(id, old, _new) => {
+                if let Some(s) = self.sprite_canonical(id) {
+                    s.set_texture(old);
+                }
+            }
         }
     }
 }

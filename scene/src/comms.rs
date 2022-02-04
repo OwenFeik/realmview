@@ -1,13 +1,13 @@
 use serde_derive::{Deserialize, Serialize};
 
-use super::{Id, ScenePoint, Sprite};
+use super::{Id, Rect, Sprite};
 
 // Events processed by Scene
 #[derive(Deserialize, Serialize)]
 pub enum SceneEvent {
-    SpriteNew(Sprite, bool),                // (new_sprite, is_token)
-    SpriteMove(Id, ScenePoint, ScenePoint), // (sprite_id, from, to)
-    SpriteTextureChange(Id, Id, Id),        // (sprite_id, old_texture, new_texture)
+    SpriteNew(Sprite, bool),         // (new_sprite, is_scenery)
+    SpriteMove(Id, Rect, Rect),      // (sprite_id, from, to)
+    SpriteTextureChange(Id, Id, Id), // (sprite_id, old_texture, new_texture)
 }
 
 // Events sent by Client. The client will keep track of these after sending them
@@ -25,4 +25,5 @@ pub enum ServerEvent {
     Approval(Id),
     Rejection(Id),
     SceneChange(SceneEvent, Option<String>),
+    CanonicalId(Id, Id),
 }

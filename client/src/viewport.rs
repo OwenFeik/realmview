@@ -1,5 +1,10 @@
+use std::sync::atomic::{AtomicI64, Ordering};
+
 use crate::bridge::{Context, EventType, JsError};
-use scene::{Rect, Scene, ScenePoint};
+use scene::{
+    comms::{ClientEvent, SceneEvent, ServerEvent},
+    Id, Rect, Scene, ScenePoint,
+};
 
 #[derive(Clone, Copy)]
 pub struct ViewportPoint {
@@ -38,6 +43,9 @@ pub struct Viewport {
 
     // Position where the viewport is being dragged from
     grabbed_at: Option<ViewportPoint>,
+
+    // Events that this client has sent to the server, awaiting approval.
+    issued_events: Vec<ClientEvent>,
 }
 
 impl Viewport {
@@ -56,6 +64,7 @@ impl Viewport {
             grid_zoom: Viewport::BASE_GRID_ZOOM,
             redraw_needed: true,
             grabbed_at: None,
+            issued_events: Vec::new(),
         })
     }
 
@@ -88,17 +97,19 @@ impl Viewport {
 
     fn handle_mouse_up(&mut self, _at: ViewportPoint, alt: bool) {
         // Only snap a held sprite to the grid if the user is not holding alt.
-        if self.scene.release_held(!alt) {
+        if let Some(scene_event) = self.scene.release_held(!alt) {
+            self.client_event(scene_event);
             self.redraw_needed = true;
         }
         self.grabbed_at = None;
     }
 
     fn handle_mouse_move(&mut self, at: ViewportPoint) {
-        if self
+        if let Some(scene_event) = self
             .scene
             .update_held_pos(at.scene_point(self.viewport, self.grid_zoom))
         {
+            self.client_event(scene_event);
             self.redraw_needed = true;
         }
 
@@ -132,7 +143,8 @@ impl Viewport {
             self.grid_zoom = (self.grid_zoom - ZOOM_COEFFICIENT * delta).clamp(ZOOM_MIN, ZOOM_MAX);
             self.update_viewport();
 
-            // Update viewport such that the mouse is at the same viewport port as before zooming.
+            // Update viewport such that the mouse is at the same scene
+            // coordinate as before zooming.
             self.viewport.x = scene_point.x - self.viewport.w * fraction_x;
             self.viewport.y = scene_point.y - self.viewport.h * fraction_y;
         } else {
@@ -159,6 +171,41 @@ impl Viewport {
                 }
             };
         }
+    }
+
+    fn approve_event(&mut self, id: Id) {
+        self.issued_events.retain(|c| c.id != id);
+    }
+
+    fn unwind_event(&mut self, id: Id) {
+        if let Some(c) = self.issued_events.iter().find(|c| c.id == id) {
+            self.scene.unwind_event(&c.scene_event);
+        }
+        self.issued_events.retain(|c| c.id != id);
+    }
+
+    fn process_server_event(&mut self, event: ServerEvent) {
+        match event {
+            ServerEvent::Approval(id) => self.approve_event(id),
+            ServerEvent::Rejection(id) => self.unwind_event(id),
+            ServerEvent::SceneChange(scene_event, _url) => {
+                // TODO load texturef rom supplied url
+
+                self.scene.apply_event(&scene_event, true);
+            }
+            ServerEvent::CanonicalId(local_id, canonical_id) => {
+                self.scene.set_canonical_id(local_id, canonical_id)
+            }
+        }
+    }
+
+    fn client_event(&mut self, scene_event: SceneEvent) {
+        static EVENT_ID: AtomicI64 = AtomicI64::new(1);
+
+        self.issued_events.push(ClientEvent {
+            id: EVENT_ID.fetch_add(1, Ordering::Relaxed),
+            scene_event,
+        });
     }
 
     pub fn animation_frame(&mut self) {
