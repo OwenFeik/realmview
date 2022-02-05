@@ -9,34 +9,39 @@ crate-type = ["cdylib"]
 
 [dependencies]
 scene = { path = "../scene" }
+bincode = "1.3"
 js-sys = "0.3"
 wasm-bindgen = {version = "0.2", features = ["nightly"]}
 
 [dependencies.web-sys]
 version = "0.3"
 features = [
-    'Blob',
-    'CssStyleDeclaration',
-    'Document',
-    'Element',
-    'Event',
-    'File',
-    'FileList',
-    'FileReader',
-    'HtmlCanvasElement',
-    'HtmlElement',
-    'HtmlImageElement',
-    'HtmlInputElement',
-    'InputEvent',
-    'MouseEvent',
-    'ProgressEvent',
-    'Url',
-    'WebGlBuffer',
-    'WebGlProgram',
-    'WebGl2RenderingContext',
-    'WebGlShader',
-    'WebGlTexture',
-    'WebGlUniformLocation',
-    'WheelEvent',
-    'Window',
+    'BinaryType',             # Set WebSocket binary type
+    'Blob',                   # Load files from disk
+    'CssStyleDeclaration',    # Set CSS on created elements
+    'Document',               # Access to document methods
+    'Element',                # Create and work with nodes
+    'ErrorEvent',             # WebSocket errors
+    'Event',                  # Generic handling for user input
+    'File',                   # Canvas direct upload functionality
+    'FileList',               # Canvas direct upload functionality
+    'FileReader',             # Load images from disk
+    'HtmlCanvasElement',      # Create canvas for battlemap
+    'HtmlElement',            # Create and manipulate elements
+    'HtmlImageElement',       # Load images from URL
+    'HtmlInputElement',       # Direct upload through canvas
+    'InputEvent',             # Canvas direct upload functionality
+    'MessageEvent',           # Receive and send WebSocket messages
+    'MouseEvent',             # Interaction with canvas
+    'ProgressEvent',          # Handle image loading events
+    'Url',                    # Create DataURLs for image loading
+    'WebGlBuffer',            # WebGl2 buffers, for rendering
+    'WebGlProgram',           # WebGl2 texture programs
+    'WebGl2RenderingContext', # WebGl2 Context, for battlemap
+    'WebGlShader',            # Shaders for WebGl2 programs
+    'WebGlTexture',           # Textures for battlemap elements
+    'WebGlUniformLocation',   # Work with WebGl2 programs
+    'WebSocket',              # Connect to server
+    'WheelEvent',             # Handle scrolling on battlemap
+    'Window',                 # Access window globals
 ]

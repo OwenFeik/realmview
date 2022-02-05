@@ -1,6 +1,6 @@
-use std::sync::atomic::{AtomicI64, Ordering};
+use std::{sync::atomic::{AtomicI64, Ordering}};
 
-use crate::bridge::{Context, EventType, JsError};
+use crate::{bridge::{Context, EventType, JsError}, client::Client};
 use scene::{
     comms::{ClientEvent, SceneEvent, ServerEvent},
     Id, Rect, Scene, ScenePoint,
@@ -46,12 +46,15 @@ pub struct Viewport {
 
     // Events that this client has sent to the server, awaiting approval.
     issued_events: Vec<ClientEvent>,
+
+    // Wrapper for a potential WebSocket connection with the server.
+    client: Option<Client>
 }
 
 impl Viewport {
     const BASE_GRID_ZOOM: f32 = 50.0;
 
-    pub fn new() -> Result<Self, JsError> {
+    pub fn new(client: Option<Client>) -> Result<Self, JsError> {
         Ok(Viewport {
             context: Context::new()?,
             scene: Scene::new(),
@@ -65,6 +68,7 @@ impl Viewport {
             redraw_needed: true,
             grabbed_at: None,
             issued_events: Vec::new(),
+            client
         })
     }
 
@@ -189,7 +193,7 @@ impl Viewport {
             ServerEvent::Approval(id) => self.approve_event(id),
             ServerEvent::Rejection(id) => self.unwind_event(id),
             ServerEvent::SceneChange(scene_event, _url) => {
-                // TODO load texturef rom supplied url
+                // TODO load texture from supplied url
 
                 self.scene.apply_event(&scene_event, true);
             }
@@ -199,13 +203,27 @@ impl Viewport {
         }
     }
 
+    fn process_server_events(&mut self) {
+        if let Some(client) = &self.client {
+            let mut events = client.recv_events();
+            while let Some(event) = events.pop() {
+                self.process_server_event(event);
+            }    
+        }
+    }
+
     fn client_event(&mut self, scene_event: SceneEvent) {
         static EVENT_ID: AtomicI64 = AtomicI64::new(1);
 
-        self.issued_events.push(ClientEvent {
-            id: EVENT_ID.fetch_add(1, Ordering::Relaxed),
-            scene_event,
-        });
+        // nop unless we actually have a connection.
+        if let Some(client) = &self.client {
+            let event = ClientEvent {
+                id: EVENT_ID.fetch_add(1, Ordering::Relaxed),
+                scene_event,
+            };
+            client.send_event(&event);
+            self.issued_events.push(event);
+        }
     }
 
     pub fn animation_frame(&mut self) {
@@ -220,6 +238,8 @@ impl Viewport {
             self.scene.add_tokens(&mut new_sprites);
             self.redraw_needed = true;
         };
+
+        self.process_server_events();
 
         if self.redraw_needed || self.update_viewport() {
             let vp = Rect::scaled_from(self.viewport, self.grid_zoom);

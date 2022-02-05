@@ -100,6 +100,32 @@ impl Rect {
     }
 }
 
+impl Add for Rect {
+    type Output = Rect;
+
+    fn add(self, rhs: Rect) -> Rect {
+        Rect {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            w: self.w + rhs.w,
+            h: self.h + rhs.h
+        }
+    }
+}
+
+impl Sub for Rect {
+    type Output = Rect;
+
+    fn sub(self, rhs: Rect) -> Rect {
+        Rect {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            w: self.w - rhs.w,
+            h: self.h - rhs.h
+        }
+    }
+}
+
 #[derive(Clone, Copy, Deserialize, Serialize)]
 pub struct Sprite {
     pub rect: Rect,
@@ -531,9 +557,9 @@ impl Scene {
                     self.tokens.remove_sprite(s.local_id);
                 }
             }
-            SceneEvent::SpriteMove(id, from, _to) => {
+            SceneEvent::SpriteMove(id, from, to) => {
                 if let Some(s) = self.sprite_canonical(id) {
-                    s.set_rect(from);
+                    s.set_rect(s.rect - (to - from));
                 }
             }
             SceneEvent::SpriteTextureChange(id, old, _new) => {

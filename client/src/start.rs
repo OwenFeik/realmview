@@ -8,7 +8,7 @@ use crate::viewport::Viewport;
 
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
-    let mut scene = Viewport::new().unwrap();
+    let mut scene = Viewport::new(None).unwrap();
 
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
