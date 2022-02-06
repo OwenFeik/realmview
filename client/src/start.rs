@@ -4,11 +4,17 @@ use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 use crate::bridge::request_animation_frame;
+use crate::client::Client;
 use crate::viewport::Viewport;
 
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
-    let mut scene = Viewport::new(None).unwrap();
+    let client = match Client::new() {
+        Ok(c) => c,
+        Err(_) => return Err(wasm_bindgen::JsValue::from_str("Failed to connect to game.")),
+    };
+
+    let mut scene = Viewport::new(client).unwrap();
 
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();

@@ -169,7 +169,7 @@ impl Canvas {
             gl.viewport(0, 0, canvas.width() as i32, canvas.height() as i32);
         }) as Box<dyn FnMut(_)>);
 
-        let result = get_window()?
+        let result = window()?
             .add_event_listener_with_callback("resize", closure.as_ref().unchecked_ref());
         closure.forget();
         result.or(Err(JsError::ResourceError(
@@ -460,7 +460,7 @@ fn create_context(element: &HtmlCanvasElement) -> Result<Gl, JsError> {
     Ok(gl)
 }
 
-fn get_window() -> Result<Window, JsError> {
+fn window() -> Result<Window, JsError> {
     match web_sys::window() {
         Some(w) => Ok(w),
         None => Err(JsError::ResourceError("No Window.")),
@@ -468,7 +468,7 @@ fn get_window() -> Result<Window, JsError> {
 }
 
 fn get_document() -> Result<Document, JsError> {
-    match get_window()?.document() {
+    match window()?.document() {
         Some(d) => Ok(d),
         None => Err(JsError::ResourceError("No Document.")),
     }
@@ -478,6 +478,32 @@ fn get_body() -> Result<HtmlElement, JsError> {
     match get_document()?.body() {
         Some(b) => Ok(b),
         None => Err(JsError::ResourceError("No Body.")),
+    }
+}
+
+pub fn websocket_url() -> Result<Option<String>, JsError> {
+    let win = match window() {    
+        Ok(w) => w,
+        Err(_) => return Err(JsError::ResourceError("Failed to read window Location."))
+    };
+    let loc = win.location();
+    let host = match loc.host() {
+        Ok(h) => h,
+        Err(_) => return Err(JsError::ResourceError("Failed to read window host."))
+    };
+
+    match loc.href() {
+        Ok(href) => match Url::new(&href) {
+            Ok(url) => {
+                let params = url.search_params();
+                match (params.get("game"), params.get("client")) {
+                    (Some(game_key), Some(client_key)) => Ok(Some(format!("ws://{}/game/{}/{}", &host, &game_key, &client_key))),
+                    _ => Ok(None)
+                }
+            },
+            Err(_) => Err(JsError::ResourceError("Failed to construct URL from window Location."))
+        },
+        Err(_) => Err(JsError::ResourceError("Failed to read window Location href."))
     }
 }
 
@@ -496,9 +522,9 @@ fn create_appended(name: &str) -> Result<web_sys::Element, JsError> {
 }
 
 fn get_window_dimensions() -> Result<(u32, u32), JsError> {
-    let window = get_window()?;
+    let win = window()?;
 
-    match (window.inner_width(), window.inner_height()) {
+    match (win.inner_width(), win.inner_height()) {
         (Ok(w), Ok(h)) => match (w.as_f64(), h.as_f64()) {
             (Some(w), Some(h)) => Ok((w as u32, h as u32)),
             _ => Err(JsError::TypeError("Window dimensions non-numeric.")),
@@ -522,7 +548,7 @@ fn create_file_upload() -> Result<HtmlInputElement, JsError> {
 }
 
 pub fn request_animation_frame(f: &Closure<dyn FnMut()>) -> Result<(), JsError> {
-    match get_window()?.request_animation_frame(f.as_ref().unchecked_ref()) {
+    match window()?.request_animation_frame(f.as_ref().unchecked_ref()) {
         Ok(_) => Ok(()),
         Err(_) => Err(JsError::ResourceError("Failed to get animation frame.")),
     }

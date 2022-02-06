@@ -31,10 +31,12 @@ features = [
     'HtmlImageElement',       # Load images from URL
     'HtmlInputElement',       # Direct upload through canvas
     'InputEvent',             # Canvas direct upload functionality
+    'Location',               # Read URL parameters from Window
     'MessageEvent',           # Receive and send WebSocket messages
     'MouseEvent',             # Interaction with canvas
     'ProgressEvent',          # Handle image loading events
     'Url',                    # Create DataURLs for image loading
+    'UrlSearchParams',        # Read URL parameters from Window
     'WebGlBuffer',            # WebGl2 buffers, for rendering
     'WebGlProgram',           # WebGl2 texture programs
     'WebGl2RenderingContext', # WebGl2 Context, for battlemap

@@ -1,4 +1,6 @@
-build := $(shell pwd)/build
+root := $(shell pwd)
+target := ${root}/target
+build := ${root}/build
 content := ${build}/content
 
 serve: server content
@@ -9,7 +11,7 @@ serve: server content
 
 server: content database
 	cargo build -p server
-	cp --remove-destination target/debug/server ${build}/server
+	cp --remove-destination ${target}/debug/server ${build}/server
 
 content: html
 	wasm-pack build client/ --out-dir ${content}/pkg --target web
@@ -21,10 +23,10 @@ database: build-dir
 	if \
 		[ ! -f ${build}/schema.sql ] \
 		|| [ ! -f ${build}/database.db ] \
-		|| ! cmp -s server/schema.sql ${build}/schema.sql; \
+		|| ! cmp -s ${root}/server/schema.sql ${build}/schema.sql; \
 	then \
 		rm -f ${build}/database.db; \
-		cp server/schema.sql ${build}/schema.sql; \
+		cp ${root}/server/schema.sql ${build}/schema.sql; \
 		sqlite3 ${build}/database.db < ${build}/schema.sql; \
 	fi
 
@@ -46,3 +48,7 @@ lint:
 install:
 	cargo install wasm-pack
 	python3 -m pip install -r client/web/requirements.txt
+
+clean:
+	rm -rf ${build}
+	rm -rf ${target}

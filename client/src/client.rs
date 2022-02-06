@@ -9,7 +9,7 @@ use web_sys::{MessageEvent, WebSocket, ErrorEvent};
 
 use scene::comms::{ServerEvent, ClientEvent};
 
-use crate::bridge::{log, JsError};
+use crate::bridge::{log, websocket_url, JsError};
 
 type ServerEvents = Rc<RefCell<VecDeque<ServerEvent>>>;
 
@@ -19,10 +19,13 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(url: &str) -> Result<Client, JsError> {
-        let ws = match WebSocket::new(url) {
-            Ok(ws) => ws,
-            Err(_) => return Err(JsError::ResourceError("Failed to open WebSocket."))
+    pub fn new() -> Result<Option<Client>, JsError> {
+        let ws = match websocket_url() {
+            Ok(Some(url)) => match WebSocket::new(&url) {
+                Ok(ws) => ws,
+                Err(_) => return Err(JsError::ResourceError("Failed to open WebSocket."))
+            },
+            _ => return Ok(None)            
         };
 
         let incoming_events = Array::new();
@@ -45,7 +48,7 @@ impl Client {
         onerror.forget();
     
 
-        Ok(Client { sock: ws, incoming_events })
+        Ok(Some(Client { sock: ws, incoming_events }))
     }
 
     // Returns vector of events ordered from newest to oldest.
