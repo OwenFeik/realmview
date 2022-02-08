@@ -5,9 +5,9 @@ use std::rc::Rc;
 use bincode::{deserialize, serialize};
 use js_sys::{Array, ArrayBuffer, Uint8Array};
 use wasm_bindgen::{prelude::*, JsCast};
-use web_sys::{MessageEvent, WebSocket, ErrorEvent};
+use web_sys::{ErrorEvent, MessageEvent, WebSocket};
 
-use scene::comms::{ServerEvent, ClientEvent};
+use scene::comms::{ClientEvent, ServerEvent};
 
 use crate::bridge::{log, websocket_url, JsError};
 
@@ -15,7 +15,7 @@ type ServerEvents = Rc<RefCell<VecDeque<ServerEvent>>>;
 
 pub struct Client {
     sock: WebSocket,
-    incoming_events: Array
+    incoming_events: Array,
 }
 
 impl Client {
@@ -23,9 +23,9 @@ impl Client {
         let ws = match websocket_url() {
             Ok(Some(url)) => match WebSocket::new(&url) {
                 Ok(ws) => ws,
-                Err(_) => return Err(JsError::ResourceError("Failed to open WebSocket."))
+                Err(_) => return Err(JsError::ResourceError("Failed to open WebSocket.")),
             },
-            _ => return Ok(None)            
+            _ => return Ok(None),
         };
 
         let incoming_events = Array::new();
@@ -33,22 +33,24 @@ impl Client {
         // More performant than Blob for small payloads, per the wasm-bindgen
         // example https://rustwasm.github.io/wasm-bindgen/examples/websockets.html
         ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
-    
+
         let event_queue = incoming_events.clone();
         let onmessage = Closure::wrap(Box::new(move |e: MessageEvent| {
-            event_queue.push(&e.data());            
+            event_queue.push(&e.data());
         }) as Box<dyn FnMut(MessageEvent)>);
         ws.set_onmessage(Some(onmessage.as_ref().unchecked_ref()));
         onmessage.forget();
-    
+
         let onerror = Closure::wrap(Box::new(move |e: ErrorEvent| {
             log(&format!("WebSocket error: {:?}", e));
         }) as Box<dyn FnMut(ErrorEvent)>);
         ws.set_onerror(Some(onerror.as_ref().unchecked_ref()));
         onerror.forget();
-    
 
-        Ok(Some(Client { sock: ws, incoming_events }))
+        Ok(Some(Client {
+            sock: ws,
+            incoming_events,
+        }))
     }
 
     // Returns vector of events ordered from newest to oldest.
@@ -61,19 +63,16 @@ impl Client {
             if message.is_undefined() {
                 break;
             }
-            
+
             if let Ok(buf) = message.dyn_into::<ArrayBuffer>() {
                 if let Ok(event) = deserialize(&Uint8Array::new(&buf).to_vec()) {
                     events.push(event);
-                }
-                else {
+                } else {
                     log("Error deserialising WebSocket message.");
                 }
-            }
-            else {
+            } else {
                 log("Error parsing WebSocket message as ArrayBuffer.");
             }
-
         }
 
         events
@@ -84,12 +83,12 @@ impl Client {
             if retry {
                 self._send_event(message, false);
             }
-        } 
+        }
     }
 
     pub fn send_event(&self, event: &ClientEvent) {
         if let Ok(m) = serialize(event) {
             self._send_event(&m, true);
         }
-    } 
+    }
 }

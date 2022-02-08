@@ -11,7 +11,11 @@ use crate::viewport::Viewport;
 pub fn start() -> Result<(), JsValue> {
     let client = match Client::new() {
         Ok(c) => c,
-        Err(_) => return Err(wasm_bindgen::JsValue::from_str("Failed to connect to game.")),
+        Err(_) => {
+            return Err(wasm_bindgen::JsValue::from_str(
+                "Failed to connect to game.",
+            ))
+        }
     };
 
     let mut scene = Viewport::new(client).unwrap();

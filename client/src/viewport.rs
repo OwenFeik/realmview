@@ -1,6 +1,9 @@
-use std::{sync::atomic::{AtomicI64, Ordering}};
+use std::sync::atomic::{AtomicI64, Ordering};
 
-use crate::{bridge::{Context, EventType, JsError}, client::Client};
+use crate::{
+    bridge::{Context, EventType, JsError},
+    client::Client,
+};
 use scene::{
     comms::{ClientEvent, SceneEvent, ServerEvent},
     Id, Rect, Scene, ScenePoint,
@@ -48,7 +51,7 @@ pub struct Viewport {
     issued_events: Vec<ClientEvent>,
 
     // Wrapper for a potential WebSocket connection with the server.
-    client: Option<Client>
+    client: Option<Client>,
 }
 
 impl Viewport {
@@ -68,7 +71,7 @@ impl Viewport {
             redraw_needed: true,
             grabbed_at: None,
             issued_events: Vec::new(),
-            client
+            client,
         })
     }
 
@@ -208,7 +211,7 @@ impl Viewport {
             let mut events = client.recv_events();
             while let Some(event) = events.pop() {
                 self.process_server_event(event);
-            }    
+            }
         }
     }
 

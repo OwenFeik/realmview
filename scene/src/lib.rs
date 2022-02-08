@@ -108,7 +108,7 @@ impl Add for Rect {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
             w: self.w + rhs.w,
-            h: self.h + rhs.h
+            h: self.h + rhs.h,
         }
     }
 }
@@ -121,7 +121,7 @@ impl Sub for Rect {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
             w: self.w - rhs.w,
-            h: self.h - rhs.h
+            h: self.h - rhs.h,
         }
     }
 }

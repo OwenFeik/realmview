@@ -98,12 +98,12 @@ def load_url(url: str) -> str:
     cache_file(filename, content)
     return content
 
+
 def load_resource(resource: str) -> str:
     if resource.startswith("http://") or resource.startswith("https://"):
         return load_url(resource)
     else:
         return file_substitution(resource)
-
 
 
 def stylesheet(resource: str) -> str:

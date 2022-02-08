@@ -169,8 +169,8 @@ impl Canvas {
             gl.viewport(0, 0, canvas.width() as i32, canvas.height() as i32);
         }) as Box<dyn FnMut(_)>);
 
-        let result = window()?
-            .add_event_listener_with_callback("resize", closure.as_ref().unchecked_ref());
+        let result =
+            window()?.add_event_listener_with_callback("resize", closure.as_ref().unchecked_ref());
         closure.forget();
         result.or(Err(JsError::ResourceError(
             "Failed to add resize listener.",
@@ -482,14 +482,14 @@ fn get_body() -> Result<HtmlElement, JsError> {
 }
 
 pub fn websocket_url() -> Result<Option<String>, JsError> {
-    let win = match window() {    
+    let win = match window() {
         Ok(w) => w,
-        Err(_) => return Err(JsError::ResourceError("Failed to read window Location."))
+        Err(_) => return Err(JsError::ResourceError("Failed to read window Location.")),
     };
     let loc = win.location();
     let host = match loc.host() {
         Ok(h) => h,
-        Err(_) => return Err(JsError::ResourceError("Failed to read window host."))
+        Err(_) => return Err(JsError::ResourceError("Failed to read window host.")),
     };
 
     match loc.href() {
@@ -497,13 +497,20 @@ pub fn websocket_url() -> Result<Option<String>, JsError> {
             Ok(url) => {
                 let params = url.search_params();
                 match (params.get("game"), params.get("client")) {
-                    (Some(game_key), Some(client_key)) => Ok(Some(format!("ws://{}/game/{}/{}", &host, &game_key, &client_key))),
-                    _ => Ok(None)
+                    (Some(game_key), Some(client_key)) => Ok(Some(format!(
+                        "ws://{}/game/{}/{}",
+                        &host, &game_key, &client_key
+                    ))),
+                    _ => Ok(None),
                 }
-            },
-            Err(_) => Err(JsError::ResourceError("Failed to construct URL from window Location."))
+            }
+            Err(_) => Err(JsError::ResourceError(
+                "Failed to construct URL from window Location.",
+            )),
         },
-        Err(_) => Err(JsError::ResourceError("Failed to read window Location href."))
+        Err(_) => Err(JsError::ResourceError(
+            "Failed to read window Location href.",
+        )),
     }
 }
 
