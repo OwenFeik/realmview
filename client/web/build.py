@@ -21,8 +21,8 @@ def output_directory() -> str:
 
 
 def substitution_regex() -> re.Pattern:
-    ic = r"a-zA-Z0-9_.\-"
-    function_regex = rf"(?P<func>[{ic}]*)\((?P<arg>[{ic}:/@]+)\)"
+    ic = r"a-zA-Z0-9_.:@/\-"
+    function_regex = rf"(?P<func>[{ic}]*)\((?P<arg>[{ic}]+)\)"
     include_regex = rf"(?P<file>[{ic}]*)"
     overall_regex = r"{{ *(" + function_regex + r"|" + include_regex + r") *}}"
 
@@ -98,13 +98,21 @@ def load_url(url: str) -> str:
     cache_file(filename, content)
     return content
 
+def load_resource(resource: str) -> str:
+    if resource.startswith("http://") or resource.startswith("https://"):
+        return load_url(resource)
+    else:
+        return file_substitution(resource)
 
-def stylesheet(url: str) -> str:
-    return f"<style>{load_url(url)}</style>"
 
 
-def javascript(url: str) -> str:
-    return f"<script>{load_url(url)}</script>"
+def stylesheet(resource: str) -> str:
+    return f"<style>{load_resource(resource)}</style>"
+
+
+def javascript(resource: str) -> str:
+
+    return f"<script>{load_resource(resource)}</script>"
 
 
 def function_substitution(func: str, arg: str) -> str:

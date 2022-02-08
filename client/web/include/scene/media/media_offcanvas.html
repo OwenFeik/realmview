@@ -1,0 +1,73 @@
+{{ javascript(scene/media/scene_media.js) }}
+<div
+class="offcanvas offcanvas-start"
+tabindex="-2"
+id="media_offcanvas"
+aria-labelledby="media_offcanvas_label"
+style="width: 500px"
+>
+  <div class="offcanvas-header">
+      <h2 class="offcanvas-title" id="media_offcanvas_label">Media</h4>
+      <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close">
+      </button>
+  </div>
+  <div class="offcanvas-body">
+    <ul class="nav nav-tabs mb-2" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button
+          class="nav-link active"
+          id="view_media_tab"
+          data-bs-toggle="tab"
+          data-bs-target="#view_media"
+          type="button"
+          role="tab"
+          aria-controls="view_media"
+          aria-selected="true"
+        >Library</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button
+          class="nav-link"
+          id="upload_media_tab"
+          data-bs-toggle="tab"
+          data-bs-target="#upload_media"
+          type="button"
+          role="tab"
+          aria-controls="upload_media"
+          aria-selected="true"
+        >Upload</button>
+      </li>
+    </ul>  
+    <div class="tab-content">
+      <div
+        class="tab-pane fade show active"
+        id="view_media"
+        role="tabpanel"
+        aria-labelledby="view_media_tab"
+      >
+        <div class="d-flex justify-content-md-end align-items-center">
+          <span class="spinner-border me-2 fade" id="media_view_loading"></span>
+          <p class="text-danger m-0 me-2 d-none" id="media_view_error">Network error.</p>
+          <button
+            class="btn btn-primary"
+            onclick="view_media();"
+          >Refresh {{ bootstrap_icon(arrow-clockwise) }}</button>
+        </div>
+        <div class="row row-cols-2" id="media_view_previews"></div>
+      </div>
+      <div
+        class="tab-pane fade show"
+        id="upload_media"
+        role="tabpanel"
+        aria-labelledby="upload_media_tab"
+      >
+        <input class="form-control" type="file" id="media_upload" accept="image/png,image/jpg" multiple>
+        <div class="row row-cols-3" id="media_upload_previews"></div>
+        <div class="row p-1 pt-2 gx-2">
+          <btn class="btn btn-primary" onclick="upload_media();">Submit</btn>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{{ scene/media/media_modal.html }}

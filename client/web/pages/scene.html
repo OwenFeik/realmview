@@ -35,116 +35,14 @@
             class="btn btn-dark btn-sm shadow-none"
             type="button"
             data-bs-toggle="offcanvas"
-            data-bs-target="#offcanvas_left"
-            aria-controls="offcanvas_left"
+            data-bs-target="#media_offcanvas"
+            aria-controls="media_offcanvas"
           >
             Media {{ bootstrap_icon(chevron-right) }}
           </button>
         </div>
-        <div
-          class="offcanvas offcanvas-start"
-          tabindex="-2"
-          id="offcanvas_left"
-          aria-labelledby="offcanvas_left_label"
-          style="width: 500px"
-        >
-          <div class="offcanvas-header">
-              <h2 class="offcanvas-title" id="offcanvas_left_label">Media</h4>
-              <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close">
-              </button>
-          </div>
-          <div class="offcanvas-body">
-            <ul class="nav nav-tabs mb-2" role="tablist">
-              <li class="nav-item" role="presentation">
-                <button
-                  class="nav-link active"
-                  id="view_media_tab"
-                  data-bs-toggle="tab"
-                  data-bs-target="#view_media"
-                  type="button"
-                  role="tab"
-                  aria-controls="view_media"
-                  aria-selected="true"
-                >Library</button>
-              </li>
-              <li class="nav-item" role="presentation">
-                <button
-                  class="nav-link"
-                  id="upload_media_tab"
-                  data-bs-toggle="tab"
-                  data-bs-target="#upload_media"
-                  type="button"
-                  role="tab"
-                  aria-controls="upload_media"
-                  aria-selected="true"
-                >Upload</button>
-              </li>
-            </ul>  
-            <div class="tab-content">
-              <div
-                class="tab-pane fade show active"
-                id="view_media"
-                role="tabpanel"
-                aria-labelledby="view_media_tab"
-              >
-                <div class="d-flex justify-content-md-end align-items-center">
-                  <span class="spinner-border me-2 fade" id="media_view_loading"></span>
-                  <p class="text-danger m-0 me-2 d-none" id="media_view_error">Network error.</p>
-                  <button
-                    class="btn btn-primary"
-                    onclick="view_media();"
-                  >Refresh {{ bootstrap_icon(arrow-clockwise) }}</button>
-                </div>
-                <div class="row row-cols-2" id="media_view_previews"></div>
-              </div>
-              <div
-                class="tab-pane fade show"
-                id="upload_media"
-                role="tabpanel"
-                aria-labelledby="upload_media_tab"
-              >
-                <input class="form-control" type="file" id="media_upload" accept="image/png,image/jpg" multiple>
-                <div class="row row-cols-3" id="media_upload_previews"></div>
-                <div class="row p-1 pt-2 gx-2">
-                  <btn class="btn btn-primary" onclick="upload_media();">Submit</btn>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div
-          class="modal fade"
-          id="media_details_modal"
-          tabindex="-1"
-          aria-labelledby="media_details_modal_label"
-          aria-hidden="true"
-        >
-          <div class="modal-dialog">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title" id="media_details_modal_label">Edit media details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-              </div>
-              <div class="modal-body">
-                <form id="media_details_form" action="/media_details">
-                  <div class="mb-3">
-                    <label for="media_details_title" class="form-label">Title</label>
-                    <input type="text" class="form-control" id="media_details_title" required maxlength="256">
-                  </div>
-                  <input type="hidden" id="media_details_id">
-                  <div data-role="error_message" class="form-text text-danger"></div>
-                </form>
-              </div>
-              <div class="modal-footer">
-                <span class="spinner-border me-2 fade" id="media_details_loading"></span>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" id="media_details_save">Save</button>
-              </div>  
-            </div>
-          </div>
-        </div>
+        {{ scene/media/media_offcanvas.html }}
         {{ boostrap_js.html }}
-        <script>{{ form.js }}</script>
-        <script>{{ scene.js }}</script>
+        {{ javascript(form.js) }}
     </body>
 </html>

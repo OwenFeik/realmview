@@ -1,0 +1,76 @@
+<div
+class="modal fade"
+id="media_details_modal"
+tabindex="-1"
+aria-labelledby="media_details_modal_label"
+aria-hidden="true"
+>
+<div class="modal-dialog">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h5 class="modal-title" id="media_details_modal_label">Edit media details</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    <div class="modal-body">
+      <form id="media_details_form" action="/media_details">
+        <div class="mb-3">
+          <label for="media_details_title" class="form-label">Title</label>
+          <input type="text" class="form-control" id="media_details_title" required maxlength="256">
+        </div>
+        <input type="hidden" id="media_details_id">
+        <div data-role="error_message" class="form-text text-danger"></div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <span class="spinner-border me-2 fade" id="media_details_loading"></span>
+      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      <button type="button" class="btn btn-primary" id="media_details_save">Save</button>
+    </div>  
+  </div>
+</div>
+</div>
+<script>
+    function configure_media_details_modal() {
+        document
+            .getElementById("media_details_modal")
+            .addEventListener("show.bs.modal", e => {
+                let button = e.relatedTarget;
+                
+                let el = button.parentNode;
+                while (!el.classList.contains("card")) {
+                    el = el.parentNode;
+                }
+
+                let image = el.querySelector(".card-img-top");
+                document
+                    .getElementById("media_details_title")
+                    .value = image.getAttribute("data-title");
+                document
+                    .getElementById("media_details_id")
+                    .value = image.getAttribute("data-id");
+
+                form_error(document.getElementById("media_details_form"), "");
+            });
+
+        document.getElementById("media_details_save").onclick = () => {
+            let loading = document.getElementById("media_details_loading");
+            loading.classList.add("show");
+
+            post_form_json(
+                document.getElementById("media_details_form"),
+                success => {
+                    loading.classList.remove("show");
+                    if (success) {
+                        document
+                            .getElementById("media_details_modal")
+                            .querySelector(".btn-close")
+                            .click();
+                        view_media();
+                    }
+                }
+            );
+        };
+    }
+
+    window.addEventListener("load", configure_media_details_modal);
+</script>

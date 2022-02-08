@@ -3,52 +3,7 @@ const Icons = {
     exclamation_triangle: `{{ bootstrap_icon(exclamation-triangle) }}`
 };
 
-window.onload = () => {
-    view_media();
-    configure_media_details_modal();
-};
-
-function configure_media_details_modal() {
-    document
-        .getElementById("media_details_modal")
-        .addEventListener("show.bs.modal", e => {
-            let button = e.relatedTarget;
-            
-            let el = button.parentNode;
-            while (!el.classList.contains("card")) {
-                el = el.parentNode;
-            }
-
-            let image = el.querySelector(".card-img-top");
-            document
-                .getElementById("media_details_title")
-                .value = image.getAttribute("data-title");
-            document
-                .getElementById("media_details_id")
-                .value = image.getAttribute("data-id");
-
-            form_error(document.getElementById("media_details_form"), "");
-        });
-
-    document.getElementById("media_details_save").onclick = () => {
-        let loading = document.getElementById("media_details_loading");
-        loading.classList.add("show");
-
-        post_form_json(
-            document.getElementById("media_details_form"),
-            success => {
-                loading.classList.remove("show");
-                if (success) {
-                    document
-                        .getElementById("media_details_modal")
-                        .querySelector(".btn-close")
-                        .click();
-                    view_media();
-                }
-            }
-        );
-    };
-}
+window.addEventListener("load", view_media);
 
 function template_to_element(html) {
     return document
@@ -59,7 +14,7 @@ function template_to_element(html) {
 
 function preview_card(src, name) {
     // uses src and name
-    return template_to_element(`{{ preview_card.html }}`);
+    return template_to_element(`{{ scene/media/preview_card.html }}`);
 }
 
 function media_card(media_item) {
@@ -67,7 +22,7 @@ function media_card(media_item) {
     let src = media_item.url;
     let id = media_item.id;
     let title = media_item.title;
-    let card = template_to_element(`{{ media_card.html }}`);
+    let card = template_to_element(`{{ scene/media/media_card.html }}`);
     
     let image = card.querySelector(".card-img-top");
 
@@ -169,6 +124,6 @@ function view_media() {
     };
     
     req.responseType = "json";
-    req.open("GET", "/media");
+    req.open("GET", "/media/list");
     req.send();
 }
