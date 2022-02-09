@@ -208,7 +208,7 @@ impl Viewport {
 
     fn process_server_events(&mut self) {
         if let Some(client) = &self.client {
-            let mut events = client.recv_events();
+            let mut events = client.events();
             while let Some(event) = events.pop() {
                 self.process_server_event(event);
             }
