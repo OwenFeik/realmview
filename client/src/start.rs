@@ -3,22 +3,26 @@ use std::rc::Rc;
 
 use wasm_bindgen::prelude::*;
 
-use crate::bridge::request_animation_frame;
+use crate::bridge::{log, request_animation_frame};
 use crate::client::Client;
 use crate::viewport::Viewport;
+
+fn logged_error(error_message: &str) -> Result<(), JsValue> {
+    log(error_message);
+    Err(wasm_bindgen::JsValue::from_str(error_message))
+}
 
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
     let client = match Client::new() {
         Ok(c) => c,
-        Err(_) => {
-            return Err(wasm_bindgen::JsValue::from_str(
-                "Failed to connect to game.",
-            ))
-        }
+        Err(_) => return logged_error("Failed to connect to game.")
     };
 
-    let mut scene = Viewport::new(client).unwrap();
+    let mut scene = match Viewport::new(client) {
+        Ok(s) => s,
+        Err(_) => return logged_error("Failed to create viewport.")
+    };
 
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();

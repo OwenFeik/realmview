@@ -31,7 +31,7 @@ database: build-dir
 	fi
 
 html: content-dir
-	python3 client/web/build.py ${content}/
+	python3 web/build.py ${content}/
 
 content-dir: build-dir
 	mkdir -p ${content}

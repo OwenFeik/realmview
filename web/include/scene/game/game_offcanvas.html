@@ -1,0 +1,75 @@
+<div
+class="offcanvas offcanvas-start"
+tabindex="-2"
+id="game_offcanvas"
+aria-labelledby="game_offcanvas_label"
+>
+  <div class="offcanvas-header">
+      <h2 class="offcanvas-title" id="game_offcanvas_label">Game</h4>
+      <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close">
+      </button>
+  </div>
+  <div class="offcanvas-body">
+    <ul class="nav nav-tabs mb-2" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button
+          class="nav-link active"
+          id="launch_game_tab"
+          data-bs-toggle="tab"
+          data-bs-target="#launch_game"
+          type="button"
+          role="tab"
+          aria-controls="launch_game"
+          aria-selected="true"
+        >Launch</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button
+          class="nav-link"
+          id="join_game_tab"
+          data-bs-toggle="tab"
+          data-bs-target="#join_game"
+          type="button"
+          role="tab"
+          aria-controls="join_game"
+          aria-selected="true"
+        >Join</button>
+      </li>
+    </ul>  
+    <div class="tab-content">
+      <div
+        class="tab-pane fade show active"
+        id="launch_game"
+        role="tabpanel"
+        aria-labelledby="launch_game_tab"
+      >
+        <div class="p-2">
+          <div class="row py-2">
+            <button
+              type="button"
+              class="btn btn-primary"
+            >Launch Game {{ bootstrap_icon(arrow-up-right-square) }}</button>
+          </div>
+        </div>
+      </div>
+      <div
+        class="tab-pane fade show"
+        id="join_game"
+        role="tabpanel"
+        aria-labelledby="join_game_tab"
+      >
+        <div class="p-2">
+          <div class="row py-2">
+            <input type="text" id="game_key" placeholder="Game key" class="form-control">
+          </div>
+          <div class="row py-2">
+            <button
+              type="button"
+              class="btn btn-primary"
+            >Join Game {{ bootstrap_icon(arrow-down-right-square) }}</button>
+          </div>  
+        </div>  
+      </div>
+    </div>
+  </div>
+</div>
