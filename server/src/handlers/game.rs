@@ -30,7 +30,7 @@ mod connect {
     ) -> Result<impl warp::Reply, super::Infallible> {
         let game = match games.read().await.get(&game_key) {
             Some(game_ref) => {
-                if game_ref.read().await.has_client(&client_key) {
+                if !game_ref.read().await.has_client(&client_key) {
                     return Binary::result_failure("Client key invalid.");
                 }
 
@@ -72,7 +72,7 @@ mod join {
 
     impl JoinGameResponse {
         fn new(game_key: String, client_key: String) -> Self {
-            let url = format!("game/{}/{}", &game_key, &client_key);
+            let url = format!("scene.html?game={}&client={}", &game_key, &client_key);
 
             Self {
                 game_key,

@@ -28,7 +28,8 @@ impl Client {
         let incoming_events = Rc::new(Mutex::new(Vec::new()));
 
         // More performant than Blob for small payloads, per the wasm-bindgen
-        // example https://rustwasm.github.io/wasm-bindgen/examples/websockets.html
+        // example at
+        // https://rustwasm.github.io/wasm-bindgen/examples/websockets.html
         ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
 
         let event_queue = incoming_events.clone();
@@ -69,6 +70,9 @@ impl Client {
         if let Err(_) = self.sock.send_with_u8_array(message) {
             if retry {
                 self._send_event(message, false);
+            }
+            else {
+                log("Failed to send event.");
             }
         }
     }

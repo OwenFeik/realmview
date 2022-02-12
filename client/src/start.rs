@@ -7,7 +7,7 @@ use crate::bridge::{log, request_animation_frame};
 use crate::client::Client;
 use crate::viewport::Viewport;
 
-fn logged_error(error_message: &str) -> Result<(), JsValue> {
+fn logged_error<T>(error_message: &str) -> Result<T, JsValue> {
     log(error_message);
     Err(wasm_bindgen::JsValue::from_str(error_message))
 }
