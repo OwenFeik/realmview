@@ -10,7 +10,7 @@ use tokio::sync::{
 use warp::ws::{Message, WebSocket};
 
 use scene::{
-    comms::{ClientEvent, ServerEvent},
+    comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent},
     Scene,
 };
 
@@ -108,21 +108,24 @@ impl Game {
         self.send_to(ServerEvent::Rejection(event_id), client_key);
     }
 
-    async fn handle_event(&self, event: ClientEvent, from: &str) {
-        if self
-            .scene
-            .write()
-            .await
-            .apply_event(&event.scene_event, false)
-        {
-            self.send_approval(event.id, from);
-            self.broadcast_event(
-                ServerEvent::SceneChange(event.scene_event, None),
-                Some(from),
-            );
-        } else {
-            self.send_rejection(event.id, from);
-        }
+    async fn apply_event(&self, event: &SceneEvent) -> bool {
+        self.scene.write().await.apply_event(event, false)
+    }
+
+    async fn handle_event(&self, message: ClientMessage, from: &str) {
+        match message.event {
+            ClientEvent::Ping => {
+                self.send_approval(message.id, from);
+            }
+            ClientEvent::SceneChange(event) => {
+                if self.apply_event(&event).await {
+                    self.send_approval(message.id, from);
+                    self.broadcast_event(ServerEvent::SceneChange(event, None), Some(from));
+                } else {
+                    self.send_rejection(message.id, from);
+                }
+            }
+        };
     }
 }
 

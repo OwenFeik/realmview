@@ -5,7 +5,7 @@ use crate::{
     client::Client,
 };
 use scene::{
-    comms::{ClientEvent, SceneEvent, ServerEvent},
+    comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent},
     Id, Rect, Scene, ScenePoint,
 };
 
@@ -48,7 +48,7 @@ pub struct Viewport {
     grabbed_at: Option<ViewportPoint>,
 
     // Events that this client has sent to the server, awaiting approval.
-    issued_events: Vec<ClientEvent>,
+    issued_events: Vec<ClientMessage>,
 
     // Wrapper for a potential WebSocket connection with the server.
     client: Option<Client>,
@@ -186,7 +186,9 @@ impl Viewport {
 
     fn unwind_event(&mut self, id: Id) {
         if let Some(c) = self.issued_events.iter().find(|c| c.id == id) {
-            self.scene.unwind_event(&c.scene_event);
+            if let ClientEvent::SceneChange(e) = &c.event {
+                self.scene.unwind_event(e);
+            }
         }
         self.issued_events.retain(|c| c.id != id);
     }
@@ -220,12 +222,12 @@ impl Viewport {
 
         // nop unless we actually have a connection.
         if let Some(client) = &self.client {
-            let event = ClientEvent {
+            let message = ClientMessage {
                 id: EVENT_ID.fetch_add(1, Ordering::Relaxed),
-                scene_event,
+                event: ClientEvent::SceneChange(scene_event),
             };
-            client.send_event(&event);
-            self.issued_events.push(event);
+            client.send_message(&message);
+            self.issued_events.push(message);
         }
     }
 

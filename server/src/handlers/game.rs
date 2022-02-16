@@ -20,27 +20,24 @@ fn with_games(games: Games) -> impl Filter<Extract = (Games,), Error = Infallibl
 mod connect {
     use warp::Filter;
 
-    use crate::handlers::response::Binary;
-
     async fn connect_to_game(
         game_key: String,
         client_key: String,
         ws: warp::ws::Ws,
         games: super::Games,
-    ) -> Result<impl warp::Reply, super::Infallible> {
+    ) -> Result<impl warp::Reply, warp::Rejection> {
         let game = match games.read().await.get(&game_key) {
             Some(game_ref) => {
                 if !game_ref.read().await.has_client(&client_key) {
-                    return Binary::result_failure("Client key invalid.");
+                    return Err(warp::reject());
                 }
 
                 game_ref.clone()
             }
-            None => return Binary::result_failure("Game key invalid."),
+            None => return Err(warp::reject()),
         };
 
-        ws.on_upgrade(move |sock| crate::game::client_connection(sock, client_key, game));
-        Binary::result_success("Connected to game.")
+        Ok(ws.on_upgrade(move |sock| crate::game::client_connection(sock, client_key, game)))
     }
 
     pub fn filter(

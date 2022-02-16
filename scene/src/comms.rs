@@ -10,12 +10,18 @@ pub enum SceneEvent {
     SpriteTextureChange(Id, Id, Id), // (sprite_id, old_texture, new_texture)
 }
 
+#[derive(Deserialize, Serialize)]
+pub enum ClientEvent {
+    Ping,
+    SceneChange(SceneEvent),
+}
+
 // Events sent by Client. The client will keep track of these after sending them
 // so that it can unwind them in event of a rejection.
 #[derive(Deserialize, Serialize)]
-pub struct ClientEvent {
+pub struct ClientMessage {
     pub id: Id,
-    pub scene_event: SceneEvent,
+    pub event: ClientEvent,
 }
 
 // Events sent by Server. These are either an Approval / Rejection of an event

@@ -16,12 +16,12 @@ fn logged_error<T>(error_message: &str) -> Result<T, JsValue> {
 pub fn start() -> Result<(), JsValue> {
     let client = match Client::new() {
         Ok(c) => c,
-        Err(_) => return logged_error("Failed to connect to game.")
+        Err(_) => return logged_error("Failed to connect to game."),
     };
 
     let mut scene = match Viewport::new(client) {
         Ok(s) => s,
-        Err(_) => return logged_error("Failed to create viewport.")
+        Err(_) => return logged_error("Failed to create viewport."),
     };
 
     let f = Rc::new(RefCell::new(None));
