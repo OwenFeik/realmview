@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import sys
@@ -111,17 +112,32 @@ def stylesheet(resource: str) -> str:
 
 
 def javascript(resource: str) -> str:
-
     return f"<script>{load_resource(resource)}</script>"
+
+
+def constant(
+    name: str, constants: typing.Dict[str, typing.Union[str, int]] = {}
+) -> str:
+    if constants:
+        try:
+            return str(constants[name])
+        except KeyError:
+            print(f"Missing constant: {name}. Aborting.")
+            exit(os.EX_NOINPUT)
+    else:
+        with open(os.path.join(SCRIPT_DIR, "constants.json"), "r") as f:
+            constants.update(json.load(f))
+        return constant(name)
 
 
 def function_substitution(func: str, arg: str) -> str:
     functions = {
-        f.__name__: f for f in [bootstrap_icon, stylesheet, javascript]
+        f.__name__: f
+        for f in [bootstrap_icon, stylesheet, javascript, constant]
     }
     try:
         args = [s.strip() for s in arg.split(",")]
-        return functions[func](*args)
+        return functions[func](*args)  # type: ignore
     except KeyError:
         print(f"Missing function: {func}. Aborting.")
         exit(os.EX_NOINPUT)

@@ -40,13 +40,19 @@ CREATE TABLE IF NOT EXISTS scenes (
     title TEXT
 );
 
-CREATE TABLE IF NOT EXISTS sprites (
+CREATE TABLE IF NOT EXISTS layers (
     id INTEGER PRIMARY KEY,
     scene INTEGER REFERENCES scenes(id) ON DELETE CASCADE NOT NULL,
+    title TEXT,
+    z INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS sprites (
+    id INTEGER PRIMARY KEY,
+    layer INTEGER REFERENCES layers(id) ON DELETE CASCADE NOT NULL,
     media INTEGER REFERENCES media(id) ON DELETE SET NULL NOT NULL,
-    x INTEGER,
-    y INTEGER,
-    w INTEGER,
-    h INTEGER,
-    positioning INTEGER
+    x REAL,
+    y REAL,
+    w REAL,
+    h REAL
 );

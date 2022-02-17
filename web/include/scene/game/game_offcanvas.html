@@ -52,6 +52,9 @@ aria-labelledby="game_offcanvas_label"
               onclick="new_game();"
             >Launch Game {{ bootstrap_icon(arrow-up-right-square) }}</button>
           </div>
+          <div class="row py-2">
+            <p id="launch_game_error" class="form-text text-danger d-none">Error message.</p>
+          </div>
         </div>
       </div>
       <div
@@ -61,16 +64,33 @@ aria-labelledby="game_offcanvas_label"
         aria-labelledby="join_game_tab"
       >
         <div class="p-2">
-          <div class="row py-2">
-            <input type="text" id="game_key" placeholder="Game key" class="form-control">
-          </div>
-          <div class="row py-2">
-            <button
-              type="button"
-              class="btn btn-primary"
-            >Join Game {{ bootstrap_icon(arrow-down-right-square) }}</button>
-          </div>  
-        </div>  
+          <form id="join_game_form" class="needs-validation" onsubmit="join_game(); return false;">
+            <div class="row py-2">
+              <input
+                type="text"
+                id="game_key"
+                placeholder="Game key"
+                class="form-control"
+                minlength="{{ constant(GAME_KEY_LENGTH) }}"
+                maxlength="{{ constant(GAME_KEY_LENGTH) }}"
+                required
+              >
+              <div
+                class="invalid-feedback"
+                data-feedback-for="game_key"
+              >Game keys are {{ constant(GAME_KEY_LENGTH) }} characters, A-F 0-9.</div>
+            </div>
+            <div class="row py-2">
+              <p id="join_game_error" class="form-text text-danger d-none">Error message.</p>
+            </div>
+            <div class="row py-2">
+              <button
+                type="submit"
+                class="btn btn-primary"
+              >Join Game {{ bootstrap_icon(arrow-down-right-square) }}</button>
+            </div>
+          </form> 
+        </div>
       </div>
     </div>
   </div>

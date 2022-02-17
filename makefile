@@ -31,7 +31,7 @@ database: build-dir
 	fi
 
 html: content-dir
-	python3.9 web/build.py ${content}/
+	python3 ${root}/web/build.py ${content}/
 
 content-dir: build-dir
 	mkdir -p ${content}
@@ -42,12 +42,12 @@ build-dir:
 lint:
 	cargo fmt
 	cargo clippy
-	python3.9 -m black client/web/build.py
-	python3.9 -m mypy client/web/build.py
+	python3 -m black ${root}/web/build.py
+	python3 -m mypy ${root}/web/build.py
 
 install:
 	cargo install wasm-pack
-	python3.9 -m pip install -r client/web/requirements.txt
+	python3 -m pip install -r ${root}/web/requirements.txt
 
 clean:
 	rm -rf ${build}

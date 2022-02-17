@@ -75,7 +75,7 @@ impl Viewport {
         })
     }
 
-    fn update_viewport(&mut self) -> bool {
+    fn update_viewport(&mut self) {
         let (w, h) = self.context.viewport_size();
         let w = w as f32 / self.grid_zoom;
         let h = h as f32 / self.grid_zoom;
@@ -87,37 +87,41 @@ impl Viewport {
                 w,
                 h,
             };
-            return true;
+            self.redraw_needed = true;
         }
-
-        false
     }
 
     fn handle_mouse_down(&mut self, at: ViewportPoint) {
         if !self
             .scene
-            .grab(at.scene_point(self.viewport, self.grid_zoom), true)
+            .grab(at.scene_point(self.viewport, self.grid_zoom))
         {
             self.grabbed_at = Some(at)
         }
     }
 
     fn handle_mouse_up(&mut self, _at: ViewportPoint, alt: bool) {
+        if !self.scene.holding.is_none() {
+            self.redraw_needed = true;
+        }
+
         // Only snap a held sprite to the grid if the user is not holding alt.
         if let Some(scene_event) = self.scene.release_held(!alt) {
             self.client_event(scene_event);
-            self.redraw_needed = true;
         }
         self.grabbed_at = None;
     }
 
     fn handle_mouse_move(&mut self, at: ViewportPoint) {
+        if !self.scene.holding.is_none() {
+            self.redraw_needed = true;
+        }
+
         if let Some(scene_event) = self
             .scene
             .update_held_pos(at.scene_point(self.viewport, self.grid_zoom))
         {
             self.client_event(scene_event);
-            self.redraw_needed = true;
         }
 
         if let Some(ViewportPoint { x, y }) = self.grabbed_at {
@@ -239,22 +243,34 @@ impl Viewport {
         // appearing, and more likely that they instead clicked something that
         // is now behind a newly loaded image.
         self.process_ui_events();
-        if let Some(mut new_sprites) = self.context.load_queue() {
-            self.scene.add_tokens(&mut new_sprites);
+        if let Some(new_sprites) = self.context.load_queue() {
+            self.scene.add_sprites(new_sprites, self.scene.layers[0].id);
             self.redraw_needed = true;
         };
 
         self.process_server_events();
 
-        if self.redraw_needed || self.update_viewport() {
+        self.update_viewport();
+
+        if self.redraw_needed {
             let vp = Rect::scaled_from(self.viewport, self.grid_zoom);
 
             self.context.clear(vp);
-            self.context
-                .draw_sprites(vp, self.scene.scenery(), self.grid_zoom);
-            self.context.draw_grid(vp, self.grid_zoom);
-            self.context
-                .draw_sprites(vp, self.scene.tokens(), self.grid_zoom);
+
+            let mut background_drawn = false;
+            for layer in self.scene.layers.iter() {
+                if !background_drawn && layer.z >= 0 {
+                    self.context.draw_grid(vp, self.grid_zoom);
+                    background_drawn = true;
+                }
+
+                self.context
+                    .draw_sprites(vp, &layer.sprites, self.grid_zoom);
+            }
+
+            if !background_drawn {
+                self.context.draw_grid(vp, self.grid_zoom);
+            }
 
             let outline = self
                 .scene

@@ -159,7 +159,7 @@ impl Sprite {
         }
     }
 
-    fn from_remote(sprite: Sprite) -> Sprite {
+    fn from_remote(sprite: &Sprite) -> Sprite {
         let mut new = Sprite::new(sprite.texture);
         new.set_rect(sprite.rect);
         new.z = sprite.z;
@@ -306,21 +306,40 @@ impl Sub for ScenePoint {
 }
 
 #[derive(Clone, Copy)]
-enum HeldObject {
+pub enum HeldObject {
     None,
     Sprite(Id, ScenePoint),
     Anchor(Id, i32, i32),
 }
 
-struct SpriteSet {
-    sprites: Vec<Sprite>,
+impl HeldObject {
+    pub fn is_none(&self) -> bool {
+        if let HeldObject::None = self {
+            true
+        }
+        else {
+            false
+        }
+    }
+}
+
+
+#[derive(Serialize, Deserialize)]
+pub struct Layer {
+    pub id: Id,
+    pub title: String,
+    pub z: i32,
+    pub sprites: Vec<Sprite>,
     z_min: i32,
     z_max: i32,
 }
 
-impl SpriteSet {
-    fn new() -> Self {
-        SpriteSet {
+impl Layer {
+    fn new(title: &str, z: i32) -> Self {
+        Layer {
+            id: 0,
+            title: title.to_string(),
+            z,
             sprites: Vec::new(),
             z_min: 0,
             z_max: 0,
@@ -381,69 +400,89 @@ impl SpriteSet {
     }
 }
 
-pub struct Scene {
-    scenery: SpriteSet,
-    tokens: SpriteSet,
+impl Default for Layer {
+    fn default() -> Self {
+        Layer {
+            id: 0,
+            title: "Layer".to_string(),
+            z: 0,
+            sprites: Vec::new(),
+            z_min: 0,
+            z_max: 0,
+        }
+    }
+}
 
-    // Local ID of the most recently added sprite.
-    pub latest_sprite: Option<Id>,
-    holding: HeldObject,
+pub struct Scene {
+    // Layers of sprites in the scene. The grid is drawn at level 0.
+    pub layers: Vec<Layer>,
+    pub holding: HeldObject,
 }
 
 impl Scene {
     pub fn new() -> Self {
         Self {
-            scenery: SpriteSet::new(),
-            tokens: SpriteSet::new(),
-            latest_sprite: None,
+            layers: vec![
+                Layer::new("Foreground", 1),
+                Layer::new("Scenery", -1),
+                Layer::new("Background", -2),
+            ],
             holding: HeldObject::None,
         }
     }
 
+    fn layer(&mut self, layer: Id) -> Option<&mut Layer> {
+        self.layers.iter_mut().find(|l| l.id == layer)
+    }
+
     fn sprite(&mut self, local_id: Id) -> Option<&mut Sprite> {
-        self.tokens
-            .sprite(local_id)
-            .or_else(|| self.scenery.sprite(local_id))
+        for layer in self.layers.iter_mut() {
+            let s_opt = layer.sprite(local_id);
+            if s_opt.is_some() {
+                return s_opt;
+            }
+        }
+
+        None
     }
 
     fn sprite_canonical(&mut self, canonical_id: Id) -> Option<&mut Sprite> {
-        self.tokens
-            .sprite_canonical(canonical_id)
-            .or_else(|| self.scenery.sprite_canonical(canonical_id))
-    }
-
-    fn sprite_at(&mut self, at: ScenePoint, include_scenery: bool) -> Option<&mut Sprite> {
-        self.tokens.sprite_at(at).or_else(|| {
-            if include_scenery {
-                self.scenery.sprite_at(at)
-            } else {
-                None
+        for layer in self.layers.iter_mut() {
+            let s_opt = layer.sprite_canonical(canonical_id);
+            if s_opt.is_some() {
+                return s_opt;
             }
-        })
+        }
+
+        None
     }
 
-    pub fn scenery(&self) -> &Vec<Sprite> {
-        &self.scenery.sprites
+    fn sprite_at(&mut self, at: ScenePoint) -> Option<&mut Sprite> {
+        for layer in self.layers.iter_mut() {
+            let s_opt = layer.sprite_at(at);
+            if s_opt.is_some() {
+                return s_opt;
+            }
+        }
+
+        None
     }
 
-    pub fn add_scenery(&mut self, sprites: &mut Vec<Sprite>) {
-        self.scenery.add_sprites(sprites);
+    pub fn add_sprite(&mut self, sprite: Sprite, layer: Id) {
+        if let Some(l) = self.layer(layer) {
+            l.add_sprite(sprite);
+        }
     }
 
-    pub fn tokens(&self) -> &Vec<Sprite> {
-        &self.tokens.sprites
+    pub fn add_sprites(&mut self, mut sprites: Vec<Sprite>, layer: Id) {
+        if let Some(l) = self.layer(layer) {
+            l.add_sprites(&mut sprites);
+        }
     }
 
-    pub fn add_tokens(&mut self, sprites: &mut Vec<Sprite>) {
-        self.tokens.add_sprites(sprites);
-    }
-
-    pub fn add_sprite(&mut self, sprite: Sprite, is_scenery: bool) {
-        self.latest_sprite = Some(sprite.local_id);
-        if is_scenery {
-            self.scenery.add_sprite(sprite);
-        } else {
-            self.tokens.add_sprite(sprite);
+    fn remove_sprite(&mut self, local_id: Id, layer: Id) {
+        if let Some(l) = self.layer(layer) {
+            l.remove_sprite(local_id);
         }
     }
 
@@ -487,8 +526,8 @@ impl Scene {
         event
     }
 
-    pub fn grab(&mut self, at: ScenePoint, include_scenery: bool) -> bool {
-        match self.sprite_at(at, include_scenery) {
+    pub fn grab(&mut self, at: ScenePoint) -> bool {
+        match self.sprite_at(at) {
             Some(s) => {
                 self.holding = s.grab(at);
                 true
@@ -513,17 +552,17 @@ impl Scene {
 
     pub fn apply_event(&mut self, event: &SceneEvent, canonical: bool) -> bool {
         match *event {
-            SceneEvent::SpriteNew(s, is_scenery) => {
+            SceneEvent::SpriteNew(s, l) => {
                 if let Some(canonical_id) = s.canonical_id {
                     if self.sprite_canonical(canonical_id).is_none() {
-                        let sprite = Sprite::from_remote(s);
-                        self.add_sprite(sprite, is_scenery);
+                        let sprite = Sprite::from_remote(&s);
+                        self.add_sprite(sprite, l);
                         true
                     } else {
                         false
                     }
                 } else {
-                    let mut sprite = Sprite::from_remote(s);
+                    let mut sprite = Sprite::from_remote(&s);
                     sprite.canonical_id = Some(sprite.local_id);
                     true
                 }
@@ -550,13 +589,7 @@ impl Scene {
 
     pub fn unwind_event(&mut self, event: &SceneEvent) {
         match *event {
-            SceneEvent::SpriteNew(s, is_scenery) => {
-                if is_scenery {
-                    self.scenery.remove_sprite(s.local_id);
-                } else {
-                    self.tokens.remove_sprite(s.local_id);
-                }
-            }
+            SceneEvent::SpriteNew(s, l) => self.remove_sprite(s.local_id, l),
             SceneEvent::SpriteMove(id, from, to) => {
                 if let Some(s) = self.sprite_canonical(id) {
                     s.set_rect(s.rect - (to - from));
