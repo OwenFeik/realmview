@@ -10,6 +10,7 @@ mod login;
 mod logout;
 mod media;
 mod register;
+mod scene;
 mod upload;
 
 pub fn routes(

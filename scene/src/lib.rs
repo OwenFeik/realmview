@@ -305,7 +305,7 @@ impl Sub for ScenePoint {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Deserialize)]
 pub enum HeldObject {
     None,
     Sprite(Id, ScenePoint),
@@ -314,15 +314,15 @@ pub enum HeldObject {
 
 impl HeldObject {
     pub fn is_none(&self) -> bool {
-        if let HeldObject::None = self {
-            true
-        }
-        else {
-            false
-        }
+        matches!(self, HeldObject::None)
     }
 }
 
+impl Default for HeldObject {
+    fn default() -> HeldObject {
+        HeldObject::None
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct Layer {
@@ -413,9 +413,15 @@ impl Default for Layer {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Scene {
     // Layers of sprites in the scene. The grid is drawn at level 0.
     pub layers: Vec<Layer>,
+    pub id: Option<Id>,
+    pub project: Option<Id>,
+
+    #[serde(default = "HeldObject::default")]
+    #[serde(skip_serializing)]
     pub holding: HeldObject,
 }
 
@@ -427,6 +433,8 @@ impl Scene {
                 Layer::new("Scenery", -1),
                 Layer::new("Background", -2),
             ],
+            id: None,
+            project: None,
             holding: HeldObject::None,
         }
     }
