@@ -3,8 +3,6 @@ mod save {
 
     use warp::Filter;
 
-    use scene::Scene;
-
     use crate::{
         handlers::{json_body, response::Binary, with_db, with_session},
         models::{Project, User},
@@ -13,14 +11,14 @@ mod save {
     async fn save_scene(
         pool: sqlx::SqlitePool,
         skey: String,
-        scene: Scene,
+        scene: scene::Scene,
     ) -> Result<impl warp::Reply, Infallible> {
         let user = match User::get_by_session(&pool, &skey).await {
             Ok(Some(u)) => u,
             _ => return Binary::result_failure("Invalid session."),
         };
 
-        let project = match Project::get_or_create(&pool, scene.id, user.id).await {
+        let project = match Project::get_or_create(&pool, scene.project, user.id).await {
             Ok(p) => p,
             Err(_) => return Binary::result_failure("Missing project."),
         };

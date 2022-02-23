@@ -326,7 +326,8 @@ impl Default for HeldObject {
 
 #[derive(Serialize, Deserialize)]
 pub struct Layer {
-    pub id: Id,
+    pub local_id: Id,
+    pub canonical_id: Option<Id>,
     pub title: String,
     pub z: i32,
     pub sprites: Vec<Sprite>,
@@ -337,7 +338,8 @@ pub struct Layer {
 impl Layer {
     fn new(title: &str, z: i32) -> Self {
         Layer {
-            id: 0,
+            local_id: 0,
+            canonical_id: None,
             title: title.to_string(),
             z,
             sprites: Vec::new(),
@@ -402,14 +404,7 @@ impl Layer {
 
 impl Default for Layer {
     fn default() -> Self {
-        Layer {
-            id: 0,
-            title: "Layer".to_string(),
-            z: 0,
-            sprites: Vec::new(),
-            z_min: 0,
-            z_max: 0,
-        }
+        Layer::new("Layer", 0)
     }
 }
 
@@ -440,7 +435,7 @@ impl Scene {
     }
 
     fn layer(&mut self, layer: Id) -> Option<&mut Layer> {
-        self.layers.iter_mut().find(|l| l.id == layer)
+        self.layers.iter_mut().find(|l| l.local_id == layer)
     }
 
     fn sprite(&mut self, local_id: Id) -> Option<&mut Sprite> {

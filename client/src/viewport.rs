@@ -235,6 +235,36 @@ impl Viewport {
         }
     }
 
+    fn redraw(&mut self) {
+        let vp = Rect::scaled_from(self.viewport, self.grid_zoom);
+
+        self.context.clear(vp);
+
+        let mut background_drawn = false;
+        for layer in self.scene.layers.iter() {
+            if !background_drawn && layer.z >= 0 {
+                self.context.draw_grid(vp, self.grid_zoom);
+                background_drawn = true;
+            }
+
+            self.context
+                .draw_sprites(vp, &layer.sprites, self.grid_zoom);
+        }
+
+        if !background_drawn {
+            self.context.draw_grid(vp, self.grid_zoom);
+        }
+
+        let outline = self
+            .scene
+            .held_sprite()
+            .map(|s| Rect::scaled_from(s.rect, self.grid_zoom));
+
+        if let Some(rect) = outline {
+            self.context.draw_outline(vp, rect);
+        }
+    }
+
     pub fn animation_frame(&mut self) {
         // We can either process the mouse events and then handle newly loaded
         // images or vice-versa. I choose to process events first because it
@@ -244,7 +274,8 @@ impl Viewport {
         // is now behind a newly loaded image.
         self.process_ui_events();
         if let Some(new_sprites) = self.context.load_queue() {
-            self.scene.add_sprites(new_sprites, self.scene.layers[0].id);
+            self.scene
+                .add_sprites(new_sprites, self.scene.layers[0].local_id);
             self.redraw_needed = true;
         };
 
@@ -253,34 +284,8 @@ impl Viewport {
         self.update_viewport();
 
         if self.redraw_needed {
-            let vp = Rect::scaled_from(self.viewport, self.grid_zoom);
-
-            self.context.clear(vp);
-
-            let mut background_drawn = false;
-            for layer in self.scene.layers.iter() {
-                if !background_drawn && layer.z >= 0 {
-                    self.context.draw_grid(vp, self.grid_zoom);
-                    background_drawn = true;
-                }
-
-                self.context
-                    .draw_sprites(vp, &layer.sprites, self.grid_zoom);
-            }
-
-            if !background_drawn {
-                self.context.draw_grid(vp, self.grid_zoom);
-            }
-
-            let outline = self
-                .scene
-                .held_sprite()
-                .map(|s| Rect::scaled_from(s.rect, self.grid_zoom));
-
-            if let Some(rect) = outline {
-                self.context.draw_outline(vp, rect);
-            }
+            self.redraw();
+            self.redraw_needed = false;
         }
-        self.redraw_needed = false;
     }
 }
