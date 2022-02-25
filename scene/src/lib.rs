@@ -139,7 +139,7 @@ pub struct Sprite {
     local_id: Id,
 
     // ID of the Sprite on the server side
-    canonical_id: Option<Id>,
+    pub canonical_id: Option<Id>,
 }
 
 impl Sprite {

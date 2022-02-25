@@ -2,6 +2,7 @@ use sqlx::SqlitePool;
 
 use self::layer::Layer;
 use self::scene_record::Scene;
+use self::sprite::Sprite;
 
 #[derive(sqlx::FromRow)]
 pub struct Project {
@@ -49,6 +50,10 @@ impl Project {
 
         for layer in scene.layers.iter() {
             let l = Layer::get_or_create(pool, layer, s.id).await?;
+
+            for sprite in layer.sprites.iter() {
+                Sprite::save(pool, sprite, l.id).await?;
+            }
         }
 
         Ok(())
@@ -101,7 +106,7 @@ mod layer {
 
     #[derive(sqlx::FromRow)]
     pub struct Layer {
-        id: i64,
+        pub id: i64,
         scene: i64,
         title: String,
         z: i64,
@@ -138,6 +143,68 @@ mod layer {
             match layer.canonical_id {
                 Some(id) => Layer::load(pool, id).await,
                 None => Layer::create(pool, layer, scene).await,
+            }
+        }
+    }
+}
+
+mod sprite {
+    #[derive(sqlx::FromRow)]
+    pub struct Sprite {
+        id: i64,
+        layer: i64,
+        media: i64,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+    }
+
+    impl Sprite {
+        async fn update_from(
+            pool: &sqlx::SqlitePool,
+            sprite: &scene::Sprite,
+            layer: i64,
+        ) -> anyhow::Result<Sprite> {
+            sqlx::query_as("UPDATE sprites SET (layer, media, x, y, w, h) = (?1, ?2, ?3, ?4, ?5, ?6) RETURNING *;")
+                .bind(layer)
+                .bind(sprite.texture)
+                .bind(sprite.rect.x)
+                .bind(sprite.rect.y)
+                .bind(sprite.rect.w)
+                .bind(sprite.rect.h)
+                .fetch_one(pool)
+                .await
+                .map_err(|_| anyhow::anyhow!("Failed to update sprite"))
+        }
+
+        async fn create_from(
+            pool: &sqlx::SqlitePool,
+            sprite: &scene::Sprite,
+            layer: i64,
+        ) -> anyhow::Result<Sprite> {
+            sqlx::query_as(
+                "INSERT INTO sprites (layer, media, x, y, w, h) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING *;"
+            )
+                .bind(layer)
+                .bind(sprite.texture)
+                .bind(sprite.rect.x)
+                .bind(sprite.rect.y)
+                .bind(sprite.rect.w)
+                .bind(sprite.rect.h)
+                .fetch_one(pool)
+                .await
+                .map_err(|_| anyhow::anyhow!("Failed to create sprite"))
+        }
+
+        pub async fn save(
+            pool: &sqlx::SqlitePool,
+            sprite: &scene::Sprite,
+            layer: i64,
+        ) -> anyhow::Result<Sprite> {
+            match sprite.canonical_id {
+                Some(_) => Sprite::update_from(pool, sprite, layer).await,
+                None => Sprite::create_from(pool, sprite, layer).await,
             }
         }
     }
