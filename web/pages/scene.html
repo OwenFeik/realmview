@@ -49,9 +49,19 @@
           >
             Game {{ bootstrap_icon(chevron-right) }}
           </button>
+          <button
+            class="btn btn-secondary btn-sm shadow-none"
+            type="button"
+            data-bs-toggle="offcanvas"
+            data-bs-target="#project_offcanvas"
+            aria-controls="project_offcanvas"
+          >
+            Project {{ bootstrap_icon(chevron-right) }}
+          </button>
         </div>
         {{ scene/media/media_offcanvas.html }}
         {{ scene/game/game_offcanvas.html }}
+        {{ scene/project/project_offcanvas.html }}
         {{ bootstrap_js.html }}
         {{ javascript(form.js) }}
     </body>

@@ -23,7 +23,10 @@ mod save {
             Err(_) => return Binary::result_failure("Missing project."),
         };
 
-        Binary::result_success("Scene saved.")
+        match project.update_scene(&pool, scene).await {
+            Ok(()) => Binary::result_success("Scene saved."),
+            Err(s) => Binary::result_failure(&format!("Failed to save scene: {}", &s.to_string())),
+        }
     }
 
     pub fn filter(

@@ -1,0 +1,19 @@
+<div
+  class="offcanvas offcanvas-start"
+  tabindex="-2"
+  id="project_offcanvas"
+  aria-labelledby="project_offcanvas_label"
+>
+  <div class="offcanvas-header">
+      <h2 class="offcanvas-title" id="project_offcanvas_label">Project</h4>
+      <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close">
+      </button>
+  </div>
+  <div class="offcanvas-body">
+    <button
+      type="button"
+      class="btn btn-primary"
+      onclick="save_project();"
+    >Save {{ bootstrap_icon(save) }}</button>
+  </div>
+</div>
