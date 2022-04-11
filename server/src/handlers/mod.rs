@@ -1,5 +1,6 @@
-use std::convert::Infallible;
+use std::{convert::Infallible, io::Read};
 
+use bincode::deserialize;
 use sqlx::SqlitePool;
 use warp::Filter;
 
@@ -23,12 +24,28 @@ pub fn routes(
         .or(logout::filter(pool.clone()))
         .or(upload::filter(pool.clone(), content_dir))
         .or(media::filter(pool.clone()))
-        .or(game::routes(pool, games))
+        .or(game::routes(pool.clone(), games))
+        .or(scene::routes(pool))
 }
 
 pub fn json_body<T: std::marker::Send + for<'de> serde::Deserialize<'de>>(
 ) -> impl Filter<Extract = (T,), Error = warp::Rejection> + Clone {
     warp::body::content_length_limit(1024 * 16).and(warp::body::json())
+}
+
+pub fn binary_body<T: std::marker::Send + for<'de> serde::Deserialize<'de>>(
+) -> impl Filter<Extract = (T,), Error = warp::Rejection> + Clone {
+    warp::body::content_length_limit(1024 * 16)
+        .and(warp::body::bytes())
+        .and_then(|bytes: bytes::Bytes| async move {
+            let data: Result<Vec<u8>, _> = bytes.bytes().collect();
+            if let Ok(b) = data {
+                if let Ok(t) = deserialize(&b) {
+                    return Ok(t);
+                }
+            }
+            Err(warp::reject::reject())
+        })
 }
 
 pub fn with_db(

@@ -1,5 +1,4 @@
-use js_sys::Array;
-use js_sys::Float32Array;
+use js_sys::{Array, Float32Array, Uint8Array};
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -16,6 +15,8 @@ use crate::viewport::ViewportPoint;
 #[wasm_bindgen]
 extern "C" {
     pub fn get_texture_queue() -> Array;
+
+    pub fn set_export_closure(closure: &Closure<dyn FnMut() -> Uint8Array>);
 
     #[wasm_bindgen(js_namespace = console)]
     pub fn log(s: &str);

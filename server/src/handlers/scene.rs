@@ -1,10 +1,18 @@
+use warp::Filter;
+
+pub fn routes(
+    pool: sqlx::SqlitePool,
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    save::filter(pool)
+}
+
 mod save {
     use std::convert::Infallible;
 
     use warp::Filter;
 
     use crate::{
-        handlers::{json_body, response::Binary, with_db, with_session},
+        handlers::{binary_body, response::Binary, with_db, with_session},
         models::{Project, User},
     };
 
@@ -32,11 +40,11 @@ mod save {
     pub fn filter(
         pool: sqlx::SqlitePool,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        warp::path!("scene")
+        warp::path!("scene" / "save")
             .and(warp::post())
             .and(with_db(pool))
             .and(with_session())
-            .and(json_body())
+            .and(binary_body())
             .and_then(save_scene)
     }
 }

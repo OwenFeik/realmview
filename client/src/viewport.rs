@@ -4,6 +4,7 @@ use crate::{
     bridge::{Context, EventType, JsError},
     client::Client,
 };
+use bincode::serialize;
 use scene::{
     comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent},
     Id, Rect, Scene, ScenePoint,
@@ -286,6 +287,13 @@ impl Viewport {
         if self.redraw_needed {
             self.redraw();
             self.redraw_needed = false;
+        }
+    }
+
+    pub fn export(&self) -> Vec<u8> {
+        match serialize(&self.scene) {
+            Ok(v) => v,
+            Err(_) => vec![],
         }
     }
 }

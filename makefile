@@ -20,7 +20,7 @@ db: database
 	sqlite3 ${build}/database.db
 
 database: build-dir
-	if \
+	@if \
 		[ ! -f ${build}/schema.sql ] \
 		|| [ ! -f ${build}/database.db ] \
 		|| ! cmp -s ${root}/server/schema.sql ${build}/schema.sql; \

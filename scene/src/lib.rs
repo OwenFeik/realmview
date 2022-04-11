@@ -305,7 +305,7 @@ impl Sub for ScenePoint {
     }
 }
 
-#[derive(Clone, Copy, Deserialize)]
+#[derive(Clone, Copy, Deserialize, Serialize)]
 pub enum HeldObject {
     None,
     Sprite(Id, ScenePoint),
@@ -414,9 +414,6 @@ pub struct Scene {
     pub layers: Vec<Layer>,
     pub id: Option<Id>,
     pub project: Option<Id>,
-
-    #[serde(default = "HeldObject::default")]
-    #[serde(skip_serializing)]
     pub holding: HeldObject,
 }
 
