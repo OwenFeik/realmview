@@ -5,7 +5,9 @@ use js_sys::Uint8Array;
 use parking_lot::Mutex;
 use wasm_bindgen::prelude::*;
 
-use crate::bridge::{log, request_animation_frame, set_export_closure};
+use crate::bridge::{
+    expose_closure_f64_f64, expose_closure_u8_array, log, request_animation_frame,
+};
 use crate::client::Client;
 use crate::viewport::Viewport;
 
@@ -26,19 +28,27 @@ pub fn start() -> Result<(), JsValue> {
         Err(_) => return logged_error("Failed to create viewport."),
     };
 
-    let scene_ref = scene.clone();
-
     // This closure acquires the lock on the Viewport, then exports the scene
     // as a binary blob. This allows the front end to pull out the binary
     // representation of the scene to send back to the server.
+    let scene_ref = scene.clone();
     let export_closure = Closure::wrap(Box::new(move || {
         let data = scene_ref.lock().export();
         let ary = Uint8Array::new_with_length(data.len() as u32);
         ary.copy_from(&data);
         ary
     }) as Box<dyn FnMut() -> Uint8Array>);
-    set_export_closure(&export_closure);
+    expose_closure_u8_array("export_scene", &export_closure);
     export_closure.forget();
+
+    let scene_ref = scene.clone();
+    let set_id_closure = Closure::wrap(Box::new(move |proj_id: f64, scene_id: f64| {
+        scene_ref
+            .lock()
+            .set_scene_ids(proj_id as i64, scene_id as i64);
+    }) as Box<dyn FnMut(f64, f64)>);
+    expose_closure_f64_f64("set_scene_ids", &set_id_closure);
+    set_id_closure.forget();
 
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();

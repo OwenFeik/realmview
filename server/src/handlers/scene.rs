@@ -7,14 +7,43 @@ pub fn routes(
 }
 
 mod save {
+    // TODO needs to simply return the saved scene to the client so that all of
+    // the relevant layers, sprites, etc have their canonical IDs preserved.
+    // Current solution duplicates all these objects each time the scene is
+    // saved, which is obviously wrong.
+
     use std::convert::Infallible;
 
-    use warp::Filter;
+    use serde_derive::Serialize;
+    use warp::{hyper::StatusCode, Filter};
 
     use crate::{
-        handlers::{binary_body, response::Binary, with_db, with_session},
+        handlers::{
+            binary_body,
+            response::{as_result, Binary},
+            with_db, with_session,
+        },
         models::{Project, User},
     };
+
+    #[derive(Serialize)]
+    struct SceneSaveResponse {
+        message: String,
+        project_id: i64,
+        scene_id: i64,
+        success: bool,
+    }
+
+    impl SceneSaveResponse {
+        fn new(project_id: i64, scene_id: i64) -> Self {
+            SceneSaveResponse {
+                message: "Scene saved.".to_string(),
+                project_id,
+                scene_id,
+                success: true,
+            }
+        }
+    }
 
     async fn save_scene(
         pool: sqlx::SqlitePool,
@@ -32,7 +61,7 @@ mod save {
         };
 
         match project.update_scene(&pool, scene).await {
-            Ok(()) => Binary::result_success("Scene saved."),
+            Ok(id) => as_result(&SceneSaveResponse::new(project.id, id), StatusCode::OK),
             Err(s) => Binary::result_failure(&format!("Failed to save scene: {}", &s.to_string())),
         }
     }

@@ -1,14 +1,7 @@
-var export_closure = null;
-
-// Note: this is exported to Rust (extern)
-function set_export_closure(closure) {
-    export_closure = closure;
-}
-
 function save_project() {
-    if (!export_closure) {
-        return;
-    }
-
-    post("/scene/save", data);
+    post(
+        "/scene/save",
+        rust_funcs.export_scene(),
+        resp => rust_funcs.set_scene_ids(resp.project_id, resp.scene_id)
+    );
 }

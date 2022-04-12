@@ -10,7 +10,7 @@ use comms::SceneEvent;
 
 pub type Id = i64;
 
-#[derive(Clone, Copy, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Rect {
     pub x: f32,
     pub y: f32,
@@ -126,7 +126,7 @@ impl Sub for Rect {
     }
 }
 
-#[derive(Clone, Copy, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct Sprite {
     pub rect: Rect,
 

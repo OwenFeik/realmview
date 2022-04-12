@@ -100,7 +100,7 @@ function submit_form(form) {
 
 function post(path, data, onload = null, onerror = null) {
     let req = new XMLHttpRequest();
-    req.onload = onload;
+    req.onload = () => onload(req.response);
     req.onerror = onerror;
     req.responseType = "json";
     req.open("POST", path);

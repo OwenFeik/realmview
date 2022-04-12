@@ -45,7 +45,11 @@ impl Project {
         }
     }
 
-    pub async fn update_scene(&self, pool: &SqlitePool, scene: scene::Scene) -> anyhow::Result<()> {
+    pub async fn update_scene(
+        &self,
+        pool: &SqlitePool,
+        scene: scene::Scene,
+    ) -> anyhow::Result<i64> {
         let s = Scene::get_or_create(pool, scene.id, self.id).await?;
 
         for layer in scene.layers.iter() {
@@ -56,7 +60,7 @@ impl Project {
             }
         }
 
-        Ok(())
+        Ok(s.id)
     }
 }
 
@@ -76,7 +80,7 @@ mod scene_record {
                 .bind(id)
                 .fetch_one(pool)
                 .await
-                .map_err(|_| anyhow::anyhow!("Failed to find scene"))
+                .map_err(|_| anyhow::anyhow!("Failed to find scene."))
         }
 
         async fn create(pool: &SqlitePool, project: i64) -> anyhow::Result<Scene> {
@@ -85,7 +89,7 @@ mod scene_record {
                 .bind("Untitled")
                 .fetch_one(pool)
                 .await
-                .map_err(|_| anyhow::anyhow!("Failed to create scene"))
+                .map_err(|_| anyhow::anyhow!("Failed to create scene."))
         }
 
         pub async fn get_or_create(
@@ -118,7 +122,7 @@ mod layer {
                 .bind(id)
                 .fetch_one(pool)
                 .await
-                .map_err(|_| anyhow::anyhow!("Failed to load layer"))
+                .map_err(|_| anyhow::anyhow!("Failed to load layer."))
         }
 
         async fn create(
@@ -132,7 +136,7 @@ mod layer {
                 .bind(layer.z as i64)
                 .fetch_one(pool)
                 .await
-                .map_err(|_| anyhow::anyhow!("Failed to create layer"))
+                .map_err(|_| anyhow::anyhow!("Failed to create layer."))
         }
 
         pub async fn get_or_create(
@@ -149,6 +153,13 @@ mod layer {
 }
 
 mod sprite {
+    use sqlx::Row;
+
+    // Can't use RETURNING * with SQLite due to bug with REAL columns, which is
+    // relevant to the Sprite type because x, y, w, h are all REAL. May be
+    // resolved in a future SQLite version but error persists in 3.38.0.
+    // see: https://github.com/launchbadge/sqlx/issues/1596
+
     #[derive(sqlx::FromRow)]
     pub struct Sprite {
         id: i64,
@@ -161,30 +172,45 @@ mod sprite {
     }
 
     impl Sprite {
+        fn from_scene_sprite(sprite: &scene::Sprite, layer: i64, id: i64) -> Self {
+            Self {
+                id,
+                layer,
+                media: sprite.texture,
+                x: sprite.rect.x,
+                y: sprite.rect.y,
+                w: sprite.rect.w,
+                h: sprite.rect.h,
+            }
+        }
+
+        // NB: will panic if called with a scene::Sprite with canonical_id None
         async fn update_from(
             pool: &sqlx::SqlitePool,
             sprite: &scene::Sprite,
             layer: i64,
-        ) -> anyhow::Result<Sprite> {
-            sqlx::query_as("UPDATE sprites SET (layer, media, x, y, w, h) = (?1, ?2, ?3, ?4, ?5, ?6) RETURNING *;")
+        ) -> anyhow::Result<()> {
+            sqlx::query("UPDATE sprites SET (layer, media, x, y, w, h) = (?1, ?2, ?3, ?4, ?5, ?6) WHERE id = ?7;")
                 .bind(layer)
                 .bind(sprite.texture)
                 .bind(sprite.rect.x)
                 .bind(sprite.rect.y)
                 .bind(sprite.rect.w)
                 .bind(sprite.rect.h)
-                .fetch_one(pool)
+                .bind(sprite.canonical_id.unwrap())
+                .execute(pool)
                 .await
-                .map_err(|_| anyhow::anyhow!("Failed to update sprite"))
+                .map(|_| ())
+                .map_err(|_| anyhow::anyhow!("Failed to update sprite."))
         }
 
         async fn create_from(
             pool: &sqlx::SqlitePool,
             sprite: &scene::Sprite,
             layer: i64,
-        ) -> anyhow::Result<Sprite> {
-            sqlx::query_as(
-                "INSERT INTO sprites (layer, media, x, y, w, h) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING *;"
+        ) -> anyhow::Result<i64> {
+            sqlx::query(
+                "INSERT INTO sprites (layer, media, x, y, w, h) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING id;"
             )
                 .bind(layer)
                 .bind(sprite.texture)
@@ -194,7 +220,8 @@ mod sprite {
                 .bind(sprite.rect.h)
                 .fetch_one(pool)
                 .await
-                .map_err(|_| anyhow::anyhow!("Failed to create sprite"))
+                .map(|row: sqlx::sqlite::SqliteRow| row.get(0))
+                .map_err(|_| anyhow::anyhow!("Failed to create sprite."))
         }
 
         pub async fn save(
@@ -202,10 +229,14 @@ mod sprite {
             sprite: &scene::Sprite,
             layer: i64,
         ) -> anyhow::Result<Sprite> {
-            match sprite.canonical_id {
-                Some(_) => Sprite::update_from(pool, sprite, layer).await,
-                None => Sprite::create_from(pool, sprite, layer).await,
-            }
+            let id = match sprite.canonical_id {
+                Some(id) => {
+                    Sprite::update_from(pool, sprite, layer).await?;
+                    id
+                }
+                None => Sprite::create_from(pool, sprite, layer).await?,
+            };
+            Ok(Sprite::from_scene_sprite(sprite, layer, id))
         }
     }
 }

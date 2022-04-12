@@ -296,4 +296,9 @@ impl Viewport {
             Err(_) => vec![],
         }
     }
+
+    pub fn set_scene_ids(&mut self, project_id: Id, scene_id: Id) {
+        self.scene.project = Some(project_id);
+        self.scene.id = Some(scene_id);
+    }
 }
