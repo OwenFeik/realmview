@@ -136,7 +136,7 @@ pub struct Sprite {
     pub texture: Id,
 
     // Unique numeric ID, numbered from 1
-    local_id: Id,
+    pub local_id: Id,
 
     // ID of the Sprite on the server side
     pub canonical_id: Option<Id>,
@@ -331,8 +331,8 @@ pub struct Layer {
     pub title: String,
     pub z: i32,
     pub sprites: Vec<Sprite>,
-    z_min: i32,
-    z_max: i32,
+    pub z_min: i32,
+    pub z_max: i32,
 }
 
 impl Layer {
@@ -370,7 +370,7 @@ impl Layer {
         }
     }
 
-    fn add_sprite(&mut self, sprite: Sprite) {
+    pub fn add_sprite(&mut self, sprite: Sprite) {
         self.update_z_bounds(&sprite);
         self.sprites.push(sprite);
         self.sort_sprites();

@@ -1,8 +1,8 @@
 use sqlx::SqlitePool;
 
-use self::layer::Layer;
-use self::scene_record::Scene;
-use self::sprite::Sprite;
+use self::layer::LayerRecord;
+use self::scene_record::SceneRecord;
+use self::sprite::SpriteRecord;
 
 #[derive(sqlx::FromRow)]
 pub struct Project {
@@ -49,33 +49,35 @@ impl Project {
         &self,
         pool: &SqlitePool,
         scene: scene::Scene,
-    ) -> anyhow::Result<i64> {
-        let s = Scene::get_or_create(pool, scene.id, self.id).await?;
+    ) -> anyhow::Result<SceneRecord> {
+        let s = scene_record::SceneRecord::get_or_create(pool, scene.id, self.id).await?;
 
         for layer in scene.layers.iter() {
-            let l = Layer::get_or_create(pool, layer, s.id).await?;
+            let l = LayerRecord::get_or_create(pool, layer, s.id).await?;
 
             for sprite in layer.sprites.iter() {
-                Sprite::save(pool, sprite, l.id).await?;
+                SpriteRecord::save(pool, sprite, l.id).await?;
             }
         }
 
-        Ok(s.id)
+        Ok(s)
     }
 }
 
 mod scene_record {
     use sqlx::SqlitePool;
 
+    use super::{layer::LayerRecord, sprite::SpriteRecord};
+
     #[derive(sqlx::FromRow)]
-    pub struct Scene {
+    pub struct SceneRecord {
         pub id: i64,
         pub project: i64,
         pub title: String,
     }
 
-    impl Scene {
-        async fn load(pool: &SqlitePool, id: i64) -> anyhow::Result<Scene> {
+    impl SceneRecord {
+        pub async fn load(pool: &SqlitePool, id: i64) -> anyhow::Result<SceneRecord> {
             sqlx::query_as("SELECT * FROM scenes WHERE id = ?1;")
                 .bind(id)
                 .fetch_one(pool)
@@ -83,7 +85,7 @@ mod scene_record {
                 .map_err(|_| anyhow::anyhow!("Failed to find scene."))
         }
 
-        async fn create(pool: &SqlitePool, project: i64) -> anyhow::Result<Scene> {
+        async fn create(pool: &SqlitePool, project: i64) -> anyhow::Result<SceneRecord> {
             sqlx::query_as("INSERT INTO scenes (project, title) VALUES (?1, ?2) RETURNING *;")
                 .bind(project)
                 .bind("Untitled")
@@ -96,11 +98,33 @@ mod scene_record {
             pool: &SqlitePool,
             id: Option<i64>,
             project: i64,
-        ) -> anyhow::Result<Scene> {
+        ) -> anyhow::Result<SceneRecord> {
             match id {
-                Some(id) => Scene::load(pool, id).await,
-                None => Scene::create(pool, project).await,
+                Some(id) => SceneRecord::load(pool, id).await,
+                None => SceneRecord::create(pool, project).await,
             }
+        }
+
+        pub async fn load_scene(&self, pool: &SqlitePool) -> anyhow::Result<scene::Scene> {
+            let layers = LayerRecord::load_scene_layers(pool, self.id).await?;
+            let mut sprites = SpriteRecord::sprites_for_layers(pool, &layers).await?;
+            let mut layers = layers
+                .iter()
+                .map(|lr| lr.to_layer())
+                .collect::<Vec<scene::Layer>>();
+
+            while let Some(s) = sprites.pop() {
+                if let Some(l) = layers.iter_mut().find(|l| l.canonical_id == Some(s.layer)) {
+                    l.add_sprite(s.to_sprite());
+                }
+            }
+
+            Ok(scene::Scene {
+                id: Some(self.id),
+                layers,
+                project: Some(self.project),
+                holding: scene::HeldObject::None,
+            })
         }
     }
 }
@@ -109,15 +133,27 @@ mod layer {
     use sqlx::SqlitePool;
 
     #[derive(sqlx::FromRow)]
-    pub struct Layer {
+    pub struct LayerRecord {
         pub id: i64,
         scene: i64,
         title: String,
         z: i64,
     }
 
-    impl Layer {
-        async fn load(pool: &SqlitePool, id: i64) -> anyhow::Result<Layer> {
+    impl LayerRecord {
+        pub fn to_layer(&self) -> scene::Layer {
+            scene::Layer {
+                local_id: self.id,
+                canonical_id: Some(self.id),
+                title: self.title.clone(),
+                z: self.z as i32,
+                sprites: vec![],
+                z_min: 0,
+                z_max: 0,
+            }
+        }
+
+        async fn load(pool: &SqlitePool, id: i64) -> anyhow::Result<LayerRecord> {
             sqlx::query_as("SELECT * FROM layers WHERE id = ?1;")
                 .bind(id)
                 .fetch_one(pool)
@@ -129,7 +165,7 @@ mod layer {
             pool: &SqlitePool,
             layer: &scene::Layer,
             scene: i64,
-        ) -> anyhow::Result<Layer> {
+        ) -> anyhow::Result<LayerRecord> {
             sqlx::query_as("INSERT INTO layers (scene, title, z) VALUES (?1, ?2, ?3) RETURNING *;")
                 .bind(scene)
                 .bind(&layer.title)
@@ -143,11 +179,22 @@ mod layer {
             pool: &SqlitePool,
             layer: &scene::Layer,
             scene: i64,
-        ) -> anyhow::Result<Layer> {
+        ) -> anyhow::Result<LayerRecord> {
             match layer.canonical_id {
-                Some(id) => Layer::load(pool, id).await,
-                None => Layer::create(pool, layer, scene).await,
+                Some(id) => LayerRecord::load(pool, id).await,
+                None => LayerRecord::create(pool, layer, scene).await,
             }
+        }
+
+        pub async fn load_scene_layers(
+            pool: &SqlitePool,
+            scene: i64,
+        ) -> anyhow::Result<Vec<LayerRecord>> {
+            sqlx::query_as("SELECT * FROM layers WHERE scene = ?1;")
+                .bind(scene)
+                .fetch_all(pool)
+                .await
+                .map_err(|_| anyhow::anyhow!("Failed to load scene layers."))
         }
     }
 }
@@ -155,24 +202,27 @@ mod layer {
 mod sprite {
     use sqlx::Row;
 
+    use super::layer::LayerRecord;
+
     // Can't use RETURNING * with SQLite due to bug with REAL columns, which is
     // relevant to the Sprite type because x, y, w, h are all REAL. May be
     // resolved in a future SQLite version but error persists in 3.38.0.
     // see: https://github.com/launchbadge/sqlx/issues/1596
 
     #[derive(sqlx::FromRow)]
-    pub struct Sprite {
+    pub struct SpriteRecord {
         id: i64,
-        layer: i64,
+        pub layer: i64,
         media: i64,
         x: f32,
         y: f32,
         w: f32,
         h: f32,
+        z: i64,
     }
 
-    impl Sprite {
-        fn from_scene_sprite(sprite: &scene::Sprite, layer: i64, id: i64) -> Self {
+    impl SpriteRecord {
+        fn from_sprite(sprite: &scene::Sprite, layer: i64, id: i64) -> Self {
             Self {
                 id,
                 layer,
@@ -181,6 +231,17 @@ mod sprite {
                 y: sprite.rect.y,
                 w: sprite.rect.w,
                 h: sprite.rect.h,
+                z: sprite.z as i64,
+            }
+        }
+
+        pub fn to_sprite(&self) -> scene::Sprite {
+            scene::Sprite {
+                rect: scene::Rect::new(self.x, self.y, self.w, self.h),
+                z: self.z as i32,
+                texture: self.media,
+                local_id: self.id,
+                canonical_id: Some(self.id),
             }
         }
 
@@ -190,13 +251,14 @@ mod sprite {
             sprite: &scene::Sprite,
             layer: i64,
         ) -> anyhow::Result<()> {
-            sqlx::query("UPDATE sprites SET (layer, media, x, y, w, h) = (?1, ?2, ?3, ?4, ?5, ?6) WHERE id = ?7;")
+            sqlx::query("UPDATE sprites SET (layer, media, x, y, w, h, z) = (?1, ?2, ?3, ?4, ?5, ?6, ?7) WHERE id = ?8;")
                 .bind(layer)
                 .bind(sprite.texture)
                 .bind(sprite.rect.x)
                 .bind(sprite.rect.y)
                 .bind(sprite.rect.w)
                 .bind(sprite.rect.h)
+                .bind(sprite.z)
                 .bind(sprite.canonical_id.unwrap())
                 .execute(pool)
                 .await
@@ -210,7 +272,7 @@ mod sprite {
             layer: i64,
         ) -> anyhow::Result<i64> {
             sqlx::query(
-                "INSERT INTO sprites (layer, media, x, y, w, h) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING id;"
+                "INSERT INTO sprites (layer, media, x, y, w, h, z) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) RETURNING id;"
             )
                 .bind(layer)
                 .bind(sprite.texture)
@@ -218,6 +280,7 @@ mod sprite {
                 .bind(sprite.rect.y)
                 .bind(sprite.rect.w)
                 .bind(sprite.rect.h)
+                .bind(sprite.z)
                 .fetch_one(pool)
                 .await
                 .map(|row: sqlx::sqlite::SqliteRow| row.get(0))
@@ -228,15 +291,32 @@ mod sprite {
             pool: &sqlx::SqlitePool,
             sprite: &scene::Sprite,
             layer: i64,
-        ) -> anyhow::Result<Sprite> {
+        ) -> anyhow::Result<SpriteRecord> {
             let id = match sprite.canonical_id {
                 Some(id) => {
-                    Sprite::update_from(pool, sprite, layer).await?;
+                    SpriteRecord::update_from(pool, sprite, layer).await?;
                     id
                 }
-                None => Sprite::create_from(pool, sprite, layer).await?,
+                None => SpriteRecord::create_from(pool, sprite, layer).await?,
             };
-            Ok(Sprite::from_scene_sprite(sprite, layer, id))
+            Ok(SpriteRecord::from_sprite(sprite, layer, id))
+        }
+
+        pub async fn sprites_for_layers(
+            pool: &sqlx::SqlitePool,
+            layers: &[LayerRecord],
+        ) -> anyhow::Result<Vec<SpriteRecord>> {
+            sqlx::query_as(&format!(
+                "SELECT * FROM sprites WHERE layer IN ({});",
+                layers
+                    .iter()
+                    .map(|l| l.id.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ))
+            .fetch_all(pool)
+            .await
+            .map_err(|_| anyhow::anyhow!("Failed to load sprite list."))
         }
     }
 }

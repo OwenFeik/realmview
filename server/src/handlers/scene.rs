@@ -20,7 +20,7 @@ mod save {
     use crate::{
         handlers::{
             binary_body,
-            response::{as_result, Binary},
+            response::{as_result, Binary, ResultReply},
             with_db, with_session,
         },
         models::{Project, User},
@@ -29,19 +29,25 @@ mod save {
     #[derive(Serialize)]
     struct SceneSaveResponse {
         message: String,
-        project_id: i64,
-        scene_id: i64,
+        scene: String,
         success: bool,
     }
 
     impl SceneSaveResponse {
-        fn new(project_id: i64, scene_id: i64) -> Self {
-            SceneSaveResponse {
-                message: "Scene saved.".to_string(),
-                project_id,
-                scene_id,
-                success: true,
-            }
+        fn reply(scene: scene::Scene) -> ResultReply {
+            let scene_str = match bincode::serialize(&scene) {
+                Ok(b) => base64::encode(b),
+                Err(_) => return Binary::result_error("Error encoding scene."),
+            };
+
+            as_result(
+                &SceneSaveResponse {
+                    message: "Scene saved.".to_string(),
+                    scene: scene_str,
+                    success: true,
+                },
+                StatusCode::OK,
+            )
         }
     }
 
@@ -61,7 +67,13 @@ mod save {
         };
 
         match project.update_scene(&pool, scene).await {
-            Ok(id) => as_result(&SceneSaveResponse::new(project.id, id), StatusCode::OK),
+            Ok(s) => match s.load_scene(&pool).await {
+                Ok(s) => SceneSaveResponse::reply(s),
+                Err(s) => Binary::result_failure(&format!(
+                    "Failed to load saved scene: {}",
+                    &s.to_string()
+                )),
+            },
             Err(s) => Binary::result_failure(&format!("Failed to save scene: {}", &s.to_string())),
         }
     }
