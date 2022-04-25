@@ -7,28 +7,34 @@
   </head>
   <body>
     <div class="container-sm p-5">
-      <form class="needs-validation" onsubmit="return false;" action="/register" data-redirect="login.html">
-        <div class="mb-3">
-          <label for="username" class="form-label">Username</label>
-          <input type="text" class="form-control" id="username" aria-describedby="username_help" required minlength="4" maxlength="32">
-          <div id="username_help" class="form-text">Your username must be 4-32 alphanumeric characters.</div>
-          <div class="invalid-feedback" data-feedback-for="username">Please choose a valid username.</div>
-        </div>
-        <div class="mb-3">
-          <label for="password" class="form-label">Password</label>
-          <input type="password" class="form-control" id="password" aria-describedby="password_help" required minlength="8" maxlength="256">
-          <div id="password_help" class="form-text">Your password must be 8 or more characters, including at least one number and one letter.</div>
-          <div class="invalid-feedback" data-feedback-for="password">Please choose a valid password.</div>
-        </div>
-        <div class="mb-3">
-          <label for="confirm_password" class="form-label">Confirm Password</label>
-          <input type="password" class="form-control" id="confirm_password" aria-describedby="confirm_password_help" required>
-          <div id="confirm_password_help" class="form-text">Must match your password.</div>
-          <div class="invalid-feedback">Please type you password again.</div>
-        </div>
-        <button onclick="submit_form(this.parentNode);" class="btn btn-primary">Submit</button>
-        <div data-role="error_message" class="form-text text-danger"></div>
-      </form>
+      {{ form/start(action=/register, redirect=login.html) }}
+        {{
+          form/field(
+            id=username,
+            min_length=4,
+            max_length=32,
+            help="Your username must be 4-32 alphanumeric characters."
+          )
+        }}
+        {{
+          form/field(
+            id=password,
+            type=password,
+            min_length=8,
+            help="Your password must be 8 or more characters including at least one number and one letter."
+          )
+        }}
+        {{
+          form/field(
+            id=confirm_password,
+            type=password,
+            field_name="Confirm password",
+            min_length=8,
+            help="Must match your password.",
+            feedback_text="Please type your password again."
+          )
+        }}
+      {{ form/end() }}
     </div>
   </body>
 </html>

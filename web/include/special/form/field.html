@@ -1,0 +1,32 @@
+PREAMBLE {{
+if kwargs.get("FIELD_ID") is None:
+  kwargs["FIELD_ID"] = kwargs["ID"]
+if kwargs.get("FIELD_NAME") is None:
+  kwargs["FIELD_NAME"] = kwargs["FIELD_ID"].capitalize()
+if kwargs.get("FEEDBACK_TEXT") is None:
+  kwargs["FEEDBACK_TEXT"] = (
+    "Please enter a valid "
+    + kwargs["FIELD_NAME"].lower()
+    + "."
+  )
+if kwargs.get("FIELD_TYPE") is None:
+  kwargs["FIELD_TYPE"] = kwargs.get("TYPE", "text")
+if kwargs.get("FIELD_HELP") is None and kwargs.get("HELP"):
+  kwargs["FIELD_HELP"] = kwargs["HELP"]
+}}
+
+<div class="mb-3">
+  <label for="{{ FIELD_ID }}">{{ FIELD_NAME }}</label>
+  <input
+    class="form-control"
+    type="{{ FIELD_TYPE }}"
+    id="{{ FIELD_ID }}"
+    IFDEF(MIN_LENGTH) {{ minlength="{{ MIN_LENGTH }}" }}
+    IFDEF(MAX_LENGTH) {{ maxlength="{{ MAX_LENGTH }}" }}
+    IFDEF(MIN) {{ min="{{ MIN }}" }}
+    IFDEF(MAX) {{ max="{{ MAX }}" }}
+    IFNDEF(OPTIONAL) {{ required="" }}
+  >
+  IFDEF(FIELD_HELP) {{ <div id="{{ FIELD_ID }}_help" class="form-text">{{ FIELD_HELP }}</div> }}
+  <div class="invalid-feedback" data-feedback-for="{{ FIELD_ID }}">{{ FEEDBACK_TEXT }}</div>
+</div>

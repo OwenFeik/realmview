@@ -22,10 +22,29 @@ def output_directory() -> str:
 
 
 def substitution_regex() -> re.Pattern:
-    ic = r"a-zA-Z0-9_.:@/\-"
-    function_regex = rf"(?P<func>[{ic}]*)\((?P<arg>[{ic}]+)\)"
-    include_regex = rf"(?P<file>[{ic}]*)"
-    overall_regex = r"{{ *(" + function_regex + r"|" + include_regex + r") *}}"
+    # Identifier characters
+    ic = r"[a-zA-Z0-9_]"
+
+    # "full characters" or something. Anything that could appear in a used
+    # URL, function argument, file name, etc
+    fc = r"[a-zA-Z0-9_.:@/\-]"
+
+    # function name followed by a single argument
+    function_regex = rf"(?P<func>{ic}+)\((?P<arg>{fc}*)\)"
+
+    # file path (relative to include/special) followed by comma separated
+    # k = v args with any amount of whitespace between them
+    kwarg_file_regex = (
+        rf"(?P<kwarg_file>{fc}+)"
+        rf"\(\s*(?P<args>({ic}+\s*=\s*({fc}+|\"[^\"]+\")(,\s*|\s*(?=\))))*)\)"
+    )
+
+    # file name
+    include_regex = rf"(?P<file>{fc}+)"
+
+    substitution_types = [function_regex, kwarg_file_regex, include_regex]
+
+    overall_regex = r"{{\s*(" + r"|".join(substitution_types) + r")\s*}}"
 
     return re.compile(overall_regex)
 
@@ -104,7 +123,7 @@ def load_resource(resource: str) -> str:
     if resource.startswith("http://") or resource.startswith("https://"):
         return load_url(resource)
     else:
-        return file_substitution(resource)
+        return include_file(resource)
 
 
 def stylesheet(resource: str) -> str:
@@ -130,43 +149,143 @@ def constant(
         return constant(name)
 
 
-def function_substitution(func: str, arg: str) -> str:
-    functions = {
-        f.__name__: f
-        for f in [bootstrap_icon, stylesheet, javascript, constant]
-    }
+def function_from_name(
+    funcs: typing.List[typing.Callable], name: str
+) -> typing.Callable:
     try:
-        args = [s.strip() for s in arg.split(",")]
-        return functions[func](*args)  # type: ignore
+        return {f.__name__: f for f in funcs}[name]
     except KeyError:
-        print(f"Missing function: {func}. Aborting.")
+        print(f"Missing function: {name}. Aborting.")
         exit(os.EX_NOINPUT)
 
 
-def file_substitution(file: str) -> str:
+def function_substitution(func: str, arg: str) -> str:
+    functions = [bootstrap_icon, stylesheet, javascript, constant]
+    args = [s.strip() for s in arg.split(",")]
+    return function_from_name(functions, func)(*args)  # type: ignore
+
+
+def read_block(identifier: str, html: str) -> str:
+    if not (match := re.search(re.escape(identifier) + r"\s*{{", html)):
+        raise ValueError(f"Missing indentifier: {identifier}")
+
+    n_braces = 2
+    i = match.end() + 1
+    while i < len(html) and n_braces:
+        if html[i] == "{":
+            n_braces += 1
+        elif html[i] == "}":
+            n_braces -= 1
+        i += 1
+
+    if n_braces:
+        raise ValueError("Unterminated block.")
+
+    return html[match.start() : i]
+
+
+def block_contents(block: str) -> str:
+    return re.sub(r"^.*?{{", "", block)[:-2]
+
+
+# Look away. This parses a file to check for a preprocessor block preceded by
+# the identifier PREAMBLE at the start of the file and if it finds one, it
+# reads in the python code contained in the block and executes it, allowing
+# it to mutate the kwargs dict.
+def process_preamble(html: str, kwargs: typing.Dict[str, str]) -> str:
+    try:
+        block = read_block("PREAMBLE", html)
+    except ValueError:
+        return html
+    preamble = block_contents(block)
+    exec(preamble)
+    return html.replace(block, "").strip()
+
+
+def process_ifdefs(html: str, kwargs: typing.Dict[str, str]) -> str:
+    rx = re.compile(r"(?P<ident>(?P<cond>IFN?DEF)\((?P<arg>[A-Z_]+)\))\s*{{")
+    queue: typing.List[typing.Tuple[str, str, str]] = []
+    for match in re.finditer(rx, html):
+        cond = match.group("cond")
+        kwarg = match.group("arg")
+        block = read_block(match.group("ident"), html)
+        queue.append((cond, kwarg, block))
+
+    for cond, kwarg, block in queue:
+        repl = ""
+        if (cond == "IFDEF" and kwarg in kwargs) or (
+            cond == "IFNDEF" and kwarg not in kwargs
+        ):
+            repl = block_contents(block)
+        html = html.replace(block, repl)
+
+    return html
+
+
+def remove_quotes(string: str) -> str:
+    if string.startswith('"'):
+        return string[1:-1]
+    return string
+
+
+# TODO doesn't handle quoted strings with commas
+def kwarg_file_subsitution(file: str, args: str) -> str:
+    kwargs = {
+        k.upper(): remove_quotes(v)
+        for k, v in map(
+            lambda arg: re.split(r"\s*=\s*", arg, 1),
+            [term for term in re.split(r",\s*", args.strip()) if term],
+        )
+    }
+
+    file_path = os.path.join("special", file)
+    html = include_file(file_path, False)
+
+    try:
+        html = process_preamble(html, kwargs)
+        html = process_ifdefs(html, kwargs)
+    except ValueError as e:
+        print(
+            f"Substitution failed for {file_path}.\nReason: {e}\nArgs: {kwargs}"
+        )
+        exit(os.EX_DATAERR)
+
+    for kwarg in re.finditer(r"{{\s*(?P<k>[A-Z_]+)\s*}}", html):
+        html = html.replace(kwarg.group(0), kwargs.get(kwarg.group("k"), ""))
+
+    return html
+
+
+def include_file(file: str, process: bool = True) -> str:
     try:
         include = os.path.join(INCLUDE_DIR, file)
         with open(include, "r") as f:
-            # Note: This could recurse until OOM if a file is self-referential.
-            return process_html(f.read())
+            html = f.read()
     except FileNotFoundError:
         try:
             # Allow omission of file extension
-            include = os.path.join(INCLUDE_DIR, file.partition(".")[0])
+            include = os.path.join(INCLUDE_DIR, file + ".html")
             with open(include, "r") as f:
-                return process_html(f.read())
+                html = f.read()
         except FileNotFoundError:
-            pass
+            print(f"Missing include file: {file}. Aborting.")
+            exit(os.EX_DATAERR)
 
-        print(f"Missing include file: {file}. Aborting.")
-        exit(os.EX_DATAERR)
+    # Note: This could recurse until OOM if a file is self-referential.
+    # Don't do that.
+    if process:
+        return process_html(html)
+    else:
+        return html
 
 
 def handle_match(match: re.Match) -> str:
     if func := match.group("func"):
         return function_substitution(func, match.group("arg"))
+    elif kw_file := match.group("kwarg_file"):
+        return kwarg_file_subsitution(kw_file, match.group("args"))
     elif file := match.group("file"):
-        return file_substitution(file)
+        return include_file(file)
     else:
         # This path is unreachable unless additional options are added to the
         # regular expression.
@@ -188,6 +307,8 @@ def main() -> None:
             html = f.read()
 
         html = process_html(html)
+        if "{{" in html:
+            print(f"Substitution may have failed for {page}.")
 
         with open(os.path.join(output_dir, page), "w") as f:
             f.write(html)

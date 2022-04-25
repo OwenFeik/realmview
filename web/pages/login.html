@@ -7,20 +7,10 @@
   </head>
   <body>
     <div class="container-sm p-5">
-      <form class="needs-validation" onsubmit="return false;" action="/login", data-redirect="scene.html">
-        <div class="mb-3">
-          <label for="username" class="form-label">Username</label>
-          <input type="text" class="form-control" id="username" required="" minlength="4" maxlength="32">
-          <div class="invalid-feedback" data-feedback-for="username">Please enter a valid username.</div>
-        </div>
-        <div class="mb-3">
-          <label for="password" class="form-label">Password</label>
-          <input type="password" class="form-control" id="password" required="" minlength="8" maxlength="256">
-          <div class="invalid-feedback" data-feedback-for="password">Please enter a valid password.</div>
-        </div>
-        <button onclick="submit_form(this.parentNode);" class="btn btn-primary">Submit</button>
-        <div data-role="error_message" class="form-text text-danger"></div>
-      </form>
+      {{ form/start(action=/login, redirect=scene.html) }}
+        {{ form/field(id=username, min_length=4, max_length=32) }}
+        {{ form/field(id=password, type=password, min_length=8, max_length=256) }}
+      {{ form/end() }}
     </div>
   </body>
 </html>
