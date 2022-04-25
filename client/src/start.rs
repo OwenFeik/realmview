@@ -6,7 +6,7 @@ use parking_lot::Mutex;
 use wasm_bindgen::prelude::*;
 
 use crate::bridge::{
-    expose_closure_f64_f64, expose_closure_u8_array, log, request_animation_frame,
+    expose_closure_string_string, expose_closure_u8_array, log, request_animation_frame,
 };
 use crate::client::Client;
 use crate::viewport::Viewport;
@@ -42,12 +42,19 @@ pub fn start() -> Result<(), JsValue> {
     export_closure.forget();
 
     let scene_ref = scene.clone();
-    let set_id_closure = Closure::wrap(Box::new(move |proj_id: f64, scene_id: f64| {
-        scene_ref
-            .lock()
-            .set_scene_ids(proj_id as i64, scene_id as i64);
-    }) as Box<dyn FnMut(f64, f64)>);
-    expose_closure_f64_f64("set_scene_ids", &set_id_closure);
+    let set_id_closure = Closure::wrap(Box::new(move |scene_b64: String| {
+        log(&scene_b64);
+        let s = match base64::decode(&scene_b64) {
+            Ok(b) => match bincode::deserialize(&b) {
+                Ok(s) => s,
+                Err(e) => return format!("Deserialisation error: {}", e),
+            },
+            Err(e) => return format!("Decoding error: {}", e),
+        };
+        scene_ref.lock().replace_scene(s);
+        "Saved successfully.".to_string()
+    }) as Box<dyn FnMut(String) -> String>);
+    expose_closure_string_string("load_scene", &set_id_closure);
     set_id_closure.forget();
 
     let f = Rc::new(RefCell::new(None));

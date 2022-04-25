@@ -20,7 +20,7 @@ extern "C" {
     pub fn expose_closure_u8_array(name: &str, closure: &Closure<dyn FnMut() -> Uint8Array>);
 
     #[wasm_bindgen(js_name = expose_closure)]
-    pub fn expose_closure_f64_f64(name: &str, closure: &Closure<dyn FnMut(f64, f64)>);
+    pub fn expose_closure_string_string(name: &str, closure: &Closure<dyn FnMut(String) -> String>);
 
     #[wasm_bindgen(js_namespace = console)]
     pub fn log(s: &str);

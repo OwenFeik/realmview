@@ -150,6 +150,14 @@ def file_substitution(file: str) -> str:
             # Note: This could recurse until OOM if a file is self-referential.
             return process_html(f.read())
     except FileNotFoundError:
+        try:
+            # Allow omission of file extension
+            include = os.path.join(INCLUDE_DIR, file.partition(".")[0])
+            with open(include, "r") as f:
+                return process_html(f.read())
+        except FileNotFoundError:
+            pass
+
         print(f"Missing include file: {file}. Aborting.")
         exit(os.EX_DATAERR)
 

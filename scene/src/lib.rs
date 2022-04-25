@@ -324,6 +324,8 @@ impl Default for HeldObject {
     }
 }
 
+// TODO layer IDs aren't implemented
+
 #[derive(Serialize, Deserialize)]
 pub struct Layer {
     pub local_id: Id,
@@ -346,6 +348,14 @@ impl Layer {
             z_min: 0,
             z_max: 0,
         }
+    }
+
+    pub fn refresh_sprite_local_ids(&mut self) {
+        self.sprites = self
+            .sprites
+            .iter_mut()
+            .map(|s| Sprite::from_remote(s))
+            .collect();
     }
 
     fn sprite(&mut self, local_id: Id) -> Option<&mut Sprite> {

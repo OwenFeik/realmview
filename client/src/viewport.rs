@@ -297,8 +297,16 @@ impl Viewport {
         }
     }
 
-    pub fn set_scene_ids(&mut self, project_id: Id, scene_id: Id) {
-        self.scene.project = Some(project_id);
-        self.scene.id = Some(scene_id);
+    pub fn replace_scene(&mut self, mut new: Scene) {
+        // Clear the local_id values from the server side, using the local id
+        // pool instead to avoid conflicts.
+        for layer in &mut new.layers {
+            layer.refresh_sprite_local_ids();
+        }
+
+        self.scene.layers = new.layers;
+        self.scene.id = new.id;
+        self.scene.project = new.project;
+        self.scene.holding = scene::HeldObject::None;
     }
 }
