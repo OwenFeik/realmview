@@ -306,6 +306,7 @@ impl Viewport {
 
         self.scene.layers = new.layers;
         self.scene.id = new.id;
+        self.scene.title = new.title;
         self.scene.project = new.project;
         self.scene.holding = scene::HeldObject::None;
     }

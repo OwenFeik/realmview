@@ -253,7 +253,7 @@ def kwarg_file_subsitution(file: str, args: str) -> str:
     for kwarg in re.finditer(r"{{\s*(?P<k>[A-Z_]+)\s*}}", html):
         html = html.replace(kwarg.group(0), kwargs.get(kwarg.group("k"), ""))
 
-    return html
+    return process_html(html)
 
 
 def include_file(file: str, process: bool = True) -> str:

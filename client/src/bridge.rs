@@ -1,4 +1,4 @@
-use js_sys::{Array, Float32Array, Uint8Array};
+use js_sys::{Array, Float32Array};
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -17,7 +17,7 @@ extern "C" {
     pub fn get_texture_queue() -> Array;
 
     #[wasm_bindgen(js_name = expose_closure)]
-    pub fn expose_closure_u8_array(name: &str, closure: &Closure<dyn FnMut() -> Uint8Array>);
+    pub fn expose_closure_string(name: &str, closure: &Closure<dyn FnMut() -> String>);
 
     #[wasm_bindgen(js_name = expose_closure)]
     pub fn expose_closure_string_string(name: &str, closure: &Closure<dyn FnMut(String) -> String>);

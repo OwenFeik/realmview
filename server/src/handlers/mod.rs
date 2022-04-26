@@ -10,6 +10,7 @@ mod game;
 mod login;
 mod logout;
 mod media;
+mod project;
 mod register;
 mod scene;
 mod upload;
@@ -18,7 +19,7 @@ pub fn routes(
     pool: SqlitePool,
     games: crate::game::Games,
     content_dir: String,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     login::filter(pool.clone())
         .or(register::filter(pool.clone()))
         .or(logout::filter(pool.clone()))

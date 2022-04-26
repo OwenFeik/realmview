@@ -29,12 +29,14 @@ CREATE TABLE IF NOT EXISTS media (
 
 CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY,
+    project_key CHAR(16) NOT NULL,
     user INTEGER REFERENCES users(id) ON DELETE CASCADE NOT NULL,
     title TEXT
 );
 
 CREATE TABLE IF NOT EXISTS scenes (
     id INTEGER PRIMARY KEY,
+    scene_key CHAR(16) NOT NULL,
     project INTEGER REFERENCES projects(id) ON DELETE CASCADE NOT NULL,
     title TEXT
 );

@@ -1,8 +1,6 @@
-use warp::Filter;
-
 pub fn routes(
     pool: sqlx::SqlitePool,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     save::filter(pool)
 }
 
@@ -14,17 +12,25 @@ mod save {
 
     use std::convert::Infallible;
 
-    use serde_derive::Serialize;
+    use serde_derive::{Deserialize, Serialize};
     use warp::{hyper::StatusCode, Filter};
 
     use crate::{
         handlers::{
-            binary_body,
+            json_body,
             response::{as_result, Binary, ResultReply},
             with_db, with_session,
         },
         models::{Project, User},
     };
+
+    const DEFAULT_SCENE_TITLE: &str = "Untitled";
+
+    #[derive(Deserialize)]
+    struct SceneSaveRequest {
+        title: String,
+        encoded: String,
+    }
 
     #[derive(Serialize)]
     struct SceneSaveResponse {
@@ -54,8 +60,16 @@ mod save {
     async fn save_scene(
         pool: sqlx::SqlitePool,
         skey: String,
-        scene: scene::Scene,
+        req: SceneSaveRequest,
     ) -> Result<impl warp::Reply, Infallible> {
+        let scene: scene::Scene = match base64::decode(req.encoded) {
+            Ok(b) => match bincode::deserialize(&b) {
+                Ok(s) => s,
+                Err(_) => return Binary::result_failure("Deserialisation failure."),
+            },
+            Err(_) => return Binary::result_failure("Decoding failure."),
+        };
+
         let user = match User::get_by_session(&pool, &skey).await {
             Ok(Some(u)) => u,
             _ => return Binary::result_failure("Invalid session."),
@@ -66,7 +80,15 @@ mod save {
             Err(_) => return Binary::result_failure("Missing project."),
         };
 
-        match project.update_scene(&pool, scene).await {
+        let mut scene_title = req.title.trim();
+        if scene_title.is_empty() {
+            scene_title = DEFAULT_SCENE_TITLE;
+        }
+
+        match project
+            .update_scene(&pool, scene, scene_title.to_string())
+            .await
+        {
             Ok(s) => match s.load_scene(&pool).await {
                 Ok(s) => SceneSaveResponse::reply(s),
                 Err(s) => Binary::result_failure(&format!(
@@ -80,12 +102,12 @@ mod save {
 
     pub fn filter(
         pool: sqlx::SqlitePool,
-    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("scene" / "save")
             .and(warp::post())
             .and(with_db(pool))
             .and(with_session())
-            .and(binary_body())
+            .and(json_body())
             .and_then(save_scene)
     }
 }

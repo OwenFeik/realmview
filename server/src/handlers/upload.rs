@@ -184,7 +184,7 @@ fn with_string(string: String) -> impl Filter<Extract = (String,), Error = Infal
 pub fn filter(
     pool: SqlitePool,
     content_dir: String,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     warp::path!("upload")
         .and(warp::post())
         .and(with_db(pool))

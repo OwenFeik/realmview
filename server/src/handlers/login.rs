@@ -107,7 +107,7 @@ async fn login(details: LoginRequest, pool: SqlitePool) -> Result<impl warp::Rep
 
 pub fn filter(
     pool: SqlitePool,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     warp::path!("login")
         .and(warp::post())
         .and(json_body::<LoginRequest>())

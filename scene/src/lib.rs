@@ -423,6 +423,7 @@ pub struct Scene {
     // Layers of sprites in the scene. The grid is drawn at level 0.
     pub layers: Vec<Layer>,
     pub id: Option<Id>,
+    pub title: Option<String>,
     pub project: Option<Id>,
     pub holding: HeldObject,
 }
@@ -436,6 +437,7 @@ impl Scene {
                 Layer::new("Background", -2),
             ],
             id: None,
+            title: None,
             project: None,
             holding: HeldObject::None,
         }

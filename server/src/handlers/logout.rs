@@ -25,7 +25,7 @@ async fn logout(pool: SqlitePool, session_key: String) -> Result<impl warp::Repl
 
 pub fn filter(
     pool: SqlitePool,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     warp::path!("logout")
         .and(warp::post())
         .and(with_db(pool))

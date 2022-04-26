@@ -104,5 +104,6 @@ function post(path, data, onload = null, onerror = null) {
     req.onerror = onerror;
     req.responseType = "json";
     req.open("POST", path);
-    req.send(data);
+    req.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+    req.send(JSON.stringify(data));
 }

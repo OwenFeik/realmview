@@ -1,12 +1,11 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use js_sys::Uint8Array;
 use parking_lot::Mutex;
 use wasm_bindgen::prelude::*;
 
 use crate::bridge::{
-    expose_closure_string_string, expose_closure_u8_array, log, request_animation_frame,
+    expose_closure_string, expose_closure_string_string, log, request_animation_frame,
 };
 use crate::client::Client;
 use crate::viewport::Viewport;
@@ -34,16 +33,13 @@ pub fn start() -> Result<(), JsValue> {
     let scene_ref = scene.clone();
     let export_closure = Closure::wrap(Box::new(move || {
         let data = scene_ref.lock().export();
-        let ary = Uint8Array::new_with_length(data.len() as u32);
-        ary.copy_from(&data);
-        ary
-    }) as Box<dyn FnMut() -> Uint8Array>);
-    expose_closure_u8_array("export_scene", &export_closure);
+        base64::encode(data)
+    }) as Box<dyn FnMut() -> String>);
+    expose_closure_string("export_scene", &export_closure);
     export_closure.forget();
 
     let scene_ref = scene.clone();
-    let set_id_closure = Closure::wrap(Box::new(move |scene_b64: String| {
-        log(&scene_b64);
+    let load_scene_closure = Closure::wrap(Box::new(move |scene_b64: String| {
         let s = match base64::decode(&scene_b64) {
             Ok(b) => match bincode::deserialize(&b) {
                 Ok(s) => s,
@@ -54,8 +50,8 @@ pub fn start() -> Result<(), JsValue> {
         scene_ref.lock().replace_scene(s);
         "Saved successfully.".to_string()
     }) as Box<dyn FnMut(String) -> String>);
-    expose_closure_string_string("load_scene", &set_id_closure);
-    set_id_closure.forget();
+    expose_closure_string_string("load_scene", &load_scene_closure);
+    load_scene_closure.forget();
 
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();

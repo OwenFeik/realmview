@@ -11,10 +11,17 @@
       </button>
   </div>
   <div class="offcanvas-body">
-    <button
-      type="button"
-      class="btn btn-primary"
-      onclick="save_project();"
-    >Save {{ bootstrap_icon(save) }}</button>
+    <div class="row py-2">
+      <select class="form-select" id="project_select">
+      </select>
+    </div>
+    <div class="row py-2">
+      {{ editable_input(id=scene_title) }}
+      <button
+        type="button"
+        class="btn btn-primary"
+        onclick="save_project();"
+      >Save {{ bootstrap_icon(save) }}</button>  
+    </div>
   </div>
 </div>

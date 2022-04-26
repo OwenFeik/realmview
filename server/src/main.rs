@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![feature(type_alias_impl_trait)]
 
 use std::collections::HashMap;
 use std::sync::Arc;

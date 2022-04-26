@@ -169,7 +169,7 @@ async fn register(
 
 pub fn filter(
     pool: SqlitePool,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     warp::path!("register")
         .and(warp::post())
         .and(json_body::<RegistrationRequest>())

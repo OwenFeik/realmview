@@ -1,0 +1,35 @@
+<div class="input-group">
+  <input
+    type="text"
+    class="form-control"
+    id="{{ ID }}"
+    maxlength="256"
+    disabled
+  >
+  <button
+    class="btn btn-outline-primary"
+    type="button"
+    id="{{ ID }}_edit_button"
+  >{{ bootstrap_icon(pencil-square) }}</button>
+</div>
+<div class="invalid-feedback" data-feedback-for="{{ ID }}">
+  IFDEF(HELP) {{ HELP }} IFNDEF(HELP) {{Please enter a valid value.}}
+</div> 
+<script>
+window.onload = () => {
+  const input = document.getElementById("{{ ID }}");
+  const button = document.getElementById("{{ ID }}_edit_button");
+
+  button.onclick = () => { 
+    if (input.disabled) {
+      input.disabled = false;
+      button.innerHTML = `{{ bootstrap_icon(check-circle) }}`;
+    }
+    else {
+      input.disabled = true;
+      button.innerHTML = `{{ bootstrap_icon(pencil-square) }}`;
+      IFDEF(ACTION) {{ {{ ACTION }} }};
+    }
+  };
+};
+</script>
