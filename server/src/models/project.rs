@@ -80,6 +80,10 @@ impl Project {
 
         Ok(s)
     }
+
+    pub async fn list_scenes(&self, pool: &SqlitePool) -> anyhow::Result<Vec<SceneRecord>> {
+        SceneRecord::project_scenes(pool, self.id).await
+    }
 }
 
 mod scene_record {
@@ -171,6 +175,17 @@ mod scene_record {
                 project: Some(self.project),
                 holding: scene::HeldObject::None,
             })
+        }
+
+        pub async fn project_scenes(
+            pool: &SqlitePool,
+            project: i64,
+        ) -> anyhow::Result<Vec<SceneRecord>> {
+            sqlx::query_as("SELECT * FROM scenes WHERE project = ?1;")
+                .bind(project)
+                .fetch_all(pool)
+                .await
+                .map_err(|e| anyhow::anyhow!(format!("Failed to load scene list: {e}")))
         }
     }
 }

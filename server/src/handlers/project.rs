@@ -1,25 +1,28 @@
+use serde_derive::Serialize;
 use sqlx::SqlitePool;
-use warp::Filter;
+use warp::{hyper::StatusCode, Filter};
 
 use crate::models::{Project, User};
 
 use super::{
-    response::{Binary, ResultReply},
+    response::{as_result, Binary, ResultReply},
     with_db, with_session,
 };
 
+#[derive(Serialize)]
 struct SceneListEntry {
     scene_key: String,
     title: String,
-    n_sprites: i64,
 }
 
+#[derive(Serialize)]
 struct ProjectListEntry {
     project_key: String,
     title: String,
     scene_list: Vec<SceneListEntry>,
 }
 
+#[derive(Serialize)]
 struct ProjectListResponse {
     message: String,
     success: bool,
@@ -32,12 +35,38 @@ async fn list_projects(pool: SqlitePool, session_key: String) -> ResultReply {
         _ => return Binary::result_failure("Invalid session."),
     };
 
-    let projects = match Project::list(&pool, user.id).await {
+    let mut projects = match Project::list(&pool, user.id).await {
         Ok(v) => v,
         Err(_) => return Binary::result_failure("Failed to retrieve project list."),
     };
 
-    super::response::Binary::result_success("Ok")
+    let mut project_list = vec![];
+    while let Some(project) = projects.pop() {
+        let scene_list = match project.list_scenes(&pool).await {
+            Ok(scenes) => scenes
+                .iter()
+                .map(|s| SceneListEntry {
+                    scene_key: s.scene_key.clone(),
+                    title: s.title.clone(),
+                })
+                .collect(),
+            Err(e) => return Binary::result_error(&format!("Database error. {e}")),
+        };
+        project_list.push(ProjectListEntry {
+            project_key: project.project_key,
+            title: project.title,
+            scene_list,
+        });
+    }
+
+    as_result(
+        &ProjectListResponse {
+            message: "Project list retrieved.".to_string(),
+            success: true,
+            list: project_list,
+        },
+        StatusCode::OK,
+    )
 }
 
 pub fn filter(
