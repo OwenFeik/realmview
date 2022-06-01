@@ -12,39 +12,12 @@
       </button>
   </div>
   <div class="offcanvas-body">
-    <ul class="nav nav-tabs mb-2" role="tablist">
-      <li class="nav-item" role="presentation">
-        <button
-          class="nav-link active"
-          id="view_media_tab"
-          data-bs-toggle="tab"
-          data-bs-target="#view_media"
-          type="button"
-          role="tab"
-          aria-controls="view_media"
-          aria-selected="true"
-        >Library</button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button
-          class="nav-link"
-          id="upload_media_tab"
-          data-bs-toggle="tab"
-          data-bs-target="#upload_media"
-          type="button"
-          role="tab"
-          aria-controls="upload_media"
-          aria-selected="true"
-        >Upload</button>
-      </li>
-    </ul>  
+    {{ nav/start() }}
+      {{ nav/item(tab=view_media, label=Library, selected=true) }}
+      {{ nav/item(tab=upload_media, label=Upload) }}
+    {{ nav/end() }}
     <div class="tab-content">
-      <div
-        class="tab-pane fade show active"
-        id="view_media"
-        role="tabpanel"
-        aria-labelledby="view_media_tab"
-      >
+      {{ tab/start(tab=view_media, selected=true) }}
         <div class="d-flex justify-content-md-end align-items-center">
           <span class="spinner-border me-2 fade" id="media_view_loading"></span>
           <p class="text-danger m-0 me-2 d-none" id="media_view_error">Network error.</p>
@@ -54,19 +27,14 @@
           >Refresh {{ bootstrap_icon(arrow-clockwise) }}</button>
         </div>
         <div class="row row-cols-2" id="media_view_previews"></div>
-      </div>
-      <div
-        class="tab-pane fade show"
-        id="upload_media"
-        role="tabpanel"
-        aria-labelledby="upload_media_tab"
-      >
+      {{ tab/end() }}
+      {{ tab/start(tab=upload_media) }}
         <input class="form-control" type="file" id="media_upload" accept="image/png,image/jpg" multiple>
         <div class="row row-cols-3" id="media_upload_previews"></div>
         <div class="row p-1 pt-2 gx-2">
           <btn class="btn btn-primary" onclick="upload_media();">Submit</btn>
         </div>
-      </div>
+      {{ tab/end() }}
     </div>
   </div>
 </div>

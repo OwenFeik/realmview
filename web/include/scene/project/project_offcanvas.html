@@ -11,17 +11,45 @@
       </button>
   </div>
   <div class="offcanvas-body">
-    <div class="row py-2">
-      <select class="form-select" id="project_select">
-      </select>
-    </div>
-    <div class="row py-2">
-      {{ editable_input(id=scene_title) }}
-      <button
-        type="button"
-        class="btn btn-primary"
-        onclick="save_project();"
-      >Save {{ bootstrap_icon(save) }}</button>  
+    {{ nav/start() }}
+      {{ nav/item(tab=load, selected=true) }}
+      {{ nav/item(tab=save) }}
+    {{ nav/end() }}
+
+    <div class="tab-content">
+      {{ tab/start(tab=load, selected=true) }}
+        <div class="row py-2">
+          <div class="input-group">
+            <span class="input-group-text">Project</span>
+            <select class="form-select" id="project_select">
+            </select>  
+          </div>
+        </div>
+        <div class="row py-2">
+          <div class="input-group">
+            <span class="input-group-text">Scene</span>
+            <select class="form-select" id="scene_select">
+            </select>  
+          </div>
+        </div>
+      {{ tab/end() }}
+      {{ tab/start(tab=save) }}
+        <div class="row py-2">
+          {{ editable_input(id=project_title, label=Project) }}
+        </div>
+        <div class="row py-2">
+          {{ editable_input(id=scene_title, label=Scene) }}
+        </div>
+        <div class="row py-2">
+          <div class="btn-group">
+            <button
+              type="button"
+              class="btn btn-primary my-2"
+              onclick="save_project();"
+            >Save {{ bootstrap_icon(save) }}</button>
+          </div>
+        </div>
+      {{ tab/end() }}
     </div>
   </div>
 </div>

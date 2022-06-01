@@ -42,7 +42,15 @@ def substitution_regex() -> re.Pattern:
     # file name
     include_regex = rf"(?P<file>{fc}+)"
 
-    substitution_types = [function_regex, kwarg_file_regex, include_regex]
+    # Treate as raw text
+    fallback_regex = r"(?P<raw>[^{}]+)"
+
+    substitution_types = [
+        function_regex,
+        kwarg_file_regex,
+        include_regex,
+        fallback_regex,
+    ]
 
     overall_regex = r"{{\s*(" + r"|".join(substitution_types) + r")\s*}}"
 
@@ -202,23 +210,23 @@ def process_preamble(html: str, kwargs: typing.Dict[str, str]) -> str:
     return html.replace(block, "").strip()
 
 
+IFDEF_REGEX = re.compile(
+    r"(?P<ident>(?P<cond>IFN?DEF)\((?P<arg>[A-Z_]+)\))\s*{{"
+)
+
+
 def process_ifdefs(html: str, kwargs: typing.Dict[str, str]) -> str:
-    rx = re.compile(r"(?P<ident>(?P<cond>IFN?DEF)\((?P<arg>[A-Z_]+)\))\s*{{")
-    queue: typing.List[typing.Tuple[str, str, str]] = []
-    for match in re.finditer(rx, html):
+    while match := re.search(IFDEF_REGEX, html):
         cond = match.group("cond")
         kwarg = match.group("arg")
         block = read_block(match.group("ident"), html)
-        queue.append((cond, kwarg, block))
 
-    for cond, kwarg, block in queue:
         repl = ""
         if (cond == "IFDEF" and kwarg in kwargs) or (
             cond == "IFNDEF" and kwarg not in kwargs
         ):
             repl = block_contents(block)
-        html = html.replace(block, repl)
-
+        html = html.replace(block, repl, 1)
     return html
 
 
@@ -286,6 +294,8 @@ def handle_match(match: re.Match) -> str:
         return kwarg_file_subsitution(kw_file, match.group("args"))
     elif file := match.group("file"):
         return include_file(file)
+    elif text := match.group("raw"):
+        return text
     else:
         # This path is unreachable unless additional options are added to the
         # regular expression.

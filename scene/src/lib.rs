@@ -421,8 +421,8 @@ impl Default for Layer {
 #[derive(Serialize, Deserialize)]
 pub struct Scene {
     // Layers of sprites in the scene. The grid is drawn at level 0.
-    pub layers: Vec<Layer>,
     pub id: Option<Id>,
+    pub layers: Vec<Layer>,
     pub title: Option<String>,
     pub project: Option<Id>,
     pub holding: HeldObject,

@@ -3,7 +3,7 @@ use sqlx::SqlitePool;
 use crate::crypto;
 
 use self::layer::LayerRecord;
-use self::scene_record::SceneRecord;
+pub use self::scene_record::SceneRecord;
 use self::sprite::SpriteRecord;
 
 const RECORD_KEY_LENGTH: usize = 16;
@@ -29,7 +29,7 @@ impl Project {
         .map_err(|e| anyhow::anyhow!(format!("Database error: {}", e)))
     }
 
-    async fn load(pool: &SqlitePool, id: i64) -> anyhow::Result<Project> {
+    pub async fn load(pool: &SqlitePool, id: i64) -> anyhow::Result<Project> {
         let res = sqlx::query_as("SELECT * FROM projects WHERE id = ?1;")
             .bind(id)
             .fetch_optional(pool)
@@ -105,6 +105,17 @@ mod scene_record {
         pub async fn load(pool: &SqlitePool, id: i64) -> anyhow::Result<SceneRecord> {
             sqlx::query_as("SELECT * FROM scenes WHERE id = ?1;")
                 .bind(id)
+                .fetch_one(pool)
+                .await
+                .map_err(|_| anyhow::anyhow!("Failed to find scene."))
+        }
+
+        pub async fn load_from_key(
+            pool: &SqlitePool,
+            scene_key: String,
+        ) -> anyhow::Result<SceneRecord> {
+            sqlx::query_as("SELECT * FROM scenes WHERE scene_key = ?1")
+                .bind(scene_key)
                 .fetch_one(pool)
                 .await
                 .map_err(|_| anyhow::anyhow!("Failed to find scene."))

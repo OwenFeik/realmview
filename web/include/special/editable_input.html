@@ -1,9 +1,11 @@
 <div class="input-group">
+  IFDEF(LABEL) {{ <span class="input-group-text">{{ LABEL }}</span> }}
   <input
     type="text"
     class="form-control"
     id="{{ ID }}"
     maxlength="256"
+    autocomplete="off"
     disabled
   >
   <button
@@ -16,7 +18,7 @@
   IFDEF(HELP) {{ HELP }} IFNDEF(HELP) {{Please enter a valid value.}}
 </div> 
 <script>
-window.onload = () => {
+window.addEventListener("load", () => {
   const input = document.getElementById("{{ ID }}");
   const button = document.getElementById("{{ ID }}_edit_button");
 
@@ -31,5 +33,5 @@ window.onload = () => {
       IFDEF(ACTION) {{ {{ ACTION }} }};
     }
   };
-};
+});
 </script>

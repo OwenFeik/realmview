@@ -98,6 +98,15 @@ function submit_form(form) {
     post_form_json(form);
 }
 
+function get(path, onload = null, onerror = null) {
+    let req = new XMLHttpRequest();
+    req.onload = () => onload(req.response);
+    req.onerror = onerror;
+    req.responseType = "json";
+    req.open("GET", path);
+    req.send();
+}
+
 function post(path, data, onload = null, onerror = null) {
     let req = new XMLHttpRequest();
     req.onload = () => onload(req.response);

@@ -4,6 +4,7 @@ mod project;
 mod user;
 
 pub use project::Project;
+pub use project::SceneRecord;
 pub use user::User;
 
 #[derive(FromRow)]

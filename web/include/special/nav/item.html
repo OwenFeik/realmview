@@ -1,0 +1,17 @@
+PREAMBLE {{
+if kwargs.get("LABEL") is None:
+  kwargs["LABEL"] = kwargs["TAB"].capitalize()
+}}
+
+<li class="nav-item" role="presentation">
+  <button
+    class="nav-link IFDEF(SELECTED) {{ active }}"
+    id="{{ TAB }}_tab"
+    data-bs-toggle="tab"
+    data-bs-target="#{{ TAB }}"
+    type="button"
+    role="tab"
+    aria-controls="{{ TAB }}"
+    aria-selected=IFDEF(SELECTED) {{ "true" }} IFNDEF(SELECTED) {{ "false" }}
+  >{{ LABEL }}</button>
+</li>

@@ -25,6 +25,7 @@ pub fn routes(
         .or(logout::filter(pool.clone()))
         .or(upload::filter(pool.clone(), content_dir))
         .or(media::filter(pool.clone()))
+        .or(project::filter(pool.clone()))
         .or(game::routes(pool.clone(), games))
         .or(scene::routes(pool))
 }

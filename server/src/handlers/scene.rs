@@ -1,26 +1,47 @@
+use serde_derive::Serialize;
+use warp::{hyper::StatusCode, Filter};
+
+use crate::handlers::response::{as_result, Binary, ResultReply};
+
 pub fn routes(
     pool: sqlx::SqlitePool,
-) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    save::filter(pool)
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    save::filter(pool.clone()).or(load::filter(pool))
+}
+
+#[derive(Serialize)]
+struct SceneResponse {
+    message: String,
+    scene: String,
+    success: bool,
+}
+
+impl SceneResponse {
+    fn reply(scene: scene::Scene) -> ResultReply {
+        let scene_str = match bincode::serialize(&scene) {
+            Ok(b) => base64::encode(b),
+            Err(_) => return Binary::result_error("Error encoding scene."),
+        };
+
+        as_result(
+            &SceneResponse {
+                message: "Scene saved.".to_string(),
+                scene: scene_str,
+                success: true,
+            },
+            StatusCode::OK,
+        )
+    }
 }
 
 mod save {
-    // TODO needs to simply return the saved scene to the client so that all of
-    // the relevant layers, sprites, etc have their canonical IDs preserved.
-    // Current solution duplicates all these objects each time the scene is
-    // saved, which is obviously wrong.
-
     use std::convert::Infallible;
 
-    use serde_derive::{Deserialize, Serialize};
-    use warp::{hyper::StatusCode, Filter};
+    use serde_derive::Deserialize;
+    use warp::Filter;
 
     use crate::{
-        handlers::{
-            json_body,
-            response::{as_result, Binary, ResultReply},
-            with_db, with_session,
-        },
+        handlers::{json_body, response::Binary, with_db, with_session},
         models::{Project, User},
     };
 
@@ -30,31 +51,6 @@ mod save {
     struct SceneSaveRequest {
         title: String,
         encoded: String,
-    }
-
-    #[derive(Serialize)]
-    struct SceneSaveResponse {
-        message: String,
-        scene: String,
-        success: bool,
-    }
-
-    impl SceneSaveResponse {
-        fn reply(scene: scene::Scene) -> ResultReply {
-            let scene_str = match bincode::serialize(&scene) {
-                Ok(b) => base64::encode(b),
-                Err(_) => return Binary::result_error("Error encoding scene."),
-            };
-
-            as_result(
-                &SceneSaveResponse {
-                    message: "Scene saved.".to_string(),
-                    scene: scene_str,
-                    success: true,
-                },
-                StatusCode::OK,
-            )
-        }
     }
 
     async fn save_scene(
@@ -90,7 +86,7 @@ mod save {
             .await
         {
             Ok(s) => match s.load_scene(&pool).await {
-                Ok(s) => SceneSaveResponse::reply(s),
+                Ok(s) => super::SceneResponse::reply(s),
                 Err(s) => Binary::result_failure(&format!(
                     "Failed to load saved scene: {}",
                     &s.to_string()
@@ -109,5 +105,54 @@ mod save {
             .and(with_session())
             .and(json_body())
             .and_then(save_scene)
+    }
+}
+
+mod load {
+    use warp::Filter;
+
+    use crate::{
+        handlers::{response::Binary, with_db, with_session},
+        models::{Project, SceneRecord, User},
+    };
+
+    async fn load_scene(
+        scene_key: String,
+        pool: sqlx::SqlitePool,
+        skey: String,
+    ) -> Result<impl warp::Reply, std::convert::Infallible> {
+        let user = match User::get_by_session(&pool, &skey).await {
+            Ok(Some(u)) => u,
+            _ => return Binary::result_failure("Invalid session."),
+        };
+
+        let record = match SceneRecord::load_from_key(&pool, scene_key).await {
+            Ok(r) => r,
+            Err(_) => return Binary::result_failure("Scene not found."),
+        };
+
+        let project = match Project::load(&pool, record.project).await {
+            Ok(p) => p,
+            Err(_) => return Binary::result_failure("Project not found."),
+        };
+
+        if project.user != user.id {
+            return Binary::result_failure("Project belongs to different user.");
+        }
+
+        match record.load_scene(&pool).await {
+            Ok(s) => super::SceneResponse::reply(s),
+            _ => Binary::result_failure("Failed to load scene."),
+        }
+    }
+
+    pub fn filter(
+        pool: sqlx::SqlitePool,
+    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+        warp::path!("scene" / "load" / String)
+            .and(warp::get())
+            .and(with_db(pool))
+            .and(with_session())
+            .and_then(load_scene)
     }
 }
