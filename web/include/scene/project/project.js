@@ -64,6 +64,9 @@ function set_active_project(project_key) {
             populate_project_select(resp.list, project_key);
             resp.list.forEach(proj => {
                 if (proj.project_key === project_key) {
+                    document.getElementById(
+                        "project_title"
+                    ).value = proj.title;
                     populate_scene_select(proj.scene_list);
                 }
             });
@@ -74,7 +77,10 @@ function set_active_project(project_key) {
 function set_active_scene(scene_key) {
     get(
         "/scene/load/" + scene_key,
-        resp => rust_funcs.load_scene(resp.scene)
+        resp => {
+            document.getElementById("scene_title").value = resp.title;
+            rust_funcs.load_scene(resp.scene);
+        }
     );
 }
 

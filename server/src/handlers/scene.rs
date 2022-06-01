@@ -14,6 +14,7 @@ struct SceneResponse {
     message: String,
     scene: String,
     success: bool,
+    title: String,
 }
 
 impl SceneResponse {
@@ -28,6 +29,7 @@ impl SceneResponse {
                 message: "Scene saved.".to_string(),
                 scene: scene_str,
                 success: true,
+                title: scene.title.unwrap_or("Untitled".to_string())
             },
             StatusCode::OK,
         )
