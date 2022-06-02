@@ -55,15 +55,15 @@ impl Rect {
         self.w = self.w.round();
         self.h = self.h.round();
 
-        if self.w > 0.0 && self.w < 1.0 {
+        if self.w >= 0.0 && self.w < 1.0 {
             self.w = 1.0;
-        } else if self.w < 0.0 && self.w > -1.0 {
+        } else if self.w <= 0.0 && self.w > -1.0 {
             self.w = -1.0;
         }
 
-        if self.h > 0.0 && self.h < 1.0 {
+        if self.h >= 0.0 && self.h < 1.0 {
             self.h = 1.0;
-        } else if self.h < 0.0 && self.h > -1.0 {
+        } else if self.h <= 0.0 && self.h > -1.0 {
             self.h = -1.0;
         }
     }
@@ -146,6 +146,9 @@ impl Sprite {
     // Distance in scene units from which anchor points (corners, edges) of the
     // sprite can be dragged.
     const ANCHOR_RADIUS: f32 = 0.2;
+    
+    // Minimum size of a sprite dimension; too small and sprites can be lost.
+    const MIN_SIZE: f32 = 0.25;
 
     pub fn new(texture: Id) -> Sprite {
         static SPRITE_ID: AtomicI64 = AtomicI64::new(1);
@@ -196,9 +199,24 @@ impl Sprite {
             .map(|id| SceneEvent::SpriteMove(id, from, self.rect))
     }
 
+    fn enforce_min_size(&mut self) -> Option<SceneEvent> {
+        if self.rect.w < Sprite::MIN_SIZE || self.rect.h < Sprite::MIN_SIZE {
+            let from = self.rect;
+            self.rect.w = self.rect.w.max(Sprite::MIN_SIZE);
+            self.rect.h = self.rect.h.max(Sprite::MIN_SIZE);
+            self.canonical_id.map(|id| SceneEvent::SpriteMove(id, from, self.rect))
+        }
+        else {
+            None
+        }
+    }
+
     fn grab_anchor(&mut self, at: ScenePoint) -> Option<HeldObject> {
         let Rect { x, y, w, h } = self.rect;
 
+
+        let mut closest: (i32, i32) = (2, 2);
+        let mut closest_dist = Sprite::ANCHOR_RADIUS.min(w.min(h) / 5.0);
         for dx in -1..2 {
             for dy in -1..2 {
                 if dx == 0 && dy == 0 {
@@ -211,13 +229,20 @@ impl Sprite {
                 let delta_x = anchor_x - at.x;
                 let delta_y = anchor_y - at.y;
 
-                if (delta_x.powi(2) + delta_y.powi(2)).sqrt() <= Sprite::ANCHOR_RADIUS {
-                    return Some(HeldObject::Anchor(self.local_id, dx, dy));
+                let dist = (delta_x.powi(2) + delta_y.powi(2)).sqrt();
+                if dist <= closest_dist {
+                    closest = (dx, dy);
+                    closest_dist = dist;
                 }
             }
         }
 
-        None
+        if closest != (2, 2) {
+            Some(HeldObject::Anchor(self.local_id, closest.0, closest.1))
+        }
+        else {
+            None
+        }
     }
 
     fn grab(&mut self, at: ScenePoint) -> HeldObject {
@@ -444,7 +469,11 @@ impl Scene {
     }
 
     fn layer(&mut self, layer: Id) -> Option<&mut Layer> {
-        self.layers.iter_mut().find(|l| l.local_id == layer)
+        if layer == 0 {
+            self.layers.iter_mut().find(|l| l.z == 1)
+        } else {
+            self.layers.iter_mut().find(|l| l.local_id == layer)
+        }
     }
 
     fn sprite(&mut self, local_id: Id) -> Option<&mut Sprite> {
@@ -524,13 +553,16 @@ impl Scene {
 
     pub fn release_held(&mut self, snap_to_grid: bool) -> Option<SceneEvent> {
         let event = {
-            if snap_to_grid {
-                match self.held_sprite() {
-                    Some(s) => s.snap_to_grid(),
-                    None => None,
-                }
-            } else {
-                None
+            match self.held_sprite() {
+                Some(s) => {
+                    if snap_to_grid {
+                        s.snap_to_grid()
+                    }
+                    else {
+                        s.enforce_min_size()
+                    }
+                },
+                None => None
             }
         };
 
@@ -564,6 +596,7 @@ impl Scene {
 
     pub fn apply_event(&mut self, event: &SceneEvent, canonical: bool) -> bool {
         match *event {
+            SceneEvent::Dummy => true,
             SceneEvent::SpriteNew(s, l) => {
                 if let Some(canonical_id) = s.canonical_id {
                     if self.sprite_canonical(canonical_id).is_none() {
@@ -575,15 +608,14 @@ impl Scene {
                     }
                 } else {
                     let mut sprite = Sprite::from_remote(&s);
-                    
-                    // If I am using SceneEvents for client sided events too,
-                    // need more sophisticated notion of canonical
-                    sprite.canonical_id = Some(sprite.local_id);
-                    
+                    if canonical {
+                        sprite.canonical_id = Some(sprite.local_id);
+                    }
+
                     self.add_sprite(sprite, l);
                     true
                 }
-            },
+            }
             SceneEvent::SpriteMove(id, from, to) => {
                 self.release_sprite(id);
                 match self.sprite_canonical(id) {
@@ -593,7 +625,7 @@ impl Scene {
                     }
                     _ => false,
                 }
-            },
+            }
             SceneEvent::SpriteTextureChange(id, old, new) => match self.sprite_canonical(id) {
                 Some(s) if s.texture == old || canonical => {
                     s.set_texture(new);
@@ -606,6 +638,7 @@ impl Scene {
 
     pub fn unwind_event(&mut self, event: &SceneEvent) {
         match *event {
+            SceneEvent::Dummy => (),
             SceneEvent::SpriteNew(s, l) => self.remove_sprite(s.local_id, l),
             SceneEvent::SpriteMove(id, from, to) => {
                 if let Some(s) = self.sprite_canonical(id) {

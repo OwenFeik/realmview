@@ -5,6 +5,7 @@ use super::{Id, Rect, Sprite};
 // Events processed by Scene
 #[derive(Deserialize, Serialize)]
 pub enum SceneEvent {
+    Dummy,
     SpriteNew(Sprite, Id),           // (new_sprite, layer)
     SpriteMove(Id, Rect, Rect),      // (sprite_id, from, to)
     SpriteTextureChange(Id, Id, Id), // (sprite_id, old_texture, new_texture)

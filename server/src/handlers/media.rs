@@ -12,14 +12,32 @@ struct MediaItem {
 }
 
 mod details {
-    use core::convert::Infallible;
     use warp::Filter;
 
     use sqlx::SqlitePool;
 
-    use crate::handlers::response::Binary;
+    use crate::handlers::response::{as_result, Binary, ResultReply};
     use crate::handlers::{json_body, with_db, with_session};
-    use crate::models::User;
+    use crate::models::{Media, User};
+
+    #[derive(serde_derive::Serialize)]
+    struct MediaItemResponse {
+        details: super::MediaItem,
+        success: bool,
+    }
+
+    impl MediaItemResponse {
+        fn new(item: super::MediaItem) -> Self {
+            Self {
+                details: item,
+                success: true,
+            }
+        }
+
+        fn result(item: super::MediaItem) -> ResultReply {
+            as_result(&MediaItemResponse::new(item), warp::hyper::StatusCode::OK)
+        }
+    }
 
     #[derive(serde_derive::Deserialize)]
     struct DetailsUpdate {
@@ -42,11 +60,7 @@ mod details {
         Ok(())
     }
 
-    async fn update_media(
-        pool: SqlitePool,
-        skey: String,
-        details: DetailsUpdate,
-    ) -> Result<impl warp::Reply, Infallible> {
+    async fn update_media(pool: SqlitePool, skey: String, details: DetailsUpdate) -> ResultReply {
         let user = match User::get_by_session(&pool, &skey).await {
             Ok(Some(user)) => user,
             _ => return Binary::result_failure("Invalid session."),
@@ -63,16 +77,53 @@ mod details {
         }
     }
 
-    pub fn filter(
+    fn update_filter(
         pool: SqlitePool,
-    ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        warp::path("media")
-            .and(warp::path("details"))
+    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+        warp::path!("media" / "details")
             .and(warp::post())
             .and(with_db(pool))
             .and(with_session())
             .and(json_body::<DetailsUpdate>())
             .and_then(update_media)
+    }
+
+    async fn media_details(id: i64, pool: SqlitePool, skey: String) -> ResultReply {
+        let user = match User::get_by_session(&pool, &skey).await {
+            Ok(Some(user)) => user,
+            _ => return Binary::result_failure("Invalid session."),
+        };
+
+        let record = match Media::load(&pool, id).await {
+            Ok(record) => record,
+            _ => return Binary::result_failure("Media not found."),
+        };
+
+        if record.user != user.id {
+            return Binary::result_failure("Media not found.");
+        }
+
+        MediaItemResponse::result(super::MediaItem {
+            id: record.id,
+            title: record.title,
+            url: record.relative_path,
+        })
+    }
+
+    fn retrieve_filter(
+        pool: SqlitePool,
+    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+        warp::path!("media" / "details" / i64)
+            .and(warp::get())
+            .and(with_db(pool))
+            .and(with_session())
+            .and_then(media_details)
+    }
+
+    pub fn filter(
+        pool: SqlitePool,
+    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+        update_filter(pool.clone()).or(retrieve_filter(pool))
     }
 }
 

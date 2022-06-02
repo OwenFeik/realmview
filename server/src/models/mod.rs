@@ -1,8 +1,10 @@
 use sqlx::{FromRow, SqlitePool};
 
+mod media;
 mod project;
 mod user;
 
+pub use media::Media;
 pub use project::Project;
 pub use project::SceneRecord;
 pub use user::User;

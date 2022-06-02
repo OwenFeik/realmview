@@ -7,7 +7,7 @@ use web_sys::{
     InputEvent, ProgressEvent, UiEvent, Url, WebGl2RenderingContext, Window,
 };
 
-use scene::{comms::SceneEvent, Rect, Sprite};
+use scene::{comms::SceneEvent, Id, Rect, Sprite};
 
 use crate::programs::Renderer;
 use crate::viewport::ViewportPoint;
@@ -15,6 +15,8 @@ use crate::viewport::ViewportPoint;
 #[wasm_bindgen]
 extern "C" {
     pub fn get_texture_queue() -> Array;
+    pub fn get_event_queue() -> Array;
+    pub fn load_texture(id: Id);
 
     #[wasm_bindgen(js_name = expose_closure)]
     pub fn expose_closure_string(name: &str, closure: &Closure<dyn FnMut() -> String>);
@@ -359,6 +361,10 @@ pub struct Context {
     // then loads any images waiting in the queue before rendering each frame.
     // Wrapped in Rc such that it can be accessed from a closure passed to JS.
     texture_queue: Rc<Array>,
+
+    // A JS Array which the front end pushes events to. At this stage such
+    // events are just sprite additions.
+    event_queue: Rc<Array>,
 }
 
 impl Context {
@@ -369,8 +375,8 @@ impl Context {
             gl: canvas.gl.clone(),
             canvas,
             renderer,
-            // rust-analyzer doesn't like the Extern
             texture_queue: Rc::new(get_texture_queue()),
+            event_queue: Rc::new(get_event_queue()),
         };
         ctx.configure_upload();
 
@@ -408,23 +414,35 @@ impl Context {
     }
 
     pub fn load_queue(&mut self) -> Option<Vec<SceneEvent>> {
-        if self.texture_queue.length() == 0 {
+        if self.texture_queue.length() == 0 && self.event_queue.length() == 0 {
             return None;
         }
+ 
+        let mut events = Vec::new();
 
-        let mut sprites = Vec::new();
-        while self.texture_queue.length() > 0 {
-            let img = self.texture_queue.pop();
+        if self.texture_queue.length() > 0 {
+            while self.texture_queue.length() > 0 {
+                let img = self.texture_queue.pop();
 
-            // Cast the img to a HTMLImageElement; this array will only contain
-            // such elements, so this cast is safe.
-            let img = img.unchecked_ref::<HtmlImageElement>();
-            sprites.push(
-                SceneEvent::SpriteNew(Sprite::new(self.renderer.load_image(img)), 1)
-            );
+                // Cast the img to a HTMLImageElement; this array will only contain
+                // such elements, so this cast is safe.
+                let img = img.unchecked_ref::<HtmlImageElement>();
+                self.renderer.load_image(img);
+            }
+
+            events.push(SceneEvent::Dummy);
         }
 
-        Some(sprites)
+        if self.event_queue.length() > 0 {
+            while self.event_queue.length() > 0 {
+                if let Some(id) = self.event_queue.pop().as_f64() {
+                    let id = id as i64;
+                    events.push(SceneEvent::SpriteNew(Sprite::new(id), 0));
+                }
+            }
+        }
+
+        Some(events)
     }
 
     pub fn clear(&self, vp: Rect) {
@@ -436,7 +454,7 @@ impl Context {
         self.renderer.render_grid(vp, grid_size);
     }
 
-    pub fn draw_sprites(&self, vp: Rect, sprites: &[Sprite], grid_size: f32) {
+    pub fn draw_sprites(&mut self, vp: Rect, sprites: &[Sprite], grid_size: f32) {
         for sprite in sprites.iter() {
             self.renderer.draw_texture(
                 vp,

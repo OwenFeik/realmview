@@ -9,7 +9,7 @@ use web_sys::{
 
 use scene::Rect;
 
-use crate::bridge::{Gl, JsError};
+use crate::bridge::{Gl, JsError, log};
 
 type Colour = [f32; 4];
 
@@ -161,6 +161,7 @@ impl Texture {
 struct TextureManager {
     gl: Rc<Gl>,
     textures: HashMap<scene::Id, Texture>,
+    loading: Vec<scene::Id>,
 }
 
 impl TextureManager {
@@ -169,6 +170,7 @@ impl TextureManager {
         let mut tm = TextureManager {
             gl,
             textures: HashMap::new(),
+            loading: Vec::new(),
         };
         tm.add_texture(0, missing_texture);
         Ok(tm)
@@ -186,6 +188,9 @@ impl TextureManager {
                 Err(_) => return 0,
             };
         }
+        else {
+            log("Texture manager was asked to load texture without ID.");
+        }
 
         id
     }
@@ -193,12 +198,20 @@ impl TextureManager {
     // NB will overwrite existing texture of this id
     fn add_texture(&mut self, id: scene::Id, texture: Texture) {
         self.textures.insert(id, texture);
+        self.loading.retain(|&i| i != id);
     }
 
-    fn get_texture(&self, id: scene::Id) -> &WebGlTexture {
+    // Returns the requested texture, queueing it to load if necessary.
+    // (yay side effects!)
+    fn get_texture(&mut self, id: scene::Id) -> &WebGlTexture {
         if let Some(tex) = self.textures.get(&id) {
             &tex.texture
         } else {
+            if !self.loading.contains(&id) {
+                self.loading.push(id);
+                crate::bridge::load_texture(id);
+            }
+
             // This unwrap is safe because we always add a missing texture
             // texture as id 0 in the constructor.
             &self.textures.get(&0).unwrap().texture
@@ -533,7 +546,7 @@ impl Renderer {
         self.texture_library.load_image(image)
     }
 
-    pub fn draw_texture(&self, vp: Rect, texture: scene::Id, position: Rect) {
+    pub fn draw_texture(&mut self, vp: Rect, texture: scene::Id, position: Rect) {
         self.texture_renderer
             .draw_texture(vp, self.texture_library.get_texture(texture), position);
     }

@@ -277,13 +277,11 @@ impl Viewport {
         if let Some(new_sprites) = self.context.load_queue() {
             for e in new_sprites {
                 if let SceneEvent::SpriteNew(s, _) = e {
-                    if self.scene.apply_event(&SceneEvent::SpriteNew(s, self.scene.layers[0].local_id), false) {
-                        crate::bridge::log(&format!("Successfully applied event! Sprites: {}", self.scene.layers[0].sprites.len()));
-                    }
-                    else {
-                        crate::bridge::log("Failed to apply event!");
-                    }    
-                } 
+                    self.scene.apply_event(
+                        &SceneEvent::SpriteNew(s, self.scene.layers[0].local_id),
+                        false,
+                    );
+                }
             }
 
             self.redraw_needed = true;
@@ -318,5 +316,7 @@ impl Viewport {
         self.scene.title = new.title;
         self.scene.project = new.project;
         self.scene.holding = scene::HeldObject::None;
+
+        self.redraw_needed = true;
     }
 }
