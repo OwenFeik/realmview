@@ -7,7 +7,7 @@ use web_sys::{
     InputEvent, ProgressEvent, UiEvent, Url, WebGl2RenderingContext, Window,
 };
 
-use scene::{Rect, Sprite};
+use scene::{comms::SceneEvent, Rect, Sprite};
 
 use crate::programs::Renderer;
 use crate::viewport::ViewportPoint;
@@ -407,7 +407,7 @@ impl Context {
         }
     }
 
-    pub fn load_queue(&mut self) -> Option<Vec<Sprite>> {
+    pub fn load_queue(&mut self) -> Option<Vec<SceneEvent>> {
         if self.texture_queue.length() == 0 {
             return None;
         }
@@ -419,7 +419,9 @@ impl Context {
             // Cast the img to a HTMLImageElement; this array will only contain
             // such elements, so this cast is safe.
             let img = img.unchecked_ref::<HtmlImageElement>();
-            sprites.push(Sprite::new(self.renderer.load_image(img)));
+            sprites.push(
+                SceneEvent::SpriteNew(Sprite::new(self.renderer.load_image(img)), 1)
+            );
         }
 
         Some(sprites)

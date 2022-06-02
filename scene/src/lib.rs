@@ -575,10 +575,15 @@ impl Scene {
                     }
                 } else {
                     let mut sprite = Sprite::from_remote(&s);
+                    
+                    // If I am using SceneEvents for client sided events too,
+                    // need more sophisticated notion of canonical
                     sprite.canonical_id = Some(sprite.local_id);
+                    
+                    self.add_sprite(sprite, l);
                     true
                 }
-            }
+            },
             SceneEvent::SpriteMove(id, from, to) => {
                 self.release_sprite(id);
                 match self.sprite_canonical(id) {
@@ -588,7 +593,7 @@ impl Scene {
                     }
                     _ => false,
                 }
-            }
+            },
             SceneEvent::SpriteTextureChange(id, old, new) => match self.sprite_canonical(id) {
                 Some(s) if s.texture == old || canonical => {
                     s.set_texture(new);

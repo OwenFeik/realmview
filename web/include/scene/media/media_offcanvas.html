@@ -29,7 +29,14 @@
         <div class="row row-cols-2" id="media_view_previews"></div>
       {{ tab/end() }}
       {{ tab/start(tab=upload_media) }}
-        <input class="form-control" type="file" id="media_upload" accept="image/png,image/jpg" multiple>
+        <input
+          class="form-control"
+          type="file"
+          id="media_upload"
+          accept="image/png,image/jpg"
+          autocomplete="off"
+          multiple
+        >
         <div class="row row-cols-3" id="media_upload_previews"></div>
         <div class="row p-1 pt-2 gx-2">
           <btn class="btn btn-primary" onclick="upload_media();">Submit</btn>
