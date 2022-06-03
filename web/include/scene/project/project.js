@@ -3,26 +3,47 @@ window.addEventListener("load", () => {
     const scene_select = document.getElementById("scene_select");
 
     add_default_option(project_select);
-    project_select.onchange = e => {
+    project_select.oninput = e => {
         let project_key = e.target.value;
         if (project_key) {
             set_active_project(project_key);
         }
+        else {
+            new_project();
+        }
     };
 
     scene_select.disabled = true;
-    scene_select.onchange = e => {
+    scene_select.oninput = e => {
         let scene_key = e.target.value;
         if (scene_key) {
             set_active_scene(scene_key);
         }
+        else {
+            new_scene();
+        }
     };
 
+    configure_loading_icon_reset();
     load_projects();
 });
 
-function add_default_option(select) {
-    select.add(new Option("-", ""));
+// Set up loading icons so that they reset to the idle state when the offcanvas
+// is closed.
+function configure_loading_icon_reset() {
+    const offcanvas = document.getElementById("project_offcanvas");
+    offcanvas.addEventListener(
+        "hidden.bs.offcanvas",
+        () => {
+            offcanvas.querySelectorAll(".loading-icon").forEach(
+                icon => update_loading_icon(icon.id, LoadingIconStates.Idle)
+            );
+        }
+    );
+}
+
+function add_default_option(select, label = "New") {
+    select.add(new Option(label, ""));
 }
 
 function load_projects() {
@@ -37,6 +58,8 @@ function load_projects() {
 
 function populate_project_select(list, project_key = null) {
     const project_select = document.getElementById("project_select");
+
+    update_loading_icon("project_select_loading", LoadingIconStates.Idle);
 
     while (project_select.options.length) {
         project_select.remove(0);
@@ -57,6 +80,8 @@ function populate_project_select(list, project_key = null) {
 
 function populate_scene_select(list = null, scene_key = null) {
     const scene_select = document.getElementById("scene_select");
+
+    update_loading_icon("scene_select_loading", LoadingIconStates.Idle);
 
     while (scene_select.options.length) {
         scene_select.remove(0);
@@ -105,6 +130,19 @@ function set_active_scene(scene_key) {
         null,
         "scene_select_loading"
     );
+}
+
+function new_project() {
+    document.getElementById("project_title").value = 
+        "{{ constant(DEFAULT_TITLE) }}";
+    populate_scene_select();
+    new_scene();
+}
+
+function new_scene() {
+    document.getElementById("scene_title").value =
+        "{{ constant(DEFAULT_TITLE) }}";
+    rust_funcs.new_scene(); // TODO ! this takes an i64
 }
 
 function save_project() {

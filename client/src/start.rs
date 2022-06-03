@@ -5,7 +5,7 @@ use parking_lot::Mutex;
 use wasm_bindgen::prelude::*;
 
 use crate::bridge::{
-    expose_closure_string, expose_closure_string_string, log, request_animation_frame,
+    expose_closure_string, expose_closure_string_string, log, request_animation_frame, expose_closure_i64,
 };
 use crate::client::Client;
 use crate::viewport::Viewport;
@@ -52,6 +52,13 @@ pub fn start() -> Result<(), JsValue> {
     }) as Box<dyn FnMut(String) -> String>);
     expose_closure_string_string("load_scene", &load_scene_closure);
     load_scene_closure.forget();
+
+    let scene_ref = scene.clone();
+    let new_scene_closure = Closure::wrap(Box::new(move |id: i64| {
+        scene_ref.lock().new_scene(id);
+    }) as Box<dyn FnMut(i64)>);
+    expose_closure_i64("new_scene", &new_scene_closure);
+    new_scene_closure.forget();
 
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();

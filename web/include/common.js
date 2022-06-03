@@ -131,7 +131,6 @@ function request_icon_handling(req, onload, onerror, icon_id) {
                 )
             );
 
-            console.log(req.response.message, icon_id);
             if (req?.response?.message) {
                 document.getElementById(icon_id).title = req.response.message;
             }

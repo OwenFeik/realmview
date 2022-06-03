@@ -304,6 +304,16 @@ impl Viewport {
         }
     }
 
+    pub fn new_scene(&mut self, id: Id) {
+        if let Some(_) = self.scene.id {
+            self.scene = Scene::new();
+            if id != 0 {
+                self.scene.project = Some(id);
+            }
+            self.redraw_needed = true;
+        }
+    }
+
     pub fn replace_scene(&mut self, mut new: Scene) {
         // Clear the local_id values from the server side, using the local id
         // pool instead to avoid conflicts.
