@@ -9,7 +9,7 @@ use web_sys::{
 
 use scene::Rect;
 
-use crate::bridge::{Gl, JsError, log};
+use crate::bridge::{log, Gl, JsError};
 
 type Colour = [f32; 4];
 
@@ -187,8 +187,7 @@ impl TextureManager {
                 Ok(t) => self.textures.insert(id, t),
                 Err(_) => return 0,
             };
-        }
-        else {
+        } else {
             log("Texture manager was asked to load texture without ID.");
         }
 

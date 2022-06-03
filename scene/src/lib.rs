@@ -146,7 +146,7 @@ impl Sprite {
     // Distance in scene units from which anchor points (corners, edges) of the
     // sprite can be dragged.
     const ANCHOR_RADIUS: f32 = 0.2;
-    
+
     // Minimum size of a sprite dimension; too small and sprites can be lost.
     const MIN_SIZE: f32 = 0.25;
 
@@ -204,16 +204,15 @@ impl Sprite {
             let from = self.rect;
             self.rect.w = self.rect.w.max(Sprite::MIN_SIZE);
             self.rect.h = self.rect.h.max(Sprite::MIN_SIZE);
-            self.canonical_id.map(|id| SceneEvent::SpriteMove(id, from, self.rect))
-        }
-        else {
+            self.canonical_id
+                .map(|id| SceneEvent::SpriteMove(id, from, self.rect))
+        } else {
             None
         }
     }
 
     fn grab_anchor(&mut self, at: ScenePoint) -> Option<HeldObject> {
         let Rect { x, y, w, h } = self.rect;
-
 
         let mut closest: (i32, i32) = (2, 2);
         let mut closest_dist = Sprite::ANCHOR_RADIUS.min(w.min(h) / 5.0);
@@ -239,8 +238,7 @@ impl Sprite {
 
         if closest != (2, 2) {
             Some(HeldObject::Anchor(self.local_id, closest.0, closest.1))
-        }
-        else {
+        } else {
             None
         }
     }
@@ -557,12 +555,11 @@ impl Scene {
                 Some(s) => {
                     if snap_to_grid {
                         s.snap_to_grid()
-                    }
-                    else {
+                    } else {
                         s.enforce_min_size()
                     }
-                },
-                None => None
+                }
+                None => None,
             }
         };
 

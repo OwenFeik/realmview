@@ -417,7 +417,7 @@ impl Context {
         if self.texture_queue.length() == 0 && self.event_queue.length() == 0 {
             return None;
         }
- 
+
         let mut events = Vec::new();
 
         if self.texture_queue.length() > 0 {

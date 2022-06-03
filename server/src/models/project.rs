@@ -61,6 +61,23 @@ impl Project {
         }
     }
 
+    pub async fn update_title(&mut self, pool: &SqlitePool, title: String) -> anyhow::Result<()> {
+        let res = sqlx::query("UPDATE projects SET title = ?1 WHERE id = ?2;")
+            .bind(&title)
+            .bind(self.id)
+            .execute(pool)
+            .await;
+
+        if let Err(e) = res {
+            return Err(anyhow::anyhow!(format!(
+                "Failed to update project title: {e}"
+            )));
+        }
+
+        self.title = title;
+        Ok(())
+    }
+
     pub async fn update_scene(
         &self,
         pool: &SqlitePool,

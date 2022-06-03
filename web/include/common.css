@@ -1,0 +1,29 @@
+/* For special/loading_icon.html */
+.loading-icon > * {
+    display: none;
+}
+
+.loading-loading > .spinner-border {
+    display: block;
+}
+
+.loading-error > .text-danger {
+    display: block;
+}
+
+.loading-success > .text-success {
+    display: block;
+}
+
+.loading-idle > .loading-default-icon {
+    display: block;
+}
+/* End special/loading_icon.html */
+
+/* BS override for buttons in btn-groups which are just disabled icons. */
+.btn-group-icon {
+    flex-grow: 0 !important;
+    min-width: 40px;
+    opacity: 1 !important;
+}
+/* End btn-group-icon */

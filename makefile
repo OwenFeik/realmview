@@ -1,6 +1,6 @@
 root := $(shell pwd)
-target := ${root}/target
 build := ${root}/build
+target := ${build}/target
 content := ${build}/content
 
 serve: server content
@@ -10,7 +10,7 @@ serve: server content
 		${build}/server ${content}
 
 server: content database
-	cargo build -p server
+	CARGO_TARGET_DIR=${target} cargo build -p server
 	cp --remove-destination ${target}/debug/server ${build}/server
 
 content: html
@@ -51,4 +51,3 @@ install:
 
 clean:
 	rm -rf ${build}
-	rm -rf ${target}

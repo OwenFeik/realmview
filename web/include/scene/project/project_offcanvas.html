@@ -21,15 +21,19 @@
         <div class="row py-2">
           <div class="input-group">
             <span class="input-group-text">Project</span>
-            <select class="form-select" id="project_select">
-            </select>  
+            <select class="form-select" id="project_select"></select>
+            <span class="input-group-text">
+              {{ loading_icon(id=project_select_loading, default_icon=archive) }}
+            </span>
           </div>
         </div>
         <div class="row py-2">
           <div class="input-group">
             <span class="input-group-text">Scene</span>
-            <select class="form-select" id="scene_select">
-            </select>  
+            <select class="form-select" id="scene_select"></select>
+            <span class="input-group-text">
+              {{ loading_icon(id=scene_select_loading, default_icon=archive) }}
+            </span>
           </div>
         </div>
       {{ tab/end() }}
@@ -44,9 +48,12 @@
           <div class="btn-group">
             <button
               type="button"
-              class="btn btn-primary my-2"
+              class="btn btn-primary"
               onclick="save_project();"
-            >Save {{ bootstrap_icon(save) }}</button>
+            >Save</button>
+            <button class="btn btn-outline-primary btn-group-icon" disabled>
+              {{ loading_icon(id=save_project_loading, default_icon=save) }}
+            </button>
           </div>
         </div>
       {{ tab/end() }}

@@ -51,6 +51,7 @@ mod save {
 
     #[derive(Deserialize)]
     struct SceneSaveRequest {
+        project_title: String,
         title: String,
         encoded: String,
     }
@@ -73,10 +74,16 @@ mod save {
             _ => return Binary::result_failure("Invalid session."),
         };
 
-        let project = match Project::get_or_create(&pool, scene.project, user.id).await {
+        let mut project = match Project::get_or_create(&pool, scene.project, user.id).await {
             Ok(p) => p,
             Err(_) => return Binary::result_failure("Missing project."),
         };
+
+        if project.title != req.project_title
+            && matches!(project.update_title(&pool, req.project_title).await, Err(_))
+        {
+            return Binary::result_failure("Failed to update project title.");
+        }
 
         let mut scene_title = req.title.trim();
         if scene_title.is_empty() {

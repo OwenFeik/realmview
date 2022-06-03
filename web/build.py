@@ -304,7 +304,7 @@ def handle_match(match: re.Match) -> str:
 
 def process_html(html: str) -> str:
     regex = substitution_regex()
-    for match in re.finditer(regex, html):
+    while match := re.search(regex, html):
         html = html.replace(match.group(0), handle_match(match))
     return html
 

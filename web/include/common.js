@@ -98,19 +98,74 @@ function submit_form(form) {
     post_form_json(form);
 }
 
-function get(path, onload = null, onerror = null) {
+const LoadingIconStates = {
+    Idle: "loading-idle",
+    Loading: "loading-loading",
+    Success: "loading-success",
+    Error: "loading-error"
+};
+
+function update_loading_icon(icon_id, state) {
+    const loading_icon = document.getElementById(icon_id);
+    if (!loading_icon) {
+        return;
+    }
+
+    Object.values(LoadingIconStates).forEach(cls => {
+        loading_icon.classList.remove(cls);
+    });
+
+    loading_icon.classList.add(state);
+}
+
+function request_icon_handling(req, onload, onerror, icon_id) {
+    if (icon_id) {
+        update_loading_icon(icon_id, LoadingIconStates.Loading);
+        req.onload = () => {
+            update_loading_icon(
+                icon_id,
+                (
+                    req?.response?.success
+                    ? LoadingIconStates.Success
+                    : LoadingIconStates.Error
+                )
+            );
+
+            console.log(req.response.message, icon_id);
+            if (req?.response?.message) {
+                document.getElementById(icon_id).title = req.response.message;
+            }
+
+            if (onload) {
+                onload(req.response);
+            }
+        };
+        req.onerror = () => {
+            update_loading_icon(icon_id, LoadingIconStates.Error);
+            if (onerror) {
+                onerror();
+            }
+        };
+    }
+    else {
+        if (onload) {
+            req.onload = () => onload(req.response);
+        }
+        req.onerror = onerror;    
+    }
+}
+
+function get(path, onload = null, onerror = null, icon_id = null) {
     let req = new XMLHttpRequest();
-    req.onload = () => onload(req.response);
-    req.onerror = onerror;
+    request_icon_handling(req, onload, onerror, icon_id);
     req.responseType = "json";
     req.open("GET", path);
     req.send();
 }
 
-function post(path, data, onload = null, onerror = null) {
+function post(path, data, onload = null, onerror = null, icon_id = null) {
     let req = new XMLHttpRequest();
-    req.onload = () => onload(req.response);
-    req.onerror = onerror;
+    request_icon_handling(req, onload, onerror, icon_id);
     req.responseType = "json";
     req.open("POST", path);
     req.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
