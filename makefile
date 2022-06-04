@@ -17,7 +17,7 @@ content: html
 	wasm-pack build client/ --out-dir ${content}/pkg --target web
 
 db: database
-	sqlite3 ${build}/database.db --header
+	sqlite3 ${build}/database.db --header --box
 
 database: build-dir
 	@if \

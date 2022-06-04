@@ -13,41 +13,9 @@
             right: 0.5em;
           }
         </style>
-        <script>
-          const texture_queue = [];
-          function get_texture_queue() {
-            return texture_queue;
-          }
-
-          const event_queue = [];
-          function get_event_queue() {
-            return event_queue;
-          }
-
-          function load_texture(texture_id) {
-            get(
-              "/media/details/" + texture_id,
-              resp => {
-                if (!resp.success) {
-                  return;
-                }
-
-                let i = new Image();
-                i.src = resp.details.url;
-                i.setAttribute("data-id", resp.details.id);
-                i.onload = () => texture_queue.push(i);
-              }
-            );
-          }
-
-          function add_to_scene(image) {
-            texture_queue.push(image);
-            event_queue.push(parseInt(image.getAttribute("data-id")));
-          }
-        </script>
     </head>
     <body style="margin: 0; overflow: hidden;">
-        {{ javascript(rust_interface.js) }}
+        {{ javascript(scene/rust_interface.js) }}
         <script type="module">
           import init from "./pkg/client.js";
           init();

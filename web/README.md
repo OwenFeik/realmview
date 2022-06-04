@@ -18,8 +18,23 @@ possible substitution styles are possible.
     are:
     * `javascript(https://myurl/main.js)` will download `main.js` (caching under
         `./include/.cache/`) and replace the token with the full text of this
-        file, enclosed in a `<script>` tag.
+        file, enclosed in a `<script>` tag. Can also load local files.
     * `stylesheet(https://myurl/styles.css)` will download `styles.css` (again,
         cached) and replace, enclosed in a `<style>` tag.
     * `bootstrap_icon(icon-name)` will download the specified icon SVG (cached)
         and replace.
+    * `constant(CONSTANT_NAME)` will load the specified constant value from
+        `./constants.json` and substitute in the value.
+* Special templates: `{{ dir/file(key=value) }}` will load
+    `./special/dir/file.ext` (extensions ignored) action run the template with
+    the key-value arguments supplied in the argument list. These templates have
+    the following special substitutions:
+    * `{{ KEY }}` will be replaced with the value of `KEY` in the `kwargs`.
+        Note that `key=value` becomes `{ "KEY": "value" }`.
+    * `PREAMBLE {{ kwargs["key"] = "value" }}`, a `PREAMBLE` Python block will
+        be `exec`ed in the relevant function, with the `kwargs` `dict` in scope
+        so that it can update keys and values with logic.
+    * `IFDEF(KEY) {{ substitution }}` will replace the whole expression with
+        `substitution` if `KEY` is defined in `kwargs`.
+    * `IFNDEF(KEY) {{ substitution }}` will perform the same substitution as
+        above if `KEY` isn't in `kwargs`.

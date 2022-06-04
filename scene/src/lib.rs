@@ -214,8 +214,11 @@ impl Sprite {
     fn grab_anchor(&mut self, at: ScenePoint) -> Option<HeldObject> {
         let Rect { x, y, w, h } = self.rect;
 
+        // Anchor size is 0.2 tiles or one fifth of the smallest dimension of
+        // the sprite. This is to allow sprites that are ANCHOR_RADIUS or
+        // smaller to nonetheless be grabbed.
+        let mut closest_dist = Sprite::ANCHOR_RADIUS.min(w.abs().min(h.abs()) / 5.0);
         let mut closest: (i32, i32) = (2, 2);
-        let mut closest_dist = Sprite::ANCHOR_RADIUS.min(w.min(h) / 5.0);
         for dx in -1..2 {
             for dy in -1..2 {
                 if dx == 0 && dy == 0 {

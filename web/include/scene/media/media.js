@@ -1,9 +1,55 @@
+var media_manager;
+window.addEventListener("load", () => {
+    view_media();
+
+    media_manager = new MediaManager();
+});
+
+class MediaManager {
+    constructor() {
+        this.media = {};
+    }
+
+    load_media_with_id(texture_id, callback) {
+        let image = this.media[texture_id];
+        if (image) {
+            if (image.complete) {
+                callback(image);
+            }
+            else {
+                image.addEventListener("load", () => callback(image));
+            }
+        }
+        else {
+            get(
+                "/media/details/" + texture_id,
+                resp => {
+                    if (!resp.success) {
+                        return;
+                    }
+    
+                    let i = new Image();
+                    i.src = resp.details.url;
+                    i.setAttribute("data-id", resp.details.id);
+                    this.media[resp.details.id] = i;
+                    i.addEventListener("load", () => callback(image));
+                }
+            );    
+        }        
+    }
+
+    add_media_with_image(image) {
+        let id = image.getAttribute("data-id");
+        if (id) {
+            this.media[id] = image;
+        }
+    }
+}
+
 const Icons = {
     check_circle: `{{ bootstrap_icon(check-circle) }}`,
     exclamation_triangle: `{{ bootstrap_icon(exclamation-triangle) }}`
 };
-
-window.addEventListener("load", view_media);
 
 function template_to_element(html) {
     return document
@@ -25,6 +71,7 @@ function media_card(media_item) {
     let card = template_to_element(`{{ scene/media/media_card.html }}`);
     
     let image = card.querySelector(".card-img-top");
+    media_manager.add_media_with_image(image);
 
     // Buttons: [Add, Edit]
     let buttons = card.querySelectorAll("button");

@@ -125,7 +125,7 @@ function set_active_scene(scene_key) {
         "/scene/load/" + scene_key,
         resp => {
             document.getElementById("scene_title").value = resp.title;
-            rust_funcs.load_scene(resp.scene);
+            RustFuncs.load_scene(resp.scene);
         },
         null,
         "scene_select_loading"
@@ -142,7 +142,7 @@ function new_project() {
 function new_scene() {
     document.getElementById("scene_title").value =
         "{{ constant(DEFAULT_TITLE) }}";
-    rust_funcs.new_scene(); // TODO ! this takes an i64
+    RustFuncs.new_scene(); // TODO ! this takes an i64
 }
 
 function save_project() {
@@ -152,11 +152,11 @@ function save_project() {
             // struct SceneSaveRequest
             project_title: document.getElementById("project_title").value,
             title: document.getElementById("scene_title").value,
-            encoded: rust_funcs.export_scene()
+            encoded: RustFuncs.export_scene()
         },
         resp => {
             load_projects();
-            rust_funcs.load_scene(resp.scene);
+            RustFuncs.load_scene(resp.scene);
         },
         null,
         "save_project_loading"
