@@ -138,6 +138,13 @@ impl Game {
                             );
                         }
                     }
+                } else if let SceneEventAck::LayerNew(_, Some(canonical_id)) = ack {
+                    if let SceneEvent::LayerNew(_, title, z) = event {
+                        self.broadcast_event(
+                            ServerEvent::SceneUpdate(SceneEvent::LayerNew(canonical_id, title, z)),
+                            Some(from),
+                        );
+                    }
                 } else if ok {
                     self.broadcast_event(ServerEvent::SceneUpdate(event), Some(from));
                 }

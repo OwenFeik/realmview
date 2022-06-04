@@ -109,6 +109,12 @@ impl Scene {
             .find(|l| l.canonical_id == Some(layer_canonical))
     }
 
+    pub fn layer_canonical_ref(&self, layer_canonical: Id) -> Option<&Layer> {
+        self.layers
+            .iter()
+            .find(|l| l.canonical_id == Some(layer_canonical))
+    }
+
     fn add_layer(&mut self, layer: Layer) -> Option<SceneEvent> {
         let id = layer.local_id;
         if self.layer(id).is_none() {
@@ -127,7 +133,7 @@ impl Scene {
         self.layers.retain(|l| l.local_id != layer);
     }
 
-    pub fn sprite(&mut self, local_id: Id) -> Option<&mut Sprite> {
+    fn sprite(&mut self, local_id: Id) -> Option<&mut Sprite> {
         for layer in self.layers.iter_mut() {
             let s_opt = layer.sprite(local_id);
             if s_opt.is_some() {
@@ -264,13 +270,19 @@ impl Scene {
         }
     }
 
+    // If canonical is true, this is the ground truth scene.
     pub fn apply_event(&mut self, event: SceneEvent, canonical: bool) -> SceneEventAck {
         match event {
             SceneEvent::Dummy => SceneEventAck::Approval,
             SceneEvent::LayerNew(id, title, z) => {
                 let mut l = Layer::new(&title, z);
+
+                // If this is the canonical scene, we will be taking the local
+                // ID as canonical. Otherwise, the provided ID is canonical.
                 if canonical {
                     l.canonical_id = Some(l.local_id);
+                } else {
+                    l.canonical_id = Some(id);
                 }
 
                 let canonical_id = l.canonical_id;
