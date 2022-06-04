@@ -43,7 +43,7 @@ impl User {
     }
 
     pub fn relative_dir(&self) -> String {
-        format!("uploads/{}", &self.username)
+        format!("/uploads/{}", &self.username)
     }
 
     pub fn upload_dir(&self, content_dir: &str) -> String {

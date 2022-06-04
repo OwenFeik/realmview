@@ -1,12 +1,43 @@
+use std::path::Path;
+
 use serde_derive::Serialize;
 use warp::{hyper::StatusCode, Filter};
 
 use crate::handlers::response::{as_result, Binary, ResultReply};
 
+const SCENE_EDITOR_FILE: &str = "scene.html";
+
 pub fn routes(
     pool: sqlx::SqlitePool,
+    content_dir: &Path,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    save::filter(pool.clone()).or(load::filter(pool))
+    save::filter(pool.clone())
+        .or(load::filter(pool))
+        .or(page_route(content_dir))
+}
+
+fn scene_route(
+    content_dir: &Path,
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path("scene")
+        .and(warp::get())
+        .and(warp::fs::file(content_dir.join(SCENE_EDITOR_FILE)))
+}
+
+fn proj_scene_route(
+    content_dir: &Path,
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path!("project" / String / "scene" / String)
+        .map(|_proj_key, _scene_key| {}) // TODO could validate
+        .untuple_one()
+        .and(warp::get())
+        .and(warp::fs::file(content_dir.join(SCENE_EDITOR_FILE)))
+}
+
+fn page_route(
+    content_dir: &Path,
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    scene_route(content_dir).or(proj_scene_route(content_dir))
 }
 
 #[derive(Serialize)]

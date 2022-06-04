@@ -11,6 +11,7 @@ window.addEventListener("load", () => {
         else {
             new_project();
         }
+        update_url();
     };
 
     scene_select.disabled = true;
@@ -22,10 +23,11 @@ window.addEventListener("load", () => {
         else {
             new_scene();
         }
+        update_url();
     };
 
     configure_loading_icon_reset();
-    load_projects();
+    load_projects(...url_project_scene());
 });
 
 // Set up loading icons so that they reset to the idle state when the offcanvas
@@ -42,6 +44,60 @@ function configure_loading_icon_reset() {
     );
 }
 
+function url_project_scene() {
+    const parts = location.pathname.split("/").filter(p => p.length);
+
+    const ret = [null, null];
+
+    if (parts.length != 4) {
+        return ret;
+    }
+
+    // Parts should be:
+    // ["project", "PROJECT_KEY", "scene", "SCENE_KEY"]
+
+    if (parts[0] != "project" || parts[2] != "scene") {
+        return ret;
+    }
+
+    const key_regex = /^[0-9A-F]{{{ constant(SCENE_KEY_LENGTH) }}}$/;
+
+    let project_key = parts[1];
+    let scene_key = parts[3];
+
+    if (!key_regex.test(project_key) || !key_regex.test(scene_key)) {
+        return ret;
+    }
+
+    return [project_key, scene_key];
+}
+
+function update_url() {
+    let scene_title = document
+        .getElementById("scene_select")
+        .selectedOptions[0]
+        .text || "Scene";
+    document.title = scene_title;
+    page_title = "Scene - " + scene_title;
+
+    const project_key = selected_project();
+    const scene_key = selected_scene();
+
+    if (!selected_project()) {
+        history.pushState(page_title, "", "/project/new/scene/new");
+    }
+    else if (!scene_key) {
+        history.pushState(
+            page_title, "", `/project/${project_key}/scene/new`
+        );
+    }
+    else {
+        history.pushState(
+            page_title, "", `/project/${project_key}/scene/${scene_key}`
+        );
+    }
+}
+
 function create_option(label, value, data_id) {
     let opt = new Option(label, value);
     opt.setAttribute("data-id", data_id);
@@ -52,17 +108,31 @@ function add_default_option(select, label = "New") {
     select.add(create_option(label, "", 0));
 }
 
-function load_projects() {
-    const project_select = document.getElementById("project_select");
-
-    let current = project_select.value; 
-    get(
-        "/project/list",
-        resp => populate_project_select(resp.list, current)
-    );
+function selected_project() {
+    return document.getElementById("project_select").value;
 }
 
-function populate_project_select(list, project_key = null) {
+function selected_scene() {
+    return document.getElementById("scene_select").value;
+}
+
+function load_projects(project_key = null, scene_key = null) {
+    if (project_key) {
+        set_active_project(project_key, scene_key);
+    }
+    else {
+        get(
+            "/project/list",
+            resp => populate_project_select(
+                resp.list,
+                project_key || selected_project(),
+                scene_key
+            )
+        );
+    }
+}
+
+function populate_project_select(list, project_key = null, scene_key = null) {
     const project_select = document.getElementById("project_select");
 
     update_loading_icon("project_select_loading", LoadingIconStates.Idle);
@@ -73,15 +143,20 @@ function populate_project_select(list, project_key = null) {
 
     add_default_option(project_select);
     list.forEach(proj => {
-        project_select.add(create_option(proj.title, proj.project_key, proj.id));
+        project_select.add(
+            create_option(proj.title, proj.project_key, proj.id)
+        );
+
         if (proj.project_key === project_key) {
             project_select.value = project_key;
             populate_scene_select(
                 proj.scene_list,
-                document.getElementById("scene_select").value
+                scene_key || selected_scene()
             );
         }
     });
+
+    project_select.disabled = project_select.options.length === 1;
 }
 
 function populate_scene_select(list = null, scene_key = null) {
@@ -106,7 +181,7 @@ function populate_scene_select(list = null, scene_key = null) {
     scene_select.disabled = scene_select.options.length === 1;
 }
 
-function set_active_project(project_key) {
+function set_active_project(project_key, scene_key = null) {
     populate_scene_select();
     get(
         "/project/list",
@@ -118,6 +193,7 @@ function set_active_project(project_key) {
                         "project_title"
                     ).value = proj.title;
                     populate_scene_select(proj.scene_list);
+                    set_active_scene(scene_key);
                 }
             });
         },
@@ -130,6 +206,7 @@ function set_active_scene(scene_key) {
     get(
         "/scene/load/" + scene_key,
         resp => {
+            document.getElementById("scene_select").value = scene_key;
             document.getElementById("scene_title").value = resp.title;
             RustFuncs.load_scene(resp.scene);
         },

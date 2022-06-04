@@ -17,7 +17,7 @@
     <body style="margin: 0; overflow: hidden;">
         {{ javascript(scene/rust_interface.js) }}
         <script type="module">
-          import init from "./pkg/client.js";
+          import init from "/pkg/client.js";
           init();
         </script>
         <canvas id="canvas" tabindex="-1"></canvas>

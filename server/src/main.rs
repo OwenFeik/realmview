@@ -6,7 +6,6 @@ use std::sync::Arc;
 
 use sqlx::sqlite::SqlitePool;
 use tokio::sync::RwLock;
-use warp::Filter;
 
 mod crypto;
 mod game;
@@ -30,7 +29,7 @@ async fn main() -> anyhow::Result<()> {
     let games: Games = Arc::new(RwLock::new(HashMap::new()));
     let pool = connect_to_db().await;
     let content_dir = std::env::args().nth(1).expect("Usage: ./server content/");
-    let route = warp::fs::dir(content_dir.clone()).or(handlers::routes(pool, games, content_dir));
+    let route = handlers::routes(pool, games, content_dir);
 
     warp::serve(route).run(([127, 0, 0, 1], 3030)).await;
 

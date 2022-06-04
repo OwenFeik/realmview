@@ -1,4 +1,4 @@
-use std::{convert::Infallible, io::Read};
+use std::{convert::Infallible, io::Read, path::PathBuf};
 
 use bincode::deserialize;
 use sqlx::SqlitePool;
@@ -20,14 +20,15 @@ pub fn routes(
     games: crate::game::Games,
     content_dir: String,
 ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    login::filter(pool.clone())
+    warp::fs::dir(content_dir.clone())
+        .or(login::filter(pool.clone()))
         .or(register::filter(pool.clone()))
         .or(logout::filter(pool.clone()))
-        .or(upload::filter(pool.clone(), content_dir))
+        .or(upload::filter(pool.clone(), content_dir.clone()))
         .or(media::filter(pool.clone()))
         .or(project::filter(pool.clone()))
         .or(game::routes(pool.clone(), games))
-        .or(scene::routes(pool))
+        .or(scene::routes(pool, &PathBuf::from(content_dir)))
 }
 
 pub fn json_body<T: std::marker::Send + for<'de> serde::Deserialize<'de>>(
