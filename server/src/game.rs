@@ -10,7 +10,7 @@ use tokio::sync::{
 use warp::ws::{Message, WebSocket};
 
 use scene::{
-    comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent, SceneEventAck},
+    comms::{ClientEvent, ClientMessage, SceneEvent, SceneEventAck, ServerEvent},
     Scene,
 };
 
@@ -67,7 +67,10 @@ impl Game {
     async fn connect_client(&mut self, key: String, sender: UnboundedSender<Message>) -> bool {
         if let Some(client) = self.get_client_mut(&key) {
             client.sender = Some(sender);
-            self.send_to(ServerEvent::SceneChange(self.scene.read().await.clone()), &key);
+            self.send_to(
+                ServerEvent::SceneChange(self.scene.read().await.clone()),
+                &key,
+            );
             true
         } else {
             self.drop_client(&key);
@@ -117,7 +120,7 @@ impl Game {
         match message.event {
             ClientEvent::Ping => {
                 self.send_approval(message.id, from);
-            },
+            }
             ClientEvent::SceneChange(event) => {
                 let ack = self.apply_event(event.clone()).await;
                 let ok = !matches!(ack, SceneEventAck::Rejection);
@@ -126,17 +129,16 @@ impl Game {
                 // canonical IDs need to be broadcast.
                 if let SceneEventAck::SpriteNew(_, Some(canonical_id)) = ack {
                     if let SceneEvent::SpriteNew(_, layer) = event {
-                        if let Some(sprite) = self.scene.read().await.sprite_canonical_ref(canonical_id) {
+                        if let Some(sprite) =
+                            self.scene.read().await.sprite_canonical_ref(canonical_id)
+                        {
                             self.broadcast_event(
-                                ServerEvent::SceneUpdate(
-                                    SceneEvent::SpriteNew(sprite.clone(), layer)
-                                ),
-                                Some(from)
+                                ServerEvent::SceneUpdate(SceneEvent::SpriteNew(*sprite, layer)),
+                                Some(from),
                             );
                         }
                     }
-                }
-                else if ok {
+                } else if ok {
                     self.broadcast_event(ServerEvent::SceneUpdate(event), Some(from));
                 }
 
@@ -164,7 +166,12 @@ pub async fn client_connection(ws: WebSocket, key: String, game: GameRef) {
         }
     });
 
-    if !game.write().await.connect_client(key.clone(), client_send).await {
+    if !game
+        .write()
+        .await
+        .connect_client(key.clone(), client_send)
+        .await
+    {
         return;
     }
 

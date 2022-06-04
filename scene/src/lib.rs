@@ -2,300 +2,20 @@
 
 use serde_derive::{Deserialize, Serialize};
 use std::ops::{Add, Sub};
-use std::sync::atomic::{AtomicI64, Ordering};
 
 pub mod comms;
+
+mod layer;
+mod rect;
+mod sprite;
+
+pub use layer::Layer;
+pub use rect::Rect;
+pub use sprite::Sprite;
 
 use comms::{SceneEvent, SceneEventAck};
 
 pub type Id = i64;
-
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
-pub struct Rect {
-    pub x: f32,
-    pub y: f32,
-    pub w: f32,
-    pub h: f32,
-}
-
-impl Rect {
-    pub fn new(x: f32, y: f32, w: f32, h: f32) -> Rect {
-        Rect { x, y, w, h }
-    }
-
-    pub fn from_point(point: ScenePoint, w: f32, h: f32) -> Rect {
-        Rect {
-            x: point.x,
-            y: point.y,
-            w,
-            h,
-        }
-    }
-
-    pub fn scaled_from(from: Rect, factor: f32) -> Rect {
-        let mut rect = from;
-        rect.scale(factor);
-        rect
-    }
-
-    pub fn as_floats(&self) -> (f32, f32, f32, f32) {
-        (self.x as f32, self.y as f32, self.w as f32, self.h as f32)
-    }
-
-    fn scale(&mut self, factor: f32) {
-        self.x *= factor;
-        self.y *= factor;
-        self.w *= factor;
-        self.h *= factor;
-    }
-
-    fn round(&mut self) {
-        self.x = self.x.round();
-        self.y = self.y.round();
-        self.w = self.w.round();
-        self.h = self.h.round();
-
-        if self.w >= 0.0 && self.w < 1.0 {
-            self.w = 1.0;
-        } else if self.w <= 0.0 && self.w > -1.0 {
-            self.w = -1.0;
-        }
-
-        if self.h >= 0.0 && self.h < 1.0 {
-            self.h = 1.0;
-        } else if self.h <= 0.0 && self.h > -1.0 {
-            self.h = -1.0;
-        }
-    }
-
-    fn contains_point(&self, point: ScenePoint) -> bool {
-        // A negative dimension causes a texture to be flipped. As this is a useful behaviour, negative dimensions on
-        // Rects are supported. To that end a different treatment is required for checking if a point is contained.
-        // Hence the special cases for negative width and height.
-
-        let in_x = {
-            if self.w < 0.0 {
-                self.x + self.w <= point.x && point.x <= self.x
-            } else {
-                self.x <= point.x && point.x <= self.x + self.w
-            }
-        };
-
-        let in_y = {
-            if self.h < 0.0 {
-                self.y + self.h <= point.y && point.y <= self.y
-            } else {
-                self.y <= point.y && point.y <= self.y + self.h
-            }
-        };
-
-        in_x && in_y
-    }
-
-    pub fn top_left(&self) -> ScenePoint {
-        ScenePoint {
-            x: self.x,
-            y: self.y,
-        }
-    }
-}
-
-impl Add for Rect {
-    type Output = Rect;
-
-    fn add(self, rhs: Rect) -> Rect {
-        Rect {
-            x: self.x + rhs.x,
-            y: self.y + rhs.y,
-            w: self.w + rhs.w,
-            h: self.h + rhs.h,
-        }
-    }
-}
-
-impl Sub for Rect {
-    type Output = Rect;
-
-    fn sub(self, rhs: Rect) -> Rect {
-        Rect {
-            x: self.x - rhs.x,
-            y: self.y - rhs.y,
-            w: self.w - rhs.w,
-            h: self.h - rhs.h,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-pub struct Sprite {
-    pub rect: Rect,
-
-    pub z: i32,
-
-    // id pointing to the texture associated with this Sprite
-    pub texture: Id,
-
-    // Unique numeric ID, numbered from 1
-    pub local_id: Id,
-
-    // ID of the Sprite on the server side
-    pub canonical_id: Option<Id>,
-}
-
-impl Sprite {
-    // Distance in scene units from which anchor points (corners, edges) of the
-    // sprite can be dragged.
-    const ANCHOR_RADIUS: f32 = 0.2;
-
-    // Minimum size of a sprite dimension; too small and sprites can be lost.
-    const MIN_SIZE: f32 = 0.25;
-
-    pub fn new(texture: Id) -> Sprite {
-        static SPRITE_ID: AtomicI64 = AtomicI64::new(1);
-
-        Sprite {
-            rect: Rect::new(0.0, 0.0, 1.0, 1.0),
-            z: 1,
-            texture,
-            local_id: SPRITE_ID.fetch_add(1, Ordering::Relaxed),
-            canonical_id: None,
-        }
-    }
-
-    fn from_remote(sprite: &Sprite) -> Sprite {
-        let mut new = Sprite::new(sprite.texture);
-        new.set_rect(sprite.rect);
-        new.z = sprite.z;
-        new.canonical_id = sprite.canonical_id;
-        new
-    }
-
-    fn set_pos(&mut self, ScenePoint { x, y }: ScenePoint) -> Option<SceneEvent> {
-        let from = self.rect;
-        self.rect.x = x;
-        self.rect.y = y;
-
-        self.canonical_id
-            .map(|id| SceneEvent::SpriteMove(id, from, self.rect))
-    }
-
-    fn set_rect(&mut self, rect: Rect) {
-        self.rect = rect;
-    }
-
-    fn set_size(&mut self, w: f32, h: f32) {
-        self.rect.w = w;
-        self.rect.h = h;
-    }
-
-    fn set_texture(&mut self, new: Id) {
-        self.texture = new;
-    }
-
-    fn snap_to_grid(&mut self) -> Option<SceneEvent> {
-        let from = self.rect;
-        self.rect.round();
-        self.canonical_id
-            .map(|id| SceneEvent::SpriteMove(id, from, self.rect))
-    }
-
-    fn enforce_min_size(&mut self) -> Option<SceneEvent> {
-        if self.rect.w < Sprite::MIN_SIZE || self.rect.h < Sprite::MIN_SIZE {
-            let from = self.rect;
-            self.rect.w = self.rect.w.max(Sprite::MIN_SIZE);
-            self.rect.h = self.rect.h.max(Sprite::MIN_SIZE);
-            self.canonical_id
-                .map(|id| SceneEvent::SpriteMove(id, from, self.rect))
-        } else {
-            None
-        }
-    }
-
-    fn grab_anchor(&mut self, at: ScenePoint) -> Option<HeldObject> {
-        let Rect { x, y, w, h } = self.rect;
-
-        // Anchor size is 0.2 tiles or one fifth of the smallest dimension of
-        // the sprite. This is to allow sprites that are ANCHOR_RADIUS or
-        // smaller to nonetheless be grabbed.
-        let mut closest_dist = Sprite::ANCHOR_RADIUS.min(w.abs().min(h.abs()) / 5.0);
-        let mut closest: (i32, i32) = (2, 2);
-        for dx in -1..2 {
-            for dy in -1..2 {
-                if dx == 0 && dy == 0 {
-                    continue;
-                }
-
-                let anchor_x = x + (w / 2.0) * (dx + 1) as f32;
-                let anchor_y = y + (h / 2.0) * (dy + 1) as f32;
-
-                let delta_x = anchor_x - at.x;
-                let delta_y = anchor_y - at.y;
-
-                let dist = (delta_x.powi(2) + delta_y.powi(2)).sqrt();
-                if dist <= closest_dist {
-                    closest = (dx, dy);
-                    closest_dist = dist;
-                }
-            }
-        }
-
-        if closest != (2, 2) {
-            Some(HeldObject::Anchor(self.local_id, closest.0, closest.1))
-        } else {
-            None
-        }
-    }
-
-    fn grab(&mut self, at: ScenePoint) -> HeldObject {
-        self.grab_anchor(at).unwrap_or({
-            HeldObject::Sprite(
-                self.local_id,
-                ScenePoint {
-                    x: at.x - self.rect.x,
-                    y: at.y - self.rect.y,
-                },
-            )
-        })
-    }
-
-    pub fn pos(&self) -> ScenePoint {
-        ScenePoint {
-            x: self.rect.x,
-            y: self.rect.y,
-        }
-    }
-
-    fn anchor_point(&mut self, dx: i32, dy: i32) -> ScenePoint {
-        let Rect { x, y, w, h } = self.rect;
-        ScenePoint {
-            x: x + (w / 2.0) * (dx + 1) as f32,
-            y: y + (h / 2.0) * (dy + 1) as f32,
-        }
-    }
-
-    fn update_held_pos(&mut self, holding: HeldObject, at: ScenePoint) -> Option<SceneEvent> {
-        match holding {
-            HeldObject::Sprite(_, offset) => self.set_pos(at - offset),
-            HeldObject::Anchor(_, dx, dy) => {
-                let old_rect = self.rect;
-
-                let ScenePoint {
-                    x: delta_x,
-                    y: delta_y,
-                } = at - self.anchor_point(dx, dy);
-                let x = self.rect.x + (if dx == -1 { delta_x } else { 0.0 });
-                let y = self.rect.y + (if dy == -1 { delta_y } else { 0.0 });
-                let w = delta_x * (dx as f32) + self.rect.w;
-                let h = delta_y * (dy as f32) + self.rect.h;
-
-                self.rect = Rect { x, y, w, h };
-                self.canonical_id
-                    .map(|id| SceneEvent::SpriteMove(id, old_rect, self.rect))
-            }
-            HeldObject::None => None, // Other types aren't sprite-related
-        }
-    }
-}
 
 #[derive(Clone, Copy, Deserialize, Serialize, PartialEq)]
 pub struct ScenePoint {
@@ -351,110 +71,6 @@ impl Default for HeldObject {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct Layer {
-    pub local_id: Id,
-    pub canonical_id: Option<Id>,
-    pub title: String,
-    pub z: i32,
-    pub sprites: Vec<Sprite>,
-    pub z_min: i32,
-    pub z_max: i32,
-}
-
-impl Layer {
-    fn next_id() -> Id {
-        static LAYER_ID: AtomicI64 = AtomicI64::new(1);
-        LAYER_ID.fetch_add(1, Ordering::Relaxed)
-    }
-
-    fn new(title: &str, z: i32) -> Self {
-        Layer {
-            local_id: Self::next_id(),
-            canonical_id: None,
-            title: title.to_string(),
-            z,
-            sprites: Vec::new(),
-            z_min: 0,
-            z_max: 0,
-        }
-    }
-
-    pub fn refresh_local_ids(&mut self) {
-        self.local_id = Self::next_id();
-        self.sprites = self
-            .sprites
-            .iter_mut()
-            .map(|s| Sprite::from_remote(s))
-            .collect();
-    }
-
-    fn sprite(&mut self, local_id: Id) -> Option<&mut Sprite> {
-        self.sprites.iter_mut().find(|s| s.local_id == local_id)
-    }
-
-    fn sprite_canonical(&mut self, canonical_id: Id) -> Option<&mut Sprite> {
-        self.sprites
-            .iter_mut()
-            .find(|s| s.canonical_id == Some(canonical_id))
-    }
-
-    pub fn sprite_canonical_ref(&self, canonical_id: Id) -> Option<&Sprite> {
-        self.sprites
-            .iter()
-            .find(|s| s.canonical_id == Some(canonical_id))
-    }
-
-    fn sort_sprites(&mut self) {
-        self.sprites.sort_by(|a, b| a.z.cmp(&b.z));
-    }
-
-    fn update_z_bounds(&mut self, sprite: &Sprite) {
-        if sprite.z > self.z_max {
-            self.z_max = sprite.z;
-        } else if sprite.z < self.z_min {
-            self.z_min = sprite.z;
-        }
-    }
-
-    pub fn add_sprite(&mut self, sprite: Sprite) {
-        self.update_z_bounds(&sprite);
-        self.sprites.push(sprite);
-        self.sort_sprites();
-    }
-
-    fn add_sprites(&mut self, sprites: &mut Vec<Sprite>) {
-        for s in sprites.iter() {
-            self.update_z_bounds(s);
-        }
-        self.sprites.append(sprites);
-        self.sort_sprites();
-    }
-
-    fn remove_sprite(&mut self, local_id: Id) {
-        self.sprites.retain(|s| s.local_id != local_id);
-    }
-
-    fn sprite_at(&mut self, at: ScenePoint) -> Option<&mut Sprite> {
-        // Reversing the iterator atm because the sprites are rendered from the
-        // front of the Vec to the back, hence the last Sprite in the Vec is
-        // rendered on top, and will be clicked first.
-        for sprite in self.sprites.iter_mut().rev() {
-            if sprite.rect.contains_point(at) {
-                return Some(sprite);
-            }
-        }
-
-        None
-    }
-}
-
-impl Default for Layer {
-    fn default() -> Self {
-        Layer::new("Layer", 0)
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
 pub struct Scene {
     // Layers of sprites in the scene. The grid is drawn at level 0.
     pub id: Option<Id>,
@@ -488,20 +104,21 @@ impl Scene {
     }
 
     fn layer_canonical(&mut self, layer_canonical: Id) -> Option<&mut Layer> {
-        self.layers.iter_mut().find(|l| l.canonical_id == Some(layer_canonical))
+        self.layers
+            .iter_mut()
+            .find(|l| l.canonical_id == Some(layer_canonical))
     }
 
     fn add_layer(&mut self, layer: Layer) -> Option<SceneEvent> {
         let id = layer.local_id;
-        if let None = self.layer(id) {
+        if self.layer(id).is_none() {
             self.layers.push(layer);
             self.layers.sort_by(|a, b| a.z.cmp(&b.z));
 
             // Unwrap safe because we just pushed this.
             let layer = self.layer(id).unwrap();
             Some(SceneEvent::LayerNew(id, layer.title.clone(), layer.z))
-        }
-        else {
+        } else {
             None
         }
     }
@@ -558,8 +175,7 @@ impl Scene {
         if let Some(l) = self.layer(layer) {
             l.add_sprite(sprite);
             Some(SceneEvent::SpriteNew(sprite, l.canonical_id.unwrap_or(0)))
-        }
-        else {
+        } else {
             None
         }
     }
@@ -703,12 +319,10 @@ impl Scene {
 
     pub fn apply_ack(&mut self, ack: &SceneEventAck) {
         match *ack {
-            SceneEventAck::SpriteNew(local_id, canonical_id) => {
-                if let Some(id) = canonical_id {
-                    self.set_canonical_id(local_id, id);
-                }
-            },
-            _ => ()
+            SceneEventAck::SpriteNew(local_id, Some(canonical_id)) => {
+                self.set_canonical_id(local_id, canonical_id);
+            }
+            _ => (),
         };
     }
 

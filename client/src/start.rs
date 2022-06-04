@@ -5,7 +5,8 @@ use parking_lot::Mutex;
 use wasm_bindgen::prelude::*;
 
 use crate::bridge::{
-    expose_closure_string, expose_closure_string_string, log, request_animation_frame, expose_closure_f64,
+    expose_closure_f64, expose_closure_string, expose_closure_string_string, log,
+    request_animation_frame,
 };
 use crate::client::Client;
 use crate::viewport::Viewport;

@@ -6,7 +6,7 @@ use crate::{
 };
 use bincode::serialize;
 use scene::{
-    comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent, SceneEventAck},
+    comms::{ClientEvent, ClientMessage, SceneEvent, SceneEventAck, ServerEvent},
     Id, Rect, Scene, ScenePoint,
 };
 
@@ -204,7 +204,7 @@ impl Viewport {
             _ => {
                 self.scene.apply_ack(&ack);
                 self.approve_event(id);
-            },
+            }
         };
     }
 
@@ -315,7 +315,7 @@ impl Viewport {
     }
 
     pub fn new_scene(&mut self, id: Id) {
-        if let Some(_) = self.scene.id {
+        if self.scene.id.is_some() {
             self.scene = Scene::new();
             if id != 0 {
                 self.scene.project = Some(id);

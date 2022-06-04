@@ -1,6 +1,5 @@
 use serde_derive::{Deserialize, Serialize};
 
-
 use super::{Id, Rect, Scene, Sprite};
 
 // Events processed by Scene
