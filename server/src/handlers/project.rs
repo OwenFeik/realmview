@@ -17,6 +17,7 @@ struct SceneListEntry {
 
 #[derive(Serialize)]
 struct ProjectListEntry {
+    id: i64,
     project_key: String,
     title: String,
     scene_list: Vec<SceneListEntry>,
@@ -53,6 +54,7 @@ async fn list_projects(pool: SqlitePool, session_key: String) -> ResultReply {
             Err(e) => return Binary::result_error(&format!("Database error. {e}")),
         };
         project_list.push(ProjectListEntry {
+            id: project.id,
             project_key: project.project_key,
             title: project.title,
             scene_list,

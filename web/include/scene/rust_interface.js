@@ -58,5 +58,7 @@ function get_event_queue() {
 // that image to the scene.
 function add_to_scene(image) {
     texture_queue.push(image);
-    event_queue.push(parseInt(image.getAttribute("data-id")));
+    event_queue.push(
+        parseInt(image.getAttribute("{{ constant(DATA_ID_ATTR) }}"))
+    );
 }

@@ -47,7 +47,9 @@ aria-hidden="true"
                     .value = image.getAttribute("data-title");
                 document
                     .getElementById("media_details_id")
-                    .value = image.getAttribute("data-id");
+                    .value = image.getAttribute(
+                      "{{ constant(DATA_ID_ATTR) }}"
+                    );
 
                 form_error(document.getElementById("media_details_form"), "");
             });

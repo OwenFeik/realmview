@@ -30,7 +30,10 @@ class MediaManager {
     
                     let i = new Image();
                     i.src = resp.details.url;
-                    i.setAttribute("data-id", resp.details.id);
+                    i.setAttribute(
+                        "{{ constant(DATA_ID_ATTR) }}",
+                        resp.details.id
+                    );
                     this.media[resp.details.id] = i;
                     i.addEventListener("load", () => callback(image));
                 }
@@ -39,7 +42,7 @@ class MediaManager {
     }
 
     add_media_with_image(image) {
-        let id = image.getAttribute("data-id");
+        let id = image.getAttribute("{{ constant(DATA_ID_ATTR) }}");
         if (id) {
             this.media[id] = image;
         }

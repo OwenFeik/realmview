@@ -19,7 +19,7 @@ extern "C" {
     pub fn load_texture(id: Id);
 
     #[wasm_bindgen(js_name = expose_closure)]
-    pub fn expose_closure_i64(name: &str, closure: &Closure<dyn FnMut(i64)>);
+    pub fn expose_closure_f64(name: &str, closure: &Closure<dyn FnMut(f64)>);
 
     #[wasm_bindgen(js_name = expose_closure)]
     pub fn expose_closure_string(name: &str, closure: &Closure<dyn FnMut() -> String>);

@@ -42,8 +42,14 @@ function configure_loading_icon_reset() {
     );
 }
 
+function create_option(label, value, data_id) {
+    let opt = new Option(label, value);
+    opt.setAttribute("data-id", data_id);
+    return opt;
+}
+
 function add_default_option(select, label = "New") {
-    select.add(new Option(label, ""));
+    select.add(create_option(label, "", 0));
 }
 
 function load_projects() {
@@ -67,7 +73,7 @@ function populate_project_select(list, project_key = null) {
 
     add_default_option(project_select);
     list.forEach(proj => {
-        project_select.add(new Option(proj.title, proj.project_key));
+        project_select.add(create_option(proj.title, proj.project_key, proj.id));
         if (proj.project_key === project_key) {
             project_select.value = project_key;
             populate_scene_select(
@@ -142,7 +148,13 @@ function new_project() {
 function new_scene() {
     document.getElementById("scene_title").value =
         "{{ constant(DEFAULT_TITLE) }}";
-    RustFuncs.new_scene(); // TODO ! this takes an i64
+    let proj_id = parseInt(
+        document
+            .getElementById("project_select")
+            .selectedOptions[0]
+            .getAttribute("{{ constant(DATA_ID_ATTR) }}")
+    );
+    RustFuncs.new_scene(proj_id);
 }
 
 function save_project() {
