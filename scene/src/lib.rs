@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 
 pub mod comms;
 
-use comms::SceneEvent;
+use comms::{SceneEvent, SceneEventAck};
 
 pub type Id = i64;
 
@@ -350,9 +350,7 @@ impl Default for HeldObject {
     }
 }
 
-// TODO layer IDs aren't implemented
-
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Layer {
     pub local_id: Id,
     pub canonical_id: Option<Id>,
@@ -364,9 +362,14 @@ pub struct Layer {
 }
 
 impl Layer {
+    fn next_id() -> Id {
+        static LAYER_ID: AtomicI64 = AtomicI64::new(1);
+        LAYER_ID.fetch_add(1, Ordering::Relaxed)
+    }
+
     fn new(title: &str, z: i32) -> Self {
         Layer {
-            local_id: 0,
+            local_id: Self::next_id(),
             canonical_id: None,
             title: title.to_string(),
             z,
@@ -376,7 +379,8 @@ impl Layer {
         }
     }
 
-    pub fn refresh_sprite_local_ids(&mut self) {
+    pub fn refresh_local_ids(&mut self) {
+        self.local_id = Self::next_id();
         self.sprites = self
             .sprites
             .iter_mut()
@@ -391,6 +395,12 @@ impl Layer {
     fn sprite_canonical(&mut self, canonical_id: Id) -> Option<&mut Sprite> {
         self.sprites
             .iter_mut()
+            .find(|s| s.canonical_id == Some(canonical_id))
+    }
+
+    pub fn sprite_canonical_ref(&self, canonical_id: Id) -> Option<&Sprite> {
+        self.sprites
+            .iter()
             .find(|s| s.canonical_id == Some(canonical_id))
     }
 
@@ -444,7 +454,7 @@ impl Default for Layer {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Scene {
     // Layers of sprites in the scene. The grid is drawn at level 0.
     pub id: Option<Id>,
@@ -477,9 +487,43 @@ impl Scene {
         }
     }
 
-    fn sprite(&mut self, local_id: Id) -> Option<&mut Sprite> {
+    fn layer_canonical(&mut self, layer_canonical: Id) -> Option<&mut Layer> {
+        self.layers.iter_mut().find(|l| l.canonical_id == Some(layer_canonical))
+    }
+
+    fn add_layer(&mut self, layer: Layer) -> Option<SceneEvent> {
+        let id = layer.local_id;
+        if let None = self.layer(id) {
+            self.layers.push(layer);
+            self.layers.sort_by(|a, b| a.z.cmp(&b.z));
+
+            // Unwrap safe because we just pushed this.
+            let layer = self.layer(id).unwrap();
+            Some(SceneEvent::LayerNew(id, layer.title.clone(), layer.z))
+        }
+        else {
+            None
+        }
+    }
+
+    fn remove_layer(&mut self, layer: Id) {
+        self.layers.retain(|l| l.local_id != layer);
+    }
+
+    pub fn sprite(&mut self, local_id: Id) -> Option<&mut Sprite> {
         for layer in self.layers.iter_mut() {
             let s_opt = layer.sprite(local_id);
+            if s_opt.is_some() {
+                return s_opt;
+            }
+        }
+
+        None
+    }
+
+    pub fn sprite_canonical_ref(&self, canonical_id: Id) -> Option<&Sprite> {
+        for layer in self.layers.iter() {
+            let s_opt = layer.sprite_canonical_ref(canonical_id);
             if s_opt.is_some() {
                 return s_opt;
             }
@@ -510,9 +554,13 @@ impl Scene {
         None
     }
 
-    pub fn add_sprite(&mut self, sprite: Sprite, layer: Id) {
+    pub fn add_sprite(&mut self, sprite: Sprite, layer: Id) -> Option<SceneEvent> {
         if let Some(l) = self.layer(layer) {
             l.add_sprite(sprite);
+            Some(SceneEvent::SpriteNew(sprite, l.canonical_id.unwrap_or(0)))
+        }
+        else {
+            None
         }
     }
 
@@ -588,23 +636,40 @@ impl Scene {
         }
     }
 
-    pub fn set_canonical_id(&mut self, local_id: Id, canonical_id: Id) {
+    fn set_canonical_id(&mut self, local_id: Id, canonical_id: Id) {
         if let Some(s) = self.sprite(local_id) {
             s.canonical_id = Some(canonical_id);
         }
     }
 
-    pub fn apply_event(&mut self, event: &SceneEvent, canonical: bool) -> bool {
-        match *event {
-            SceneEvent::Dummy => true,
+    fn set_canonical_layer_id(&mut self, local_id: Id, canonical_id: Id) {
+        if let Some(l) = self.layer(local_id) {
+            l.canonical_id = Some(canonical_id);
+        }
+    }
+
+    pub fn apply_event(&mut self, event: SceneEvent, canonical: bool) -> SceneEventAck {
+        match event {
+            SceneEvent::Dummy => SceneEventAck::Approval,
+            SceneEvent::LayerNew(id, title, z) => {
+                let mut l = Layer::new(&title, z);
+                if canonical {
+                    l.canonical_id = Some(l.local_id);
+                }
+
+                let canonical_id = l.canonical_id;
+                self.add_layer(l);
+
+                SceneEventAck::LayerNew(id, canonical_id)
+            }
             SceneEvent::SpriteNew(s, l) => {
                 if let Some(canonical_id) = s.canonical_id {
                     if self.sprite_canonical(canonical_id).is_none() {
                         let sprite = Sprite::from_remote(&s);
                         self.add_sprite(sprite, l);
-                        true
+                        SceneEventAck::SpriteNew(s.local_id, sprite.canonical_id)
                     } else {
-                        false
+                        SceneEventAck::Rejection
                     }
                 } else {
                     let mut sprite = Sprite::from_remote(&s);
@@ -613,32 +678,44 @@ impl Scene {
                     }
 
                     self.add_sprite(sprite, l);
-                    true
+                    SceneEventAck::SpriteNew(s.local_id, sprite.canonical_id)
                 }
             }
             SceneEvent::SpriteMove(id, from, to) => {
                 self.release_sprite(id);
                 match self.sprite_canonical(id) {
-                    Some(s) if s.rect == from || canonical => {
+                    Some(s) if s.rect == from || !canonical => {
                         s.set_rect(to);
-                        true
+                        SceneEventAck::Approval
                     }
-                    _ => false,
+                    _ => SceneEventAck::Rejection,
                 }
             }
             SceneEvent::SpriteTextureChange(id, old, new) => match self.sprite_canonical(id) {
-                Some(s) if s.texture == old || canonical => {
+                Some(s) if s.texture == old || !canonical => {
                     s.set_texture(new);
-                    true
+                    SceneEventAck::Approval
                 }
-                _ => false,
+                _ => SceneEventAck::Rejection,
             },
         }
+    }
+
+    pub fn apply_ack(&mut self, ack: &SceneEventAck) {
+        match *ack {
+            SceneEventAck::SpriteNew(local_id, canonical_id) => {
+                if let Some(id) = canonical_id {
+                    self.set_canonical_id(local_id, id);
+                }
+            },
+            _ => ()
+        };
     }
 
     pub fn unwind_event(&mut self, event: &SceneEvent) {
         match *event {
             SceneEvent::Dummy => (),
+            SceneEvent::LayerNew(id, _, _) => self.remove_layer(id),
             SceneEvent::SpriteNew(s, l) => self.remove_sprite(s.local_id, l),
             SceneEvent::SpriteMove(id, from, to) => {
                 if let Some(s) = self.sprite_canonical(id) {
@@ -650,6 +727,14 @@ impl Scene {
                     s.set_texture(old);
                 }
             }
+        }
+    }
+
+    // Clear the local_id values from the server side, using the local id
+    // pool instead to avoid conflicts.
+    pub fn refresh_local_ids(&mut self) {
+        for layer in &mut self.layers {
+            layer.refresh_local_ids();
         }
     }
 }

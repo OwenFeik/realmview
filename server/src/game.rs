@@ -10,7 +10,7 @@ use tokio::sync::{
 use warp::ws::{Message, WebSocket};
 
 use scene::{
-    comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent},
+    comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent, SceneEventAck},
     Scene,
 };
 
@@ -60,16 +60,17 @@ impl Game {
         self.clients.get_mut(key)
     }
 
-    fn drop_client(&mut self, key: String) {
-        self.clients.remove(&key);
+    fn drop_client(&mut self, key: &str) {
+        self.clients.remove(key);
     }
 
-    fn connect_client(&mut self, key: String, sender: UnboundedSender<Message>) -> bool {
+    async fn connect_client(&mut self, key: String, sender: UnboundedSender<Message>) -> bool {
         if let Some(client) = self.get_client_mut(&key) {
             client.sender = Some(sender);
+            self.send_to(ServerEvent::SceneChange(self.scene.read().await.clone()), &key);
             true
         } else {
-            self.drop_client(key);
+            self.drop_client(&key);
             false
         }
     }
@@ -101,29 +102,45 @@ impl Game {
     }
 
     fn send_approval(&self, event_id: i64, client_key: &str) {
-        self.send_to(ServerEvent::Approval(event_id), client_key);
+        self.send_to(ServerEvent::Ack(event_id, None), client_key);
     }
 
-    fn send_rejection(&self, event_id: i64, client_key: &str) {
-        self.send_to(ServerEvent::Rejection(event_id), client_key);
+    fn send_scene_ack(&self, event_id: i64, ack: SceneEventAck, client_key: &str) {
+        self.send_to(ServerEvent::Ack(event_id, Some(ack)), client_key);
     }
 
-    async fn apply_event(&self, event: &SceneEvent) -> bool {
-        self.scene.write().await.apply_event(event, false)
+    async fn apply_event(&self, event: SceneEvent) -> SceneEventAck {
+        self.scene.write().await.apply_event(event, true)
     }
 
     async fn handle_event(&self, message: ClientMessage, from: &str) {
         match message.event {
             ClientEvent::Ping => {
                 self.send_approval(message.id, from);
-            }
+            },
             ClientEvent::SceneChange(event) => {
-                if self.apply_event(&event).await {
-                    self.send_approval(message.id, from);
-                    self.broadcast_event(ServerEvent::SceneChange(event, None), Some(from));
-                } else {
-                    self.send_rejection(message.id, from);
+                let ack = self.apply_event(event.clone()).await;
+                let ok = !matches!(ack, SceneEventAck::Rejection);
+
+                // Special case for new sprites and new layers (TODO) as their
+                // canonical IDs need to be broadcast.
+                if let SceneEventAck::SpriteNew(_, Some(canonical_id)) = ack {
+                    if let SceneEvent::SpriteNew(_, layer) = event {
+                        if let Some(sprite) = self.scene.read().await.sprite_canonical_ref(canonical_id) {
+                            self.broadcast_event(
+                                ServerEvent::SceneUpdate(
+                                    SceneEvent::SpriteNew(sprite.clone(), layer)
+                                ),
+                                Some(from)
+                            );
+                        }
+                    }
                 }
+                else if ok {
+                    self.broadcast_event(ServerEvent::SceneUpdate(event), Some(from));
+                }
+
+                self.send_scene_ack(message.id, ack, from);
             }
         };
     }
@@ -142,12 +159,12 @@ pub async fn client_connection(ws: WebSocket, key: String, game: GameRef) {
         while let Some(msg) = client_recv.next().await {
             client_ws_send
                 .send(msg)
-                .unwrap_or_else(|e| eprintln!("error sending websocket msg: {}", e))
+                .unwrap_or_else(|e| eprintln!("Error sending websocket msg: {}", e))
                 .await;
         }
     });
 
-    if !game.write().await.connect_client(key.clone(), client_send) {
+    if !game.write().await.connect_client(key.clone(), client_send).await {
         return;
     }
 
@@ -155,16 +172,17 @@ pub async fn client_connection(ws: WebSocket, key: String, game: GameRef) {
         match result {
             Ok(msg) => match deserialize(msg.as_bytes()) {
                 Ok(event) => game.read().await.handle_event(event, &key).await,
-                Err(e) => eprintln!("error parsing ws message: {}", e),
+                Err(e) => eprintln!("Error parsing ws message: {}", e),
             },
             Err(e) => {
-                eprintln!("error receiving ws message: {}", e);
+                eprintln!("Error receiving ws message: {}", e);
                 break;
             }
         };
     }
 
-    game.write().await.drop_client(key);
+    game.write().await.drop_client(&key);
+    println!("Dropped client {key}");
 }
 
 pub fn generate_game_key() -> anyhow::Result<String> {

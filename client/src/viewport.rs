@@ -6,7 +6,7 @@ use crate::{
 };
 use bincode::serialize;
 use scene::{
-    comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent},
+    comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent, SceneEventAck},
     Id, Rect, Scene, ScenePoint,
 };
 
@@ -198,17 +198,26 @@ impl Viewport {
         self.issued_events.retain(|c| c.id != id);
     }
 
+    fn process_scene_ack(&mut self, id: Id, ack: SceneEventAck) {
+        match ack {
+            SceneEventAck::Rejection => self.unwind_event(id),
+            _ => {
+                self.scene.apply_ack(&ack);
+                self.approve_event(id);
+            },
+        };
+    }
+
     fn process_server_event(&mut self, event: ServerEvent) {
         match event {
-            ServerEvent::Approval(id) => self.approve_event(id),
-            ServerEvent::Rejection(id) => self.unwind_event(id),
-            ServerEvent::SceneChange(scene_event, _url) => {
-                // TODO load texture from supplied url
-
-                self.scene.apply_event(&scene_event, true);
-            }
-            ServerEvent::CanonicalId(local_id, canonical_id) => {
-                self.scene.set_canonical_id(local_id, canonical_id)
+            ServerEvent::Ack(id, None) => self.approve_event(id),
+            ServerEvent::Ack(id, Some(ack)) => self.process_scene_ack(id, ack),
+            ServerEvent::SceneChange(scene) => self.replace_scene(scene),
+            ServerEvent::SceneUpdate(scene_event) => {
+                if let SceneEvent::SpriteNew(_, _) = scene_event {
+                    crate::bridge::log(&format!("{:?}", scene_event));
+                }
+                self.scene.apply_event(scene_event, false);
             }
         }
     }
@@ -218,6 +227,7 @@ impl Viewport {
             let mut events = client.events();
             while let Some(event) = events.pop() {
                 self.process_server_event(event);
+                self.redraw_needed = true;
             }
         }
     }
@@ -277,10 +287,10 @@ impl Viewport {
         if let Some(new_sprites) = self.context.load_queue() {
             for e in new_sprites {
                 if let SceneEvent::SpriteNew(s, _) = e {
-                    self.scene.apply_event(
-                        &SceneEvent::SpriteNew(s, self.scene.layers[0].local_id),
-                        false,
-                    );
+                    let l = self.scene.layers[0].local_id;
+                    if let Some(event) = self.scene.add_sprite(s, l) {
+                        self.client_event(event);
+                    }
                 }
             }
 
@@ -315,12 +325,7 @@ impl Viewport {
     }
 
     pub fn replace_scene(&mut self, mut new: Scene) {
-        // Clear the local_id values from the server side, using the local id
-        // pool instead to avoid conflicts.
-        for layer in &mut new.layers {
-            layer.refresh_sprite_local_ids();
-        }
-
+        new.refresh_local_ids();
         self.scene.layers = new.layers;
         self.scene.id = new.id;
         self.scene.title = new.title;
