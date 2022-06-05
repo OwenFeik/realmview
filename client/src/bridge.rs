@@ -453,8 +453,8 @@ impl Context {
         self.gl.clear(Gl::COLOR_BUFFER_BIT);
     }
 
-    pub fn draw_grid(&mut self, vp: Rect, grid_size: f32) {
-        self.renderer.render_grid(vp, grid_size);
+    pub fn draw_grid(&mut self, vp: Rect, sw: u32, sh: u32, grid_size: f32) {
+        self.renderer.render_grid(vp, sw, sh, grid_size);
     }
 
     pub fn draw_sprites(&mut self, vp: Rect, sprites: &[Sprite], grid_size: f32) {
@@ -522,8 +522,8 @@ pub fn websocket_url() -> Result<Option<String>, JsError> {
 
     match loc.pathname() {
         Ok(path) => {
-            let mut parts = path.split("/").collect::<Vec<&str>>();
-            parts.retain(|p| p.len() != 0);
+            let mut parts = path.split('/').collect::<Vec<&str>>();
+            parts.retain(|p| !p.is_empty());
             match parts[..] {
                 ["game", game_key, "client", client_key] => Ok(Some(format!(
                     "ws://{}/game/{}/{}",

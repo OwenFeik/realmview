@@ -10,7 +10,7 @@ use scene::{
     Id, Rect, Scene, ScenePoint,
 };
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct ViewportPoint {
     x: f32,
     y: f32,
@@ -59,7 +59,7 @@ impl Viewport {
     const BASE_GRID_ZOOM: f32 = 50.0;
 
     pub fn new(client: Option<Client>) -> Result<Self, JsError> {
-        Ok(Viewport {
+        let mut vp = Viewport {
             context: Context::new()?,
             scene: Scene::new(),
             viewport: Rect {
@@ -73,7 +73,12 @@ impl Viewport {
             grabbed_at: None,
             issued_events: Vec::new(),
             client,
-        })
+        };
+
+        vp.update_viewport();
+        vp.centre_viewport();
+
+        Ok(vp)
     }
 
     fn update_viewport(&mut self) {
@@ -90,6 +95,11 @@ impl Viewport {
             };
             self.redraw_needed = true;
         }
+    }
+
+    fn centre_viewport(&mut self) {
+        self.viewport.x = ((self.scene.w / 2) as f32 - self.viewport.w / 2.0).round();
+        self.viewport.y = ((self.scene.h / 2) as f32 - self.viewport.h / 2.0).round();
     }
 
     fn handle_mouse_down(&mut self, at: ViewportPoint) {
@@ -251,7 +261,8 @@ impl Viewport {
         let mut background_drawn = false;
         for layer in self.scene.layers.iter() {
             if !background_drawn && layer.z >= 0 {
-                self.context.draw_grid(vp, self.grid_zoom);
+                self.context
+                    .draw_grid(vp, self.scene.w, self.scene.h, self.grid_zoom);
                 background_drawn = true;
             }
 
@@ -260,7 +271,8 @@ impl Viewport {
         }
 
         if !background_drawn {
-            self.context.draw_grid(vp, self.grid_zoom);
+            self.context
+                .draw_grid(vp, self.scene.w, self.scene.h, self.grid_zoom);
         }
 
         let outline = self
@@ -328,6 +340,8 @@ impl Viewport {
         self.scene.title = new.title;
         self.scene.project = new.project;
         self.scene.holding = scene::HeldObject::None;
+        self.scene.w = new.w;
+        self.scene.h = new.h;
 
         self.redraw_needed = true;
     }

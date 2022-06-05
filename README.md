@@ -1,8 +1,8 @@
 # TODO
 
 * Map size
-    * Limit map size, prevent infinite scrolling
-    * Make map size configurable, as setting on scene
+    * Make map size configurable, as setting on scene, editable from project
+        offcanvas
 * Layers
     * Add UI to show existing layers
     * Allow addition of new layers

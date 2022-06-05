@@ -84,8 +84,15 @@ impl Project {
         scene: scene::Scene,
         scene_title: String,
     ) -> anyhow::Result<SceneRecord> {
-        let s =
-            scene_record::SceneRecord::get_or_create(pool, scene.id, self.id, scene_title).await?;
+        let s = scene_record::SceneRecord::get_or_create(
+            pool,
+            scene.id,
+            self.id,
+            scene_title,
+            scene.w,
+            scene.h,
+        )
+        .await?;
 
         for layer in scene.layers.iter() {
             let l = LayerRecord::get_or_create(pool, layer, s.id).await?;
@@ -116,6 +123,8 @@ mod scene_record {
         pub scene_key: String,
         pub project: i64,
         pub title: String,
+        pub w: u32,
+        pub h: u32,
     }
 
     impl SceneRecord {
@@ -142,16 +151,20 @@ mod scene_record {
             pool: &SqlitePool,
             project: i64,
             title: &str,
+            width: u32,
+            height: u32,
         ) -> anyhow::Result<SceneRecord> {
             sqlx::query_as(
-                "INSERT INTO scenes (scene_key, project, title) VALUES (?1, ?2, ?3) RETURNING *;",
+                "INSERT INTO scenes (scene_key, project, title, w, h) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING *;",
             )
             .bind(crypto::random_hex_string(RECORD_KEY_LENGTH)?)
             .bind(project)
             .bind(title)
+            .bind(width)
+            .bind(height)
             .fetch_one(pool)
             .await
-            .map_err(|_| anyhow::anyhow!("Failed to create scene."))
+            .map_err(|e| anyhow::anyhow!("Failed to create scene: {e}"))
         }
 
         pub async fn get_or_create(
@@ -159,10 +172,12 @@ mod scene_record {
             id: Option<i64>,
             project: i64,
             title: String,
+            width: u32,
+            height: u32,
         ) -> anyhow::Result<SceneRecord> {
             let mut record = match id {
                 Some(id) => SceneRecord::load(pool, id).await,
-                None => SceneRecord::create(pool, project, &title).await,
+                None => SceneRecord::create(pool, project, &title, width, height).await,
             }?;
 
             if record.title != title {
@@ -202,6 +217,8 @@ mod scene_record {
                 title: Some(self.title.clone()),
                 project: Some(self.project),
                 holding: scene::HeldObject::None,
+                w: self.w,
+                h: self.h,
             })
         }
 

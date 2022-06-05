@@ -16,8 +16,9 @@ function load_project_scene() {
     document.getElementById("scene_title").value
         = document.getElementById("project_title").value
         = "{{ constant(DEFAULT_TITLE) }}";
+    const [proj_key, scene_key] = url_project_scene();
     populate_scene_select();
-    load_projects(...url_project_scene());
+    load_projects(proj_key, scene_key);
 }
 
 // Set up loading icons so that they reset to the idle state when the offcanvas
@@ -224,6 +225,7 @@ function set_active_scene(scene_key) {
             document.getElementById("scene_select").value = scene_key;
             document.getElementById("scene_title").value = resp.title;
             RustFuncs.load_scene(resp.scene);
+            update_url_project_scene();
         },
         null,
         "scene_select_loading"

@@ -17,7 +17,7 @@ use comms::{SceneEvent, SceneEventAck};
 
 pub type Id = i64;
 
-#[derive(Clone, Copy, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
 pub struct ScenePoint {
     pub x: f32,
     pub y: f32,
@@ -78,9 +78,13 @@ pub struct Scene {
     pub title: Option<String>,
     pub project: Option<Id>,
     pub holding: HeldObject,
+    pub w: u32,
+    pub h: u32,
 }
 
 impl Scene {
+    const DEFAULT_SIZE: u32 = 32;
+
     pub fn new() -> Self {
         Self {
             layers: vec![
@@ -92,6 +96,8 @@ impl Scene {
             title: None,
             project: None,
             holding: HeldObject::None,
+            w: Scene::DEFAULT_SIZE,
+            h: Scene::DEFAULT_SIZE,
         }
     }
 
@@ -333,6 +339,9 @@ impl Scene {
         match *ack {
             SceneEventAck::SpriteNew(local_id, Some(canonical_id)) => {
                 self.set_canonical_id(local_id, canonical_id);
+            }
+            SceneEventAck::LayerNew(local_id, Some(canonical_id)) => {
+                self.set_canonical_layer_id(local_id, canonical_id);
             }
             _ => (),
         };

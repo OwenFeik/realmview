@@ -38,7 +38,9 @@ CREATE TABLE IF NOT EXISTS scenes (
     id INTEGER PRIMARY KEY,
     scene_key CHAR(16) NOT NULL,
     project INTEGER REFERENCES projects(id) ON DELETE CASCADE NOT NULL,
-    title TEXT
+    title TEXT,
+    w INTEGER NOT NULL,
+    h INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS layers (
