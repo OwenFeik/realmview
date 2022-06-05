@@ -3,32 +3,22 @@ window.addEventListener("load", () => {
     const scene_select = document.getElementById("scene_select");
 
     add_default_option(project_select);
-    project_select.oninput = e => {
-        let project_key = e.target.value;
-        if (project_key) {
-            set_active_project(project_key);
-        }
-        else {
-            new_project();
-        }
-        update_url();
-    };
+    project_select.oninput = e => set_active_project(e.target.value);
 
     scene_select.disabled = true;
-    scene_select.oninput = e => {
-        let scene_key = e.target.value;
-        if (scene_key) {
-            set_active_scene(scene_key);
-        }
-        else {
-            new_scene();
-        }
-        update_url();
-    };
+    scene_select.oninput = e => set_active_scene(e.target.value);
 
     configure_loading_icon_reset();
-    load_projects(...url_project_scene());
+    load_project_scene();
 });
+
+function load_project_scene() {
+    document.getElementById("scene_title").value
+        = document.getElementById("project_title").value
+        = "{{ constant(DEFAULT_TITLE) }}";
+    populate_scene_select();
+    load_projects(...url_project_scene());
+}
 
 // Set up loading icons so that they reset to the idle state when the offcanvas
 // is closed.
@@ -157,6 +147,7 @@ function populate_project_select(list, project_key = null, scene_key = null) {
     });
 
     project_select.disabled = project_select.options.length === 1;
+    update_url();
 }
 
 function populate_scene_select(list = null, scene_key = null) {
@@ -173,15 +164,23 @@ function populate_scene_select(list = null, scene_key = null) {
         list.forEach(scene => {
             scene_select.add(new Option(scene.title, scene.scene_key));
             if (scene.scene_key === scene_key) {
-                scene_select.value = scene_key;
+                set_active_scene(scene_key);
             }
         });    
     }
 
     scene_select.disabled = scene_select.options.length === 1;
+    update_url();
 }
 
 function set_active_project(project_key, scene_key = null) {
+    update_url();
+
+    if (!project_key) {
+        new_project();
+        return;
+    }
+
     populate_scene_select();
     get(
         "/project/list",
@@ -203,6 +202,13 @@ function set_active_project(project_key, scene_key = null) {
 }
 
 function set_active_scene(scene_key) {
+    update_url();
+
+    if (!scene_key) {
+        new_scene();
+        return;
+    }
+
     get(
         "/scene/load/" + scene_key,
         resp => {
