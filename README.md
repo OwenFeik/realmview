@@ -19,9 +19,6 @@
     * /project should show the same page but empty, with prompt to save the
         project and create a scene
 * Game
-    * Show current game key, provide link to join game
-    * Navigating to scene.html?game=GAME_KEY should connect to that game
-* General
-    * Have nice urls: /game/GAME_KEY/CLIENT_KEY, /project/PROJECT_KEY/SCENE_KEY
+    * Feedback for when connection a game as a given CLIENT_KEY fails
 * Callum requests
     * docs.google.com/document/d/1uKsAKS-huxNqc4kuHFot0McXTLlT3p83ojEalAcBtK0/

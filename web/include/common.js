@@ -154,6 +154,10 @@ function request_icon_handling(req, onload, onerror, icon_id) {
     }
 }
 
+function url_parts() {
+    return location.pathname.split("/").filter(p => p.length);
+}
+
 function get(path, onload = null, onerror = null, icon_id = null) {
     let req = new XMLHttpRequest();
     request_icon_handling(req, onload, onerror, icon_id);

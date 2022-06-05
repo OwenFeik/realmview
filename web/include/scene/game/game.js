@@ -1,3 +1,48 @@
+window.addEventListener("load", () => {
+    set_up_copy_link_btn();
+
+    const current_game_tab = document.getElementById("current_game_tab");
+    current_game_tab.style.display = "none";
+
+    const parts = url_parts();
+    if (parts[0] != "game") {
+        return;
+    }
+
+    const game_key = parts[1];
+    if (!game_key) {
+        return;
+    }
+
+    // if URL is /game/GAME_KEY, attempt to join game GAME_KEY
+    if (parts.length === 2) {
+        document.getElementById("game_key").value = game_key;
+        join_game();
+        return;
+    }
+
+    const join_game_link = document.getElementById("join_game_link"); 
+    join_game_link.href = join_game_link.innerText = (
+        window.location.protocol
+        + "//"
+        + window.location.host
+        + "/game/"
+        + game_key
+    );
+
+    // Set the active tab in the game offcanvas to the current game info
+    // tab.
+    current_game_tab.style.display = "";
+    current_game_tab.click();
+});
+
+function set_up_copy_link_btn() {
+    const join_game_link = document.getElementById("join_game_link");
+    const btn = document.getElementById("copy_join_game_link_btn");
+
+    btn.onclick = () => navigator.clipboard.writeText(join_game_link.href);
+}
+
 function error_fn(id) {
     let error = document.getElementById(id);
     error.classList.add("d-none");
@@ -47,35 +92,52 @@ function join_game() {
     let key_input = document.getElementById("game_key")
     let key = key_input.value.toUpperCase();
 
+    const feedback_text = document.querySelector(
+        "#game_key + .invalid-feedback"
+    );
+    const default_feedback = feedback_text.innerText;
+
+    const remove_invalid = () => {
+        form.classList.remove("was-validated");
+        key_input.setCustomValidity("");
+        key_input.removeEventListener("input", remove_invalid);
+        feedback_text.innerText = default_feedback;
+    };
+
     if (!/^[0-9A-F]{{{ constant(GAME_KEY_LENGTH) }}}$/.test(key)) {
         key_input.setCustomValidity("Invalid game key.");
-        
-        const remove_invalid = () => {
-            form.classList.remove("was-validated");
-            key_input.setCustomValidity("");
-            key_input.removeEventListener("input", remove_invalid);
-        };
         key_input.addEventListener("input", remove_invalid);
-
         return;
     }
 
-    const error = error_fn("join_game_error");
-
     let req = new XMLHttpRequest();
 
-    req.onerror = () => error("Network error.");
+
+    const set_invalid = msg => {
+        key_input.setCustomValidity(msg);
+        feedback_text.innerText = msg;
+        key_input.addEventListener("input", remove_invalid);
+        
+        // When we fail to join a game, show the relevant offcanvas tab
+        // with the feedback.
+        document.querySelector(
+            "button[data-bs-target='#game_offcanvas']"
+        ).click();
+        document.getElementById("join_game_tab").click();
+    };
+
+    req.onerror = () => set_invalid("Network error.");
     req.onload = () => {
         if (req.response) {
             if (req.response.success) {
                 window.location = req.response.url;
             }
             else {
-                error(req.response.message);
+                set_invalid(req.response.message);
             }
         }
         else {
-            error("Server error.");
+            set_invalid("Server error.");
         }
     };
 

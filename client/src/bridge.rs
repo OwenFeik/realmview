@@ -520,25 +520,19 @@ pub fn websocket_url() -> Result<Option<String>, JsError> {
         Err(_) => return Err(JsError::ResourceError("Failed to read window host.")),
     };
 
-    match loc.href() {
-        Ok(href) => match Url::new(&href) {
-            Ok(url) => {
-                let params = url.search_params();
-                match (params.get("game"), params.get("client")) {
-                    (Some(game_key), Some(client_key)) => Ok(Some(format!(
-                        "ws://{}/game/{}/{}",
-                        &host, &game_key, &client_key
-                    ))),
-                    _ => Ok(None),
-                }
+    match loc.pathname() {
+        Ok(path) => {
+            let mut parts = path.split("/").collect::<Vec<&str>>();
+            parts.retain(|p| p.len() != 0);
+            match parts[..] {
+                ["game", game_key, "client", client_key] => Ok(Some(format!(
+                    "ws://{}/game/{}/{}",
+                    &host, game_key, client_key
+                ))),
+                _ => Ok(None),
             }
-            Err(_) => Err(JsError::ResourceError(
-                "Failed to construct URL from window Location.",
-            )),
-        },
-        Err(_) => Err(JsError::ResourceError(
-            "Failed to read window Location href.",
-        )),
+        }
+        Err(_) => Err(JsError::ResourceError("Failed to read window pathname.")),
     }
 }
 

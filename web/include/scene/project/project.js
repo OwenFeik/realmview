@@ -35,7 +35,7 @@ function configure_loading_icon_reset() {
 }
 
 function url_project_scene() {
-    const parts = location.pathname.split("/").filter(p => p.length);
+    const parts = url_parts();
 
     const ret = [null, null];
 
@@ -62,7 +62,16 @@ function url_project_scene() {
     return [project_key, scene_key];
 }
 
-function update_url() {
+function is_scene_editor() {
+    let page = url_parts()[0];
+    return page == "project" || page == "scene" || page == "scene.html";
+}
+
+function update_url_project_scene() {
+    if (!is_scene_editor()) {
+        return;
+    }
+
     let scene_title = document
         .getElementById("scene_select")
         .selectedOptions[0]
@@ -147,7 +156,7 @@ function populate_project_select(list, project_key = null, scene_key = null) {
     });
 
     project_select.disabled = project_select.options.length === 1;
-    update_url();
+    update_url_project_scene();
 }
 
 function populate_scene_select(list = null, scene_key = null) {
@@ -170,11 +179,11 @@ function populate_scene_select(list = null, scene_key = null) {
     }
 
     scene_select.disabled = scene_select.options.length === 1;
-    update_url();
+    update_url_project_scene();
 }
 
 function set_active_project(project_key, scene_key = null) {
-    update_url();
+    update_url_project_scene();
 
     if (!project_key) {
         new_project();
@@ -202,7 +211,7 @@ function set_active_project(project_key, scene_key = null) {
 }
 
 function set_active_scene(scene_key) {
-    update_url();
+    update_url_project_scene();
 
     if (!scene_key) {
         new_scene();

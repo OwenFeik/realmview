@@ -5,7 +5,7 @@ use warp::{hyper::StatusCode, Filter};
 
 use crate::handlers::response::{as_result, Binary, ResultReply};
 
-const SCENE_EDITOR_FILE: &str = "scene.html";
+pub const SCENE_EDITOR_FILE: &str = "scene.html";
 
 pub fn routes(
     pool: sqlx::SqlitePool,

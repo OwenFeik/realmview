@@ -12,10 +12,21 @@
   </div>
   <div class="offcanvas-body">
     {{ nav/start() }}
+      {{ nav/item(tab=current_game, label=Current) }}
       {{ nav/item(tab=launch_game, label=Launch, selected=true) }}  
       {{ nav/item(tab=join_game, label=Join) }}
     {{ nav/end() }}
     <div class="tab-content">
+      {{ tab/start(tab=current_game) }}
+        <div class="p-2">
+          <h3>Invite Players</h3>
+          <p><a target="_blank" id="join_game_link"></a></p>
+          <button
+            class="btn btn-primary"
+            id="copy_join_game_link_btn"
+          >Copy Link {{ bootstrap_icon(clipboard) }}</button>
+        </div>
+      {{ tab/end() }}
       {{ tab/start(tab=launch_game, selected=true) }}
         <div class="p-2">
           <div class="row py-2">
@@ -47,9 +58,6 @@
                 class="invalid-feedback"
                 data-feedback-for="game_key"
               >Game keys are {{ constant(GAME_KEY_LENGTH) }} characters, A-F 0-9.</div>
-            </div>
-            <div class="row py-2">
-              <p id="join_game_error" class="form-text text-danger d-none">Error message.</p>
             </div>
             <div class="row py-2">
               <button

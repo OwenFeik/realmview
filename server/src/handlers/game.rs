@@ -1,4 +1,4 @@
-use std::convert::Infallible;
+use std::{convert::Infallible, path::Path};
 
 use warp::Filter;
 
@@ -7,10 +7,37 @@ use crate::game::Games;
 pub fn routes(
     pool: sqlx::SqlitePool,
     games: Games,
+    content_dir: &Path,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     new::filter(pool.clone(), games.clone())
         .or(join::filter(pool, games.clone()))
         .or(connect::filter(games))
+        .or(html_route(content_dir))
+}
+
+fn html_route(
+    content_dir: &Path,
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    let serve_scene_editor =
+        warp::fs::file(content_dir.join(crate::handlers::scene::SCENE_EDITOR_FILE));
+
+    let no_args = warp::path("game")
+        .and(warp::get())
+        .and(serve_scene_editor.clone());
+
+    let one_key = warp::path!("game" / String)
+        .map(|_game_key| {})
+        .untuple_one()
+        .and(warp::get())
+        .and(serve_scene_editor.clone());
+
+    let both_keys = warp::path!("game" / String / "client" / String)
+        .map(|_game_key, _client_key| {})
+        .untuple_one()
+        .and(warp::get())
+        .and(serve_scene_editor);
+
+    no_args.or(one_key).or(both_keys)
 }
 
 fn with_games(games: Games) -> impl Filter<Extract = (Games,), Error = Infallible> + Clone {
@@ -69,7 +96,7 @@ mod join {
 
     impl JoinGameResponse {
         fn new(game_key: String, client_key: String) -> Self {
-            let url = format!("scene.html?game={}&client={}", &game_key, &client_key);
+            let url = format!("/game/{}/client/{}", &game_key, &client_key);
 
             Self {
                 game_key,
@@ -91,7 +118,7 @@ mod join {
     pub async fn join_game(games: Games, game_key: String, user_id: i64) -> ResultReply {
         let game = match games.read().await.get(&game_key) {
             Some(game_ref) => game_ref.clone(),
-            None => return Binary::result_error("Game key invalid."),
+            None => return Binary::result_error("Game not found."),
         };
 
         match add_client(game, user_id).await {
@@ -121,6 +148,7 @@ mod join {
         games: Games,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("game" / String)
+            .and(warp::post())
             .and(super::with_games(games))
             .and(crate::handlers::with_db(pool))
             .and(crate::handlers::with_session())
@@ -178,6 +206,7 @@ mod new {
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path("game")
             .and(warp::path("new"))
+            .and(warp::post())
             .and(with_db(pool))
             .and(with_session())
             .and(with_games(games))

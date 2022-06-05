@@ -20,15 +20,16 @@ pub fn routes(
     games: crate::game::Games,
     content_dir: String,
 ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    warp::fs::dir(content_dir.clone())
+    let content_path = PathBuf::from(content_dir.clone());
+    warp::fs::dir(content_path.clone())
         .or(login::filter(pool.clone()))
         .or(register::filter(pool.clone()))
         .or(logout::filter(pool.clone()))
-        .or(upload::filter(pool.clone(), content_dir.clone()))
+        .or(upload::filter(pool.clone(), content_dir))
         .or(media::filter(pool.clone()))
         .or(project::filter(pool.clone()))
-        .or(game::routes(pool.clone(), games))
-        .or(scene::routes(pool, &PathBuf::from(content_dir)))
+        .or(game::routes(pool.clone(), games, &content_path))
+        .or(scene::routes(pool, &content_path))
 }
 
 pub fn json_body<T: std::marker::Send + for<'de> serde::Deserialize<'de>>(

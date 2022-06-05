@@ -214,9 +214,6 @@ impl Viewport {
             ServerEvent::Ack(id, Some(ack)) => self.process_scene_ack(id, ack),
             ServerEvent::SceneChange(scene) => self.replace_scene(scene),
             ServerEvent::SceneUpdate(scene_event) => {
-                if let SceneEvent::SpriteNew(_, _) = scene_event {
-                    crate::bridge::log(&format!("{:?}", scene_event));
-                }
                 self.scene.apply_event(scene_event, false);
             }
         }
