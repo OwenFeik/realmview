@@ -13,8 +13,7 @@ server: content database
 	CARGO_TARGET_DIR=${target} cargo build -p server
 	cp --remove-destination ${target}/debug/server ${build}/server
 
-content: html
-	wasm-pack build client/ --out-dir ${content}/pkg --target web
+content: html wasm
 
 db: database
 	sqlite3 ${build}/database.db --header --box
@@ -29,6 +28,9 @@ database: build-dir
 		cp ${root}/server/schema.sql ${build}/schema.sql; \
 		sqlite3 ${build}/database.db < ${build}/schema.sql; \
 	fi
+
+wasm: content-dir
+	wasm-pack build client/ --out-dir ${content}/pkg --target web
 
 html: content-dir
 	python3 ${root}/web/build.py ${content}/

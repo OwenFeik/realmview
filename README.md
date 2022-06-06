@@ -19,6 +19,13 @@
     * /project should show the same page but empty, with prompt to save the
         project and create a scene
 * Game
-    * Feedback for when connection a game as a given CLIENT_KEY fails
+    * Feedback for when connecting to a game as a given CLIENT_KEY fails
+    * Permission levels
+        * Users should be either a player or an editor
+        * Editor should be able to configure permissions by layer, allowing or
+            forbidding users to
+            
+            * Move sprites
+            * Add sprites
 * Callum requests
     * docs.google.com/document/d/1uKsAKS-huxNqc4kuHFot0McXTLlT3p83ojEalAcBtK0/

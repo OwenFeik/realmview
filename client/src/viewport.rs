@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use crate::{
-    bridge::{Context, EventType, JsError},
+    bridge::{Context, EventType, JsError, MouseButton},
     client::Client,
 };
 use bincode::serialize;
@@ -100,6 +100,7 @@ impl Viewport {
     fn centre_viewport(&mut self) {
         self.viewport.x = ((self.scene.w / 2) as f32 - self.viewport.w / 2.0).round();
         self.viewport.y = ((self.scene.h / 2) as f32 - self.viewport.h / 2.0).round();
+        self.redraw_needed = true;
     }
 
     fn handle_mouse_down(&mut self, at: ViewportPoint) {
@@ -183,6 +184,11 @@ impl Viewport {
         };
 
         for event in events.iter() {
+            if matches!(event.button, MouseButton::Middle) {
+                self.centre_viewport();
+                continue;
+            }
+
             match event.event_type {
                 EventType::MouseDown => self.handle_mouse_down(event.at),
                 EventType::MouseLeave => self.handle_mouse_up(event.at, event.alt),

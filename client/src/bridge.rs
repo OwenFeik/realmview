@@ -314,8 +314,33 @@ pub enum EventType {
     MouseWheel(f32),
 }
 
+pub enum MouseButton {
+    Left,
+    Middle,
+    Right,
+    Back,
+    Forward,
+    Unknown,
+}
+
+impl MouseButton {
+    fn from(button: i16) -> Self {
+        // Reference:
+        // https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/button
+        match button {
+            0 => MouseButton::Left,
+            1 => MouseButton::Middle,
+            2 => MouseButton::Right,
+            3 => MouseButton::Back,
+            4 => MouseButton::Forward,
+            _ => MouseButton::Unknown,
+        }
+    }
+}
+
 pub struct MouseEvent {
     pub at: ViewportPoint,
+    pub button: MouseButton,
     pub event_type: EventType,
     pub shift: bool,
     pub ctrl: bool,
@@ -332,7 +357,8 @@ impl MouseEvent {
             "wheel" => {
                 let event = event.unchecked_ref::<web_sys::WheelEvent>();
 
-                // Because the app never has scroll bars, the delta is always reported in the y
+                // Because the app never has scroll bars, the delta is always 
+                // reported in the y
                 EventType::MouseWheel(event.delta_y() as f32)
             }
             _ => return None,
@@ -340,6 +366,7 @@ impl MouseEvent {
 
         Some(MouseEvent {
             at: ViewportPoint::new(event.x(), event.y()),
+            button: MouseButton::from(event.button()),
             event_type,
             shift: event.shift_key(),
             ctrl: event.ctrl_key(),
@@ -381,7 +408,6 @@ impl Context {
             texture_queue: Rc::new(get_texture_queue()),
             event_queue: Rc::new(get_event_queue()),
         };
-        ctx.configure_upload();
 
         Ok(ctx)
     }
