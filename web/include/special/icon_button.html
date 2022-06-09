@@ -1,0 +1,11 @@
+<button
+    class="
+      btn
+      IFNDEF(OUTLINE) {{ btn-primary }}
+      IFDEF(OUTLINE) {{ btn-outline-primary }} 
+      IFDEF(SMALL) {{ btn-sm }}
+    "
+    type="button"
+    IFDEF(ID) {{ id="{{ ID }}" }}
+    IFDEF(ONCLICK) {{ onclick="{{ ONCLICK }}" }}
+  >{{ bootstrap_icon({{ ICON }}) }}</button>

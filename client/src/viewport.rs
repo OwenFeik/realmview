@@ -7,7 +7,7 @@ use crate::{
 use bincode::serialize;
 use scene::{
     comms::{ClientEvent, ClientMessage, SceneEvent, SceneEventAck, ServerEvent},
-    Id, Rect, Scene, ScenePoint, Layer,
+    Id, Layer, Rect, Scene, ScenePoint,
 };
 
 #[derive(Clone, Copy, Debug)]

@@ -1,4 +1,8 @@
+PREAMBLE {{
+kwargs["ID"] = kwargs.get("ID", unique_string())
+}}
 <div class="input-group">
+  IFDEF(BEFORE) {{ {{ BEFORE }} }}
   IFDEF(LABEL) {{ <span class="input-group-text">{{ LABEL }}</span> }}
   <input
     type="text"
@@ -7,31 +11,29 @@
     maxlength="256"
     autocomplete="off"
     disabled
+    IFDEF(VALUE) {{ value="{{ VALUE }}" }}
   >
-  <button
-    class="btn btn-outline-primary"
-    type="button"
-    id="{{ ID }}_edit_button"
-  >{{ bootstrap_icon(pencil-square) }}</button>
+  {{
+    icon_button(
+      icon=pencil-square,
+      outline=true,
+      IFDEF(SMALL) {{ small=true, }}
+      onclick="
+        const input = this.parentNode.querySelector('#{{ ID }}');
+        if (input.disabled) {
+          input.disabled = false;
+          this.innerHTML = Icons.check_circle;
+        }
+        else {
+          input.disabled = true;
+          this.innerHTML = Icons.pencil_square;
+          IFDEF(ACTION) {{ {{ ACTION }} }}
+        }
+      "
+    )
+  }}
+  IFDEF(AFTER) {{ {{ AFTER }} }}
 </div>
 <div class="invalid-feedback" data-feedback-for="{{ ID }}">
   IFDEF(HELP) {{ HELP }} IFNDEF(HELP) {{Please enter a valid value.}}
-</div> 
-<script>
-window.addEventListener("load", () => {
-  const input = document.getElementById("{{ ID }}");
-  const button = document.getElementById("{{ ID }}_edit_button");
-
-  button.onclick = () => { 
-    if (input.disabled) {
-      input.disabled = false;
-      button.innerHTML = `{{ bootstrap_icon(check-circle) }}`;
-    }
-    else {
-      input.disabled = true;
-      button.innerHTML = `{{ bootstrap_icon(pencil-square) }}`;
-      IFDEF(ACTION) {{ {{ ACTION }} }};
-    }
-  };
-});
-</script>
+</div>

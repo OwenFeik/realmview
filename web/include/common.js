@@ -1,3 +1,13 @@
+const Icons = {
+    check_circle: `{{ bootstrap_icon(check-circle) }}`,
+    exclamation_triangle: `{{ bootstrap_icon(exclamation-triangle) }}`,
+    pencil_square: `{{ bootstrap_icon(pencil-square) }}`,
+    lock: `{{ bootstrap_icon(lock) }}`,
+    unlock: `{{ bootstrap_icon(unlock) }}`,
+    eye: `{{ bootstrap_icon(eye) }}`,
+    eye_slash: `{{ bootstrap_icon(eye-slash) }}`
+};
+
 function form_to_json(form) {
     let form_prefix = form.id.replace("_form", "") + "_";
 
@@ -173,4 +183,11 @@ function post(path, data, onload = null, onerror = null, icon_id = null) {
     req.open("POST", path);
     req.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
     req.send(JSON.stringify(data));
+}
+
+function template_to_element(html) {
+    return document
+        .createRange()
+        .createContextualFragment(html)
+        .firstElementChild;
 }

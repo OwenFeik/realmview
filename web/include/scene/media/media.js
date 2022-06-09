@@ -49,18 +49,6 @@ class MediaManager {
     }
 }
 
-const Icons = {
-    check_circle: `{{ bootstrap_icon(check-circle) }}`,
-    exclamation_triangle: `{{ bootstrap_icon(exclamation-triangle) }}`
-};
-
-function template_to_element(html) {
-    return document
-        .createRange()
-        .createContextualFragment(html)
-        .firstElementChild;
-}
-
 function preview_card(src, name) {
     // uses src and name
     return template_to_element(`{{ scene/media/preview_card.html }}`);

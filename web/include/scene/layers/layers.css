@@ -1,0 +1,23 @@
+.layer-locked span.layer-unlocked {
+    display: none;
+}
+
+span.layer-locked {
+    display: none;
+}
+
+.layer-locked span.layer-locked {
+    display: unset;
+}
+
+.layer-hidden span.layer-visible {
+    display: none;
+}
+
+span.layer-hidden {
+    display: none;
+}
+
+.layer-hidden span.layer-hidden {
+    display: unset;
+}

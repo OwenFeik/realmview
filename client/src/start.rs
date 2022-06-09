@@ -6,8 +6,8 @@ use parking_lot::Mutex;
 use wasm_bindgen::prelude::*;
 
 use crate::bridge::{
-    expose_closure_f64, expose_closure_string, expose_closure_string_string, log,
-    request_animation_frame, layer_info, expose_closure_array,
+    expose_closure_array, expose_closure_f64, expose_closure_string, expose_closure_string_string,
+    layer_info, log, request_animation_frame,
 };
 use crate::client::Client;
 use crate::viewport::Viewport;
@@ -63,9 +63,9 @@ pub fn start() -> Result<(), JsValue> {
     new_scene_closure.forget();
 
     let scene_ref = scene.clone();
-    let scene_layers_closure = Closure::wrap(Box::new(move || {
-        layer_info(scene_ref.lock().layers())
-    }) as Box<dyn FnMut() -> Array>);
+    let scene_layers_closure = Closure::wrap(
+        Box::new(move || layer_info(scene_ref.lock().layers())) as Box<dyn FnMut() -> Array>,
+    );
     expose_closure_array("scene_layers", &scene_layers_closure);
     scene_layers_closure.forget();
 

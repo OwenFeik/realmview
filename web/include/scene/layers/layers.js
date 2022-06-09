@@ -1,8 +1,6 @@
-function layers_list_entry(layer_info) {
-    let el = document.createElement("li");
-    el.classList.add("list-group-item");
-    el.innerText = layer_info.title;
-    return el;
+function layers_list_entry(label) {
+    // uses label
+    return template_to_element(`{{ scene/layers/layer_list_item.html }}`);
 }
 
 function load_layers() {
@@ -16,7 +14,7 @@ function load_layers() {
         RustFuncs.scene_layers()
         .sort((a, b) => a.z - b.z)
         .forEach(layer => {
-            list.appendChild(layers_list_entry(layer))
+            list.appendChild(layers_list_entry(layer.title))
         });
     }
     catch {

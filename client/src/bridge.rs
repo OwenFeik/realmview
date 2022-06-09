@@ -348,7 +348,7 @@ impl MouseEvent {
             "wheel" => {
                 let event = event.unchecked_ref::<web_sys::WheelEvent>();
 
-                // Because the app never has scroll bars, the delta is always 
+                // Because the app never has scroll bars, the delta is always
                 // reported in the y
                 EventType::MouseWheel(event.delta_y() as f32)
             }
@@ -504,7 +504,7 @@ impl JsLayerInfo {
             id: layer.local_id,
             title: layer.title.clone(),
             z: layer.z as f64,
-            n_sprites: layer.sprites.len() as f64
+            n_sprites: layer.sprites.len() as f64,
         }
     }
 
@@ -515,7 +515,10 @@ impl JsLayerInfo {
 }
 
 pub fn layer_info(layers: &[Layer]) -> Array {
-    layers.iter().map(|l| JsLayerInfo::js_value_from(l)).collect()
+    layers
+        .iter()
+        .map(|l| JsLayerInfo::js_value_from(l))
+        .collect()
 }
 
 fn create_context(element: &HtmlCanvasElement) -> Result<Gl, JsError> {

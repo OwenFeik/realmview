@@ -6,12 +6,12 @@
       height: auto;
       position: absolute;
       right: {{ constant(HOVER_ELEM_INSET) }};
-      width: 200px;
+      width: 300px;
     "
   >
     <h2 id="layers_list_heading" class="accordion-header">
       <button
-        class="accordion-button collapsed"
+        class="accordion-button collapsed shadow-none"
         type="button"
         data-bs-toggle="collapse"
         data-bs-target="#layers_list_collapse"
@@ -30,3 +30,4 @@
   </div>
 </div>
 {{ javascript(scene/layers/layers.js) }}
+{{ stylesheet(scene/layers/layers.css) }}

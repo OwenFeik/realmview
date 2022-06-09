@@ -53,3 +53,5 @@ install:
 
 clean:
 	rm -rf ${build}
+	rm -rf .mypy_cache
+	rm -rf web/include/.cache

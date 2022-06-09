@@ -1,0 +1,26 @@
+<li class="list-group-item">
+  {{
+    editable_input(
+      value="${label}",
+      after='
+        {{
+          icon_button(
+            icon=unlock,
+            outline=true,
+            small=true,
+            onclick=""
+          )
+        }}
+        {{
+          icon_button(
+            icon=eye,
+            outline=true,
+            small=true,
+            onclick=""
+          )
+        }}
+      ',
+      small=true
+    )
+  }}
+</li>

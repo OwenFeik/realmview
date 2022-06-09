@@ -3,6 +3,7 @@ import os
 import re
 import sys
 import typing
+import uuid
 import urllib3  # type: ignore
 
 
@@ -21,13 +22,21 @@ def output_directory() -> str:
     return output_dir
 
 
-def substitution_regex() -> re.Pattern:
-    # Identifier characters
-    ic = r"[a-zA-Z0-9_]"
+IDENTIFIER_CHARACTERS = r"[a-zA-Z0-9_]"
 
-    # "full characters" or something. Anything that could appear in a used
-    # URL, function argument, file name, etc
-    fc = r"[a-zA-Z0-9_.:@/\-]"
+# Anything that could appear in a used
+# URL, function argument, file name, etc
+FULL_CHARACTERS = r"[a-zA-Z0-9_.:@/\-]"
+
+KWARG_ARG_REGEX = (
+    rf"({IDENTIFIER_CHARACTERS}+\s*=\s*"
+    rf"({FULL_CHARACTERS}+|\"[^\"]*\"|'[^']*'))"
+)
+
+
+def substitution_regex() -> re.Pattern:
+    ic = IDENTIFIER_CHARACTERS
+    fc = FULL_CHARACTERS
 
     # function name followed by a single argument
     function_regex = rf"(?P<func>{ic}+)\((?P<arg>{fc}*)\)"
@@ -36,7 +45,7 @@ def substitution_regex() -> re.Pattern:
     # k = v args with any amount of whitespace between them
     kwarg_file_regex = (
         rf"(?P<kwarg_file>{fc}+)"
-        rf"\(\s*(?P<args>({ic}+\s*=\s*({fc}+|\"[^\"]+\")(,\s*|\s*(?=\))))*)\)"
+        rf"\(\s*(?P<args>({KWARG_ARG_REGEX}(,\s*|\s*(?=\))))*)\)"
     )
 
     # file name
@@ -157,6 +166,12 @@ def constant(
         return constant(name)
 
 
+def unique_string() -> str:
+    while (s := uuid.uuid4().hex[:8].upper())[0].isdigit():
+        pass
+    return s
+
+
 def function_from_name(
     funcs: typing.List[typing.Callable], name: str
 ) -> typing.Callable:
@@ -168,7 +183,13 @@ def function_from_name(
 
 
 def function_substitution(func: str, arg: str) -> str:
-    functions = [bootstrap_icon, stylesheet, javascript, constant]
+    functions = [
+        bootstrap_icon,
+        stylesheet,
+        javascript,
+        constant,
+        unique_string,
+    ]
     args = [s.strip() for s in arg.split(",")]
     return function_from_name(functions, func)(*args)  # type: ignore
 
@@ -231,7 +252,7 @@ def process_ifdefs(html: str, kwargs: typing.Dict[str, str]) -> str:
 
 
 def remove_quotes(string: str) -> str:
-    if string.startswith('"'):
+    if string.startswith('"') or string.startswith("'"):
         return string[1:-1]
     return string
 
@@ -242,7 +263,10 @@ def kwarg_file_subsitution(file: str, args: str) -> str:
         k.upper(): remove_quotes(v)
         for k, v in map(
             lambda arg: re.split(r"\s*=\s*", arg, 1),
-            [term for term in re.split(r",\s*", args.strip()) if term],
+            [
+                term.group(0)
+                for term in re.finditer(KWARG_ARG_REGEX, args.strip())
+            ],
         )
     }
 
