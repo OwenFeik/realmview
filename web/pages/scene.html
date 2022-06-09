@@ -20,36 +20,17 @@
           import init from "/pkg/client.js";
           init();
         </script>
-        <canvas id="canvas" tabindex="-1"></canvas>
-        <div class="position-absolute btn-group-vertical" id="show_offcanvas" style="left: 0.5em; top: 0.5em;">
-          <button
-            class="btn btn-secondary btn-sm shadow-none"
-            type="button"
-            data-bs-toggle="offcanvas"
-            data-bs-target="#media_offcanvas"
-            aria-controls="media_offcanvas"
-          >
-            Media {{ bootstrap_icon(chevron-right) }}
-          </button>
-          <button
-            class="btn btn-secondary btn-sm shadow-none"
-            type="button"
-            data-bs-toggle="offcanvas"
-            data-bs-target="#game_offcanvas"
-            aria-controls="game_offcanvas"
-          >
-            Game {{ bootstrap_icon(chevron-right) }}
-          </button>
-          <button
-            class="btn btn-secondary btn-sm shadow-none"
-            type="button"
-            data-bs-toggle="offcanvas"
-            data-bs-target="#project_offcanvas"
-            aria-controls="project_offcanvas"
-          >
-            Project {{ bootstrap_icon(chevron-right) }}
-          </button>
+        <canvas id="canvas" class="bg-light" tabindex="-1"></canvas>
+        <div
+          class="position-absolute btn-group-vertical"
+          id="show_offcanvas"
+          style="left: {{ constant(HOVER_ELEM_INSET) }}; top: {{ constant(HOVER_ELEM_INSET) }};"
+        >
+          {{ offcanvas_button(target=media) }}
+          {{ offcanvas_button(target=game) }}
+          {{ offcanvas_button(target=project) }}
         </div>
+        {{ scene/layers/layers_list.html }}
         {{ scene/media/media_offcanvas.html }}
         {{ scene/game/game_offcanvas.html }}
         {{ scene/project/project_offcanvas.html }}

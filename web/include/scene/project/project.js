@@ -187,7 +187,7 @@ function set_active_project(project_key, scene_key = null) {
     update_url_project_scene();
 
     if (!project_key) {
-        new_project();
+        create_new_project();
         return;
     }
 
@@ -215,7 +215,7 @@ function set_active_scene(scene_key) {
     update_url_project_scene();
 
     if (!scene_key) {
-        new_scene();
+        create_new_scene();
         return;
     }
 
@@ -224,7 +224,7 @@ function set_active_scene(scene_key) {
         resp => {
             document.getElementById("scene_select").value = scene_key;
             document.getElementById("scene_title").value = resp.title;
-            RustFuncs.load_scene(resp.scene);
+            load_scene(resp.scene);
             update_url_project_scene();
         },
         null,
@@ -232,14 +232,14 @@ function set_active_scene(scene_key) {
     );
 }
 
-function new_project() {
+function create_new_project() {
     document.getElementById("project_title").value = 
         "{{ constant(DEFAULT_TITLE) }}";
     populate_scene_select();
-    new_scene();
+    create_new_scene();
 }
 
-function new_scene() {
+function create_new_scene() {
     document.getElementById("scene_title").value =
         "{{ constant(DEFAULT_TITLE) }}";
     let proj_id = parseInt(
@@ -248,7 +248,7 @@ function new_scene() {
             .selectedOptions[0]
             .getAttribute("{{ constant(DATA_ID_ATTR) }}")
     );
-    RustFuncs.new_scene(proj_id);
+    new_scene(proj_id);
 }
 
 function save_project() {
@@ -262,7 +262,7 @@ function save_project() {
         },
         resp => {
             load_projects();
-            RustFuncs.load_scene(resp.scene);
+            load_scene(resp.scene);
         },
         null,
         "save_project_loading"

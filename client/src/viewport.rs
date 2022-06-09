@@ -7,7 +7,7 @@ use crate::{
 use bincode::serialize;
 use scene::{
     comms::{ClientEvent, ClientMessage, SceneEvent, SceneEventAck, ServerEvent},
-    Id, Rect, Scene, ScenePoint,
+    Id, Rect, Scene, ScenePoint, Layer,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -327,6 +327,10 @@ impl Viewport {
             Ok(v) => v,
             Err(_) => vec![],
         }
+    }
+
+    pub fn layers(&self) -> &[Layer] {
+        &self.scene.layers
     }
 
     pub fn new_scene(&mut self, id: Id) {

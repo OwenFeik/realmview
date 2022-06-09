@@ -1,0 +1,11 @@
+PREAMBLE {{
+if kwargs.get("LABEL") is None:
+  kwargs["LABEL"] = kwargs["TARGET"].capitalize()
+}}
+<button
+  class="btn btn-primary btn-sm shadow-none"
+  type="button"
+  data-bs-toggle="offcanvas"
+  data-bs-target="#{{ TARGET }}_offcanvas"
+  aria-controls="{{ TARGET }}_offcanvas"
+>{{ LABEL }} {{ bootstrap_icon(chevron-right) }}</button>

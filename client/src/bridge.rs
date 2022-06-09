@@ -1,4 +1,7 @@
-use js_sys::{Array, Float32Array};
+use js_sys::Array;
+use scene::Layer;
+use serde_derive::Deserialize;
+use serde_derive::Serialize;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -27,26 +30,14 @@ extern "C" {
     #[wasm_bindgen(js_name = expose_closure)]
     pub fn expose_closure_string_string(name: &str, closure: &Closure<dyn FnMut(String) -> String>);
 
+    #[wasm_bindgen(js_name = expose_closure)]
+    pub fn expose_closure_array(name: &str, closure: &Closure<dyn FnMut() -> Array>);
+
     #[wasm_bindgen(js_namespace = console)]
     pub fn log(s: &str);
 
     #[wasm_bindgen(js_namespace = console, js_name = log)]
-    pub fn log_bool(b: bool);
-
-    #[wasm_bindgen(js_namespace = console, js_name = log)]
-    pub fn log_int(i: i32);
-
-    #[wasm_bindgen(js_namespace = console, js_name = log)]
     pub fn log_js_value(v: &JsValue);
-
-    #[wasm_bindgen(js_namespace = console, js_name = log)]
-    pub fn log_float(f: f32);
-
-    #[wasm_bindgen(js_namespace = console, js_name = log)]
-    pub fn log_arr(a: Float32Array);
-
-    #[wasm_bindgen(js_namespace = console, js_name = log)]
-    pub fn log_image(i: &HtmlImageElement);
 }
 
 pub type Gl = WebGl2RenderingContext;
@@ -496,6 +487,35 @@ impl Context {
     pub fn draw_outline(&mut self, vp: Rect, outline: Rect) {
         self.renderer.draw_outline(vp, outline);
     }
+}
+
+#[wasm_bindgen(getter_with_clone)]
+#[derive(Deserialize, Serialize)]
+pub struct JsLayerInfo {
+    pub id: Id,
+    pub title: String,
+    pub z: f64,
+    pub n_sprites: f64,
+}
+
+impl JsLayerInfo {
+    fn from(layer: &Layer) -> Self {
+        JsLayerInfo {
+            id: layer.local_id,
+            title: layer.title.clone(),
+            z: layer.z as f64,
+            n_sprites: layer.sprites.len() as f64
+        }
+    }
+
+    fn js_value_from(layer: &Layer) -> JsValue {
+        // Safe to unwrap as this type is known to be deserialisable.
+        JsValue::from_serde(&Self::from(layer)).unwrap()
+    }
+}
+
+pub fn layer_info(layers: &[Layer]) -> Array {
+    layers.iter().map(|l| JsLayerInfo::js_value_from(l)).collect()
 }
 
 fn create_context(element: &HtmlCanvasElement) -> Result<Gl, JsError> {

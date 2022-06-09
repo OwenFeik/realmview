@@ -4,10 +4,10 @@
     * Make map size configurable, as setting on scene, editable from project
         offcanvas
 * Layers
-    * Add UI to show existing layers
     * Allow addition of new layers
     * Allow editing of existing layers to alter z-level, title
     * Lock and unlock layers
+    * Show or hide layers
 * Sprites
     * Select sprites as a group
     * Move sprites as a group
@@ -27,5 +27,7 @@
             
             * Move sprites
             * Add sprites
+    * Editors should be able to change the current scene to another in the
+        project, should be able to save the project. 
 * Callum requests
     * docs.google.com/document/d/1uKsAKS-huxNqc4kuHFot0McXTLlT3p83ojEalAcBtK0/
