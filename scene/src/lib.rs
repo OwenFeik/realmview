@@ -101,7 +101,7 @@ impl Scene {
         }
     }
 
-    fn layer(&mut self, layer: Id) -> Option<&mut Layer> {
+    pub fn layer(&mut self, layer: Id) -> Option<&mut Layer> {
         if layer == 0 {
             self.layers.iter_mut().find(|l| l.z == 1)
         } else {
@@ -288,6 +288,10 @@ impl Scene {
     pub fn apply_event(&mut self, event: SceneEvent, canonical: bool) -> SceneEventAck {
         match event {
             SceneEvent::Dummy => SceneEventAck::Approval,
+            SceneEvent::LayerLockedChange(l, locked) => {
+                self.layer_canonical(l).map(|l| l.set_locked(locked));
+                SceneEventAck::Approval
+            }
             SceneEvent::LayerNew(id, title, z) => {
                 let mut l = Layer::new(&title, z);
 
@@ -315,6 +319,10 @@ impl Scene {
                 } else {
                     SceneEventAck::Rejection
                 }
+            }
+            SceneEvent::LayerVisibilityChange(l, visible) => {
+                self.layer_canonical(l).map(|l| l.set_visible(visible));
+                SceneEventAck::Approval
             }
             SceneEvent::SpriteNew(s, l) => {
                 if let Some(canonical_id) = s.canonical_id {
@@ -370,11 +378,17 @@ impl Scene {
     pub fn unwind_event(&mut self, event: SceneEvent) {
         match event {
             SceneEvent::Dummy => (),
+            SceneEvent::LayerLockedChange(l, locked) => {
+                self.layer_canonical(l).map(|l| l.set_locked(!locked));
+            }
             SceneEvent::LayerNew(id, _, _) => self.remove_layer(id),
             SceneEvent::LayerRename(id, old_title, _) => {
                 if let Some(l) = self.layer_canonical(id) {
                     l.rename(old_title);
                 }
+            }
+            SceneEvent::LayerVisibilityChange(l, visible) => {
+                self.layer_canonical(l).map(|l| l.set_visible(!visible));
             }
             SceneEvent::SpriteNew(s, l) => self.remove_sprite(s.local_id, l),
             SceneEvent::SpriteMove(id, from, to) => {

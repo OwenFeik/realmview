@@ -50,6 +50,20 @@ var RustFuncs = {
     
     Renames the layer with local ID layer_id to the provided title.
     */
+
+    layer_visible: missing_func,
+    /*
+    function layer_visible(layer_id: number, visible: bool)
+
+    Sets visibility for the specified layer.
+    */
+
+    layer_locked: missing_func,
+    /*
+    function layer_locked(layer_id: number, locked: bool)
+
+    Sets locked status for the specified layer.
+    */
 };
 
 // The below functions are used as externs in bridge.rs

@@ -6,8 +6,10 @@ use super::{Id, Rect, Scene, Sprite};
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum SceneEvent {
     Dummy,                           // To trigger redraws, etc
+    LayerLockedChange(Id, bool),     // (layer, status)
     LayerNew(Id, String, i32),       // (local_id, title, z)
     LayerRename(Id, String, String), // (layer, old_title, new_title)
+    LayerVisibilityChange(Id, bool), // (layer, status)
     SpriteNew(Sprite, Id),           // (new_sprite, layer)
     SpriteMove(Id, Rect, Rect),      // (sprite_id, from, to)
     SpriteTextureChange(Id, Id, Id), // (sprite_id, old_texture, new_texture)

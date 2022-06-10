@@ -33,6 +33,9 @@ extern "C" {
     pub fn expose_closure_f64_string(name: &str, closure: &Closure<dyn FnMut(f64, String)>);
 
     #[wasm_bindgen(js_name = expose_closure)]
+    pub fn expose_closure_f64_bool(name: &str, closure: &Closure<dyn FnMut(f64, bool)>);
+
+    #[wasm_bindgen(js_name = expose_closure)]
     pub fn expose_closure_array(name: &str, closure: &Closure<dyn FnMut() -> Array>);
 
     #[wasm_bindgen(js_namespace = console)]
@@ -430,21 +433,21 @@ impl Context {
         }
     }
 
-    pub fn load_texture_queue(&mut self) {
+    // Returns true if new textures were loaded.
+    pub fn load_texture_queue(&mut self) -> bool {
         if self.texture_queue.length() == 0 {
-            return;
+            return false;
         }
 
-        if self.texture_queue.length() > 0 {
-            while self.texture_queue.length() > 0 {
-                let img = self.texture_queue.pop();
+        while self.texture_queue.length() > 0 {
+            let img = self.texture_queue.pop();
 
-                // Cast the img to a HTMLImageElement; this array will only contain
-                // such elements, so this cast is safe.
-                let img = img.unchecked_ref::<HtmlImageElement>();
-                self.renderer.load_image(img);
-            }
+            // Cast the img to a HTMLImageElement; this array will only contain
+            // such elements, so this cast is safe.
+            let img = img.unchecked_ref::<HtmlImageElement>();
+            self.renderer.load_image(img);
         }
+        true
     }
 
     pub fn clear(&self, vp: Rect) {
@@ -477,6 +480,8 @@ pub struct JsLayerInfo {
     pub id: Id,
     pub title: String,
     pub z: f64,
+    pub visible: bool,
+    pub locked: bool,
     pub n_sprites: f64,
 }
 
@@ -486,6 +491,8 @@ impl JsLayerInfo {
             id: layer.local_id,
             title: layer.title.clone(),
             z: layer.z as f64,
+            visible: layer.visible,
+            locked: layer.locked,
             n_sprites: layer.sprites.len() as f64,
         }
     }
@@ -497,10 +504,7 @@ impl JsLayerInfo {
 }
 
 pub fn layer_info(layers: &[Layer]) -> Array {
-    layers
-        .iter()
-        .map(JsLayerInfo::js_value_from)
-        .collect()
+    layers.iter().map(JsLayerInfo::js_value_from).collect()
 }
 
 fn create_context(element: &HtmlCanvasElement) -> Result<Gl, JsError> {

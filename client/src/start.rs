@@ -6,8 +6,8 @@ use parking_lot::Mutex;
 use wasm_bindgen::prelude::*;
 
 use crate::bridge::{
-    expose_closure_array, expose_closure_f64, expose_closure_f64_string, expose_closure_string_in,
-    expose_closure_string_out, layer_info, log, request_animation_frame,
+    expose_closure_array, expose_closure_f64, expose_closure_f64_bool, expose_closure_f64_string,
+    expose_closure_string_in, expose_closure_string_out, layer_info, log, request_animation_frame,
 };
 use crate::client::Client;
 use crate::viewport::Viewport;
@@ -74,6 +74,20 @@ pub fn start() -> Result<(), JsValue> {
     }) as Box<dyn FnMut(f64, String)>);
     expose_closure_f64_string("rename_layer", &rename_layer_closure);
     rename_layer_closure.forget();
+
+    let scene_ref = scene.clone();
+    let layer_visibility_closure = Closure::wrap(Box::new(move |id: f64, visible: bool| {
+        scene_ref.lock().set_layer_visible(id as i64, visible);
+    }) as Box<dyn FnMut(f64, bool)>);
+    expose_closure_f64_bool("layer_visible", &layer_visibility_closure);
+    layer_visibility_closure.forget();
+
+    let scene_ref = scene.clone();
+    let layer_locked_closure = Closure::wrap(Box::new(move |id: f64, locked: bool| {
+        scene_ref.lock().set_layer_locked(id as i64, locked);
+    }) as Box<dyn FnMut(f64, bool)>);
+    expose_closure_f64_bool("layer_locked", &layer_locked_closure);
+    layer_locked_closure.forget();
 
     let scene_ref = scene.clone();
     let scene_layers_closure = Closure::wrap(

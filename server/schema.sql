@@ -47,7 +47,9 @@ CREATE TABLE IF NOT EXISTS layers (
     id INTEGER PRIMARY KEY,
     scene INTEGER REFERENCES scenes(id) ON DELETE CASCADE NOT NULL,
     title TEXT,
-    z INTEGER
+    z INTEGER,
+    visible INTEGER,
+    locked INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS sprites (

@@ -8,6 +8,10 @@ const Icons = {
     eye_slash: `{{ bootstrap_icon(eye-slash) }}`
 };
 
+function get_icon(name) {
+    return Icons[name.replace("-", "_")];
+}
+
 function form_to_json(form) {
     let form_prefix = form.id.replace("_form", "") + "_";
 

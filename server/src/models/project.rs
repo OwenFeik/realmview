@@ -258,6 +258,8 @@ mod layer {
         scene: i64,
         title: String,
         z: i64,
+        visible: bool,
+        locked: bool,
     }
 
     impl LayerRecord {
@@ -267,6 +269,8 @@ mod layer {
                 canonical_id: Some(self.id),
                 title: self.title.clone(),
                 z: self.z as i32,
+                visible: self.visible,
+                locked: self.locked,
                 sprites: vec![],
                 z_min: 0,
                 z_max: 0,
@@ -286,9 +290,11 @@ mod layer {
             conn: &mut SqliteConnection,
             layer: &scene::Layer,
         ) -> anyhow::Result<LayerRecord> {
-            sqlx::query_as("UPDATE layers SET (title, z) = (?1, ?2) WHERE id = ?3 RETURNING *;")
+            sqlx::query_as("UPDATE layers SET (title, z, visible, locked) = (?1, ?2, ?3, ?4) WHERE id = ?5 RETURNING *;")
                 .bind(layer.title.clone())
                 .bind(layer.z)
+                .bind(layer.visible)
+                .bind(layer.locked)
                 .bind(layer.canonical_id.unwrap())
                 .fetch_one(conn)
                 .await
@@ -300,10 +306,12 @@ mod layer {
             layer: &scene::Layer,
             scene: i64,
         ) -> anyhow::Result<LayerRecord> {
-            sqlx::query_as("INSERT INTO layers (scene, title, z) VALUES (?1, ?2, ?3) RETURNING *;")
+            sqlx::query_as("INSERT INTO layers (scene, title, z, visible, locked) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING *;")
                 .bind(scene)
                 .bind(&layer.title)
                 .bind(layer.z as i64)
+                .bind(layer.visible)
+                .bind(layer.locked)
                 .fetch_one(conn)
                 .await
                 .map_err(|_| anyhow::anyhow!("Failed to create layer."))

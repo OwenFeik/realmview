@@ -2,10 +2,26 @@
   {{
     editable_input(
       value="${label}",
-      after='
-        {{ icon_button(icon=unlock, outline=1, small=1, onclick="") }}
-        {{ icon_button(icon=eye, outline=1, small=1, onclick="") }}
-      ',
+      after=|
+        {{
+          toggle_button(
+            icon_a=unlock,
+            icon_b=lock,
+            outline=1,
+            small=1,
+            action="unlocked => RustFuncs.layer_locked(${id}, !unlocked)"
+          )
+        }}
+        {{
+          toggle_button(
+            icon_a=eye,
+            icon_b="eye-slash",
+            outline=1,
+            small=1,
+            action="visible => RustFuncs.layer_visible(${id}, visible)"
+          )
+        }}
+      |,
       small=1,
       action="title => rename_layer(${id}, title)"
     )

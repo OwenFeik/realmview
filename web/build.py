@@ -30,7 +30,7 @@ FULL_CHARACTERS = r"[a-zA-Z0-9_.:@/\-]"
 
 KWARG_ARG_REGEX = (
     rf"({IDENTIFIER_CHARACTERS}+\s*=\s*"
-    rf"({FULL_CHARACTERS}+|\"[^\"]*\"|'[^']*'))"
+    rf"({FULL_CHARACTERS}+|\"[^\"]*\"|'[^']*'|\|[^\|]*\|))"
 )
 
 
@@ -251,8 +251,11 @@ def process_ifdefs(html: str, kwargs: typing.Dict[str, str]) -> str:
     return html
 
 
+QUOTE_CHARS = "\"'|"
+
+
 def remove_quotes(string: str) -> str:
-    if string.startswith('"') or string.startswith("'"):
+    if string[0] in QUOTE_CHARS:
         return string[1:-1]
     return string
 

@@ -12,6 +12,8 @@ pub struct Layer {
     pub canonical_id: Option<Id>,
     pub title: String,
     pub z: i32,
+    pub visible: bool,
+    pub locked: bool,
     pub sprites: Vec<Sprite>,
     pub z_min: i32,
     pub z_max: i32,
@@ -29,6 +31,8 @@ impl Layer {
             canonical_id: None,
             title: title.to_string(),
             z,
+            visible: true,
+            locked: false,
             sprites: Vec::new(),
             z_min: 0,
             z_max: 0,
@@ -40,6 +44,26 @@ impl Layer {
         std::mem::swap(&mut old_title, &mut self.title);
         self.canonical_id
             .map(|id| SceneEvent::LayerRename(id, old_title, self.title.clone()))
+    }
+
+    pub fn set_visible(&mut self, visible: bool) -> Option<SceneEvent> {
+        if self.visible != visible {
+            self.visible = visible;
+            self.canonical_id
+                .map(|id| SceneEvent::LayerVisibilityChange(id, visible))
+        } else {
+            None
+        }
+    }
+
+    pub fn set_locked(&mut self, locked: bool) -> Option<SceneEvent> {
+        if self.locked != locked {
+            self.locked = locked;
+            self.canonical_id
+                .map(|id| SceneEvent::LayerLockedChange(id, locked))
+        } else {
+            None
+        }
     }
 
     pub fn refresh_local_ids(&mut self) {

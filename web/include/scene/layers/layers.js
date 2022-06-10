@@ -1,6 +1,21 @@
-function layers_list_entry(id, label) {
-    // uses id and label
-    return template_to_element(`{{ scene/layers/layer_list_item.html }}`);
+function layers_list_entry(layer) {
+    let id = layer.id;
+    let label = layer.title; // Used in below
+    let el = template_to_element(`{{ scene/layers/layer_list_item.html }}`);
+
+    if (!layer.visible) {
+        let btn = el.querySelector(".bi-eye").parentNode; 
+        btn.setAttribute("data-value", "0");
+        btn.innerHTML = get_icon("eye-slash");
+    }
+
+    if (layer.locked) {
+        let btn = el.querySelector(".bi-unlock").parentNode;
+        btn.setAttribute("data-value", "0"); 
+        btn.innerHTML = get_icon("lock");
+    }
+
+    return el;
 }
 
 function load_layers() {
@@ -14,7 +29,7 @@ function load_layers() {
         RustFuncs.scene_layers()
         .sort((a, b) => b.z - a.z)
         .forEach(layer => {
-            list.appendChild(layers_list_entry(layer.id, layer.title))
+            list.appendChild(layers_list_entry(layer))
         });
     }
     catch {

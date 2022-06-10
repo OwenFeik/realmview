@@ -258,6 +258,12 @@ impl Viewport {
         }
     }
 
+    fn client_option(&mut self, event_option: Option<SceneEvent>) {
+        if let Some(scene_event) = event_option {
+            self.client_event(scene_event);
+        }
+    }
+
     fn redraw(&mut self) {
         let vp = Rect::scaled_from(self.viewport, self.grid_zoom);
 
@@ -271,8 +277,10 @@ impl Viewport {
                 background_drawn = true;
             }
 
-            self.context
-                .draw_sprites(vp, &layer.sprites, self.grid_zoom);
+            if layer.visible {
+                self.context
+                    .draw_sprites(vp, &layer.sprites, self.grid_zoom);
+            }
         }
 
         if !background_drawn {
@@ -291,14 +299,10 @@ impl Viewport {
     }
 
     pub fn animation_frame(&mut self) {
-        // We can either process the mouse events and then handle newly loaded
-        // images or vice-versa. I choose to process events first because it
-        // strikes me as unlikely that the user will have intentionally
-        // interacted with a newly loaded image within a frame of it's
-        // appearing, and more likely that they instead clicked something that
-        // is now behind a newly loaded image.
         self.process_ui_events();
-        self.context.load_texture_queue();
+        if self.context.load_texture_queue() {
+            self.redraw_needed = true;
+        }
         self.process_server_events();
 
         self.update_viewport();
@@ -337,15 +341,28 @@ impl Viewport {
     }
 
     pub fn new_sprite(&mut self, texture: Id) {
-        if let Some(e) = self.scene.add_sprite(Sprite::new(texture), 0) {
-            self.client_event(e);
-        }
+        let opt = self.scene.add_sprite(Sprite::new(texture), 0);
+        self.client_option(opt);
         self.redraw_needed = true;
     }
 
     pub fn rename_layer(&mut self, layer: Id, title: String) {
-        if let Some(e) = self.scene.rename_layer(layer, title) {
-            self.client_event(e);
+        let opt = self.scene.rename_layer(layer, title);
+        self.client_option(opt);
+    }
+
+    pub fn set_layer_visible(&mut self, layer: Id, visible: bool) {
+        if let Some(l) = self.scene.layer(layer) {
+            let opt = l.set_visible(visible);
+            self.client_option(opt);
+            self.redraw_needed = true;
+        }
+    }
+
+    pub fn set_layer_locked(&mut self, layer: Id, locked: bool) {
+        if let Some(l) = self.scene.layer(layer) {
+            let opt = l.set_locked(locked);
+            self.client_option(opt);
         }
     }
 }

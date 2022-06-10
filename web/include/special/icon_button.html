@@ -8,4 +8,5 @@
     type="button"
     IFDEF(ID) {{ id="{{ ID }}" }}
     IFDEF(ONCLICK) {{ onclick="{{ ONCLICK }}" }}
+    IFDEF(ATTRS) {{ {{ ATTRS }} }}
   >{{ bootstrap_icon({{ ICON }}) }}</button>
