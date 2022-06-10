@@ -45,7 +45,7 @@ lint:
 	cargo fmt
 	cargo clippy
 	python3 -m black ${root}/web/build.py
-	python3 -m mypy ${root}/web/build.py
+	MYPY_CACHE_DIR=${build}/.mypy_cache python3 -m mypy ${root}/web/build.py
 
 install:
 	cargo install wasm-pack
