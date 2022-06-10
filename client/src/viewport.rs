@@ -7,7 +7,7 @@ use crate::{
 use bincode::serialize;
 use scene::{
     comms::{ClientEvent, ClientMessage, SceneEvent, SceneEventAck, ServerEvent},
-    Id, Layer, Rect, Scene, ScenePoint,
+    Id, Layer, Rect, Scene, ScenePoint, Sprite,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -206,12 +206,11 @@ impl Viewport {
     }
 
     fn unwind_event(&mut self, id: Id) {
-        if let Some(c) = self.issued_events.iter().find(|c| c.id == id) {
-            if let ClientEvent::SceneChange(e) = &c.event {
+        if let Some(i) = self.issued_events.iter().position(|c| c.id == id) {
+            if let ClientEvent::SceneChange(e) = self.issued_events.remove(i).event {
                 self.scene.unwind_event(e);
             }
         }
-        self.issued_events.retain(|c| c.id != id);
     }
 
     fn process_scene_ack(&mut self, id: Id, ack: SceneEventAck) {
@@ -299,19 +298,7 @@ impl Viewport {
         // appearing, and more likely that they instead clicked something that
         // is now behind a newly loaded image.
         self.process_ui_events();
-        if let Some(new_sprites) = self.context.load_queue() {
-            for e in new_sprites {
-                if let SceneEvent::SpriteNew(s, _) = e {
-                    let l = self.scene.layers[0].local_id;
-                    if let Some(event) = self.scene.add_sprite(s, l) {
-                        self.client_event(event);
-                    }
-                }
-            }
-
-            self.redraw_needed = true;
-        };
-
+        self.context.load_texture_queue();
         self.process_server_events();
 
         self.update_viewport();
@@ -354,5 +341,18 @@ impl Viewport {
         self.scene.h = new.h;
 
         self.redraw_needed = true;
+    }
+
+    pub fn new_sprite(&mut self, texture: Id) {
+        if let Some(e) = self.scene.add_sprite(Sprite::new(texture), 0) {
+            self.client_event(e);
+        }
+        self.redraw_needed = true;
+    }
+
+    pub fn rename_layer(&mut self, layer: Id, title: String) {
+        if let Some(e) = self.scene.rename_layer(layer, title) {
+            self.client_event(e);
+        }
     }
 }

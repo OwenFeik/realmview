@@ -10,25 +10,27 @@ use web_sys::{
     InputEvent, ProgressEvent, UiEvent, Url, WebGl2RenderingContext, Window,
 };
 
-use scene::{comms::SceneEvent, Id, Rect, Sprite};
+use scene::{Id, Rect, Sprite};
 
 use crate::programs::Renderer;
 use crate::viewport::ViewportPoint;
 
 #[wasm_bindgen]
 extern "C" {
-    pub fn get_texture_queue() -> Array;
-    pub fn get_event_queue() -> Array;
+    fn get_texture_queue() -> Array;
     pub fn load_texture(id: Id);
 
     #[wasm_bindgen(js_name = expose_closure)]
     pub fn expose_closure_f64(name: &str, closure: &Closure<dyn FnMut(f64)>);
 
     #[wasm_bindgen(js_name = expose_closure)]
-    pub fn expose_closure_string(name: &str, closure: &Closure<dyn FnMut() -> String>);
+    pub fn expose_closure_string_out(name: &str, closure: &Closure<dyn FnMut() -> String>);
 
     #[wasm_bindgen(js_name = expose_closure)]
-    pub fn expose_closure_string_string(name: &str, closure: &Closure<dyn FnMut(String) -> String>);
+    pub fn expose_closure_string_in(name: &str, closure: &Closure<dyn FnMut(String)>);
+
+    #[wasm_bindgen(js_name = expose_closure)]
+    pub fn expose_closure_f64_string(name: &str, closure: &Closure<dyn FnMut(f64, String)>);
 
     #[wasm_bindgen(js_name = expose_closure)]
     pub fn expose_closure_array(name: &str, closure: &Closure<dyn FnMut() -> Array>);
@@ -382,10 +384,6 @@ pub struct Context {
     // then loads any images waiting in the queue before rendering each frame.
     // Wrapped in Rc such that it can be accessed from a closure passed to JS.
     texture_queue: Rc<Array>,
-
-    // A JS Array which the front end pushes events to. At this stage such
-    // events are just sprite additions.
-    event_queue: Rc<Array>,
 }
 
 impl Context {
@@ -397,7 +395,6 @@ impl Context {
             canvas,
             renderer,
             texture_queue: Rc::new(get_texture_queue()),
-            event_queue: Rc::new(get_event_queue()),
         };
 
         Ok(ctx)
@@ -433,12 +430,10 @@ impl Context {
         }
     }
 
-    pub fn load_queue(&mut self) -> Option<Vec<SceneEvent>> {
-        if self.texture_queue.length() == 0 && self.event_queue.length() == 0 {
-            return None;
+    pub fn load_texture_queue(&mut self) {
+        if self.texture_queue.length() == 0 {
+            return;
         }
-
-        let mut events = Vec::new();
 
         if self.texture_queue.length() > 0 {
             while self.texture_queue.length() > 0 {
@@ -449,20 +444,7 @@ impl Context {
                 let img = img.unchecked_ref::<HtmlImageElement>();
                 self.renderer.load_image(img);
             }
-
-            events.push(SceneEvent::Dummy);
         }
-
-        if self.event_queue.length() > 0 {
-            while self.event_queue.length() > 0 {
-                if let Some(id) = self.event_queue.pop().as_f64() {
-                    let id = id as i64;
-                    events.push(SceneEvent::SpriteNew(Sprite::new(id), 0));
-                }
-            }
-        }
-
-        Some(events)
     }
 
     pub fn clear(&self, vp: Rect) {

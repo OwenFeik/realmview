@@ -1,4 +1,6 @@
-const missing_func = () => console.error("Missing RustFunc.");
+const missing_func = (...args) => console.error(
+    "Missing RustFunc. Arguments: " + args
+);
 
 // These functions are populated by the WASM app, in start.rs.
 var RustFuncs = {
@@ -11,7 +13,7 @@ var RustFuncs = {
     
     load_scene: missing_func,
     /*
-    function load_scene(scene_encoded: string): string
+    function load_scene(scene_encoded: string)
 
     Given a base64 serde encoded scene, parses and sets as active this scene,
     overwriting the current scene.
@@ -32,6 +34,21 @@ var RustFuncs = {
     
     Returns array with a client::bridge::JsLayerInfo (exported type) struct for
     each layer in the scene.
+    */
+
+    new_sprite: missing_func,
+    /*
+    function new_sprite(texture_id: number)
+
+    Adds a new sprite with the provided texture to the scene. Will load the
+    texture if necessary.
+    */
+
+    rename_layer: missing_func,
+    /*
+    function rename_layer(layer_id: number, new_title: string)
+    
+    Renames the layer with local ID layer_id to the provided title.
     */
 };
 
@@ -62,15 +79,6 @@ function load_texture(texture_id) {
     media_manager.load_media_with_id(texture_id, i => texture_queue.push(i));
 }
 
-// Queue used to pass events in to the Context in bridge.rs. Currently this
-// is assumed to be an array of numbers which are interpreted as texture IDs
-// and used to add new sprites to the scene, but this should probably be
-// changed to actually contain SceneEvent structs at some stage.
-const event_queue = [];
-function get_event_queue() {
-    return event_queue;
-}
-
 // End :: Externs
 
 // Wrapper around the exported closure that also reloads the layer list to keep
@@ -90,7 +98,12 @@ function new_scene(project_id = 0) {
 // that image to the scene.
 function add_to_scene(image) {
     texture_queue.push(image);
-    event_queue.push(
+    RustFuncs.new_sprite(
         parseInt(image.getAttribute("{{ constant(DATA_ID_ATTR) }}"))
     );
+}
+
+function rename_layer(layer_id, new_title) {
+    RustFuncs.rename_layer(layer_id, new_title);
+    load_layers();
 }

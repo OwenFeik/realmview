@@ -2,6 +2,8 @@ use std::sync::atomic::{AtomicI64, Ordering};
 
 use serde_derive::{Deserialize, Serialize};
 
+use crate::comms::SceneEvent;
+
 use super::{Id, ScenePoint, Sprite};
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -31,6 +33,12 @@ impl Layer {
             z_min: 0,
             z_max: 0,
         }
+    }
+
+    pub fn rename(&mut self, new_title: String) -> Option<SceneEvent> {
+        let mut old_title = new_title;
+        std::mem::swap(&mut old_title, &mut self.title);
+        self.canonical_id.map(|id| SceneEvent::LayerRename(id, old_title, self.title.clone()))
     }
 
     pub fn refresh_local_ids(&mut self) {

@@ -6,7 +6,7 @@ use parking_lot::Mutex;
 use wasm_bindgen::prelude::*;
 
 use crate::bridge::{
-    expose_closure_array, expose_closure_f64, expose_closure_string, expose_closure_string_string,
+    expose_closure_array, expose_closure_f64, expose_closure_f64_string, expose_closure_string_in, expose_closure_string_out,
     layer_info, log, request_animation_frame,
 };
 use crate::client::Client;
@@ -37,7 +37,7 @@ pub fn start() -> Result<(), JsValue> {
         let data = scene_ref.lock().export();
         base64::encode(data)
     }) as Box<dyn FnMut() -> String>);
-    expose_closure_string("export_scene", &export_closure);
+    expose_closure_string_out("export_scene", &export_closure);
     export_closure.forget();
 
     let scene_ref = scene.clone();
@@ -45,14 +45,13 @@ pub fn start() -> Result<(), JsValue> {
         let s = match base64::decode(&scene_b64) {
             Ok(b) => match bincode::deserialize(&b) {
                 Ok(s) => s,
-                Err(e) => return format!("Deserialisation error: {}", e),
+                _ => return,
             },
-            Err(e) => return format!("Decoding error: {}", e),
+            _ => return,
         };
         scene_ref.lock().replace_scene(s);
-        "Saved successfully.".to_string()
-    }) as Box<dyn FnMut(String) -> String>);
-    expose_closure_string_string("load_scene", &load_scene_closure);
+    }) as Box<dyn FnMut(String)>);
+    expose_closure_string_in("load_scene", &load_scene_closure);
     load_scene_closure.forget();
 
     let scene_ref = scene.clone();
@@ -61,6 +60,20 @@ pub fn start() -> Result<(), JsValue> {
     }) as Box<dyn FnMut(f64)>);
     expose_closure_f64("new_scene", &new_scene_closure);
     new_scene_closure.forget();
+
+    let scene_ref = scene.clone();
+    let new_sprite_closure = Closure::wrap(Box::new(move |id: f64| {
+        scene_ref.lock().new_sprite(id as i64);
+    }) as Box<dyn FnMut(f64)>);
+    expose_closure_f64("new_sprite", &new_sprite_closure);
+    new_sprite_closure.forget();
+    
+    let scene_ref = scene.clone();
+    let rename_layer_closure = Closure::wrap(Box::new(move |id: f64, title: String| {
+        scene_ref.lock().rename_layer(id as i64, title);
+    }) as Box<dyn FnMut(f64, String)>);
+    expose_closure_f64_string("rename_layer", &rename_layer_closure);
+    rename_layer_closure.forget();
 
     let scene_ref = scene.clone();
     let scene_layers_closure = Closure::wrap(

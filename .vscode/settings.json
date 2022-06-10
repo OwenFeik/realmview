@@ -1,0 +1,3 @@
+{
+    "rust-analyzer.checkOnSave.extraArgs": ["--target-dir", "build/target"]
+}

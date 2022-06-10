@@ -139,6 +139,15 @@ impl Scene {
         self.layers.retain(|l| l.local_id != layer);
     }
 
+    pub fn rename_layer(&mut self, layer: Id, new_name: String) -> Option<SceneEvent> {
+        if let Some(l) = self.layer(layer) {
+            l.rename(new_name)
+        }
+        else {
+            None
+        }
+    }
+
     fn sprite(&mut self, local_id: Id) -> Option<&mut Sprite> {
         for layer in self.layers.iter_mut() {
             let s_opt = layer.sprite(local_id);
@@ -296,6 +305,20 @@ impl Scene {
 
                 SceneEventAck::LayerNew(id, canonical_id)
             }
+            SceneEvent::LayerRename(id, old_title, new_title) => {
+                if let Some(layer) = self.layer_canonical(id) {
+                    if layer.title == old_title {
+                        layer.rename(new_title);
+                        SceneEventAck::Approval
+                    }
+                    else {
+                        SceneEventAck::Rejection
+                    }
+                }
+                else {
+                    SceneEventAck::Rejection
+                }
+            }
             SceneEvent::SpriteNew(s, l) => {
                 if let Some(canonical_id) = s.canonical_id {
                     if self.sprite_canonical(canonical_id).is_none() {
@@ -347,10 +370,15 @@ impl Scene {
         };
     }
 
-    pub fn unwind_event(&mut self, event: &SceneEvent) {
-        match *event {
+    pub fn unwind_event(&mut self, event: SceneEvent) {
+        match event {
             SceneEvent::Dummy => (),
             SceneEvent::LayerNew(id, _, _) => self.remove_layer(id),
+            SceneEvent::LayerRename(id, old_title, _) => {
+                if let Some(l) = self.layer_canonical(id) {
+                    l.rename(old_title);
+                }
+            }
             SceneEvent::SpriteNew(s, l) => self.remove_sprite(s.local_id, l),
             SceneEvent::SpriteMove(id, from, to) => {
                 if let Some(s) = self.sprite_canonical(id) {

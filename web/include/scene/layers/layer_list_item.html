@@ -3,24 +3,11 @@
     editable_input(
       value="${label}",
       after='
-        {{
-          icon_button(
-            icon=unlock,
-            outline=true,
-            small=true,
-            onclick=""
-          )
-        }}
-        {{
-          icon_button(
-            icon=eye,
-            outline=true,
-            small=true,
-            onclick=""
-          )
-        }}
+        {{ icon_button(icon=unlock, outline=1, small=1, onclick="") }}
+        {{ icon_button(icon=eye, outline=1, small=1, onclick="") }}
       ',
-      small=true
+      small=1,
+      action="title => rename_layer(${id}, title)"
     )
   }}
 </li>

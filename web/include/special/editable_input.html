@@ -27,7 +27,7 @@ kwargs["ID"] = kwargs.get("ID", unique_string())
         else {
           input.disabled = true;
           this.innerHTML = Icons.pencil_square;
-          IFDEF(ACTION) {{ {{ ACTION }} }}
+          IFDEF(ACTION) {{ ({{ ACTION }})(input.value); }}
         }
       "
     )
