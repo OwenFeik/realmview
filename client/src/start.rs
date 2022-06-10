@@ -6,8 +6,8 @@ use parking_lot::Mutex;
 use wasm_bindgen::prelude::*;
 
 use crate::bridge::{
-    expose_closure_array, expose_closure_f64, expose_closure_f64_string, expose_closure_string_in, expose_closure_string_out,
-    layer_info, log, request_animation_frame,
+    expose_closure_array, expose_closure_f64, expose_closure_f64_string, expose_closure_string_in,
+    expose_closure_string_out, layer_info, log, request_animation_frame,
 };
 use crate::client::Client;
 use crate::viewport::Viewport;
@@ -67,7 +67,7 @@ pub fn start() -> Result<(), JsValue> {
     }) as Box<dyn FnMut(f64)>);
     expose_closure_f64("new_sprite", &new_sprite_closure);
     new_sprite_closure.forget();
-    
+
     let scene_ref = scene.clone();
     let rename_layer_closure = Closure::wrap(Box::new(move |id: f64, title: String| {
         scene_ref.lock().rename_layer(id as i64, title);

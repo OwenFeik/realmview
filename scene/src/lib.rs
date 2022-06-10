@@ -142,8 +142,7 @@ impl Scene {
     pub fn rename_layer(&mut self, layer: Id, new_name: String) -> Option<SceneEvent> {
         if let Some(l) = self.layer(layer) {
             l.rename(new_name)
-        }
-        else {
+        } else {
             None
         }
     }
@@ -310,12 +309,10 @@ impl Scene {
                     if layer.title == old_title {
                         layer.rename(new_title);
                         SceneEventAck::Approval
-                    }
-                    else {
+                    } else {
                         SceneEventAck::Rejection
                     }
-                }
-                else {
+                } else {
                     SceneEventAck::Rejection
                 }
             }

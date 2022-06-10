@@ -7,7 +7,7 @@ use super::{Id, Rect, Scene, Sprite};
 pub enum SceneEvent {
     Dummy,                           // To trigger redraws, etc
     LayerNew(Id, String, i32),       // (local_id, title, z)
-    LayerRename(Id, String, String),         // (layer, old_title, new_title)
+    LayerRename(Id, String, String), // (layer, old_title, new_title)
     SpriteNew(Sprite, Id),           // (new_sprite, layer)
     SpriteMove(Id, Rect, Rect),      // (sprite_id, from, to)
     SpriteTextureChange(Id, Id, Id), // (sprite_id, old_texture, new_texture)
