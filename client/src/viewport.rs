@@ -332,14 +332,7 @@ impl Viewport {
 
     pub fn replace_scene(&mut self, mut new: Scene) {
         new.refresh_local_ids();
-        self.scene.layers = new.layers;
-        self.scene.id = new.id;
-        self.scene.title = new.title;
-        self.scene.project = new.project;
-        self.scene.holding = scene::HeldObject::None;
-        self.scene.w = new.w;
-        self.scene.h = new.h;
-
+        self.scene = new;
         self.redraw_needed = true;
     }
 

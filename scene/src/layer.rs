@@ -6,7 +6,7 @@ use crate::comms::SceneEvent;
 
 use super::{Id, ScenePoint, Sprite};
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Layer {
     pub local_id: Id,
     pub canonical_id: Option<Id>,

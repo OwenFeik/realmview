@@ -499,7 +499,7 @@ impl JsLayerInfo {
 pub fn layer_info(layers: &[Layer]) -> Array {
     layers
         .iter()
-        .map(|l| JsLayerInfo::js_value_from(l))
+        .map(JsLayerInfo::js_value_from)
         .collect()
 }
 

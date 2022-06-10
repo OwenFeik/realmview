@@ -1,4 +1,4 @@
-use sqlx::SqlitePool;
+use sqlx::SqliteConnection;
 
 use crate::crypto;
 
@@ -17,22 +17,22 @@ pub struct Project {
 }
 
 impl Project {
-    async fn new(pool: &SqlitePool, user: i64) -> anyhow::Result<Project> {
+    async fn new(conn: &mut SqliteConnection, user: i64) -> anyhow::Result<Project> {
         sqlx::query_as(
             "INSERT INTO projects (project_key, user, title) VALUES (?1, ?2, ?3) RETURNING *;",
         )
         .bind(crypto::random_hex_string(RECORD_KEY_LENGTH)?)
         .bind(user)
         .bind("Untitled")
-        .fetch_one(pool)
+        .fetch_one(conn)
         .await
         .map_err(|e| anyhow::anyhow!(format!("Database error: {}", e)))
     }
 
-    pub async fn load(pool: &SqlitePool, id: i64) -> anyhow::Result<Project> {
+    pub async fn load(conn: &mut SqliteConnection, id: i64) -> anyhow::Result<Project> {
         let res = sqlx::query_as("SELECT * FROM projects WHERE id = ?1;")
             .bind(id)
-            .fetch_optional(pool)
+            .fetch_optional(conn)
             .await;
 
         match res {
@@ -42,30 +42,34 @@ impl Project {
         }
     }
 
-    pub async fn list(pool: &SqlitePool, user: i64) -> anyhow::Result<Vec<Project>> {
+    pub async fn list(conn: &mut SqliteConnection, user: i64) -> anyhow::Result<Vec<Project>> {
         sqlx::query_as("SELECT * FROM projects WHERE user = ?1;")
             .bind(user)
-            .fetch_all(pool)
+            .fetch_all(conn)
             .await
             .map_err(|e| anyhow::anyhow!(format!("Database error: {}", e)))
     }
 
     pub async fn get_or_create(
-        pool: &SqlitePool,
+        conn: &mut SqliteConnection,
         id: Option<i64>,
         user: i64,
     ) -> anyhow::Result<Project> {
         match id {
-            Some(id) => Project::load(pool, id).await,
-            None => Project::new(pool, user).await,
+            Some(id) => Project::load(conn, id).await,
+            None => Project::new(conn, user).await,
         }
     }
 
-    pub async fn update_title(&mut self, pool: &SqlitePool, title: String) -> anyhow::Result<()> {
+    pub async fn update_title(
+        &mut self,
+        conn: &mut SqliteConnection,
+        title: String,
+    ) -> anyhow::Result<()> {
         let res = sqlx::query("UPDATE projects SET title = ?1 WHERE id = ?2;")
             .bind(&title)
             .bind(self.id)
-            .execute(pool)
+            .execute(conn)
             .await;
 
         if let Err(e) = res {
@@ -80,12 +84,12 @@ impl Project {
 
     pub async fn update_scene(
         &self,
-        pool: &SqlitePool,
+        conn: &mut SqliteConnection,
         scene: scene::Scene,
         scene_title: String,
     ) -> anyhow::Result<SceneRecord> {
         let s = scene_record::SceneRecord::get_or_create(
-            pool,
+            conn,
             scene.id,
             self.id,
             scene_title,
@@ -95,23 +99,26 @@ impl Project {
         .await?;
 
         for layer in scene.layers.iter() {
-            let l = LayerRecord::get_or_create(pool, layer, s.id).await?;
+            let l = LayerRecord::update_or_create(conn, layer, s.id).await?;
 
             for sprite in layer.sprites.iter() {
-                SpriteRecord::save(pool, sprite, l.id).await?;
+                SpriteRecord::save(conn, sprite, l.id).await?;
             }
         }
 
         Ok(s)
     }
 
-    pub async fn list_scenes(&self, pool: &SqlitePool) -> anyhow::Result<Vec<SceneRecord>> {
-        SceneRecord::project_scenes(pool, self.id).await
+    pub async fn list_scenes(
+        &self,
+        conn: &mut SqliteConnection,
+    ) -> anyhow::Result<Vec<SceneRecord>> {
+        SceneRecord::project_scenes(conn, self.id).await
     }
 }
 
 mod scene_record {
-    use sqlx::SqlitePool;
+    use sqlx::SqliteConnection;
 
     use crate::crypto;
 
@@ -128,27 +135,27 @@ mod scene_record {
     }
 
     impl SceneRecord {
-        pub async fn load(pool: &SqlitePool, id: i64) -> anyhow::Result<SceneRecord> {
+        pub async fn load(conn: &mut SqliteConnection, id: i64) -> anyhow::Result<SceneRecord> {
             sqlx::query_as("SELECT * FROM scenes WHERE id = ?1;")
                 .bind(id)
-                .fetch_one(pool)
+                .fetch_one(conn)
                 .await
                 .map_err(|_| anyhow::anyhow!("Failed to find scene."))
         }
 
         pub async fn load_from_key(
-            pool: &SqlitePool,
-            scene_key: String,
+            conn: &mut SqliteConnection,
+            scene_key: &str,
         ) -> anyhow::Result<SceneRecord> {
             sqlx::query_as("SELECT * FROM scenes WHERE scene_key = ?1")
                 .bind(scene_key)
-                .fetch_one(pool)
+                .fetch_one(conn)
                 .await
                 .map_err(|_| anyhow::anyhow!("Failed to find scene."))
         }
 
         async fn create(
-            pool: &SqlitePool,
+            conn: &mut SqliteConnection,
             project: i64,
             title: &str,
             width: u32,
@@ -162,13 +169,13 @@ mod scene_record {
             .bind(title)
             .bind(width)
             .bind(height)
-            .fetch_one(pool)
+            .fetch_one(conn)
             .await
             .map_err(|e| anyhow::anyhow!("Failed to create scene: {e}"))
         }
 
         pub async fn get_or_create(
-            pool: &SqlitePool,
+            conn: &mut SqliteConnection,
             id: Option<i64>,
             project: i64,
             title: String,
@@ -176,30 +183,37 @@ mod scene_record {
             height: u32,
         ) -> anyhow::Result<SceneRecord> {
             let mut record = match id {
-                Some(id) => SceneRecord::load(pool, id).await,
-                None => SceneRecord::create(pool, project, &title, width, height).await,
+                Some(id) => SceneRecord::load(conn, id).await,
+                None => SceneRecord::create(conn, project, &title, width, height).await,
             }?;
 
             if record.title != title {
-                record.update_title(pool, &title).await?;
+                record.update_title(conn, &title).await?;
                 record.title = title;
             }
             Ok(record)
         }
 
-        async fn update_title(&self, pool: &SqlitePool, title: &str) -> anyhow::Result<()> {
+        async fn update_title(
+            &self,
+            conn: &mut SqliteConnection,
+            title: &str,
+        ) -> anyhow::Result<()> {
             sqlx::query("UPDATE scenes SET title = ?1 WHERE id = ?2;")
                 .bind(title)
                 .bind(self.id)
-                .execute(pool)
+                .execute(conn)
                 .await
                 .map_err(|_| anyhow::anyhow!("Failed to update scene title."))?;
             Ok(())
         }
 
-        pub async fn load_scene(&self, pool: &SqlitePool) -> anyhow::Result<scene::Scene> {
-            let layers = LayerRecord::load_scene_layers(pool, self.id).await?;
-            let mut sprites = SpriteRecord::sprites_for_layers(pool, &layers).await?;
+        pub async fn load_scene(
+            &self,
+            conn: &mut SqliteConnection,
+        ) -> anyhow::Result<scene::Scene> {
+            let layers = LayerRecord::load_scene_layers(conn, self.id).await?;
+            let mut sprites = SpriteRecord::sprites_for_layers(conn, &layers).await?;
             let mut layers = layers
                 .iter()
                 .map(|lr| lr.to_layer())
@@ -223,12 +237,12 @@ mod scene_record {
         }
 
         pub async fn project_scenes(
-            pool: &SqlitePool,
+            conn: &mut SqliteConnection,
             project: i64,
         ) -> anyhow::Result<Vec<SceneRecord>> {
             sqlx::query_as("SELECT * FROM scenes WHERE project = ?1;")
                 .bind(project)
-                .fetch_all(pool)
+                .fetch_all(conn)
                 .await
                 .map_err(|e| anyhow::anyhow!(format!("Failed to load scene list: {e}")))
         }
@@ -236,9 +250,9 @@ mod scene_record {
 }
 
 mod layer {
-    use sqlx::SqlitePool;
+    use sqlx::SqliteConnection;
 
-    #[derive(sqlx::FromRow)]
+    #[derive(Debug, sqlx::FromRow)]
     pub struct LayerRecord {
         pub id: i64,
         scene: i64,
@@ -259,16 +273,30 @@ mod layer {
             }
         }
 
-        async fn load(pool: &SqlitePool, id: i64) -> anyhow::Result<LayerRecord> {
+        async fn load(conn: &mut SqliteConnection, id: i64) -> anyhow::Result<LayerRecord> {
             sqlx::query_as("SELECT * FROM layers WHERE id = ?1;")
                 .bind(id)
-                .fetch_one(pool)
+                .fetch_one(conn)
                 .await
                 .map_err(|_| anyhow::anyhow!("Failed to load layer."))
         }
 
+        // Note: will panic if called with a layer with canonical_id = None
+        async fn update(
+            conn: &mut SqliteConnection,
+            layer: &scene::Layer,
+        ) -> anyhow::Result<LayerRecord> {
+            sqlx::query_as("UPDATE layers SET (title, z) = (?1, ?2) WHERE id = ?3 RETURNING *;")
+                .bind(layer.title.clone())
+                .bind(layer.z)
+                .bind(layer.canonical_id.unwrap())
+                .fetch_one(conn)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to update layer: {e}"))
+        }
+
         async fn create(
-            pool: &SqlitePool,
+            conn: &mut SqliteConnection,
             layer: &scene::Layer,
             scene: i64,
         ) -> anyhow::Result<LayerRecord> {
@@ -276,37 +304,37 @@ mod layer {
                 .bind(scene)
                 .bind(&layer.title)
                 .bind(layer.z as i64)
-                .fetch_one(pool)
+                .fetch_one(conn)
                 .await
                 .map_err(|_| anyhow::anyhow!("Failed to create layer."))
         }
 
-        pub async fn get_or_create(
-            pool: &SqlitePool,
+        pub async fn update_or_create(
+            conn: &mut SqliteConnection,
             layer: &scene::Layer,
             scene: i64,
         ) -> anyhow::Result<LayerRecord> {
             match layer.canonical_id {
-                Some(id) => LayerRecord::load(pool, id).await,
-                None => LayerRecord::create(pool, layer, scene).await,
+                Some(_) => LayerRecord::update(conn, layer).await,
+                None => LayerRecord::create(conn, layer, scene).await,
             }
         }
 
         pub async fn load_scene_layers(
-            pool: &SqlitePool,
+            pool: &mut SqliteConnection,
             scene: i64,
         ) -> anyhow::Result<Vec<LayerRecord>> {
             sqlx::query_as("SELECT * FROM layers WHERE scene = ?1;")
                 .bind(scene)
                 .fetch_all(pool)
                 .await
-                .map_err(|_| anyhow::anyhow!("Failed to load scene layers."))
+                .map_err(|e| anyhow::anyhow!("Failed to load scene layers: {e}"))
         }
     }
 }
 
 mod sprite {
-    use sqlx::Row;
+    use sqlx::{Row, SqliteConnection};
 
     use super::layer::LayerRecord;
 
@@ -353,7 +381,7 @@ mod sprite {
 
         // NB: will panic if called with a scene::Sprite with canonical_id None
         async fn update_from(
-            pool: &sqlx::SqlitePool,
+            conn: &mut SqliteConnection,
             sprite: &scene::Sprite,
             layer: i64,
         ) -> anyhow::Result<()> {
@@ -366,14 +394,14 @@ mod sprite {
                 .bind(sprite.rect.h)
                 .bind(sprite.z)
                 .bind(sprite.canonical_id.unwrap())
-                .execute(pool)
+                .execute(conn)
                 .await
                 .map(|_| ())
                 .map_err(|_| anyhow::anyhow!("Failed to update sprite."))
         }
 
         async fn create_from(
-            pool: &sqlx::SqlitePool,
+            conn: &mut SqliteConnection,
             sprite: &scene::Sprite,
             layer: i64,
         ) -> anyhow::Result<i64> {
@@ -387,29 +415,29 @@ mod sprite {
                 .bind(sprite.rect.w)
                 .bind(sprite.rect.h)
                 .bind(sprite.z)
-                .fetch_one(pool)
+                .fetch_one(conn)
                 .await
                 .map(|row: sqlx::sqlite::SqliteRow| row.get(0))
                 .map_err(|_| anyhow::anyhow!("Failed to create sprite."))
         }
 
         pub async fn save(
-            pool: &sqlx::SqlitePool,
+            conn: &mut SqliteConnection,
             sprite: &scene::Sprite,
             layer: i64,
         ) -> anyhow::Result<SpriteRecord> {
             let id = match sprite.canonical_id {
                 Some(id) => {
-                    SpriteRecord::update_from(pool, sprite, layer).await?;
+                    SpriteRecord::update_from(conn, sprite, layer).await?;
                     id
                 }
-                None => SpriteRecord::create_from(pool, sprite, layer).await?,
+                None => SpriteRecord::create_from(conn, sprite, layer).await?,
             };
             Ok(SpriteRecord::from_sprite(sprite, layer, id))
         }
 
         pub async fn sprites_for_layers(
-            pool: &sqlx::SqlitePool,
+            conn: &mut SqliteConnection,
             layers: &[LayerRecord],
         ) -> anyhow::Result<Vec<SpriteRecord>> {
             sqlx::query_as(&format!(
@@ -420,7 +448,7 @@ mod sprite {
                     .collect::<Vec<String>>()
                     .join(", ")
             ))
-            .fetch_all(pool)
+            .fetch_all(conn)
             .await
             .map_err(|_| anyhow::anyhow!("Failed to load sprite list."))
         }

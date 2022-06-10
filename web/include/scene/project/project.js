@@ -75,8 +75,8 @@ function update_url_project_scene() {
 
     let scene_title = document
         .getElementById("scene_select")
-        .selectedOptions[0]
-        .text || "Scene";
+        ?.selectedOptions[0]
+        ?.text || "Scene";
     document.title = scene_title;
     page_title = "Scene - " + scene_title;
 
@@ -100,7 +100,10 @@ function update_url_project_scene() {
 
 function create_option(label, value, data_id) {
     let opt = new Option(label, value);
-    opt.setAttribute("data-id", data_id);
+
+    if (data_id) {
+        opt.setAttribute("data-id", data_id);
+    }
     return opt;
 }
 
@@ -251,7 +254,21 @@ function create_new_scene() {
     new_scene(proj_id);
 }
 
+function update_select(id, label, value, data_id = null) {
+    const select = document.getElementById(id);
+    const option = create_option(label, value, data_id);
+
+    if (current = select.querySelector(`option[value='${value}']`)) {
+        select.replaceChild(option, current);
+    }
+    else {
+        select.appendChild(option);
+    }
+    select.value = value;
+}
+
 function save_project() {
+    let proj = selected_project();
     post(
         "/scene/save",
         {
@@ -261,8 +278,19 @@ function save_project() {
             encoded: RustFuncs.export_scene()
         },
         resp => {
-            load_projects();
             load_scene(resp.scene);
+
+            // Only update if the selected project is unchanged
+            if (selected_project() === proj) {
+                update_select("scene_select", resp.title, resp.scene_key);
+                update_select(
+                    "project_select",
+                    resp.project_title,
+                    resp.project_key,
+                    resp.project_id
+                );
+                update_url_project_scene();
+            }
         },
         null,
         "save_project_loading"

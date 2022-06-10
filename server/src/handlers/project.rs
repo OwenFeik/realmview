@@ -36,14 +36,19 @@ async fn list_projects(pool: SqlitePool, session_key: String) -> ResultReply {
         _ => return Binary::result_failure("Invalid session."),
     };
 
-    let mut projects = match Project::list(&pool, user.id).await {
+    let conn = &mut match pool.acquire().await {
+        Ok(c) => c,
+        Err(e) => return Binary::result_error(&format!("{e}")),
+    };
+
+    let mut projects = match Project::list(conn, user.id).await {
         Ok(v) => v,
         Err(_) => return Binary::result_failure("Failed to retrieve project list."),
     };
 
     let mut project_list = vec![];
     while let Some(project) = projects.pop() {
-        let scene_list = match project.list_scenes(&pool).await {
+        let scene_list = match project.list_scenes(conn).await {
             Ok(scenes) => scenes
                 .iter()
                 .map(|s| SceneListEntry {

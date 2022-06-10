@@ -12,7 +12,7 @@ function load_layers() {
 
     try {
         RustFuncs.scene_layers()
-        .sort((a, b) => a.z - b.z)
+        .sort((a, b) => b.z - a.z)
         .forEach(layer => {
             list.appendChild(layers_list_entry(layer.id, layer.title))
         });

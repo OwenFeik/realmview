@@ -3,7 +3,10 @@ use std::path::Path;
 use serde_derive::Serialize;
 use warp::{hyper::StatusCode, Filter};
 
-use crate::handlers::response::{as_result, Binary, ResultReply};
+use crate::{
+    handlers::response::{as_result, Binary, ResultReply},
+    models::Project,
+};
 
 pub const SCENE_EDITOR_FILE: &str = "scene.html";
 
@@ -43,13 +46,17 @@ fn page_route(
 #[derive(Serialize)]
 struct SceneResponse {
     message: String,
+    project_title: String,
+    project_key: String,
+    project_id: i64,
     scene: String,
+    scene_key: String,
     success: bool,
     title: String,
 }
 
 impl SceneResponse {
-    fn reply(scene: scene::Scene) -> ResultReply {
+    fn reply(scene: scene::Scene, key: String, project: Project) -> ResultReply {
         let scene_str = match bincode::serialize(&scene) {
             Ok(b) => base64::encode(b),
             Err(_) => return Binary::result_error("Error encoding scene."),
@@ -58,7 +65,11 @@ impl SceneResponse {
         as_result(
             &SceneResponse {
                 message: "Scene saved.".to_string(),
+                project_title: project.title,
+                project_key: project.project_key,
+                project_id: project.id,
                 scene: scene_str,
+                scene_key: key,
                 success: true,
                 title: scene.title.unwrap_or_else(|| "Untitled".to_string()),
             },
@@ -105,13 +116,18 @@ mod save {
             _ => return Binary::result_failure("Invalid session."),
         };
 
-        let mut project = match Project::get_or_create(&pool, scene.project, user.id).await {
+        let conn = &mut match pool.acquire().await {
+            Ok(c) => c,
+            Err(e) => return Binary::result_error(&format!("{e}")),
+        };
+
+        let mut project = match Project::get_or_create(conn, scene.project, user.id).await {
             Ok(p) => p,
             Err(_) => return Binary::result_failure("Missing project."),
         };
 
         if project.title != req.project_title
-            && matches!(project.update_title(&pool, req.project_title).await, Err(_))
+            && matches!(project.update_title(conn, req.project_title).await, Err(_))
         {
             return Binary::result_failure("Failed to update project title.");
         }
@@ -122,11 +138,11 @@ mod save {
         }
 
         match project
-            .update_scene(&pool, scene, scene_title.to_string())
+            .update_scene(conn, scene, scene_title.to_string())
             .await
         {
-            Ok(s) => match s.load_scene(&pool).await {
-                Ok(s) => super::SceneResponse::reply(s),
+            Ok(r) => match r.load_scene(conn).await {
+                Ok(s) => super::SceneResponse::reply(s, r.scene_key, project),
                 Err(s) => Binary::result_failure(&format!(
                     "Failed to load saved scene: {}",
                     &s.to_string()
@@ -166,12 +182,17 @@ mod load {
             _ => return Binary::result_failure("Invalid session."),
         };
 
-        let record = match SceneRecord::load_from_key(&pool, scene_key).await {
+        let conn = &mut match pool.acquire().await {
+            Ok(c) => c,
+            Err(e) => return Binary::result_error(&format!("{e}")),
+        };
+
+        let record = match SceneRecord::load_from_key(conn, &scene_key).await {
             Ok(r) => r,
             Err(_) => return Binary::result_failure("Scene not found."),
         };
 
-        let project = match Project::load(&pool, record.project).await {
+        let project = match Project::load(conn, record.project).await {
             Ok(p) => p,
             Err(_) => return Binary::result_failure("Project not found."),
         };
@@ -180,8 +201,8 @@ mod load {
             return Binary::result_failure("Project belongs to different user.");
         }
 
-        match record.load_scene(&pool).await {
-            Ok(s) => super::SceneResponse::reply(s),
+        match record.load_scene(conn).await {
+            Ok(s) => super::SceneResponse::reply(s, scene_key, project),
             _ => Binary::result_failure("Failed to load scene."),
         }
     }
