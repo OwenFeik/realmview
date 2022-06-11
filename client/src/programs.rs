@@ -379,12 +379,12 @@ impl LineRenderer {
     }
 
     fn scale_and_load_points(&mut self, points: &mut Vec<f32>, vp_w: f32, vp_h: f32) {
-        for i in 0..points.len() {
+        for (i, v) in points.iter_mut().enumerate() {
             // Point vectors are of form [x1, y1, x2, y2 ... xn, yn] so even indices are xs.
             if i % 2 == 0 {
-                points[i] = (2.0 * points[i] - vp_w) / vp_w;
+                *v = (2.0 * (*v) - vp_w) / vp_w;
             } else {
-                points[i] = -(2.0 * points[i] - vp_h) / vp_h;
+                *v = -(2.0 * (*v) - vp_h) / vp_h;
             }
         }
         self.load_points(points);
