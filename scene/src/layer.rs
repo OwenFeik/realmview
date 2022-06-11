@@ -104,10 +104,6 @@ impl Layer {
     }
 
     pub fn add_sprite(&mut self, sprite: Sprite) -> Option<SceneEvent> {
-        if self.locked {
-            return None;
-        }
-
         self.update_z_bounds(&sprite);
         self.sprites.push(sprite);
         self.sort_sprites();
