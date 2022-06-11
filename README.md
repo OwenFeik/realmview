@@ -6,8 +6,6 @@
 * Layers
     * Allow addition of new layers
     * Allow editing of existing layers to alter z-level, title
-    * Lock and unlock layers
-    * Show or hide layers
 * Sprites
     * Select sprites as a group
     * Move sprites as a group

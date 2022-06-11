@@ -121,11 +121,15 @@ impl Scene {
             .find(|l| l.canonical_id == Some(layer_canonical))
     }
 
+    // Sort to place the highest layer first.
+    fn sort_layers(&mut self) {
+        self.layers.sort_by(|a, b| b.z.cmp(&a.z));
+    }
+
     fn add_layer(&mut self, layer: Layer) -> Option<SceneEvent> {
         let id = layer.local_id;
         if self.layer(id).is_none() {
             self.layers.push(layer);
-            self.layers.sort_by(|a, b| a.z.cmp(&b.z));
 
             // Unwrap safe because we just pushed this.
             let layer = self.layer(id).unwrap();
@@ -182,6 +186,11 @@ impl Scene {
 
     fn sprite_at(&mut self, at: ScenePoint) -> Option<&mut Sprite> {
         for layer in self.layers.iter_mut() {
+            // Sprites on locked or invisible layers cannot be grabbed.
+            if layer.locked || !layer.visible {
+                continue;
+            }
+
             let s_opt = layer.sprite_at(at);
             if s_opt.is_some() {
                 return s_opt;
@@ -193,8 +202,7 @@ impl Scene {
 
     pub fn add_sprite(&mut self, sprite: Sprite, layer: Id) -> Option<SceneEvent> {
         if let Some(l) = self.layer(layer) {
-            l.add_sprite(sprite);
-            Some(SceneEvent::SpriteNew(sprite, l.canonical_id.unwrap_or(0)))
+            l.add_sprite(sprite)
         } else {
             None
         }
@@ -328,8 +336,11 @@ impl Scene {
                 if let Some(canonical_id) = s.canonical_id {
                     if self.sprite_canonical(canonical_id).is_none() {
                         let sprite = Sprite::from_remote(&s);
-                        self.add_sprite(sprite, l);
-                        SceneEventAck::SpriteNew(s.local_id, sprite.canonical_id)
+                        if self.add_sprite(sprite, l).is_some() {
+                            SceneEventAck::SpriteNew(s.local_id, sprite.canonical_id)
+                        } else {
+                            SceneEventAck::Rejection
+                        }
                     } else {
                         SceneEventAck::Rejection
                     }
@@ -339,8 +350,11 @@ impl Scene {
                         sprite.canonical_id = Some(sprite.local_id);
                     }
 
-                    self.add_sprite(sprite, l);
-                    SceneEventAck::SpriteNew(s.local_id, sprite.canonical_id)
+                    if self.add_sprite(sprite, l).is_some() {
+                        SceneEventAck::SpriteNew(s.local_id, sprite.canonical_id)
+                    } else {
+                        SceneEventAck::Rejection
+                    }
                 }
             }
             SceneEvent::SpriteMove(id, from, to) => {

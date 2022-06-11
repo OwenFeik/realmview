@@ -38,7 +38,7 @@ var RustFuncs = {
 
     new_sprite: missing_func,
     /*
-    function new_sprite(texture_id: number)
+    function new_sprite(texture_id: number, layer_id: number)
 
     Adds a new sprite with the provided texture to the scene. Will load the
     texture if necessary.
@@ -66,6 +66,9 @@ var RustFuncs = {
     */
 };
 
+// Array of callbacks to be performed when a given closure is available.
+const queued = {};
+
 // The below functions are used as externs in bridge.rs
 // Begin :: Externs
 
@@ -73,10 +76,9 @@ var RustFuncs = {
 function expose_closure(name, closure) {
     RustFuncs[name] = closure;
 
-    // When we get the scene_layers closure, we'll take that opportunity to
-    // load the current layers in the scene.
-    if (name == "scene_layers") {
-        load_layers();
+    if (queued[name]) {
+        queued[name].forEach(cb => cb());
+        delete queued[name];
     }
 }
 
@@ -95,29 +97,53 @@ function load_texture(texture_id) {
 
 // End :: Externs
 
+// Queue a function to be called when closure func_name is loaded.
+function call_when_ready(func_name, callback) {
+    if (RustFuncs[func_name]) {
+        callback();
+    }
+
+    if (queued[func_name] === undefined) {
+        queued[func_name] = [];
+    } 
+
+    queued[func_name].push(callback);
+}
+
 // Wrapper around the exported closure that also reloads the layer list to keep
 // it reflective of the new scene.
 function load_scene(scene_encoded) {
-    RustFuncs.load_scene(scene_encoded);
-    load_layers();
+    call_when_ready("load_scene", () => {
+        RustFuncs.load_scene(scene_encoded)
+        load_layers();
+    });
 }
 
 // Wrapper that reloads layer list as well.
 function new_scene(project_id = 0) {
-    RustFuncs.new_scene(project_id);
-    load_layers();
+    call_when_ready("new_scene", () => {
+        RustFuncs.new_scene(project_id);
+        load_layers();
+    });
+    
 }
 
 // Given an HTML image, load the texture for this image and add a sprite with
 // that image to the scene.
 function add_to_scene(image) {
     texture_queue.push(image);
-    RustFuncs.new_sprite(
-        parseInt(image.getAttribute("{{ constant(DATA_ID_ATTR) }}"))
-    );
+    call_when_ready("new_sprite", () => RustFuncs.new_sprite(
+        parseInt(image.getAttribute("{{ constant(DATA_ID_ATTR) }}")),
+        selected_layer()
+    ));
 }
 
 function rename_layer(layer_id, new_title) {
-    RustFuncs.rename_layer(layer_id, new_title);
-    load_layers();
+    call_when_ready(
+        "rename_layer",
+        () => {
+            RustFuncs.rename_layer(layer_id, new_title);
+            load_layers();
+        }
+    );
 }

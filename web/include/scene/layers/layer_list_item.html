@@ -2,6 +2,16 @@
   {{
     editable_input(
       value="${label}",
+      before=|
+      <div class="input-group-text">
+        <input
+          class="form-check-input mt-0"
+          {{ constant(DATA_ID_ATTR) }}="${id}"
+          name="layer_radio"
+          type="radio"
+        >
+      </div>
+      |,
       after=|
         {{
           toggle_button(

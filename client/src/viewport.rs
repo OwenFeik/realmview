@@ -270,7 +270,7 @@ impl Viewport {
         self.context.clear(vp);
 
         let mut background_drawn = false;
-        for layer in self.scene.layers.iter() {
+        for layer in self.scene.layers.iter().rev() {
             if !background_drawn && layer.z >= 0 {
                 self.context
                     .draw_grid(vp, self.scene.w, self.scene.h, self.grid_zoom);
@@ -340,8 +340,8 @@ impl Viewport {
         self.redraw_needed = true;
     }
 
-    pub fn new_sprite(&mut self, texture: Id) {
-        let opt = self.scene.add_sprite(Sprite::new(texture), 0);
+    pub fn new_sprite(&mut self, texture: Id, layer: Id) {
+        let opt = self.scene.add_sprite(Sprite::new(texture), layer);
         self.client_option(opt);
         self.redraw_needed = true;
     }

@@ -190,7 +190,7 @@ def function_substitution(func: str, arg: str) -> str:
         constant,
         unique_string,
     ]
-    args = [s.strip() for s in arg.split(",")]
+    args = [s.strip() for s in arg.split(",") if s]
     return function_from_name(functions, func)(*args)  # type: ignore
 
 
