@@ -20,6 +20,9 @@ extern "C" {
     fn get_texture_queue() -> Array;
     pub fn load_texture(id: Id);
 
+    #[wasm_bindgen]
+    pub fn expose_closure(name: &str, closure: &Closure<dyn FnMut()>);
+
     #[wasm_bindgen(js_name = expose_closure)]
     pub fn expose_closure_f64(name: &str, closure: &Closure<dyn FnMut(f64)>);
 

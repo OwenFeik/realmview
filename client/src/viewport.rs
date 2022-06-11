@@ -346,6 +346,17 @@ impl Viewport {
         self.redraw_needed = true;
     }
 
+    pub fn new_layer(&mut self) {
+        let z = self
+            .scene
+            .layers
+            .get(0)
+            .map(|l| (l.z + 1).max(1))
+            .unwrap_or(1);
+        let opt = self.scene.add_layer(Layer::new("Untitled", z));
+        self.client_option(opt);
+    }
+
     pub fn rename_layer(&mut self, layer: Id, title: String) {
         let opt = self.scene.rename_layer(layer, title);
         self.client_option(opt);
@@ -364,5 +375,15 @@ impl Viewport {
             let opt = l.set_locked(locked);
             self.client_option(opt);
         }
+    }
+
+    pub fn move_layer(&mut self, layer: Id, up: bool) {
+        let opt = if up {
+            self.scene.raise_layer(layer)
+        } else {
+            self.scene.lower_layer(layer)
+        };
+        self.client_option(opt);
+        self.redraw_needed = true;
     }
 }

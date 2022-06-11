@@ -64,6 +64,13 @@ var RustFuncs = {
 
     Sets locked status for the specified layer.
     */
+
+    new_layer: missing_func,
+    /*
+    function new_layer()
+
+    Creates a new untitled layer at the top of the scene.
+    */
 };
 
 // Array of callbacks to be performed when a given closure is available.
@@ -99,7 +106,7 @@ function load_texture(texture_id) {
 
 // Queue a function to be called when closure func_name is loaded.
 function call_when_ready(func_name, callback) {
-    if (RustFuncs[func_name]) {
+    if (RustFuncs[func_name] != missing_func) {
         callback();
     }
 
@@ -143,6 +150,16 @@ function rename_layer(layer_id, new_title) {
         "rename_layer",
         () => {
             RustFuncs.rename_layer(layer_id, new_title);
+            load_layers();
+        }
+    );
+}
+
+function new_layer() {
+    call_when_ready(
+        "new_layer",
+        () => {
+            RustFuncs.new_layer();
             load_layers();
         }
     );

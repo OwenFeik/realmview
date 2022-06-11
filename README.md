@@ -3,9 +3,6 @@
 * Map size
     * Make map size configurable, as setting on scene, editable from project
         offcanvas
-* Layers
-    * Allow addition of new layers
-    * Allow editing of existing layers to alter z-level, title
 * Sprites
     * Select sprites as a group
     * Move sprites as a group

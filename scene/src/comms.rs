@@ -7,6 +7,7 @@ use super::{Id, Rect, Scene, Sprite};
 pub enum SceneEvent {
     Dummy,                           // To trigger redraws, etc
     LayerLockedChange(Id, bool),     // (layer, status)
+    LayerMove(Id, i32, bool),        // (layer, starting_z, up)
     LayerNew(Id, String, i32),       // (local_id, title, z)
     LayerRename(Id, String, String), // (layer, old_title, new_title)
     LayerVisibilityChange(Id, bool), // (layer, status)
@@ -21,6 +22,16 @@ pub enum SceneEventAck {
     Rejection,                 // Catchall reject
     LayerNew(Id, Option<Id>),  // (original_id, canonical_id)
     SpriteNew(Id, Option<Id>), // (original_id, canonical_id)
+}
+
+impl SceneEventAck {
+    pub fn from(approved: bool) -> Self {
+        if approved {
+            Self::Approval
+        } else {
+            Self::Rejection
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]

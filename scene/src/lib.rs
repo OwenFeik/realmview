@@ -103,7 +103,7 @@ impl Scene {
 
     pub fn layer(&mut self, layer: Id) -> Option<&mut Layer> {
         if layer == 0 {
-            self.layers.iter_mut().find(|l| l.z == 1)
+            self.layers.get_mut(0)
         } else {
             self.layers.iter_mut().find(|l| l.local_id == layer)
         }
@@ -122,14 +122,15 @@ impl Scene {
     }
 
     // Sort to place the highest layer first.
-    fn sort_layers(&mut self) {
+    pub fn sort_layers(&mut self) {
         self.layers.sort_by(|a, b| b.z.cmp(&a.z));
     }
 
-    fn add_layer(&mut self, layer: Layer) -> Option<SceneEvent> {
+    pub fn add_layer(&mut self, layer: Layer) -> Option<SceneEvent> {
         let id = layer.local_id;
         if self.layer(id).is_none() {
             self.layers.push(layer);
+            self.sort_layers();
 
             // Unwrap safe because we just pushed this.
             let layer = self.layer(id).unwrap();
@@ -147,6 +148,100 @@ impl Scene {
         if let Some(l) = self.layer(layer) {
             l.rename(new_name)
         } else {
+            None
+        }
+    }
+
+    pub fn raise_layer(&mut self, layer: Id) -> Option<SceneEvent> {
+        if let Some(i) = self.layers.iter().position(|l| l.local_id == layer) {
+            // Get layer height
+            let layer_z = self.layers.get(i).unwrap().z;
+
+            // Get height of layer above
+            let before_z = if let Some(before) = self.layers.get_mut(i - 1) {
+                before.z
+            } else {
+                // If there is no layer above this one, either move it to be
+                // the first layer above the background or do nothing.
+                return if layer_z < 0 {
+                    self.layers[i].z = 1;
+                    self.layers[i]
+                        .canonical_id
+                        .map(|id| SceneEvent::LayerMove(id, layer_z, true))
+                } else {
+                    None
+                };
+            };
+
+            if before_z.signum() == layer_z.signum() {
+                // If these layers are on the same side of the grid, we can
+                // just swap their z values.
+                self.layers[i].z = before_z;
+                self.layers[i - 1].z = layer_z;
+            } else {
+                // We now know that it must be that case that we are moving this
+                // layer up past the grid, so increase z of all layers above
+                // background, set layer z to 1. i must be the index of the
+                // first layer below the grid.
+                for layer in &mut self.layers[0..i] {
+                    layer.z += 1;
+                }
+                self.layers[i].z = 1;
+            }
+
+            self.sort_layers();
+            self.layers[i]
+                .canonical_id
+                .map(|id| SceneEvent::LayerMove(id, layer_z, true))
+        } else {
+            // No layer of that ID exists, nothing to do.
+            None
+        }
+    }
+
+    pub fn lower_layer(&mut self, layer: Id) -> Option<SceneEvent> {
+        if let Some(i) = self.layers.iter().position(|l| l.local_id == layer) {
+            // Get layer height
+            let layer_z = self.layers.get(i).unwrap().z;
+
+            // Get height of layer above
+            let after_z = if let Some(after) = self.layers.get_mut(i + 1) {
+                after.z
+            } else {
+                // If there is no layer below this one, either move it to be
+                // the first layer below the background or do nothing.
+                return if layer_z > 0 {
+                    self.layers[i].z = -1;
+                    self.layers[i]
+                        .canonical_id
+                        .map(|id| SceneEvent::LayerMove(id, layer_z, false))
+                } else {
+                    None
+                };
+            };
+
+            if after_z.signum() == layer_z.signum() {
+                // If these layers are on the same side of the grid, we can
+                // just swap their z values.
+
+                self.layers[i].z = after_z;
+                self.layers[i + 1].z = layer_z;
+            } else {
+                // We now know that it must be that case that we are moving this
+                // layer down past the grid, so decrease z of all layers below
+                // background, set layer z to -1.
+                for layer in &mut self.layers[i + 1..] {
+                    layer.z -= 1;
+                }
+                self.layers[i].z = -1;
+            }
+
+            self.sort_layers();
+            self.layers[i]
+                .canonical_id
+                .map(|id| SceneEvent::LayerMove(id, layer_z, false))
+        } else {
+            // No layer of that ID exists, nothing to do.
             None
         }
     }
@@ -300,6 +395,23 @@ impl Scene {
                 self.layer_canonical(l).map(|l| l.set_locked(locked));
                 SceneEventAck::Approval
             }
+            SceneEvent::LayerMove(l, starting_z, up) => {
+                let local_id = if let Some(layer) = self.layer_canonical(l) {
+                    if layer.z != starting_z {
+                        return SceneEventAck::Rejection;
+                    } else {
+                        layer.local_id
+                    }
+                } else {
+                    return SceneEventAck::Rejection;
+                };
+
+                if up {
+                    SceneEventAck::from(self.raise_layer(local_id).is_some())
+                } else {
+                    SceneEventAck::from(self.lower_layer(local_id).is_some())
+                }
+            }
             SceneEvent::LayerNew(id, title, z) => {
                 let mut l = Layer::new(&title, z);
 
@@ -394,6 +506,13 @@ impl Scene {
             SceneEvent::Dummy => (),
             SceneEvent::LayerLockedChange(l, locked) => {
                 self.layer_canonical(l).map(|l| l.set_locked(!locked));
+            }
+            SceneEvent::LayerMove(l, _, up) => {
+                if up {
+                    self.lower_layer(l);
+                } else {
+                    self.raise_layer(l);
+                }
             }
             SceneEvent::LayerNew(id, _, _) => self.remove_layer(id),
             SceneEvent::LayerRename(id, old_title, _) => {

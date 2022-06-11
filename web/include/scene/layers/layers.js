@@ -35,17 +35,28 @@ function load_layers() {
     try {
         let selected_one = false;
         let layers = RustFuncs.scene_layers().sort((a, b) => b.z - a.z);
+        let z = Infinity;
         layers.forEach(layer => {
             let entry = layers_list_entry(layer);
-
             if (layer.id === selected) {
                 entry
                     .querySelector("input[name='layer_radio']")
                     .checked = true;
                 selected_one = true;
             }
+
+            // Insert a rule at the z height of the grid
+            if (layer.z < 0 && z >= 0) {
+                list.appendChild(template_to_element('<hr class="mt-1 mb-0">'));
+            }
+            z = layer.z;
+
             list.appendChild(entry);
         });
+
+        if (z >= 0) {
+            list.appendChild(template_to_element('<hr class="mt-1 mb-0">'));
+        }
         
         if (!selected_one) {
             layers.forEach(layer => {

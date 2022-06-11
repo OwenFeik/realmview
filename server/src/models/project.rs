@@ -225,7 +225,7 @@ mod scene_record {
                 }
             }
 
-            Ok(scene::Scene {
+            let mut scene = scene::Scene {
                 id: Some(self.id),
                 layers,
                 title: Some(self.title.clone()),
@@ -233,7 +233,9 @@ mod scene_record {
                 holding: scene::HeldObject::None,
                 w: self.w,
                 h: self.h,
-            })
+            };
+            scene.sort_layers();
+            Ok(scene)
         }
 
         pub async fn project_scenes(

@@ -1,4 +1,4 @@
-<li class="list-group-item">
+<li class="mt-1">
   {{
     editable_input(
       value="${label}",
@@ -29,6 +29,22 @@
             outline=1,
             small=1,
             action="visible => RustFuncs.layer_visible(${id}, visible)"
+          )
+        }}
+        {{
+          icon_button(
+            icon="chevron-up",
+            outline=1,
+            small=1,
+            onclick="RustFuncs.move_layer(${id}, true); load_layers();"
+          )
+        }}
+        {{
+          icon_button(
+            icon="chevron-down",
+            outline=1,
+            small=1,
+            onclick="RustFuncs.move_layer(${id}, false); load_layers();"
           )
         }}
       |,

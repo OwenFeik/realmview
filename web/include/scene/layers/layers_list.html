@@ -24,8 +24,15 @@
       class="accordion-collapse collapse"
       aria-labelledby="layers_list_heading"
     >
-      <ul id="layers_list" class="list-group">
-      </ul>    
+      <div class="p-2">
+        <button
+          class="btn btn-primary btn-sm"
+          type="button"
+          onclick="new_layer();"
+        >Add {{ bootstrap_icon(plus) }}</button>
+        <ul id="layers_list" class="list-unstyled mb-0 pt-1">
+        </ul>      
+      </div>
     </div>
   </div>
 </div>

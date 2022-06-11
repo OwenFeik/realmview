@@ -6,9 +6,9 @@ use parking_lot::Mutex;
 use wasm_bindgen::prelude::*;
 
 use crate::bridge::{
-    expose_closure_array, expose_closure_f64, expose_closure_f64_bool, expose_closure_f64_f64,
-    expose_closure_f64_string, expose_closure_string_in, expose_closure_string_out, layer_info,
-    log, request_animation_frame,
+    expose_closure, expose_closure_array, expose_closure_f64, expose_closure_f64_bool,
+    expose_closure_f64_f64, expose_closure_f64_string, expose_closure_string_in,
+    expose_closure_string_out, layer_info, log, request_animation_frame,
 };
 use crate::client::Client;
 use crate::viewport::Viewport;
@@ -96,6 +96,20 @@ pub fn start() -> Result<(), JsValue> {
     );
     expose_closure_array("scene_layers", &scene_layers_closure);
     scene_layers_closure.forget();
+
+    let scene_ref = scene.clone();
+    let new_layer_closure = Closure::wrap(Box::new(move || {
+        scene_ref.lock().new_layer();
+    }) as Box<dyn FnMut()>);
+    expose_closure("new_layer", &new_layer_closure);
+    new_layer_closure.forget();
+
+    let scene_ref = scene.clone();
+    let move_layer_closure = Closure::wrap(Box::new(move |id: f64, up: bool| {
+        scene_ref.lock().move_layer(id as i64, up);
+    }) as Box<dyn FnMut(f64, bool)>);
+    expose_closure_f64_bool("move_layer", &move_layer_closure);
+    move_layer_closure.forget();
 
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();

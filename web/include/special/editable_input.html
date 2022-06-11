@@ -1,7 +1,7 @@
 PREAMBLE {{
 kwargs["ID"] = kwargs.get("ID", unique_string())
 }}
-<div class="input-group">
+<div class="input-group IFDEF(SMALL) {{ input-group-sm }}">
   IFDEF(BEFORE) {{ {{ BEFORE }} }}
   IFDEF(LABEL) {{ <span class="input-group-text">{{ LABEL }}</span> }}
   <input
