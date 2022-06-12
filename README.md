@@ -1,5 +1,7 @@
 # TODO
 
+* Layers
+    * Delete layers
 * Map size
     * Make map size configurable, as setting on scene, editable from project
         offcanvas

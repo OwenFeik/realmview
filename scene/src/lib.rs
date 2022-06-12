@@ -9,6 +9,9 @@ mod layer;
 mod rect;
 mod sprite;
 
+#[cfg(test)]
+mod tests;
+
 pub use layer::Layer;
 pub use rect::Rect;
 pub use sprite::Sprite;
@@ -101,6 +104,7 @@ impl Scene {
         }
     }
 
+    // Returns the top layer if provided ID is 0
     pub fn layer(&mut self, layer: Id) -> Option<&mut Layer> {
         if layer == 0 {
             self.layers.get_mut(0)
@@ -144,6 +148,10 @@ impl Scene {
         self.layers.retain(|l| l.local_id != layer);
     }
 
+    fn remove_layer_canonical(&mut self, layer: Id) {
+        self.layers.retain(|l| l.canonical_id != Some(layer));
+    }
+
     pub fn rename_layer(&mut self, layer: Id, new_name: String) -> Option<SceneEvent> {
         if let Some(l) = self.layer(layer) {
             l.rename(new_name)
@@ -152,27 +160,52 @@ impl Scene {
         }
     }
 
+    fn simplify_zs(&mut self) {
+        self.sort_layers();
+        if let Some(i) = self.layers.iter().position(|l| l.z < 0) {
+            let mut z = i as i32;
+            for layer in &mut self.layers[..i] {
+                layer.z = z;
+                z -= 1;
+            }
+
+            let mut z = -1;
+            for layer in &mut self.layers[i..] {
+                layer.z = z;
+                z -= 1;
+            }
+        } else {
+            let mut z = self.layers.len() as i32;
+            for layer in &mut self.layers {
+                layer.z = z;
+                z -= 1;
+            }
+        }
+    }
+
     pub fn raise_layer(&mut self, layer: Id) -> Option<SceneEvent> {
         if let Some(i) = self.layers.iter().position(|l| l.local_id == layer) {
             // Get layer height
             let layer_z = self.layers.get(i).unwrap().z;
 
-            // Get height of layer above
-            let before_z = if let Some(before) = self.layers.get_mut(i - 1) {
-                before.z
-            } else {
+            if i == 0 {
                 // If there is no layer above this one, either move it to be
                 // the first layer above the background or do nothing.
                 return if layer_z < 0 {
                     self.layers[i].z = 1;
+                    self.simplify_zs();
                     self.layers[i]
                         .canonical_id
                         .map(|id| SceneEvent::LayerMove(id, layer_z, true))
                 } else {
                     None
                 };
-            };
+            }
 
+            // Get height of layer above. This unwrap is safe as we know that
+            // the index of layer is greater than 0 so there must be an element
+            // at i - 1.
+            let before_z = self.layers.get_mut(i - 1).unwrap().z;
             if before_z.signum() == layer_z.signum() {
                 // If these layers are on the same side of the grid, we can
                 // just swap their z values.
@@ -189,7 +222,7 @@ impl Scene {
                 self.layers[i].z = 1;
             }
 
-            self.sort_layers();
+            self.simplify_zs();
             self.layers[i]
                 .canonical_id
                 .map(|id| SceneEvent::LayerMove(id, layer_z, true))
@@ -204,22 +237,24 @@ impl Scene {
             // Get layer height
             let layer_z = self.layers.get(i).unwrap().z;
 
-            // Get height of layer above
-            let after_z = if let Some(after) = self.layers.get_mut(i + 1) {
-                after.z
-            } else {
+            if i == self.layers.len() - 1 {
                 // If there is no layer below this one, either move it to be
                 // the first layer below the background or do nothing.
                 return if layer_z > 0 {
                     self.layers[i].z = -1;
+                    self.simplify_zs();
                     self.layers[i]
                         .canonical_id
                         .map(|id| SceneEvent::LayerMove(id, layer_z, false))
                 } else {
                     None
                 };
-            };
+            }
 
+            // Get height of layer above.  This unwrap is safe as we know that
+            // the index of layer is less than len() so there must be an
+            // element at i + 1.
+            let after_z = self.layers.get_mut(i + 1).unwrap().z;
             if after_z.signum() == layer_z.signum() {
                 // If these layers are on the same side of the grid, we can
                 // just swap their z values.
@@ -236,7 +271,7 @@ impl Scene {
                 self.layers[i].z = -1;
             }
 
-            self.sort_layers();
+            self.simplify_zs();
             self.layers[i]
                 .canonical_id
                 .map(|id| SceneEvent::LayerMove(id, layer_z, false))
@@ -508,10 +543,16 @@ impl Scene {
                 self.layer_canonical(l).map(|l| l.set_locked(!locked));
             }
             SceneEvent::LayerMove(l, _, up) => {
-                if up {
-                    self.lower_layer(l);
+                let layer = if let Some(layer) = self.layer_canonical(l) {
+                    layer.local_id
                 } else {
-                    self.raise_layer(l);
+                    return;
+                };
+
+                if up {
+                    self.lower_layer(layer);
+                } else {
+                    self.raise_layer(layer);
                 }
             }
             SceneEvent::LayerNew(id, _, _) => self.remove_layer(id),

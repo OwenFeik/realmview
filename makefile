@@ -41,11 +41,16 @@ content-dir: build-dir
 build-dir:
 	mkdir -p ${build}
 
-lint:
-	cargo fmt
-	cargo clippy
+lint: test
+	@echo "=== Python: "
 	python3 -m black ${root}/web/build.py
 	MYPY_CACHE_DIR=${build}/.mypy_cache python3 -m mypy ${root}/web/build.py
+	@echo "=== Rust: "
+	cargo fmt
+	cargo clippy
+
+test:
+	RUST_BACKTRACE=1 cargo test
 
 install:
 	cargo install wasm-pack
