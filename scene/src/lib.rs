@@ -183,102 +183,64 @@ impl Scene {
         }
     }
 
-    pub fn raise_layer(&mut self, layer: Id) -> Option<SceneEvent> {
-        if let Some(i) = self.layers.iter().position(|l| l.local_id == layer) {
-            // Get layer height
-            let layer_z = self.layers.get(i).unwrap().z;
+    pub fn move_layer(&mut self, layer: Id, up: bool) -> Option<SceneEvent> {
+        let i = self.layers.iter().position(|l| l.local_id == layer)?;
 
-            if i == 0 {
-                // If there is no layer above this one, either move it to be
-                // the first layer above the background or do nothing.
-                return if layer_z < 0 {
-                    self.layers[i].z = 1;
-                    self.simplify_zs();
-                    self.layers[i]
-                        .canonical_id
-                        .map(|id| SceneEvent::LayerMove(id, layer_z, true))
-                } else {
-                    None
-                };
-            }
+        // Get layer height. Safe to unwrap as we just found this index with
+        // position.
+        let layer_z = self.layers.get(i).unwrap().z;
 
-            // Get height of layer above. This unwrap is safe as we know that
-            // the index of layer is greater than 0 so there must be an element
-            // at i - 1.
-            let before_z = self.layers.get_mut(i - 1).unwrap().z;
-            if before_z.signum() == layer_z.signum() {
-                // If these layers are on the same side of the grid, we can
-                // just swap their z values.
-                self.layers[i].z = before_z;
-                self.layers[i - 1].z = layer_z;
+        let down = !up;
+        if (up && i == 0) || (down && i == self.layers.len() - 1) {
+            // This layer is already at an extreme of the layer stack.
+            // If this is the top layer and in the background or the bottom
+            // layer and in the foreground, move it to the other side.
+            // Otherwise do nothing.
+            return if (up && layer_z < 0) || (down && layer_z > 0) {
+                self.layers[i].z = if up { 1 } else { -1 };
+                self.simplify_zs();
+                self.layers[i]
+                    .canonical_id
+                    .map(|id| SceneEvent::LayerMove(id, layer_z, up))
             } else {
-                // We now know that it must be that case that we are moving this
-                // layer up past the grid, so increase z of all layers above
-                // background, set layer z to 1. i must be the index of the
-                // first layer below the grid.
-                for layer in &mut self.layers[0..i] {
-                    layer.z += 1;
-                }
-                self.layers[i].z = 1;
-            }
-
-            self.simplify_zs();
-            self.layers[i]
-                .canonical_id
-                .map(|id| SceneEvent::LayerMove(id, layer_z, true))
-        } else {
-            // No layer of that ID exists, nothing to do.
-            None
+                None
+            };
         }
-    }
 
-    pub fn lower_layer(&mut self, layer: Id) -> Option<SceneEvent> {
-        if let Some(i) = self.layers.iter().position(|l| l.local_id == layer) {
-            // Get layer height
-            let layer_z = self.layers.get(i).unwrap().z;
-
-            if i == self.layers.len() - 1 {
-                // If there is no layer below this one, either move it to be
-                // the first layer below the background or do nothing.
-                return if layer_z > 0 {
-                    self.layers[i].z = -1;
-                    self.simplify_zs();
-                    self.layers[i]
-                        .canonical_id
-                        .map(|id| SceneEvent::LayerMove(id, layer_z, false))
-                } else {
-                    None
-                };
+        // Get height of layer above. This unwrap is safe as we know that
+        // the index of layer is greater than 0 so there must be an element
+        // at i - 1.
+        let other_i = if up { i - 1 } else { i + 1 };
+        let other_z = self.layers.get_mut(other_i).unwrap().z;
+        if layer_z.signum() == other_z.signum() {
+            // If these layers are on the same side of the grid, we can just
+            // swap their z values.
+            self.layers[i].z = other_z;
+            self.layers[other_i].z = layer_z;
+        } else if up {
+            // We now know that it must be that case that we are moving this
+            // layer up past the grid, so increase z of all layers above
+            // background, set layer z to 1. i must be the index of the first
+            // layer below the grid.
+            for layer in &mut self.layers[0..=other_i] {
+                layer.z += 1;
             }
-
-            // Get height of layer above.  This unwrap is safe as we know that
-            // the index of layer is less than len() so there must be an
-            // element at i + 1.
-            let after_z = self.layers.get_mut(i + 1).unwrap().z;
-            if after_z.signum() == layer_z.signum() {
-                // If these layers are on the same side of the grid, we can
-                // just swap their z values.
-
-                self.layers[i].z = after_z;
-                self.layers[i + 1].z = layer_z;
-            } else {
-                // We now know that it must be that case that we are moving this
-                // layer down past the grid, so decrease z of all layers below
-                // background, set layer z to -1.
-                for layer in &mut self.layers[i + 1..] {
-                    layer.z -= 1;
-                }
-                self.layers[i].z = -1;
-            }
-
-            self.simplify_zs();
-            self.layers[i]
-                .canonical_id
-                .map(|id| SceneEvent::LayerMove(id, layer_z, false))
+            self.layers[i].z = 1;
         } else {
-            // No layer of that ID exists, nothing to do.
-            None
+            // We now know that it must be that case that we are moving this
+            // layer down past the grid, so decrease z of all layers below
+            // background, set layer z to -1.
+            for layer in &mut self.layers[other_i..] {
+                layer.z -= 1;
+            }
+            self.layers[i].z = -1;
         }
+
+        let ret = self.layers[i]
+            .canonical_id
+            .map(|id| SceneEvent::LayerMove(id, layer_z, up));
+        self.simplify_zs();
+        ret
     }
 
     fn sprite(&mut self, local_id: Id) -> Option<&mut Sprite> {
@@ -441,11 +403,7 @@ impl Scene {
                     return SceneEventAck::Rejection;
                 };
 
-                if up {
-                    SceneEventAck::from(self.raise_layer(local_id).is_some())
-                } else {
-                    SceneEventAck::from(self.lower_layer(local_id).is_some())
-                }
+                SceneEventAck::from(self.move_layer(local_id, up).is_some())
             }
             SceneEvent::LayerNew(id, title, z) => {
                 let mut l = Layer::new(&title, z);
@@ -543,17 +501,13 @@ impl Scene {
                 self.layer_canonical(l).map(|l| l.set_locked(!locked));
             }
             SceneEvent::LayerMove(l, _, up) => {
-                let layer = if let Some(layer) = self.layer_canonical(l) {
+                let local_id = if let Some(layer) = self.layer_canonical(l) {
                     layer.local_id
                 } else {
                     return;
                 };
 
-                if up {
-                    self.lower_layer(layer);
-                } else {
-                    self.raise_layer(layer);
-                }
+                self.move_layer(local_id, !up);
             }
             SceneEvent::LayerNew(id, _, _) => self.remove_layer(id),
             SceneEvent::LayerRename(id, old_title, _) => {

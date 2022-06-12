@@ -378,11 +378,7 @@ impl Viewport {
     }
 
     pub fn move_layer(&mut self, layer: Id, up: bool) {
-        let opt = if up {
-            self.scene.raise_layer(layer)
-        } else {
-            self.scene.lower_layer(layer)
-        };
+        let opt = self.scene.move_layer(layer, up);
         self.client_option(opt);
         self.redraw_needed = true;
     }

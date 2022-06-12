@@ -12,7 +12,7 @@ fn test_layer_move() {
     let top_layer = scene.layer(0).unwrap().local_id;
     scene.apply_ack(&SceneEventAck::LayerNew(top_layer, Some(1)));
 
-    let event = scene.lower_layer(top_layer).unwrap();
+    let event = scene.move_layer(top_layer, false).unwrap();
     assert_eq!(vec![-1, -2, -3], layer_zs(&scene));
 
     scene.unwind_event(event);
