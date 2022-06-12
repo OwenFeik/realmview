@@ -20,7 +20,12 @@
           import init from "/pkg/client.js";
           init();
         </script>
-        <canvas id="canvas" class="bg-light" tabindex="-1"></canvas>
+        <canvas
+          id="canvas"
+          class="bg-light"
+          tabindex="-1"
+          oncontextmenu="return false;"
+        ></canvas>
         <div
           class="position-absolute btn-group-vertical"
           id="show_offcanvas"

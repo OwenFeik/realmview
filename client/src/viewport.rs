@@ -32,6 +32,12 @@ impl ViewportPoint {
     }
 }
 
+#[derive(PartialEq, Eq)]
+enum GrabType {
+    Selection,
+    Navigation,
+}
+
 pub struct Viewport {
     context: Context,
     scene: Scene,
@@ -44,6 +50,9 @@ pub struct Viewport {
 
     // Flag set true whenever something changes
     redraw_needed: bool,
+
+    // Type of operation the current grab is for
+    grab_type: Option<GrabType>,
 
     // Position where the viewport is being dragged from
     grabbed_at: Option<ViewportPoint>,
@@ -70,6 +79,7 @@ impl Viewport {
             },
             grid_zoom: Viewport::BASE_GRID_ZOOM,
             redraw_needed: true,
+            grab_type: None,
             grabbed_at: None,
             issued_events: Vec::new(),
             client,
@@ -103,25 +113,55 @@ impl Viewport {
         self.redraw_needed = true;
     }
 
-    fn handle_mouse_down(&mut self, at: ViewportPoint) {
-        if !self
-            .scene
-            .grab(at.scene_point(self.viewport, self.grid_zoom))
-        {
-            self.grabbed_at = Some(at)
+    fn grab(&mut self, at: ViewportPoint, grab_type: GrabType) {
+        if self.grab_type.is_none() {
+            self.grab_type = Some(grab_type);
+            self.grabbed_at = Some(at);
         }
     }
 
-    fn handle_mouse_up(&mut self, _at: ViewportPoint, alt: bool) {
-        if !self.scene.holding.is_none() {
-            self.redraw_needed = true;
+    fn handle_mouse_down(&mut self, at: ViewportPoint, button: MouseButton) {
+        match button {
+            MouseButton::Left => {
+                if !self
+                    .scene
+                    .grab(at.scene_point(self.viewport, self.grid_zoom))
+                {
+                    self.grab(at, GrabType::Selection);
+                }
+            }
+            MouseButton::Right => self.grab(at, GrabType::Navigation),
+            _ => {}
+        };
+    }
+
+    fn release_grab(&mut self, grab_type: GrabType) {
+        if Some(grab_type) != self.grab_type {
+            return;
         }
 
-        // Only snap a held sprite to the grid if the user is not holding alt.
-        if let Some(scene_event) = self.scene.release_held(!alt) {
-            self.client_event(scene_event);
+        if let Some(GrabType::Selection) = self.grab_type {
+            // TODO: perform selection
         }
+        self.grab_type = None;
         self.grabbed_at = None;
+    }
+
+    fn handle_mouse_up(&mut self, alt: bool, button: MouseButton) {
+        match button {
+            MouseButton::Left => {
+                // Redraw as the sprite may change position or size when dropped.
+                self.require_redraw(!self.scene.holding.is_none());
+
+                // Only snap a held sprite to the grid if the user is not holding alt.
+                let opt = self.scene.release_held(!alt);
+                self.client_option(opt);
+
+                self.release_grab(GrabType::Selection);
+            }
+            MouseButton::Right => self.release_grab(GrabType::Navigation),
+            _ => {}
+        }
     }
 
     fn handle_mouse_move(&mut self, at: ViewportPoint) {
@@ -137,10 +177,16 @@ impl Viewport {
         }
 
         if let Some(ViewportPoint { x, y }) = self.grabbed_at {
-            self.viewport.x += (x - at.x) / self.grid_zoom;
-            self.viewport.y += (y - at.y) / self.grid_zoom;
-            self.grabbed_at = Some(at);
-            self.redraw_needed = true;
+            match self.grab_type {
+                Some(GrabType::Navigation) => {
+                    self.viewport.x += (x - at.x) / self.grid_zoom;
+                    self.viewport.y += (y - at.y) / self.grid_zoom;
+                    self.grabbed_at = Some(at);
+                    self.redraw_needed = true;
+                }
+                Some(GrabType::Selection) => {}
+                _ => {}
+            }
         }
     }
 
@@ -183,17 +229,17 @@ impl Viewport {
             None => return,
         };
 
-        for event in events.iter() {
+        for event in &events {
             if matches!(event.button, MouseButton::Middle) {
                 self.centre_viewport();
                 continue;
             }
 
             match event.event_type {
-                EventType::MouseDown => self.handle_mouse_down(event.at),
-                EventType::MouseLeave => self.handle_mouse_up(event.at, event.alt),
+                EventType::MouseDown => self.handle_mouse_down(event.at, event.button),
+                EventType::MouseLeave => self.handle_mouse_up(event.alt, event.button),
                 EventType::MouseMove => self.handle_mouse_move(event.at),
-                EventType::MouseUp => self.handle_mouse_up(event.at, event.alt),
+                EventType::MouseUp => self.handle_mouse_up(event.alt, event.button),
                 EventType::MouseWheel(delta) => {
                     self.handle_scroll(event.at, delta, event.shift, event.ctrl)
                 }
@@ -262,6 +308,11 @@ impl Viewport {
         if let Some(scene_event) = event_option {
             self.client_event(scene_event);
         }
+    }
+
+    // Helper method to avoid if statements everywhere.
+    fn require_redraw(&mut self, needed: bool) {
+        self.redraw_needed = self.redraw_needed || needed;
     }
 
     fn redraw(&mut self) {
