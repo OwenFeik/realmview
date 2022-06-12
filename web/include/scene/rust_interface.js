@@ -71,6 +71,13 @@ var RustFuncs = {
 
     Creates a new untitled layer at the top of the scene.
     */
+
+    remove_layer: missing_func,
+    /*
+    function remove_layer(layer_id: number)
+
+    Removes the specified layer from the scene.
+    */
 };
 
 // Array of callbacks to be performed when a given closure is available.

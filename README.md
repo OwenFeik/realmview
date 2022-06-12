@@ -1,21 +1,26 @@
 # TODO
 
 * Layers
-    * Delete layers
 * Map size
     * Make map size configurable, as setting on scene, editable from project
         offcanvas
 * Sprites
+    * Delete sprites
     * Select sprites as a group
     * Move sprites as a group
 * Media
+    * Delete media items
     * Might be better if we never exposed media IDs, just used the URLs
+    * Media library
+        * Place media in directories
+        * Multiselect media, apply action to all items
 * Projects
     * /project/PROJECT_KEY should show a page with the scenes in that project
         and project metadata
     * /project should show the same page but empty, with prompt to save the
         project and create a scene
 * Game
+    * Actually load the current scene when launching a game
     * Feedback for when connecting to a game as a given CLIENT_KEY fails
     * Permission levels
         * Users should be either a player or an editor

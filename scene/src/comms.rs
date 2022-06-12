@@ -9,6 +9,7 @@ pub enum SceneEvent {
     LayerLockedChange(Id, bool),     // (layer, status)
     LayerMove(Id, i32, bool),        // (layer, starting_z, up)
     LayerNew(Id, String, i32),       // (local_id, title, z)
+    LayerRemove(Id),                 // (layer)
     LayerRename(Id, String, String), // (layer, old_title, new_title)
     LayerVisibilityChange(Id, bool), // (layer, status)
     SpriteNew(Sprite, Id),           // (new_sprite, layer)

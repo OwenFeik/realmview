@@ -229,7 +229,7 @@ impl Viewport {
             ServerEvent::Ack(id, Some(ack)) => self.process_scene_ack(id, ack),
             ServerEvent::SceneChange(scene) => self.replace_scene(scene),
             ServerEvent::SceneUpdate(scene_event) => {
-                self.scene.apply_event(scene_event, false);
+                self.scene.apply_event(scene_event);
             }
         }
     }
@@ -355,6 +355,12 @@ impl Viewport {
             .unwrap_or(1);
         let opt = self.scene.add_layer(Layer::new("Untitled", z));
         self.client_option(opt);
+    }
+
+    pub fn remove_layer(&mut self, layer: Id) {
+        let opt = self.scene.remove_layer(layer);
+        self.client_option(opt);
+        self.redraw_needed = true;
     }
 
     pub fn rename_layer(&mut self, layer: Id, title: String) {

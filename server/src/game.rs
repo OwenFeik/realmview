@@ -36,7 +36,8 @@ pub struct Game {
 }
 
 impl Game {
-    fn new(owner: i64, scene: Scene) -> Self {
+    fn new(owner: i64, mut scene: Scene) -> Self {
+        scene.canon = true;
         Game {
             clients: HashMap::new(),
             owner,
@@ -68,7 +69,7 @@ impl Game {
         if let Some(client) = self.get_client_mut(&key) {
             client.sender = Some(sender);
             self.send_to(
-                ServerEvent::SceneChange(self.scene.read().await.clone()),
+                ServerEvent::SceneChange(self.scene.read().await.non_canon()),
                 &key,
             );
             true
@@ -113,7 +114,7 @@ impl Game {
     }
 
     async fn apply_event(&self, event: SceneEvent) -> SceneEventAck {
-        self.scene.write().await.apply_event(event, true)
+        self.scene.write().await.apply_event(event)
     }
 
     async fn handle_event(&self, message: ClientMessage, from: &str) {

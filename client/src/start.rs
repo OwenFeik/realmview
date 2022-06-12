@@ -105,6 +105,13 @@ pub fn start() -> Result<(), JsValue> {
     new_layer_closure.forget();
 
     let scene_ref = scene.clone();
+    let remove_layer_closure = Closure::wrap(Box::new(move |id: f64| {
+        scene_ref.lock().remove_layer(id as i64);
+    }) as Box<dyn FnMut(f64)>);
+    expose_closure_f64("remove_layer", &remove_layer_closure);
+    remove_layer_closure.forget();
+
+    let scene_ref = scene.clone();
     let move_layer_closure = Closure::wrap(Box::new(move |id: f64, up: bool| {
         scene_ref.lock().move_layer(id as i64, up);
     }) as Box<dyn FnMut(f64, bool)>);

@@ -1,0 +1,70 @@
+<div
+  class="modal fade"
+  id="confirmation_modal"
+  tabindex="-1"
+  aria-labelledby="confirmation_modal_label"
+  aria-hidden="true"
+>
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="confirmation_modal_label">Confirm</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+        ></button>
+      </div>
+      <div
+        id="confirmation_modal_body"
+        class="modal-body"
+      >Are you sure?</div>
+      <div class="modal-footer">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-bs-dismiss="modal"
+        >Close</button>
+        <button
+          id="confirmation_modal_confirm"
+          class="btn btn-primary"
+          type="button"
+        >Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+var confirmation_modal;
+window.addEventListener("load", () => {
+    const modal = document.getElementById("confirmation_modal");
+    confirmation_modal = new bootstrap.Modal(modal);
+    modal.addEventListener("hidden.bs.modal", () => {
+        // Clear button event listeners.
+        const btn = document.getElementById("confirmation_modal_confirm");
+        btn.replaceWith(btn.cloneNode(true));
+    });
+})
+
+function modal_confirm(action, text="Are you sure?") {
+    document.getElementById("confirmation_modal_body").innerText = text;
+
+    confirmation_modal.show();
+    const listener = () => {
+        try {
+            action();
+        } catch {
+            console.error("Error in modal confirmation action.");
+        }
+        document
+            .getElementById("confirmation_modal_confirm")
+            .removeEventListener("click", listener);
+        confirmation_modal.hide();
+    };
+    
+    document
+        .getElementById("confirmation_modal_confirm")
+        .addEventListener("click", listener);
+}
+</script>

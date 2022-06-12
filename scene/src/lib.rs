@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![feature(drain_filter)]
 
 use serde_derive::{Deserialize, Serialize};
 use std::ops::{Add, Sub};
@@ -75,9 +76,10 @@ impl Default for HeldObject {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Scene {
-    // Layers of sprites in the scene. The grid is drawn at level 0.
     pub id: Option<Id>,
+    pub canon: bool,
     pub layers: Vec<Layer>,
+    pub removed_layers: Vec<Layer>,
     pub title: Option<String>,
     pub project: Option<Id>,
     pub holding: HeldObject,
@@ -89,19 +91,23 @@ impl Scene {
     const DEFAULT_SIZE: u32 = 32;
 
     pub fn new() -> Self {
-        Self {
-            layers: vec![
-                Layer::new("Foreground", 1),
-                Layer::new("Scenery", -1),
-                Layer::new("Background", -2),
-            ],
-            id: None,
-            title: None,
-            project: None,
-            holding: HeldObject::None,
-            w: Scene::DEFAULT_SIZE,
-            h: Scene::DEFAULT_SIZE,
-        }
+        Self::default()
+    }
+
+    pub fn new_with_layers(layers: Vec<Layer>) -> Self {
+        let mut scene = Self {
+            layers,
+            ..Default::default()
+        };
+        scene.sort_layers();
+        scene
+    }
+
+    #[must_use]
+    pub fn non_canon(&self) -> Self {
+        let mut new = self.clone();
+        new.canon = false;
+        new
     }
 
     // Returns the top layer if provided ID is 0
@@ -125,11 +131,6 @@ impl Scene {
             .find(|l| l.canonical_id == Some(layer_canonical))
     }
 
-    // Sort to place the highest layer first.
-    pub fn sort_layers(&mut self) {
-        self.layers.sort_by(|a, b| b.z.cmp(&a.z));
-    }
-
     pub fn add_layer(&mut self, layer: Layer) -> Option<SceneEvent> {
         let id = layer.local_id;
         if self.layer(id).is_none() {
@@ -144,12 +145,31 @@ impl Scene {
         }
     }
 
-    fn remove_layer(&mut self, layer: Id) {
-        self.layers.retain(|l| l.local_id != layer);
+    pub fn remove_layer(&mut self, layer: Id) -> Option<SceneEvent> {
+        let removed = self.layers.drain_filter(|l| l.local_id == layer).last()?;
+        let event = removed.canonical_id.map(SceneEvent::LayerRemove);
+
+        // If this removal might be rejected, we'll keep the layer around to
+        // restore.
+        if event.is_some() {
+            self.removed_layers.push(removed);
+        }
+        event
     }
 
-    fn remove_layer_canonical(&mut self, layer: Id) {
-        self.layers.retain(|l| l.canonical_id != Some(layer));
+    fn restore_layer(&mut self, layer_canonical: Id) {
+        if let Some(layer) = self
+            .removed_layers
+            .drain_filter(|l| l.canonical_id == Some(layer_canonical))
+            .last()
+        {
+            self.add_layer(layer);
+        }
+    }
+
+    fn remove_layer_canonical(&mut self, layer: Id) -> Option<SceneEvent> {
+        let local_id = self.layer_canonical(layer)?.local_id;
+        self.remove_layer(local_id)
     }
 
     pub fn rename_layer(&mut self, layer: Id, new_name: String) -> Option<SceneEvent> {
@@ -160,8 +180,13 @@ impl Scene {
         }
     }
 
-    fn simplify_zs(&mut self) {
-        self.sort_layers();
+    // Sort to place the highest layer first. Also updates layer z values to
+    // simplify.
+    pub fn sort_layers(&mut self) {
+        self.layers.sort_by(|a, b| b.z.cmp(&a.z));
+
+        // Use the smallest range of z values possible, to ensure a consistent set
+        // of zs across clients.
         if let Some(i) = self.layers.iter().position(|l| l.z < 0) {
             let mut z = i as i32;
             for layer in &mut self.layers[..i] {
@@ -198,7 +223,7 @@ impl Scene {
             // Otherwise do nothing.
             return if (up && layer_z < 0) || (down && layer_z > 0) {
                 self.layers[i].z = if up { 1 } else { -1 };
-                self.simplify_zs();
+                self.sort_layers();
                 self.layers[i]
                     .canonical_id
                     .map(|id| SceneEvent::LayerMove(id, layer_z, up))
@@ -239,7 +264,7 @@ impl Scene {
         let ret = self.layers[i]
             .canonical_id
             .map(|id| SceneEvent::LayerMove(id, layer_z, up));
-        self.simplify_zs();
+        self.sort_layers();
         ret
     }
 
@@ -385,7 +410,7 @@ impl Scene {
     }
 
     // If canonical is true, this is the ground truth scene.
-    pub fn apply_event(&mut self, event: SceneEvent, canonical: bool) -> SceneEventAck {
+    pub fn apply_event(&mut self, event: SceneEvent) -> SceneEventAck {
         match event {
             SceneEvent::Dummy => SceneEventAck::Approval,
             SceneEvent::LayerLockedChange(l, locked) => {
@@ -410,7 +435,7 @@ impl Scene {
 
                 // If this is the canonical scene, we will be taking the local
                 // ID as canonical. Otherwise, the provided ID is canonical.
-                if canonical {
+                if self.canon {
                     l.canonical_id = Some(l.local_id);
                 } else {
                     l.canonical_id = Some(id);
@@ -420,6 +445,9 @@ impl Scene {
                 self.add_layer(l);
 
                 SceneEventAck::LayerNew(id, canonical_id)
+            }
+            SceneEvent::LayerRemove(l) => {
+                SceneEventAck::from(self.remove_layer_canonical(l).is_some())
             }
             SceneEvent::LayerRename(id, old_title, new_title) => {
                 if let Some(layer) = self.layer_canonical(id) {
@@ -451,7 +479,7 @@ impl Scene {
                     }
                 } else {
                     let mut sprite = Sprite::from_remote(&s);
-                    if canonical {
+                    if self.canon {
                         sprite.canonical_id = Some(sprite.local_id);
                     }
 
@@ -463,22 +491,26 @@ impl Scene {
                 }
             }
             SceneEvent::SpriteMove(id, from, to) => {
+                let canon = self.canon;
                 self.release_sprite(id);
                 match self.sprite_canonical(id) {
-                    Some(s) if s.rect == from || !canonical => {
+                    Some(s) if s.rect == from || !canon => {
                         s.set_rect(to);
                         SceneEventAck::Approval
                     }
                     _ => SceneEventAck::Rejection,
                 }
             }
-            SceneEvent::SpriteTextureChange(id, old, new) => match self.sprite_canonical(id) {
-                Some(s) if s.texture == old || !canonical => {
-                    s.set_texture(new);
-                    SceneEventAck::Approval
+            SceneEvent::SpriteTextureChange(id, old, new) => {
+                let canon = !self.canon;
+                match self.sprite_canonical(id) {
+                    Some(s) if s.texture == old || !canon => {
+                        s.set_texture(new);
+                        SceneEventAck::Approval
+                    }
+                    _ => SceneEventAck::Rejection,
                 }
-                _ => SceneEventAck::Rejection,
-            },
+            }
         }
     }
 
@@ -509,7 +541,10 @@ impl Scene {
 
                 self.move_layer(local_id, !up);
             }
-            SceneEvent::LayerNew(id, _, _) => self.remove_layer(id),
+            SceneEvent::LayerNew(id, _, _) => {
+                self.remove_layer(id);
+            }
+            SceneEvent::LayerRemove(l) => self.restore_layer(l),
             SceneEvent::LayerRename(id, old_title, _) => {
                 if let Some(l) = self.layer_canonical(id) {
                     l.rename(old_title);
@@ -543,6 +578,20 @@ impl Scene {
 
 impl Default for Scene {
     fn default() -> Self {
-        Self::new()
+        Self {
+            id: None,
+            canon: false,
+            layers: vec![
+                Layer::new("Foreground", 1),
+                Layer::new("Scenery", -1),
+                Layer::new("Background", -2),
+            ],
+            removed_layers: vec![],
+            title: None,
+            project: None,
+            holding: HeldObject::None,
+            w: Scene::DEFAULT_SIZE,
+            h: Scene::DEFAULT_SIZE,
+        }
     }
 }

@@ -47,6 +47,18 @@
             onclick="RustFuncs.move_layer(${id}, false); load_layers();"
           )
         }}
+        {{
+          icon_button(
+            icon="trash3",
+            outline=1,
+            small=1,
+            onclick="
+              modal_confirm(
+                () => { RustFuncs.remove_layer(${id}); load_layers(); }
+              );
+            "
+          )
+        }}
       |,
       small=1,
       action="title => rename_layer(${id}, title)"

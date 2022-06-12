@@ -98,10 +98,22 @@ impl Project {
         )
         .await?;
 
-        for layer in scene.layers.iter() {
+        for layer in scene.removed_layers.iter() {
+            for sprite in &layer.sprites {
+                if let Some(id) = sprite.canonical_id {
+                    SpriteRecord::delete(conn, id).await?;
+                }
+            }
+
+            if let Some(l) = layer.canonical_id {
+                LayerRecord::delete(conn, l).await?;
+            }
+        }
+
+        for layer in &scene.layers {
             let l = LayerRecord::update_or_create(conn, layer, s.id).await?;
 
-            for sprite in layer.sprites.iter() {
+            for sprite in &layer.sprites {
                 SpriteRecord::save(conn, sprite, l.id).await?;
             }
         }
@@ -225,16 +237,12 @@ mod scene_record {
                 }
             }
 
-            let mut scene = scene::Scene {
-                id: Some(self.id),
-                layers,
-                title: Some(self.title.clone()),
-                project: Some(self.project),
-                holding: scene::HeldObject::None,
-                w: self.w,
-                h: self.h,
-            };
-            scene.sort_layers();
+            let mut scene = scene::Scene::new_with_layers(layers);
+            scene.id = Some(self.id);
+            scene.title = Some(self.title.clone());
+            scene.project = Some(self.project);
+            scene.w = self.w;
+            scene.h = self.h;
             Ok(scene)
         }
 
@@ -252,6 +260,7 @@ mod scene_record {
 }
 
 mod layer {
+    use anyhow::anyhow;
     use sqlx::SqliteConnection;
 
     #[derive(Debug, sqlx::FromRow)]
@@ -284,7 +293,7 @@ mod layer {
                 .bind(id)
                 .fetch_one(conn)
                 .await
-                .map_err(|_| anyhow::anyhow!("Failed to load layer."))
+                .map_err(|_| anyhow!("Failed to load layer."))
         }
 
         // Note: will panic if called with a layer with canonical_id = None
@@ -300,7 +309,7 @@ mod layer {
                 .bind(layer.canonical_id.unwrap())
                 .fetch_one(conn)
                 .await
-                .map_err(|e| anyhow::anyhow!("Failed to update layer: {e}"))
+                .map_err(|e| anyhow!("Failed to update layer: {e}"))
         }
 
         async fn create(
@@ -316,7 +325,16 @@ mod layer {
                 .bind(layer.locked)
                 .fetch_one(conn)
                 .await
-                .map_err(|_| anyhow::anyhow!("Failed to create layer."))
+                .map_err(|_| anyhow!("Failed to create layer."))
+        }
+
+        pub async fn delete(conn: &mut SqliteConnection, id: i64) -> anyhow::Result<()> {
+            sqlx::query("DELETE FROM layers WHERE id = ?1;")
+                .bind(id)
+                .execute(conn)
+                .await
+                .map(|_| ())
+                .map_err(|e| anyhow!("Failed to delete layer: {e}"))
         }
 
         pub async fn update_or_create(
@@ -338,12 +356,13 @@ mod layer {
                 .bind(scene)
                 .fetch_all(pool)
                 .await
-                .map_err(|e| anyhow::anyhow!("Failed to load scene layers: {e}"))
+                .map_err(|e| anyhow!("Failed to load scene layers: {e}"))
         }
     }
 }
 
 mod sprite {
+    use anyhow::anyhow;
     use sqlx::{Row, SqliteConnection};
 
     use super::layer::LayerRecord;
@@ -407,7 +426,7 @@ mod sprite {
                 .execute(conn)
                 .await
                 .map(|_| ())
-                .map_err(|_| anyhow::anyhow!("Failed to update sprite."))
+                .map_err(|e| anyhow!("Failed to update sprite: {e}"))
         }
 
         async fn create_from(
@@ -428,7 +447,16 @@ mod sprite {
                 .fetch_one(conn)
                 .await
                 .map(|row: sqlx::sqlite::SqliteRow| row.get(0))
-                .map_err(|_| anyhow::anyhow!("Failed to create sprite."))
+                .map_err(|e| anyhow!("Failed to create sprite: {e}"))
+        }
+
+        pub async fn delete(conn: &mut SqliteConnection, id: i64) -> anyhow::Result<()> {
+            sqlx::query("DELETE FROM sprites WHERE id = ?1;")
+                .bind(id)
+                .execute(conn)
+                .await
+                .map(|_| ())
+                .map_err(|e| anyhow!("Failed to delete sprite: {e}"))
         }
 
         pub async fn save(

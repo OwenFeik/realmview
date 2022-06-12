@@ -2,6 +2,7 @@ root := $(shell pwd)
 build := ${root}/build
 target := ${build}/target
 content := ${build}/content
+cargo := CARGO_TARGET_DIR=${target} RUST_BACKTRACE=1 cargo
 
 serve: server content
 	echo "Serving at http://localhost:3030/"
@@ -10,7 +11,7 @@ serve: server content
 		${build}/server ${content}
 
 server: content database
-	CARGO_TARGET_DIR=${target} cargo build -p server
+	${cargo} build -p server
 	cp --remove-destination ${target}/debug/server ${build}/server
 
 content: html wasm
@@ -30,7 +31,8 @@ database: build-dir
 	fi
 
 wasm: content-dir
-	wasm-pack build client/ --out-dir ${content}/pkg --target web
+	CARGO_TARGET_DIR=${target} \
+		wasm-pack build client/ --out-dir ${content}/pkg --target web
 
 html: content-dir
 	python3 ${root}/web/build.py ${content}/
@@ -46,14 +48,14 @@ lint: test
 	python3 -m black ${root}/web/build.py
 	MYPY_CACHE_DIR=${build}/.mypy_cache python3 -m mypy ${root}/web/build.py
 	@echo "=== Rust: "
-	cargo fmt
-	cargo clippy
+	${cargo} fmt
+	${cargo} clippy
 
 test:
-	CARGO_TARGET_DIR=${target} RUST_BACKTRACE=1 cargo test
+	${cargo} test
 
 install:
-	cargo install wasm-pack
+	${cargo} install wasm-pack
 	python3 -m pip install -r ${root}/web/requirements.txt
 
 clean:
