@@ -50,7 +50,7 @@ lint: test
 	cargo clippy
 
 test:
-	RUST_BACKTRACE=1 cargo test
+	CARGO_TARGET_DIR=${target} RUST_BACKTRACE=1 cargo test
 
 install:
 	cargo install wasm-pack
