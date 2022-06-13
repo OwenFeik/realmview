@@ -59,27 +59,22 @@ function error_fn(id) {
 
 function new_game() {
     const error = error_fn("launch_game_error");
-
-    let req = new XMLHttpRequest();
-
-    req.onerror = () => error("Network error.");
-    req.onload = () => {
-        if (req.response) {
-            if (req.response.success) {
-                window.location = req.response.url;
+    post(
+        "/game/new",
+        { "scene_key": selected_scene() },
+        resp => {
+            if (resp?.success) {
+                window.location = resp.url;
+            }
+            else if (resp?.message) {
+                error(resp.message);
             }
             else {
-                error(req.response.message);
+                error("Server error.");
             }
-        }
-        else {
-            error("Server error.");
-        }
-    };
-
-    req.responseType = "json";
-    req.open("POST", "/game/new");
-    req.send();
+        },
+        () => error("Network error.")
+    );
 }
 
 function join_game() {

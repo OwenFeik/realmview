@@ -19,7 +19,10 @@
     * /project should show the same page but empty, with prompt to save the
         project and create a scene
 * Game
-    * Actually load the current scene when launching a game
+    * Save the scene in the game
+    * Associate each client with a user. When a user connects a second time,
+        terminate that user's other sessions
+    * Specify which users are allowed to join the game
     * Feedback for when connecting to a game as a given CLIENT_KEY fails
     * Permission levels
         * Users should be either a player or an editor

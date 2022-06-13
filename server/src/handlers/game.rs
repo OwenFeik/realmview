@@ -159,24 +159,56 @@ mod join {
 mod new {
     use std::convert::Infallible;
 
+    use serde_derive::Deserialize;
     use sqlx::SqlitePool;
     use warp::Filter;
 
     use crate::crypto::random_hex_string;
     use crate::game;
-    use crate::handlers::{response::Binary, with_db, with_session};
-    use crate::models::User;
+    use crate::handlers::{json_body, response::Binary, with_db, with_session};
+    use crate::models::{User, SceneRecord};
 
     use super::with_games;
+
+    #[derive(Deserialize)]
+    struct NewGameRequest {
+        scene_key: String,
+    }
 
     async fn new_game(
         pool: SqlitePool,
         skey: String,
         games: game::Games,
+        req: NewGameRequest,
     ) -> Result<impl warp::Reply, Infallible> {
         let user = match User::get_by_session(&pool, &skey).await {
             Ok(Some(u)) => u,
             _ => return Binary::result_failure("Bad session."),
+        };
+
+        let conn = &mut match pool.acquire().await {
+            Ok(c) => c,
+            _ => return Binary::result_error("Database error.")
+        };
+
+        let scene = match SceneRecord::load_from_key(conn, &req.scene_key).await {
+            Ok(r) => {
+                match r.user(conn).await {
+                    Ok(user_id) => {
+                        if user.id == user_id {
+                            match r.load_scene(conn).await {
+                                Ok(s) => s,
+                                _ => return Binary::result_error("Failed to load scene.")
+                            }
+                        }
+                        else {
+                            return Binary::result_failure("Scene owned by a different user.")
+                        }
+                    }
+                    _ => return Binary::result_failure("Scene user not found.")
+                }
+            }
+            _ => return Binary::result_failure("Scene not found.")
         };
 
         let game_key = {
@@ -194,7 +226,7 @@ mod new {
 
         games.write().await.insert(
             game_key.clone(),
-            game::Game::new_ref(user.id, scene::Scene::new()),
+            game::Game::new_ref(user.id, scene),
         );
 
         super::join::join_game(games, game_key, user.id).await
@@ -210,6 +242,7 @@ mod new {
             .and(with_db(pool))
             .and(with_session())
             .and(with_games(games))
+            .and(json_body())
             .and_then(new_game)
     }
 }

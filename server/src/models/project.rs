@@ -130,7 +130,8 @@ impl Project {
 }
 
 mod scene_record {
-    use sqlx::SqliteConnection;
+    use anyhow::anyhow;
+    use sqlx::{SqliteConnection, Row};
 
     use crate::crypto;
 
@@ -152,7 +153,7 @@ mod scene_record {
                 .bind(id)
                 .fetch_one(conn)
                 .await
-                .map_err(|_| anyhow::anyhow!("Failed to find scene."))
+                .map_err(|_| anyhow!("Failed to find scene."))
         }
 
         pub async fn load_from_key(
@@ -163,7 +164,7 @@ mod scene_record {
                 .bind(scene_key)
                 .fetch_one(conn)
                 .await
-                .map_err(|_| anyhow::anyhow!("Failed to find scene."))
+                .map_err(|_| anyhow!("Failed to find scene."))
         }
 
         async fn create(
@@ -183,7 +184,7 @@ mod scene_record {
             .bind(height)
             .fetch_one(conn)
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to create scene: {e}"))
+            .map_err(|e| anyhow!("Failed to create scene: {e}"))
         }
 
         pub async fn get_or_create(
@@ -216,7 +217,7 @@ mod scene_record {
                 .bind(self.id)
                 .execute(conn)
                 .await
-                .map_err(|_| anyhow::anyhow!("Failed to update scene title."))?;
+                .map_err(|_| anyhow!("Failed to update scene title."))?;
             Ok(())
         }
 
@@ -244,6 +245,17 @@ mod scene_record {
             scene.w = self.w;
             scene.h = self.h;
             Ok(scene)
+        }
+
+        pub async fn user(&self, conn: &mut SqliteConnection) -> anyhow::Result<i64> {
+            sqlx::query(
+                "SELECT user FROM scenes LEFT JOIN projects ON scenes.project = projects.id WHERE scenes.id = ?1;"
+            )
+                .bind(self.id)
+                .fetch_one(conn)
+                .await
+                .map(|row: sqlx::sqlite::SqliteRow| row.get(0))
+                .map_err(|e| anyhow!("Failed to load scene user: {e}"))
         }
 
         pub async fn project_scenes(
