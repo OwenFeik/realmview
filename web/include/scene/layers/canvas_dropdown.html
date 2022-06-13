@@ -1,0 +1,28 @@
+<ul
+  class="dropdown-menu"
+  id="canvas_sprite_dropdown"
+  style="position: absolute; z-index: 1; width: 200px; left: 500px; top: 500px;"
+  data-id="0"
+>
+  <li>
+    <a
+      class="dropdown-item"
+      href="#"
+      onclick="
+        RustFuncs.delete_sprite(parseInt(
+          this.parentNode.parentNode.getAttribute('data-id')
+        ));
+      "
+    >Delete</a></li>
+  <li class="dropend">
+    <a
+      class="dropdown-item dropdown-toggle"
+      href="#"
+      data-bs-toggle="dropdown"
+    >Move to layer</a>
+    <ul id="canvas_sprite_dropdown_layer_list" class="dropdown-menu">
+      <!-- Populated by layers.js -->
+      <li><a class="dropdown-item" href="#">Layer</a></li>
+    </ul>
+  </li>
+</ul>

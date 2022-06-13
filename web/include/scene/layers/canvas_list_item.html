@@ -1,0 +1,16 @@
+<li>
+  <a
+    class="dropdown-item"
+    data-id="${layer.id}"
+    href="#"
+    onclick="
+      const sprite_id = parseInt(
+        document
+          .getElementById('canvas_sprite_dropdown')
+          .getAttribute('data-id')
+      );
+
+      RustFuncs.sprite_layer(sprite_id, ${layer.id});
+    "
+  >${layer.title}</a>
+</li>
