@@ -42,7 +42,7 @@ pub fn start() -> Result<(), JsValue> {
     export_closure.forget();
 
     let vp_ref = vp.clone();
-    let load_vp_closure = Closure::wrap(Box::new(move |vp_b64: String| {
+    let load_scene_closure = Closure::wrap(Box::new(move |vp_b64: String| {
         let s = match base64::decode(&vp_b64) {
             Ok(b) => match bincode::deserialize(&b) {
                 Ok(s) => s,
@@ -52,15 +52,15 @@ pub fn start() -> Result<(), JsValue> {
         };
         vp_ref.lock().scene.replace_scene(s);
     }) as Box<dyn FnMut(String)>);
-    expose_closure_string_in("load_scene", &load_vp_closure);
-    load_vp_closure.forget();
+    expose_closure_string_in("load_scene", &load_scene_closure);
+    load_scene_closure.forget();
 
     let vp_ref = vp.clone();
-    let new_vp_closure = Closure::wrap(Box::new(move |id: f64| {
+    let new_scene_closure = Closure::wrap(Box::new(move |id: f64| {
         vp_ref.lock().scene.new_scene(id as i64);
     }) as Box<dyn FnMut(f64)>);
-    expose_closure_f64("new_scene", &new_vp_closure);
-    new_vp_closure.forget();
+    expose_closure_f64("new_scene", &new_scene_closure);
+    new_scene_closure.forget();
 
     let vp_ref = vp.clone();
     let new_sprite_closure = Closure::wrap(Box::new(move |id: f64, layer: f64| {
@@ -91,11 +91,12 @@ pub fn start() -> Result<(), JsValue> {
     layer_locked_closure.forget();
 
     let vp_ref = vp.clone();
-    let vp_layers_closure = Closure::wrap(
-        Box::new(move || layer_info(vp_ref.lock().scene.layers())) as Box<dyn FnMut() -> Array>,
-    );
-    expose_closure_array("vp_layers", &vp_layers_closure);
-    vp_layers_closure.forget();
+    let scene_layers_closure =
+        Closure::wrap(
+            Box::new(move || layer_info(vp_ref.lock().scene.layers())) as Box<dyn FnMut() -> Array>
+        );
+    expose_closure_array("scene_layers", &scene_layers_closure);
+    scene_layers_closure.forget();
 
     let vp_ref = vp.clone();
     let new_layer_closure = Closure::wrap(Box::new(move || {

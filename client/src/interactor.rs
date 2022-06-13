@@ -287,11 +287,11 @@ impl Interactor {
         };
     }
 
-    pub fn release(&mut self, snap_to_grid: bool) {
+    pub fn release(&mut self, alt: bool) {
         match self.holding {
             HeldObject::Marquee(_) => {
                 if let Some(region) = self.selection_marquee {
-                    self.selected_sprites = Some(self.scene.sprites_in(region));
+                    self.selected_sprites = Some(self.scene.sprites_in(region, alt));
                 }
                 self.selection_marquee = None;
                 self.change();
@@ -300,12 +300,12 @@ impl Interactor {
             HeldObject::Selection(_) => {
                 if let Some(ids) = self.selected_sprites.clone() {
                     for id in ids {
-                        self.release_held_sprite(id, snap_to_grid);
+                        self.release_held_sprite(id, !alt);
                     }
                 }
             }
             HeldObject::Sprite(id, _) | HeldObject::Anchor(id, _, _) => {
-                self.release_held_sprite(id, snap_to_grid)
+                self.release_held_sprite(id, !alt)
             }
         };
 

@@ -114,7 +114,7 @@ impl Viewport {
 
     fn handle_mouse_up(&mut self, alt: bool, button: MouseButton) {
         match button {
-            MouseButton::Left => self.scene.release(!alt),
+            MouseButton::Left => self.scene.release(alt),
             MouseButton::Right => self.release_grab(),
             MouseButton::Middle => self.centre_viewport(),
             _ => {}

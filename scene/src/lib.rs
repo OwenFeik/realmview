@@ -307,11 +307,14 @@ impl Scene {
         None
     }
 
-    pub fn sprites_in(&mut self, region: Rect) -> Vec<Id> {
+    pub fn sprites_in(&mut self, region: Rect, all_layers: bool) -> Vec<Id> {
         let mut ids = vec![];
         for layer in &self.layers {
             if layer.selectable() {
                 ids.append(&mut layer.sprites_in(region));
+                if !ids.is_empty() && !all_layers {
+                    return ids;
+                }
             }
         }
         ids

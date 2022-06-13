@@ -1,6 +1,7 @@
 # TODO
 
 * Layers
+    * Select from selected layer first (possibly)
 * Map size
     * Make map size configurable, as setting on scene, editable from project
         offcanvas
