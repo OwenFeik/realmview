@@ -168,7 +168,8 @@ impl Interactor {
             ServerEvent::SceneChange(scene) => self.replace_scene(scene),
             ServerEvent::SceneUpdate(scene_event) => {
                 self.layer_change_if(scene_event.is_layer());
-                self.scene.apply_event(scene_event);
+                let ack = self.scene.apply_event(scene_event);
+                self.change_if(ack.is_approval());
             }
         }
     }

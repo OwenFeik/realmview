@@ -75,7 +75,6 @@ impl Client {
         let mut events = self.incoming_events.lock();
         let mut ret = Vec::new();
         ret.append(&mut events);
-        ret.reverse();
         ret
     }
 

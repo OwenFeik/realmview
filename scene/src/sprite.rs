@@ -36,6 +36,10 @@ impl Sprite {
         }
     }
 
+    fn event<F: Fn(Id) -> SceneEvent>(&self, clos: F) -> Option<SceneEvent> {
+        self.canonical_id.map(clos)
+    }
+
     pub fn from_remote(sprite: &Sprite) -> Sprite {
         let mut new = Sprite::new(sprite.texture);
         new.set_rect(sprite.rect);
@@ -49,8 +53,7 @@ impl Sprite {
         self.rect.x = x;
         self.rect.y = y;
 
-        self.canonical_id
-            .map(|id| SceneEvent::SpriteMove(id, from, self.rect))
+        self.event(|id| SceneEvent::SpriteMove(id, from, self.rect))
     }
 
     pub fn set_rect(&mut self, rect: Rect) {
@@ -69,8 +72,7 @@ impl Sprite {
     pub fn snap_to_grid(&mut self) -> Option<SceneEvent> {
         let from = self.rect;
         self.rect.round();
-        self.canonical_id
-            .map(|id| SceneEvent::SpriteMove(id, from, self.rect))
+        self.event(|id| SceneEvent::SpriteMove(id, from, self.rect))
     }
 
     pub fn enforce_min_size(&mut self) -> Option<SceneEvent> {
@@ -78,8 +80,7 @@ impl Sprite {
             let from = self.rect;
             self.rect.w = self.rect.w.max(Sprite::MIN_SIZE);
             self.rect.h = self.rect.h.max(Sprite::MIN_SIZE);
-            self.canonical_id
-                .map(|id| SceneEvent::SpriteMove(id, from, self.rect))
+            self.event(|id| SceneEvent::SpriteMove(id, from, self.rect))
         } else {
             None
         }
@@ -88,8 +89,7 @@ impl Sprite {
     pub fn move_by(&mut self, delta: ScenePoint) -> Option<SceneEvent> {
         let old = self.rect;
         self.rect.translate(delta);
-        self.canonical_id
-            .map(|id| SceneEvent::SpriteMove(id, old, self.rect))
+        self.event(|id| SceneEvent::SpriteMove(id, old, self.rect))
     }
 
     pub fn pos(&self) -> ScenePoint {

@@ -47,6 +47,15 @@ impl SceneEventAck {
             Self::Rejection
         }
     }
+
+    pub fn is_approval(&self) -> bool {
+        matches!(
+            self, 
+            Self::Approval
+                | Self::LayerNew(..)
+                | Self::SpriteNew(..) 
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
