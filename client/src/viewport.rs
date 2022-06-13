@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicI64, Ordering};
+use std::{sync::atomic::{AtomicI64, Ordering}};
 
 use crate::{
     bridge::{Context, EventType, JsError, MouseButton},
@@ -32,10 +32,28 @@ impl ViewportPoint {
     }
 }
 
-#[derive(PartialEq, Eq)]
-enum GrabType {
-    Selection,
-    Navigation,
+#[derive(Debug)]
+enum Grab {
+    Selection(ScenePoint),
+    Navigation(ViewportPoint),
+}
+
+impl Grab {
+    fn grab(at: ViewportPoint, vp: Rect, grid_zoom: f32, button: MouseButton) -> Option<Self> {
+        return match button {
+            MouseButton::Left => Some(Grab::Selection(at.scene_point(vp, grid_zoom))),
+            MouseButton::Right => Some(Grab::Navigation(at)),
+            _ => None
+        }
+    }
+
+    fn matches_button(&self, button: MouseButton) -> bool {
+        match (self, button) {
+            (Grab::Selection(_), MouseButton::Left) => true,
+            (Grab::Navigation(_), MouseButton::Right) => true,
+            _ => false
+        }
+    }
 }
 
 pub struct Viewport {
@@ -44,18 +62,16 @@ pub struct Viewport {
 
     // Measured in scene units (tiles)
     viewport: Rect,
+    selection_area: Option<Rect>,
 
     // Size to render a scene unit, in pixels
     grid_zoom: f32,
 
+    // Current grab for dragging on the viewport
+    grab: Option<Grab>,
+
     // Flag set true whenever something changes
     redraw_needed: bool,
-
-    // Type of operation the current grab is for
-    grab_type: Option<GrabType>,
-
-    // Position where the viewport is being dragged from
-    grabbed_at: Option<ViewportPoint>,
 
     // Events that this client has sent to the server, awaiting approval.
     issued_events: Vec<ClientMessage>,
@@ -79,8 +95,8 @@ impl Viewport {
             },
             grid_zoom: Viewport::BASE_GRID_ZOOM,
             redraw_needed: true,
-            grab_type: None,
-            grabbed_at: None,
+            grab: None,
+            selection_area: None,
             issued_events: Vec::new(),
             client,
         };
@@ -113,38 +129,31 @@ impl Viewport {
         self.redraw_needed = true;
     }
 
-    fn grab(&mut self, at: ViewportPoint, grab_type: GrabType) {
-        if self.grab_type.is_none() {
-            self.grab_type = Some(grab_type);
-            self.grabbed_at = Some(at);
+    fn grab(&mut self, at: ViewportPoint, button: MouseButton) {
+        if self.grab.is_none() {
+            self.grab = Grab::grab(at, self.viewport, self.grid_zoom, button);
         }
     }
 
     fn handle_mouse_down(&mut self, at: ViewportPoint, button: MouseButton) {
         match button {
             MouseButton::Left => {
-                if !self
-                    .scene
-                    .grab(at.scene_point(self.viewport, self.grid_zoom))
-                {
-                    self.grab(at, GrabType::Selection);
+                if !self.scene.grab(at.scene_point(self.viewport, self.grid_zoom)) {
+                    self.grab(at, button);
                 }
             }
-            MouseButton::Right => self.grab(at, GrabType::Navigation),
-            _ => {}
+            _ => self.grab(at, button),
         };
     }
 
-    fn release_grab(&mut self, grab_type: GrabType) {
-        if Some(grab_type) != self.grab_type {
-            return;
+    fn release_grab(&mut self, button: MouseButton) {
+        if let Some(grab) = &self.grab {
+            if grab.matches_button(button) {
+                self.grab = None;
+                self.selection_area = None;
+                self.redraw_needed = true;
+            }
         }
-
-        if let Some(GrabType::Selection) = self.grab_type {
-            // TODO: perform selection
-        }
-        self.grab_type = None;
-        self.grabbed_at = None;
     }
 
     fn handle_mouse_up(&mut self, alt: bool, button: MouseButton) {
@@ -156,12 +165,11 @@ impl Viewport {
                 // Only snap a held sprite to the grid if the user is not holding alt.
                 let opt = self.scene.release_held(!alt);
                 self.client_option(opt);
-
-                self.release_grab(GrabType::Selection);
             }
-            MouseButton::Right => self.release_grab(GrabType::Navigation),
+            MouseButton::Middle => self.centre_viewport(),
             _ => {}
-        }
+        };
+        self.release_grab(button);
     }
 
     fn handle_mouse_move(&mut self, at: ViewportPoint) {
@@ -169,24 +177,23 @@ impl Viewport {
             self.redraw_needed = true;
         }
 
-        if let Some(scene_event) = self
-            .scene
-            .update_held_pos(at.scene_point(self.viewport, self.grid_zoom))
-        {
+        let at_scene = at.scene_point(self.viewport, self.grid_zoom);
+        if let Some(scene_event) = self.scene.update_held_pos(at_scene) {
             self.client_event(scene_event);
         }
 
-        if let Some(ViewportPoint { x, y }) = self.grabbed_at {
-            match self.grab_type {
-                Some(GrabType::Navigation) => {
-                    self.viewport.x += (x - at.x) / self.grid_zoom;
-                    self.viewport.y += (y - at.y) / self.grid_zoom;
-                    self.grabbed_at = Some(at);
-                    self.redraw_needed = true;
+        if let Some(grab) = &self.grab {
+            match grab {
+                Grab::Selection(from) => {
+                    self.selection_area = Some(from.rect(at_scene));
+                },
+                Grab::Navigation(from) => {
+                    self.viewport.x += (from.x - at.x) / self.grid_zoom;
+                    self.viewport.y += (from.y - at.y) / self.grid_zoom;
+                    self.grab = Some(Grab::Navigation(at));
                 }
-                Some(GrabType::Selection) => {}
-                _ => {}
             }
+            self.redraw_needed = true;
         }
     }
 
@@ -220,6 +227,11 @@ impl Viewport {
             self.viewport.y += SCROLL_COEFFICIENT * delta / self.grid_zoom;
         }
 
+        // Recalculate selection area for newly repositioned vieport.
+        if let Some(Grab::Selection(from)) = self.grab {
+            self.selection_area = Some(from.rect(at.scene_point(self.viewport, self.grid_zoom)));
+        }
+
         self.redraw_needed = true;
     }
 
@@ -230,11 +242,6 @@ impl Viewport {
         };
 
         for event in &events {
-            if matches!(event.button, MouseButton::Middle) {
-                self.centre_viewport();
-                continue;
-            }
-
             match event.event_type {
                 EventType::MouseDown => self.handle_mouse_down(event.at, event.button),
                 EventType::MouseLeave => self.handle_mouse_up(event.alt, event.button),
@@ -346,6 +353,10 @@ impl Viewport {
 
         if let Some(rect) = outline {
             self.context.draw_outline(vp, rect);
+        }
+
+        if let Some(area) = self.selection_area {
+            self.context.draw_outline(vp, Rect::scaled_from(area, self.grid_zoom));
         }
     }
 

@@ -36,11 +36,33 @@ impl Rect {
         (self.x as f32, self.y as f32, self.w as f32, self.h as f32)
     }
 
+    pub fn translate(&mut self, ScenePoint { x: dx, y: dy }: ScenePoint) {
+        self.x += dx;
+        self.y += dy;
+    }
+
     fn scale(&mut self, factor: f32) {
         self.x *= factor;
         self.y *= factor;
         self.w *= factor;
         self.h *= factor;
+    }
+
+    #[must_use]
+    fn positive_dimensions(&self) -> Self {
+        let mut new = self.clone();
+        
+        if self.w < 0.0 {
+            new.x = self.x + self.w;
+            new.w = self.w.abs();
+        }
+
+        if self.h < 0.0 {
+            new.y = self.y + self.h;
+            new.h = self.h.abs();
+        }
+
+        new
     }
 
     pub fn round(&mut self) {
@@ -84,6 +106,13 @@ impl Rect {
         };
 
         in_x && in_y
+    }
+
+    pub fn contains_rect(&self, rect: Rect) -> bool {
+        let a = self.positive_dimensions();
+        let b = rect.positive_dimensions();
+
+        b.x >= a.x && b.x + b.w <= a.x + a.w && b.y >= a.y && b.y + b.h <= a.y + a.h
     }
 
     pub fn top_left(&self) -> ScenePoint {

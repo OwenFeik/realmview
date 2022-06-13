@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 
 use serde_derive::{Deserialize, Serialize};
 
-use crate::comms::SceneEvent;
+use crate::{comms::SceneEvent, Rect};
 
 use super::{Id, ScenePoint, Sprite};
 
@@ -64,6 +64,12 @@ impl Layer {
         } else {
             None
         }
+    }
+
+    // Sprites can only be selected from a layer if it is both visible and
+    // unlocked.
+    pub fn selectable(&self) -> bool {
+        self.visible && !self.locked
     }
 
     pub fn refresh_local_ids(&mut self) {
@@ -135,6 +141,16 @@ impl Layer {
 
         None
     }
+
+    pub fn sprites_in(&self, region: Rect) -> Vec<Id> {
+        let mut ret = vec![];
+        for sprite in &self.sprites {
+            if region.contains_rect(sprite.rect) {
+                ret.push(sprite.local_id);
+            }
+        }
+        ret
+    } 
 }
 
 impl Default for Layer {

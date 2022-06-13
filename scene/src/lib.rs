@@ -31,6 +31,16 @@ impl ScenePoint {
     pub fn new(x: f32, y: f32) -> ScenePoint {
         ScenePoint { x, y }
     }
+
+    // Return the rectangle formed by these two points.
+    pub fn rect(&self, ScenePoint { x, y }: ScenePoint) -> Rect {
+        Rect {
+            x: self.x,
+            y: self.y,
+            w: x - self.x,
+            h: y - self.y,
+        }
+    }
 }
 
 impl Add for ScenePoint {
@@ -315,6 +325,16 @@ impl Scene {
         }
 
         None
+    }
+
+    pub fn sprites_in(&mut self, region: Rect) -> Vec<Id> {
+        let mut ids = vec![];
+        for layer in &self.layers {
+            if layer.selectable() {
+                ids.append(&mut layer.sprites_in(region));
+            }
+        }
+        ids
     }
 
     pub fn add_sprite(&mut self, sprite: Sprite, layer: Id) -> Option<SceneEvent> {
