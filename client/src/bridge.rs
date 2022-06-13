@@ -462,8 +462,8 @@ impl Context {
         self.gl.clear(Gl::COLOR_BUFFER_BIT);
     }
 
-    pub fn draw_grid(&mut self, vp: Rect, sw: u32, sh: u32, grid_size: f32) {
-        self.renderer.render_grid(vp, sw, sh, grid_size);
+    pub fn draw_grid(&mut self, vp: Rect, dims: Rect, grid_size: f32) {
+        self.renderer.render_grid(vp, dims, grid_size);
     }
 
     pub fn draw_sprites(&mut self, vp: Rect, sprites: &[Sprite], grid_size: f32) {

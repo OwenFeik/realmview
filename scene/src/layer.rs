@@ -150,7 +150,7 @@ impl Layer {
             }
         }
         ret
-    } 
+    }
 }
 
 impl Default for Layer {

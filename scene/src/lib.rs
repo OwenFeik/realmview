@@ -65,25 +65,6 @@ impl Sub for ScenePoint {
     }
 }
 
-#[derive(Clone, Copy, Deserialize, Serialize)]
-pub enum HeldObject {
-    None,
-    Sprite(Id, ScenePoint),
-    Anchor(Id, i32, i32),
-}
-
-impl HeldObject {
-    pub fn is_none(&self) -> bool {
-        matches!(self, HeldObject::None)
-    }
-}
-
-impl Default for HeldObject {
-    fn default() -> HeldObject {
-        HeldObject::None
-    }
-}
-
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Scene {
     pub id: Option<Id>,
@@ -92,7 +73,6 @@ pub struct Scene {
     pub removed_layers: Vec<Layer>,
     pub title: Option<String>,
     pub project: Option<Id>,
-    pub holding: HeldObject,
     pub w: u32,
     pub h: u32,
 }
@@ -278,7 +258,7 @@ impl Scene {
         ret
     }
 
-    fn sprite(&mut self, local_id: Id) -> Option<&mut Sprite> {
+    pub fn sprite(&mut self, local_id: Id) -> Option<&mut Sprite> {
         for layer in self.layers.iter_mut() {
             let s_opt = layer.sprite(local_id);
             if s_opt.is_some() {
@@ -311,7 +291,7 @@ impl Scene {
         None
     }
 
-    fn sprite_at(&mut self, at: ScenePoint) -> Option<&mut Sprite> {
+    pub fn sprite_at(&mut self, at: ScenePoint) -> Option<&mut Sprite> {
         for layer in self.layers.iter_mut() {
             // Sprites on locked or invisible layers cannot be grabbed.
             if layer.locked || !layer.visible {
@@ -354,66 +334,6 @@ impl Scene {
     fn remove_sprite(&mut self, local_id: Id, layer: Id) {
         if let Some(l) = self.layer(layer) {
             l.remove_sprite(local_id);
-        }
-    }
-
-    fn held_id(&self) -> Option<Id> {
-        match self.holding {
-            HeldObject::Sprite(id, _) => Some(id),
-            HeldObject::Anchor(id, _, _) => Some(id),
-            _ => None,
-        }
-    }
-
-    pub fn held_sprite(&mut self) -> Option<&mut Sprite> {
-        match self.held_id() {
-            Some(id) => self.sprite(id),
-            None => None,
-        }
-    }
-
-    pub fn update_held_pos(&mut self, at: ScenePoint) -> Option<SceneEvent> {
-        let holding = self.holding;
-        if let Some(s) = self.held_sprite() {
-            s.update_held_pos(holding, at)
-        } else {
-            None
-        }
-    }
-
-    pub fn release_held(&mut self, snap_to_grid: bool) -> Option<SceneEvent> {
-        let event = {
-            match self.held_sprite() {
-                Some(s) => {
-                    if snap_to_grid {
-                        s.snap_to_grid()
-                    } else {
-                        s.enforce_min_size()
-                    }
-                }
-                None => None,
-            }
-        };
-
-        self.holding = HeldObject::None;
-        event
-    }
-
-    pub fn grab(&mut self, at: ScenePoint) -> bool {
-        match self.sprite_at(at) {
-            Some(s) => {
-                self.holding = s.grab(at);
-                true
-            }
-            None => false,
-        }
-    }
-
-    fn release_sprite(&mut self, canonical_id: Id) {
-        if let Some(sprite) = self.held_sprite() {
-            if sprite.canonical_id == Some(canonical_id) {
-                self.release_held(false);
-            }
         }
     }
 
@@ -512,7 +432,6 @@ impl Scene {
             }
             SceneEvent::SpriteMove(id, from, to) => {
                 let canon = self.canon;
-                self.release_sprite(id);
                 match self.sprite_canonical(id) {
                     Some(s) if s.rect == from || !canon => {
                         s.set_rect(to);
@@ -609,7 +528,6 @@ impl Default for Scene {
             removed_layers: vec![],
             title: None,
             project: None,
-            holding: HeldObject::None,
             w: Scene::DEFAULT_SIZE,
             h: Scene::DEFAULT_SIZE,
         }

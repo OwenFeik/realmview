@@ -449,7 +449,7 @@ impl GridRenderer {
         })
     }
 
-    pub fn create_grid(&mut self, vp: Rect, sw: u32, sh: u32, grid_size: f32) {
+    pub fn create_grid(&mut self, vp: Rect, dims: Rect, grid_size: f32) {
         let mut verticals = Vec::new();
         let mut horizontals = Vec::new();
 
@@ -460,8 +460,8 @@ impl GridRenderer {
         let w = vp.w;
         let h = vp.h;
 
-        let sw = sw as f32;
-        let sh = sh as f32;
+        let sw = dims.w;
+        let sh = dims.h;
 
         // Horizontal and vertical line start and endpoints, to ensure that we
         // render only the tiles that are part of the scene as part of the
@@ -524,12 +524,12 @@ impl GridRenderer {
         self.current_line_count = Some(verticals.len() as i32 / 2);
     }
 
-    pub fn render_grid(&mut self, vp: Rect, sw: u32, sh: u32, grid_size: f32) {
+    pub fn render_grid(&mut self, vp: Rect, dims: Rect, grid_size: f32) {
         if self.current_grid_rect.is_none()
             || self.current_grid_rect.unwrap() != vp
             || self.current_grid_size != Some(grid_size)
         {
-            self.create_grid(vp, sw, sh, grid_size);
+            self.create_grid(vp, dims, grid_size);
         }
 
         self.line_renderer.render_lines(None);
@@ -560,8 +560,8 @@ impl Renderer {
         })
     }
 
-    pub fn render_grid(&mut self, vp: Rect, sw: u32, sh: u32, grid_size: f32) {
-        self.grid_renderer.render_grid(vp, sw, sh, grid_size);
+    pub fn render_grid(&mut self, vp: Rect, dims: Rect, grid_size: f32) {
+        self.grid_renderer.render_grid(vp, dims, grid_size);
     }
 
     pub fn load_image(&mut self, image: &HtmlImageElement) -> scene::Id {

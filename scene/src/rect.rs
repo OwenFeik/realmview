@@ -1,4 +1,4 @@
-use std::ops::{Add, Sub};
+use std::ops::{Add, Div, Mul, MulAssign, Sub};
 
 use serde_derive::{Deserialize, Serialize};
 
@@ -28,7 +28,7 @@ impl Rect {
 
     pub fn scaled_from(from: Rect, factor: f32) -> Rect {
         let mut rect = from;
-        rect.scale(factor);
+        rect *= factor;
         rect
     }
 
@@ -41,17 +41,10 @@ impl Rect {
         self.y += dy;
     }
 
-    fn scale(&mut self, factor: f32) {
-        self.x *= factor;
-        self.y *= factor;
-        self.w *= factor;
-        self.h *= factor;
-    }
-
     #[must_use]
     fn positive_dimensions(&self) -> Self {
-        let mut new = self.clone();
-        
+        let mut new = *self;
+
         if self.w < 0.0 {
             new.x = self.x + self.w;
             new.w = self.w.abs();
@@ -145,6 +138,41 @@ impl Sub for Rect {
             y: self.y - rhs.y,
             w: self.w - rhs.w,
             h: self.h - rhs.h,
+        }
+    }
+}
+
+impl Mul<f32> for Rect {
+    type Output = Rect;
+
+    fn mul(self, rhs: f32) -> Rect {
+        Rect {
+            x: self.x * rhs,
+            y: self.y * rhs,
+            w: self.w * rhs,
+            h: self.h * rhs,
+        }
+    }
+}
+
+impl MulAssign<f32> for Rect {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.x *= rhs;
+        self.y *= rhs;
+        self.w *= rhs;
+        self.h *= rhs;
+    }
+}
+
+impl Div<f32> for Rect {
+    type Output = Rect;
+
+    fn div(self, rhs: f32) -> Rect {
+        Rect {
+            x: self.x / rhs,
+            y: self.y / rhs,
+            w: self.w / rhs,
+            h: self.h / rhs,
         }
     }
 }

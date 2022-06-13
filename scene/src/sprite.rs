@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 
 use serde_derive::{Deserialize, Serialize};
 
-use super::{comms::SceneEvent, HeldObject, Id, Rect, ScenePoint};
+use super::{comms::SceneEvent, Id, Rect, ScenePoint};
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct Sprite {
@@ -21,10 +21,6 @@ pub struct Sprite {
 }
 
 impl Sprite {
-    // Distance in scene units from which anchor points (corners, edges) of the
-    // sprite can be dragged.
-    const ANCHOR_RADIUS: f32 = 0.2;
-
     // Minimum size of a sprite dimension; too small and sprites can be lost.
     const MIN_SIZE: f32 = 0.25;
 
@@ -48,7 +44,7 @@ impl Sprite {
         new
     }
 
-    fn set_pos(&mut self, ScenePoint { x, y }: ScenePoint) -> Option<SceneEvent> {
+    pub fn set_pos(&mut self, ScenePoint { x, y }: ScenePoint) -> Option<SceneEvent> {
         let from = self.rect;
         self.rect.x = x;
         self.rect.y = y;
@@ -89,51 +85,11 @@ impl Sprite {
         }
     }
 
-    fn grab_anchor(&mut self, at: ScenePoint) -> Option<HeldObject> {
-        let Rect { x, y, w, h } = self.rect;
-
-        // Anchor size is 0.2 tiles or one fifth of the smallest dimension of
-        // the sprite. This is to allow sprites that are ANCHOR_RADIUS or
-        // smaller to nonetheless be grabbed.
-        let mut closest_dist = Sprite::ANCHOR_RADIUS.min(w.abs().min(h.abs()) / 5.0);
-        let mut closest: (i32, i32) = (2, 2);
-        for dx in -1..2 {
-            for dy in -1..2 {
-                if dx == 0 && dy == 0 {
-                    continue;
-                }
-
-                let anchor_x = x + (w / 2.0) * (dx + 1) as f32;
-                let anchor_y = y + (h / 2.0) * (dy + 1) as f32;
-
-                let delta_x = anchor_x - at.x;
-                let delta_y = anchor_y - at.y;
-
-                let dist = (delta_x.powi(2) + delta_y.powi(2)).sqrt();
-                if dist <= closest_dist {
-                    closest = (dx, dy);
-                    closest_dist = dist;
-                }
-            }
-        }
-
-        if closest != (2, 2) {
-            Some(HeldObject::Anchor(self.local_id, closest.0, closest.1))
-        } else {
-            None
-        }
-    }
-
-    pub fn grab(&mut self, at: ScenePoint) -> HeldObject {
-        self.grab_anchor(at).unwrap_or({
-            HeldObject::Sprite(
-                self.local_id,
-                ScenePoint {
-                    x: at.x - self.rect.x,
-                    y: at.y - self.rect.y,
-                },
-            )
-        })
+    pub fn move_by(&mut self, delta: ScenePoint) -> Option<SceneEvent> {
+        let old = self.rect;
+        self.rect.translate(delta);
+        self.canonical_id
+            .map(|id| SceneEvent::SpriteMove(id, old, self.rect))
     }
 
     pub fn pos(&self) -> ScenePoint {
@@ -143,34 +99,11 @@ impl Sprite {
         }
     }
 
-    fn anchor_point(&mut self, dx: i32, dy: i32) -> ScenePoint {
+    pub fn anchor_point(&mut self, dx: i32, dy: i32) -> ScenePoint {
         let Rect { x, y, w, h } = self.rect;
         ScenePoint {
             x: x + (w / 2.0) * (dx + 1) as f32,
             y: y + (h / 2.0) * (dy + 1) as f32,
-        }
-    }
-
-    pub fn update_held_pos(&mut self, holding: HeldObject, at: ScenePoint) -> Option<SceneEvent> {
-        match holding {
-            HeldObject::Sprite(_, offset) => self.set_pos(at - offset),
-            HeldObject::Anchor(_, dx, dy) => {
-                let old_rect = self.rect;
-
-                let ScenePoint {
-                    x: delta_x,
-                    y: delta_y,
-                } = at - self.anchor_point(dx, dy);
-                let x = self.rect.x + (if dx == -1 { delta_x } else { 0.0 });
-                let y = self.rect.y + (if dy == -1 { delta_y } else { 0.0 });
-                let w = delta_x * (dx as f32) + self.rect.w;
-                let h = delta_y * (dy as f32) + self.rect.h;
-
-                self.rect = Rect { x, y, w, h };
-                self.canonical_id
-                    .map(|id| SceneEvent::SpriteMove(id, old_rect, self.rect))
-            }
-            HeldObject::None => None, // Other types aren't sprite-related
         }
     }
 }

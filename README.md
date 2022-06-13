@@ -6,8 +6,6 @@
         offcanvas
 * Sprites
     * Delete sprites
-    * Select sprites as a group
-    * Move sprites as a group
 * Media
     * Delete media items
     * Might be better if we never exposed media IDs, just used the URLs
