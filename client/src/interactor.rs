@@ -168,7 +168,7 @@ impl Interactor {
             ServerEvent::SceneChange(scene) => self.replace_scene(scene),
             ServerEvent::SceneUpdate(scene_event) => {
                 self.layer_change_if(scene_event.is_layer());
-                crate::bridge::log(&format!("{:?}", self.scene.apply_event(scene_event)));
+                self.scene.apply_event(scene_event);
             }
         }
     }
