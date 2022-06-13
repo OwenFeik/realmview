@@ -12,6 +12,12 @@ kwargs["ID"] = kwargs.get("ID", unique_string())
     autocomplete="off"
     disabled
     IFDEF(VALUE) {{ value="{{ VALUE }}" }}
+    onkeypress="
+      // Submit on enter.
+      if (event.keyCode === 13) {
+        this.parentNode.querySelector('#{{ ID }} + button').click();
+      }
+    "
   >
   {{
     icon_button(
@@ -22,6 +28,8 @@ kwargs["ID"] = kwargs.get("ID", unique_string())
         const input = this.parentNode.querySelector('#{{ ID }}');
         if (input.disabled) {
           input.disabled = false;
+          input.focus();
+          input.select();
           this.innerHTML = Icons.check_circle;
         }
         else {

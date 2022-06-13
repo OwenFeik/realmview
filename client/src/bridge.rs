@@ -20,6 +20,10 @@ extern "C" {
     fn get_texture_queue() -> Array;
     pub fn load_texture(id: Id);
 
+    #[wasm_bindgen(js_name = update_layers_list)]
+    pub fn _update_layers_list(layer_info: Array, selected: Id);
+
+    // Expose closures
     #[wasm_bindgen]
     pub fn expose_closure(name: &str, closure: &Closure<dyn FnMut()>);
 
@@ -510,8 +514,15 @@ impl JsLayerInfo {
     }
 }
 
-pub fn layer_info(layers: &[Layer]) -> Array {
+fn layer_info(layers: &[Layer]) -> Array {
     layers.iter().map(JsLayerInfo::js_value_from).collect()
+}
+
+pub fn update_layers_list(layers: &[Layer]) {
+    _update_layers_list(
+        layer_info(layers),
+        layers.get(0).map(|l| l.local_id).unwrap_or(0),
+    );
 }
 
 fn create_context(element: &HtmlCanvasElement) -> Result<Gl, JsError> {

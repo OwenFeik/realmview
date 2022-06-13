@@ -72,6 +72,7 @@ pub struct Interactor {
     client: Option<Client>,
     holding: HeldObject,
     issued_events: Vec<ClientMessage>,
+    layers_changed: bool,
     scene: Scene,
     selected_sprites: Option<Vec<Id>>,
     selection_marquee: Option<Rect>,
@@ -80,10 +81,11 @@ pub struct Interactor {
 impl Interactor {
     pub fn new(client: Option<Client>) -> Self {
         Interactor {
-            changed: false,
+            changed: true,
             client,
             holding: HeldObject::None,
             issued_events: vec![],
+            layers_changed: true,
             scene: Scene::new(),
             selected_sprites: None,
             selection_marquee: None,
@@ -94,16 +96,42 @@ impl Interactor {
         self.changed = true;
     }
 
+    fn change_if(&mut self, changed: bool) {
+        if changed {
+            self.change();
+        }
+    }
+
     pub fn handle_change(&mut self) -> bool {
         let ret = self.changed;
         self.changed = false;
         ret
     }
 
+    fn layer_change(&mut self) {
+        self.layers_changed = true;
+    }
+
+    fn layer_change_if(&mut self, changed: bool) {
+        if changed {
+            self.layer_change();
+        }
+    }
+
+    pub fn handle_layer_change(&mut self) -> bool {
+        let ret = self.layers_changed;
+        self.layers_changed = false;
+        ret
+    }
+
+    fn both_change(&mut self) {
+        self.change();
+        self.layer_change();
+    }
+
     pub fn process_server_events(&mut self) {
         if let Some(client) = &self.client {
-            let mut events = client.events();
-            while let Some(event) = events.pop() {
+            for event in client.events() {
                 self.process_server_event(event);
                 self.change();
             }
@@ -117,6 +145,7 @@ impl Interactor {
     fn unwind_event(&mut self, id: Id) {
         if let Some(i) = self.issued_events.iter().position(|c| c.id == id) {
             if let ClientEvent::SceneChange(e) = self.issued_events.remove(i).event {
+                self.layer_change_if(e.is_layer());
                 self.scene.unwind_event(e);
             }
         }
@@ -138,7 +167,8 @@ impl Interactor {
             ServerEvent::Ack(id, Some(ack)) => self.process_scene_ack(id, ack),
             ServerEvent::SceneChange(scene) => self.replace_scene(scene),
             ServerEvent::SceneUpdate(scene_event) => {
-                self.scene.apply_event(scene_event);
+                self.layer_change_if(scene_event.is_layer());
+                crate::bridge::log(&format!("{:?}", self.scene.apply_event(scene_event)));
             }
         }
     }
@@ -313,93 +343,11 @@ impl Interactor {
     }
 
     #[must_use]
-    pub fn dimensions(&self) -> Rect {
-        Rect {
-            x: 0.0,
-            y: 0.0,
-            w: self.scene.w as f32,
-            h: self.scene.h as f32,
-        }
-    }
-
-    #[must_use]
-    pub fn export(&self) -> Vec<u8> {
-        match serialize(&self.scene) {
-            Ok(v) => v,
-            Err(_) => vec![],
-        }
-    }
-
-    #[must_use]
     pub fn layers(&self) -> &[Layer] {
         &self.scene.layers
     }
 
-    pub fn new_scene(&mut self, id: Id) {
-        if self.scene.id.is_some() {
-            self.scene = Scene::new();
-            if id != 0 {
-                self.scene.project = Some(id);
-            }
-            self.change();
-        }
-    }
-
-    pub fn replace_scene(&mut self, mut new: Scene) {
-        new.refresh_local_ids();
-        self.scene = new;
-        self.change();
-    }
-
-    pub fn new_layer(&mut self) {
-        let z = self
-            .scene
-            .layers
-            .get(0)
-            .map(|l| (l.z + 1).max(1))
-            .unwrap_or(1);
-        let opt = self.scene.add_layer(Layer::new("Untitled", z));
-        self.client_option(opt);
-    }
-
-    pub fn remove_layer(&mut self, layer: Id) {
-        let opt = self.scene.remove_layer(layer);
-        self.client_option(opt);
-        self.change();
-    }
-
-    pub fn rename_layer(&mut self, layer: Id, title: String) {
-        let opt = self.scene.rename_layer(layer, title);
-        self.client_option(opt);
-    }
-
-    pub fn set_layer_visible(&mut self, layer: Id, visible: bool) {
-        if let Some(l) = self.scene.layer(layer) {
-            let opt = l.set_visible(visible);
-            self.client_option(opt);
-            self.change();
-        }
-    }
-
-    pub fn set_layer_locked(&mut self, layer: Id, locked: bool) {
-        if let Some(l) = self.scene.layer(layer) {
-            let opt = l.set_locked(locked);
-            self.client_option(opt);
-        }
-    }
-
-    pub fn move_layer(&mut self, layer: Id, up: bool) {
-        let opt = self.scene.move_layer(layer, up);
-        self.client_option(opt);
-        self.change();
-    }
-
-    pub fn new_sprite(&mut self, texture: Id, layer: Id) {
-        let opt = self.scene.add_sprite(Sprite::new(texture), layer);
-        self.client_option(opt);
-        self.change();
-    }
-
+    #[must_use]
     pub fn selections(&mut self) -> Vec<Rect> {
         let mut selections = vec![];
 
@@ -419,5 +367,91 @@ impl Interactor {
             selections.push(rect);
         }
         selections
+    }
+
+    #[must_use]
+    pub fn dimensions(&self) -> Rect {
+        Rect {
+            x: 0.0,
+            y: 0.0,
+            w: self.scene.w as f32,
+            h: self.scene.h as f32,
+        }
+    }
+
+    #[must_use]
+    pub fn export(&self) -> Vec<u8> {
+        match serialize(&self.scene) {
+            Ok(v) => v,
+            Err(_) => vec![],
+        }
+    }
+
+    pub fn new_scene(&mut self, id: Id) {
+        if self.scene.id.is_some() {
+            self.scene = Scene::new();
+            if id != 0 {
+                self.scene.project = Some(id);
+            }
+            self.change();
+        }
+    }
+
+    pub fn replace_scene(&mut self, mut new: Scene) {
+        new.refresh_local_ids();
+        self.scene = new;
+        self.both_change();
+    }
+
+    pub fn new_layer(&mut self) {
+        let z = self
+            .scene
+            .layers
+            .get(0)
+            .map(|l| (l.z + 1).max(1))
+            .unwrap_or(1);
+        let opt = self.scene.add_layer(Layer::new("Untitled", z));
+        self.client_option(opt);
+        self.layer_change();
+    }
+
+    pub fn remove_layer(&mut self, layer: Id) {
+        let opt = self.scene.remove_layer(layer);
+        self.client_option(opt);
+        self.both_change();
+    }
+
+    pub fn rename_layer(&mut self, layer: Id, title: String) {
+        let opt = self.scene.rename_layer(layer, title);
+        self.client_option(opt);
+        self.layer_change();
+    }
+
+    pub fn set_layer_visible(&mut self, layer: Id, visible: bool) {
+        if let Some(l) = self.scene.layer(layer) {
+            let opt = l.set_visible(visible);
+            let changed = !l.sprites.is_empty();
+            self.change_if(changed);
+            self.client_option(opt);
+        }
+    }
+
+    pub fn set_layer_locked(&mut self, layer: Id, locked: bool) {
+        if let Some(l) = self.scene.layer(layer) {
+            let opt = l.set_locked(locked);
+            self.client_option(opt);
+        }
+    }
+
+    pub fn move_layer(&mut self, layer: Id, up: bool) {
+        let opt = self.scene.move_layer(layer, up);
+        self.client_option(opt);
+        self.both_change();
+    }
+
+    pub fn new_sprite(&mut self, texture: Id, layer: Id) {
+        let opt = self.scene.add_sprite(Sprite::new(texture), layer);
+        self.client_option(opt);
+        self.change();
     }
 }

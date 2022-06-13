@@ -67,8 +67,8 @@ impl Sub for ScenePoint {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Scene {
+    canon: bool,
     pub id: Option<Id>,
-    pub canon: bool,
     pub layers: Vec<Layer>,
     pub removed_layers: Vec<Layer>,
     pub title: Option<String>,
@@ -93,6 +93,21 @@ impl Scene {
         scene
     }
 
+    pub fn canon(&mut self) {
+        for layer in &mut self.layers {
+            for sprite in &mut layer.sprites {
+                if sprite.canonical_id.is_none() {
+                    sprite.canonical_id = Some(sprite.local_id);
+                }
+            }
+
+            if layer.canonical_id.is_none() {
+                layer.canonical_id = Some(layer.local_id);
+            }
+        }
+        self.canon = true;
+    }
+
     #[must_use]
     pub fn non_canon(&self) -> Self {
         let mut new = self.clone();
@@ -107,6 +122,13 @@ impl Scene {
         } else {
             self.layers.iter_mut().find(|l| l.local_id == layer)
         }
+    }
+
+    fn layer_local(&self, layer_canonical: Id) -> Option<Id> {
+        self.layers
+            .iter()
+            .find(|l| l.canonical_id == Some(layer_canonical))
+            .map(|l| l.local_id)
     }
 
     fn layer_canonical(&mut self, layer_canonical: Id) -> Option<&mut Layer> {
@@ -412,8 +434,13 @@ impl Scene {
                 if let Some(canonical_id) = s.canonical_id {
                     if self.sprite_canonical(canonical_id).is_none() {
                         let sprite = Sprite::from_remote(&s);
-                        if self.add_sprite(sprite, l).is_some() {
-                            SceneEventAck::SpriteNew(s.local_id, sprite.canonical_id)
+
+                        if let Some(layer) = self.layer_local(l) {
+                            if self.add_sprite(sprite, layer).is_some() {
+                                SceneEventAck::SpriteNew(s.local_id, sprite.canonical_id)
+                            } else {
+                                SceneEventAck::Rejection
+                            }
                         } else {
                             SceneEventAck::Rejection
                         }

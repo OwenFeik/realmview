@@ -1,5 +1,5 @@
 use crate::{
-    bridge::{Context, EventType, JsError, MouseButton},
+    bridge::{update_layers_list, Context, EventType, JsError, MouseButton},
     client::Client,
     interactor::Interactor,
 };
@@ -226,6 +226,10 @@ impl Viewport {
         if self.redraw_needed || self.context.load_texture_queue() || self.scene.handle_change() {
             self.redraw();
             self.redraw_needed = false;
+        }
+
+        if self.scene.handle_layer_change() {
+            update_layers_list(self.scene.layers());
         }
     }
 }

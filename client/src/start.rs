@@ -1,14 +1,13 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use js_sys::Array;
 use parking_lot::Mutex;
 use wasm_bindgen::prelude::*;
 
 use crate::bridge::{
-    expose_closure, expose_closure_array, expose_closure_f64, expose_closure_f64_bool,
-    expose_closure_f64_f64, expose_closure_f64_string, expose_closure_string_in,
-    expose_closure_string_out, layer_info, log, request_animation_frame,
+    expose_closure, expose_closure_f64, expose_closure_f64_bool, expose_closure_f64_f64,
+    expose_closure_f64_string, expose_closure_string_in, expose_closure_string_out, log,
+    request_animation_frame,
 };
 use crate::client::Client;
 use crate::viewport::Viewport;
@@ -89,14 +88,6 @@ pub fn start() -> Result<(), JsValue> {
     }) as Box<dyn FnMut(f64, bool)>);
     expose_closure_f64_bool("layer_locked", &layer_locked_closure);
     layer_locked_closure.forget();
-
-    let vp_ref = vp.clone();
-    let scene_layers_closure =
-        Closure::wrap(
-            Box::new(move || layer_info(vp_ref.lock().scene.layers())) as Box<dyn FnMut() -> Array>
-        );
-    expose_closure_array("scene_layers", &scene_layers_closure);
-    scene_layers_closure.forget();
 
     let vp_ref = vp.clone();
     let new_layer_closure = Closure::wrap(Box::new(move || {

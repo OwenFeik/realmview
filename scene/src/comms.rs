@@ -17,6 +17,20 @@ pub enum SceneEvent {
     SpriteTextureChange(Id, Id, Id), // (sprite_id, old_texture, new_texture)
 }
 
+impl SceneEvent {
+    pub fn is_layer(&self) -> bool {
+        matches!(
+            self,
+            Self::LayerLockedChange(..)
+                | Self::LayerMove(..)
+                | Self::LayerNew(..)
+                | Self::LayerRemove(..)
+                | Self::LayerRename(..)
+                | Self::LayerVisibilityChange(..)
+        )
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum SceneEventAck {
     Approval,                  // Catchall OK

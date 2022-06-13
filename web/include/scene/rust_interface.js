@@ -28,14 +28,6 @@ var RustFuncs = {
     project.
     */
 
-    scene_layers: missing_func,
-    /*
-    function scene_layers(): JsLayerInfo[]
-    
-    Returns array with a client::bridge::JsLayerInfo (exported type) struct for
-    each layer in the scene.
-    */
-
     new_sprite: missing_func,
     /*
     function new_sprite(texture_id: number, layer_id: number)
@@ -129,7 +121,6 @@ function call_when_ready(func_name, callback) {
 function load_scene(scene_encoded) {
     call_when_ready("load_scene", () => {
         RustFuncs.load_scene(scene_encoded)
-        load_layers();
     });
 }
 
@@ -137,7 +128,6 @@ function load_scene(scene_encoded) {
 function new_scene(project_id = 0) {
     call_when_ready("new_scene", () => {
         RustFuncs.new_scene(project_id);
-        load_layers();
     });
     
 }
@@ -157,7 +147,6 @@ function rename_layer(layer_id, new_title) {
         "rename_layer",
         () => {
             RustFuncs.rename_layer(layer_id, new_title);
-            load_layers();
         }
     );
 }
@@ -167,7 +156,6 @@ function new_layer() {
         "new_layer",
         () => {
             RustFuncs.new_layer();
-            load_layers();
         }
     );
 }

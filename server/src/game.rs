@@ -37,7 +37,7 @@ pub struct Game {
 
 impl Game {
     fn new(owner: i64, mut scene: Scene) -> Self {
-        scene.canon = true;
+        scene.canon();
         Game {
             clients: HashMap::new(),
             owner,
@@ -126,7 +126,7 @@ impl Game {
                 let ack = self.apply_event(event.clone()).await;
                 let ok = !matches!(ack, SceneEventAck::Rejection);
 
-                // Special case for new sprites and new layers (TODO) as their
+                // Special case for new sprites and new layers as their
                 // canonical IDs need to be broadcast.
                 if let SceneEventAck::SpriteNew(_, Some(canonical_id)) = ack {
                     if let SceneEvent::SpriteNew(_, layer) = event {

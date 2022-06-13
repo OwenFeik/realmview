@@ -1,7 +1,3 @@
-window.addEventListener(
-    "load", () => call_when_ready("scene_layers", load_layers)
-);
-
 function layers_list_entry(layer) {
     let id = layer.id;
     let label = layer.title; // Used in below
@@ -22,60 +18,57 @@ function layers_list_entry(layer) {
     return el;
 }
 
-function load_layers() {
+function update_layers_list(layers, selected) {
+    const RADIO_SEL = "input[name='layer_radio']";
+
     const list = document.getElementById("layers_list");
     
-    let selected = selected_layer();
     let name = selected_layer_name();
 
     while (list.children.length) {
         list.children[0].remove();
     }
 
-    try {
-        let selected_one = false;
-        let layers = RustFuncs.scene_layers().sort((a, b) => b.z - a.z);
-        let z = Infinity;
+    let selected_one = false;
+    let z = Infinity;
+    const divider = template_to_element('<hr class="mt-1 mb-0">');
+    layers.forEach(layer => {
+        let entry = layers_list_entry(layer);
+        if (layer.id === selected) {
+            entry
+                .querySelector()
+                .checked = true;
+            selected_one = true;
+        }
+
+        // Insert a rule at the z height of the grid
+        if (layer.z < 0 && z >= 0) {
+            list.appendChild(divider);
+        }
+        z = layer.z;
+
+        list.appendChild(entry);
+    });
+
+    if (z >= 0) {
+        list.appendChild(divider);
+    }
+    
+    if (!selected_one) {
         layers.forEach(layer => {
-            let entry = layers_list_entry(layer);
-            if (layer.id === selected) {
-                entry
-                    .querySelector("input[name='layer_radio']")
+            if (layer.title === name) {
+                list
+                    .querySelector(radio_selector(layer.id))
                     .checked = true;
                 selected_one = true;
             }
-
-            // Insert a rule at the z height of the grid
-            if (layer.z < 0 && z >= 0) {
-                list.appendChild(template_to_element('<hr class="mt-1 mb-0">'));
-            }
-            z = layer.z;
-
-            list.appendChild(entry);
-        });
-
-        if (z >= 0) {
-            list.appendChild(template_to_element('<hr class="mt-1 mb-0">'));
-        }
-        
-        if (!selected_one) {
-            layers.forEach(layer => {
-                if (layer.title === name) {
-                    list
-                        .querySelector(radio_selector(layer.id))
-                        .checked = true;
-                    selected_one = true;
-                }
-            })
-        }
-
-        if (!selected_one) {
-            list.querySelector("input[name='layer_radio']").checked = true;
-        }
+        })
     }
-    catch {
-        // Func probably not available yet.
+
+    if (!selected_one) {
+        list.querySelector(RADIO_SEL).checked = true;
     }
+
 }
 
 function selected_layer() {
