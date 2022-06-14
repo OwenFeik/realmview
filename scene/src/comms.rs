@@ -6,27 +6,29 @@ use super::{Id, Rect, Scene, Sprite};
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum SceneEvent {
     Dummy,                           // To trigger redraws, etc
-    LayerLockedChange(Id, bool),     // (layer, status)
+    LayerLocked(Id, bool),           // (layer, status)
     LayerMove(Id, i32, bool),        // (layer, starting_z, up)
     LayerNew(Id, String, i32),       // (local_id, title, z)
     LayerRemove(Id),                 // (layer)
     LayerRename(Id, String, String), // (layer, old_title, new_title)
-    LayerVisibilityChange(Id, bool), // (layer, status)
+    LayerVisibility(Id, bool),       // (layer, status)
     SpriteNew(Sprite, Id),           // (new_sprite, layer)
-    SpriteMove(Id, Rect, Rect),      // (sprite_id, from, to)
-    SpriteTextureChange(Id, Id, Id), // (sprite_id, old_texture, new_texture)
+    SpriteLayer(Id, Id, Id),         // (sprite, old_layer, new_layer)
+    SpriteMove(Id, Rect, Rect),      // (sprite, from, to)
+    SpriteRemove(Id),                // (sprite)
+    SpriteTexture(Id, Id, Id),       // (sprite, old_texture, new_texture)
 }
 
 impl SceneEvent {
     pub fn is_layer(&self) -> bool {
         matches!(
             self,
-            Self::LayerLockedChange(..)
+            Self::LayerLocked(..)
                 | Self::LayerMove(..)
                 | Self::LayerNew(..)
                 | Self::LayerRemove(..)
                 | Self::LayerRename(..)
-                | Self::LayerVisibilityChange(..)
+                | Self::LayerVisibility(..)
         )
     }
 }
@@ -50,10 +52,8 @@ impl SceneEventAck {
 
     pub fn is_approval(&self) -> bool {
         matches!(
-            self, 
-            Self::Approval
-                | Self::LayerNew(..)
-                | Self::SpriteNew(..) 
+            self,
+            Self::Approval | Self::LayerNew(..) | Self::SpriteNew(..)
         )
     }
 }

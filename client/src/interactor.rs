@@ -306,6 +306,10 @@ impl Interactor {
         };
     }
 
+    pub fn sprite_at(&self, at: ScenePoint) -> Option<Id> {
+        self.scene.sprite_at_ref(at).map(|s| s.local_id)
+    }
+
     fn release_held_sprite(&mut self, id: Id, snap_to_grid: bool) {
         if let Some(s) = self.scene.sprite(id) {
             let opt = if snap_to_grid {
@@ -452,6 +456,18 @@ impl Interactor {
 
     pub fn new_sprite(&mut self, texture: Id, layer: Id) {
         let opt = self.scene.add_sprite(Sprite::new(texture), layer);
+        self.client_option(opt);
+        self.change();
+    }
+
+    pub fn remove_sprite(&mut self, sprite: Id) {
+        let opt = self.scene.remove_sprite(sprite);
+        self.client_option(opt);
+        self.change();
+    }
+
+    pub fn sprite_layer(&mut self, sprite: Id, layer: Id) {
+        let opt = self.scene.sprite_layer(sprite, layer);
         self.client_option(opt);
         self.change();
     }

@@ -69,6 +69,20 @@ pub fn start() -> Result<(), JsValue> {
     new_sprite_closure.forget();
 
     let vp_ref = vp.clone();
+    let remove_sprite_closure = Closure::wrap(Box::new(move |id: f64| {
+        vp_ref.lock().scene.remove_sprite(id as i64);
+    }) as Box<dyn FnMut(f64)>);
+    expose_closure_f64("remove_sprite", &remove_sprite_closure);
+    remove_sprite_closure.forget();
+
+    let vp_ref = vp.clone();
+    let sprite_layer_closure = Closure::wrap(Box::new(move |id: f64, layer: f64| {
+        vp_ref.lock().scene.sprite_layer(id as i64, layer as i64);
+    }) as Box<dyn FnMut(f64, f64)>);
+    expose_closure_f64_f64("sprite_layer", &sprite_layer_closure);
+    sprite_layer_closure.forget();
+
+    let vp_ref = vp.clone();
     let rename_layer_closure = Closure::wrap(Box::new(move |id: f64, title: String| {
         vp_ref.lock().scene.rename_layer(id as i64, title);
     }) as Box<dyn FnMut(f64, String)>);

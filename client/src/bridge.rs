@@ -17,11 +17,23 @@ use crate::viewport::ViewportPoint;
 
 #[wasm_bindgen]
 extern "C" {
+    // Returns an array where loaded texture images will be placed once ready.
     fn get_texture_queue() -> Array;
+
+    // Causes the texture with this ID to be loaded as an image and added to
+    // the texture queue once ready.
     pub fn load_texture(id: Id);
 
+    // Shows a dropdown with actions for the specified sprite at (x, y) on the
+    // scene canvas.
+    pub fn sprite_dropdown(sprite: Id, x: f32, y: f32);
+
+    // Given a JS array of JsLayerInfo structs and an ID for the currently
+    // selected layer, this will update the layer info accordion in the bottom
+    // right of the scene and the sprite dropdown "Move to layer" option with
+    // this collection of layers.
     #[wasm_bindgen(js_name = update_layers_list)]
-    pub fn _update_layers_list(layer_info: Array, selected: Id);
+    fn _update_layers_list(layer_info: Array, selected: Id);
 
     // Expose closures
     #[wasm_bindgen]
@@ -194,7 +206,7 @@ impl Canvas {
     }
 
     fn configure_events(&self) -> Result<(), JsError> {
-        for event_name in vec!["mousedown", "mouseup", "mouseleave", "mousemove", "wheel"].iter() {
+        for event_name in &["mousedown", "mouseup", "mouseleave", "mousemove", "wheel"] {
             let events = self.events.clone();
             let listener = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
                 event.prevent_default();

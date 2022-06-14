@@ -20,14 +20,13 @@
           import init from "/pkg/client.js";
           init();
         </script>
+        {{ scene/layers/canvas_dropdown.html }}
         <canvas
           id="canvas"
           class="bg-light"
-          style="z-index: 0;"
           tabindex="-1"
           oncontextmenu="return false;"
         ></canvas>
-        {{ scene/layers/canvas_dropdown.html }}
         <div
           class="position-absolute btn-group-vertical"
           id="show_offcanvas"

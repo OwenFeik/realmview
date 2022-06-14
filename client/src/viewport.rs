@@ -1,5 +1,5 @@
 use crate::{
-    bridge::{update_layers_list, Context, EventType, JsError, MouseButton},
+    bridge::{sprite_dropdown, update_layers_list, Context, EventType, JsError, MouseButton},
     client::Client,
     interactor::Interactor,
 };
@@ -69,6 +69,10 @@ impl Viewport {
         Ok(vp)
     }
 
+    fn scene_point(&self, at: ViewportPoint) -> ScenePoint {
+        at.scene_point(self.viewport, self.grid_zoom)
+    }
+
     fn update_viewport(&mut self) {
         let (w, h) = self.context.viewport_size();
         let w = w as f32 / self.grid_zoom;
@@ -103,7 +107,13 @@ impl Viewport {
             MouseButton::Left => self
                 .scene
                 .grab(at.scene_point(self.viewport, self.grid_zoom)),
-            MouseButton::Right => self.grab(at),
+            MouseButton::Right => {
+                if let Some(id) = self.scene.sprite_at(self.scene_point(at)) {
+                    sprite_dropdown(id, at.x, at.y);
+                } else {
+                    self.grab(at)
+                }
+            }
             _ => {}
         };
     }

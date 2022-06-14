@@ -111,6 +111,12 @@ impl Project {
         }
 
         for layer in &scene.layers {
+            for sprite in &layer.removed_sprites {
+                if let Some(id) = sprite.canonical_id {
+                    SpriteRecord::delete(conn, id).await?;
+                }
+            }
+
             let l = LayerRecord::update_or_create(conn, layer, s.id).await?;
 
             for sprite in &layer.sprites {
@@ -131,7 +137,7 @@ impl Project {
 
 mod scene_record {
     use anyhow::anyhow;
-    use sqlx::{SqliteConnection, Row};
+    use sqlx::{Row, SqliteConnection};
 
     use crate::crypto;
 
@@ -295,6 +301,7 @@ mod layer {
                 visible: self.visible,
                 locked: self.locked,
                 sprites: vec![],
+                removed_sprites: vec![],
                 z_min: 0,
                 z_max: 0,
             }

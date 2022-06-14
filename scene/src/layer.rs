@@ -15,6 +15,7 @@ pub struct Layer {
     pub visible: bool,
     pub locked: bool,
     pub sprites: Vec<Sprite>,
+    pub removed_sprites: Vec<Sprite>,
     pub z_min: i32,
     pub z_max: i32,
 }
@@ -33,7 +34,8 @@ impl Layer {
             z,
             visible: true,
             locked: false,
-            sprites: Vec::new(),
+            sprites: vec![],
+            removed_sprites: vec![],
             z_min: 0,
             z_max: 0,
         }
@@ -50,7 +52,7 @@ impl Layer {
         if self.visible != visible {
             self.visible = visible;
             self.canonical_id
-                .map(|id| SceneEvent::LayerVisibilityChange(id, visible))
+                .map(|id| SceneEvent::LayerVisibility(id, visible))
         } else {
             None
         }
@@ -60,7 +62,7 @@ impl Layer {
         if self.locked != locked {
             self.locked = locked;
             self.canonical_id
-                .map(|id| SceneEvent::LayerLockedChange(id, locked))
+                .map(|id| SceneEvent::LayerLocked(id, locked))
         } else {
             None
         }
@@ -125,8 +127,33 @@ impl Layer {
         self.sort_sprites();
     }
 
-    pub fn remove_sprite(&mut self, local_id: Id) {
-        self.sprites.retain(|s| s.local_id != local_id);
+    pub fn restore_sprite(&mut self, canonical_id: Id) {
+        if let Some(s) = self
+            .removed_sprites
+            .drain_filter(|s| s.canonical_id == Some(canonical_id))
+            .last()
+        {
+            self.add_sprite(s);
+        }
+    }
+
+    pub fn take_sprite(&mut self, local_id: Id) -> Option<Sprite> {
+        self.sprites.drain_filter(|s| s.local_id == local_id).last()
+    }
+
+    pub fn take_sprite_canonical(&mut self, canonical_id: Id) -> Option<Sprite> {
+        self.sprites
+            .drain_filter(|s| s.canonical_id == Some(canonical_id))
+            .last()
+    }
+
+    pub fn remove_sprite(&mut self, local_id: Id) -> Option<SceneEvent> {
+        if let Some(s) = self.take_sprite(local_id) {
+            self.removed_sprites.push(s);
+            s.canonical_id.map(SceneEvent::SpriteRemove)
+        } else {
+            None
+        }
     }
 
     pub fn sprite_at(&mut self, at: ScenePoint) -> Option<&mut Sprite> {
@@ -134,6 +161,16 @@ impl Layer {
         // front of the Vec to the back, hence the last Sprite in the Vec is
         // rendered on top, and will be clicked first.
         for sprite in self.sprites.iter_mut().rev() {
+            if sprite.rect.contains_point(at) {
+                return Some(sprite);
+            }
+        }
+
+        None
+    }
+
+    pub fn sprite_at_ref(&self, at: ScenePoint) -> Option<&Sprite> {
+        for sprite in self.sprites.iter().rev() {
             if sprite.rect.contains_point(at) {
                 return Some(sprite);
             }

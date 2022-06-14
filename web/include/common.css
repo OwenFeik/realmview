@@ -20,10 +20,18 @@
 }
 /* End special/loading_icon.html */
 
-/* BS override for buttons in btn-groups which are just disabled icons. */
+/* BS overrides */
+/* For buttons in btn-groups which are just disabled icons. */
 .btn-group-icon {
     flex-grow: 0 !important;
     min-width: 40px;
     opacity: 1 !important;
 }
-/* End btn-group-icon */
+
+/* Make icons a little larger and align them better with text. */
+.bi {
+    width: 1.25em;
+    height: 1.25em;
+    transform: translateY(-0.1em);
+}
+/* End BS overrides */

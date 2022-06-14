@@ -329,6 +329,19 @@ impl Scene {
         None
     }
 
+    pub fn sprite_at_ref(&self, at: ScenePoint) -> Option<&Sprite> {
+        for layer in &self.layers {
+            if layer.locked || !layer.visible {
+                continue;
+            }
+            let s_opt = layer.sprite_at_ref(at);
+            if s_opt.is_some() {
+                return s_opt;
+            }
+        }
+        None
+    }
+
     pub fn sprites_in(&mut self, region: Rect, all_layers: bool) -> Vec<Id> {
         let mut ids = vec![];
         for layer in &self.layers {
@@ -356,10 +369,43 @@ impl Scene {
         }
     }
 
-    fn remove_sprite(&mut self, local_id: Id, layer: Id) {
-        if let Some(l) = self.layer(layer) {
-            l.remove_sprite(local_id);
+    pub fn remove_sprite(&mut self, local_id: Id) -> Option<SceneEvent> {
+        for layer in &mut self.layers {
+            let opt = layer.remove_sprite(local_id);
+            if opt.is_some() {
+                return opt;
+            }
         }
+        None
+    }
+
+    fn restore_sprite(&mut self, canonical_id: Id) {
+        for layer in &mut self.layers {
+            layer.restore_sprite(canonical_id);
+        }
+    }
+
+    pub fn sprite_layer(&mut self, local_id: Id, layer: Id) -> Option<SceneEvent> {
+        let mut s = None;
+        let mut from_id = None;
+        for l in &mut self.layers {
+            s = l.take_sprite(local_id);
+            if s.is_some() {
+                from_id = l.canonical_id;
+                break;
+            }
+        }
+
+        if let Some(sprite) = s {
+            if let Some(SceneEvent::SpriteNew(_, new_layer)) = self.add_sprite(sprite, layer) {
+                if let Some(old_layer) = from_id {
+                    return sprite
+                        .canonical_id
+                        .map(|id| SceneEvent::SpriteLayer(id, old_layer, new_layer));
+                }
+            }
+        }
+        None
     }
 
     fn set_canonical_id(&mut self, local_id: Id, canonical_id: Id) {
@@ -378,7 +424,7 @@ impl Scene {
     pub fn apply_event(&mut self, event: SceneEvent) -> SceneEventAck {
         match event {
             SceneEvent::Dummy => SceneEventAck::Approval,
-            SceneEvent::LayerLockedChange(l, locked) => {
+            SceneEvent::LayerLocked(l, locked) => {
                 self.layer_canonical(l).map(|l| l.set_locked(locked));
                 SceneEventAck::Approval
             }
@@ -426,7 +472,7 @@ impl Scene {
                     SceneEventAck::Rejection
                 }
             }
-            SceneEvent::LayerVisibilityChange(l, visible) => {
+            SceneEvent::LayerVisibility(l, visible) => {
                 self.layer_canonical(l).map(|l| l.set_visible(visible));
                 SceneEventAck::Approval
             }
@@ -460,6 +506,26 @@ impl Scene {
                     }
                 }
             }
+            SceneEvent::SpriteLayer(id, old_layer, new_layer) => {
+                let layer = if let Some(l) = self.layer_canonical(new_layer) {
+                    l.local_id
+                } else {
+                    return SceneEventAck::Rejection;
+                };
+
+                let local_id = if let Some(l) = self.layer_canonical(old_layer) {
+                    if let Some(s) = l.sprite_canonical(id) {
+                        s.local_id
+                    } else {
+                        return SceneEventAck::Rejection;
+                    }
+                } else {
+                    return SceneEventAck::Rejection;
+                };
+
+                self.sprite_layer(local_id, layer);
+                SceneEventAck::Approval
+            }
             SceneEvent::SpriteMove(id, from, to) => {
                 let canon = self.canon;
                 match self.sprite_canonical(id) {
@@ -470,7 +536,15 @@ impl Scene {
                     _ => SceneEventAck::Rejection,
                 }
             }
-            SceneEvent::SpriteTextureChange(id, old, new) => {
+            SceneEvent::SpriteRemove(id) => {
+                let local_id = match self.sprite_canonical_ref(id) {
+                    Some(s) => s.local_id,
+                    _ => return SceneEventAck::Rejection,
+                };
+                self.remove_sprite(local_id);
+                SceneEventAck::Approval
+            }
+            SceneEvent::SpriteTexture(id, old, new) => {
                 let canon = !self.canon;
                 match self.sprite_canonical(id) {
                     Some(s) if s.texture == old || !canon => {
@@ -498,7 +572,7 @@ impl Scene {
     pub fn unwind_event(&mut self, event: SceneEvent) {
         match event {
             SceneEvent::Dummy => (),
-            SceneEvent::LayerLockedChange(l, locked) => {
+            SceneEvent::LayerLocked(l, locked) => {
                 self.layer_canonical(l).map(|l| l.set_locked(!locked));
             }
             SceneEvent::LayerMove(l, _, up) => {
@@ -519,16 +593,36 @@ impl Scene {
                     l.rename(old_title);
                 }
             }
-            SceneEvent::LayerVisibilityChange(l, visible) => {
+            SceneEvent::LayerVisibility(l, visible) => {
                 self.layer_canonical(l).map(|l| l.set_visible(!visible));
             }
-            SceneEvent::SpriteNew(s, l) => self.remove_sprite(s.local_id, l),
+            SceneEvent::SpriteNew(s, _) => {
+                self.remove_sprite(s.local_id);
+            }
+            SceneEvent::SpriteLayer(id, old_layer, new_layer) => {
+                let sprite = if let Some(l) = self.layer_canonical(new_layer) {
+                    if let Some(s) = l.take_sprite_canonical(id) {
+                        s
+                    } else {
+                        return;
+                    }
+                } else {
+                    return;
+                };
+
+                if let Some(layer) = self.layer_canonical(old_layer) {
+                    layer.add_sprite(sprite);
+                }
+            }
             SceneEvent::SpriteMove(id, from, to) => {
                 if let Some(s) = self.sprite_canonical(id) {
                     s.set_rect(s.rect - (to - from));
                 }
             }
-            SceneEvent::SpriteTextureChange(id, old, _new) => {
+            SceneEvent::SpriteRemove(id) => {
+                self.restore_sprite(id);
+            }
+            SceneEvent::SpriteTexture(id, old, _new) => {
                 if let Some(s) = self.sprite_canonical(id) {
                     s.set_texture(old);
                 }

@@ -70,6 +70,20 @@ var RustFuncs = {
 
     Removes the specified layer from the scene.
     */
+
+    sprite_layer: missing_func,
+    /*
+    function sprite_layer(sprite_id: number, layer_id: number)
+
+    Moves the specified sprite to the specified layer.
+    */
+
+    remove_sprite: missing_func,
+    /*
+    function remove_sprite(sprite_id: number)
+
+    Deletes the specified sprite.
+    */
 };
 
 // Array of callbacks to be performed when a given closure is available.
@@ -100,6 +114,9 @@ function get_texture_queue() {
 function load_texture(texture_id) {
     media_manager.load_media_with_id(texture_id, i => texture_queue.push(i));
 }
+
+// scene/layers/canvas_dropdown.html
+// function sprite_downdown(id: number, x: number, y: number)
 
 // End :: Externs
 

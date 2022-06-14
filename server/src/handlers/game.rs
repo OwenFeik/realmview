@@ -166,7 +166,7 @@ mod new {
     use crate::crypto::random_hex_string;
     use crate::game;
     use crate::handlers::{json_body, response::Binary, with_db, with_session};
-    use crate::models::{User, SceneRecord};
+    use crate::models::{SceneRecord, User};
 
     use super::with_games;
 
@@ -188,27 +188,24 @@ mod new {
 
         let conn = &mut match pool.acquire().await {
             Ok(c) => c,
-            _ => return Binary::result_error("Database error.")
+            _ => return Binary::result_error("Database error."),
         };
 
         let scene = match SceneRecord::load_from_key(conn, &req.scene_key).await {
-            Ok(r) => {
-                match r.user(conn).await {
-                    Ok(user_id) => {
-                        if user.id == user_id {
-                            match r.load_scene(conn).await {
-                                Ok(s) => s,
-                                _ => return Binary::result_error("Failed to load scene.")
-                            }
+            Ok(r) => match r.user(conn).await {
+                Ok(user_id) => {
+                    if user.id == user_id {
+                        match r.load_scene(conn).await {
+                            Ok(s) => s,
+                            _ => return Binary::result_error("Failed to load scene."),
                         }
-                        else {
-                            return Binary::result_failure("Scene owned by a different user.")
-                        }
+                    } else {
+                        return Binary::result_failure("Scene owned by a different user.");
                     }
-                    _ => return Binary::result_failure("Scene user not found.")
                 }
-            }
-            _ => return Binary::result_failure("Scene not found.")
+                _ => return Binary::result_failure("Scene user not found."),
+            },
+            _ => return Binary::result_failure("Scene not found."),
         };
 
         let game_key = {
@@ -224,10 +221,10 @@ mod new {
             }
         };
 
-        games.write().await.insert(
-            game_key.clone(),
-            game::Game::new_ref(user.id, scene),
-        );
+        games
+            .write()
+            .await
+            .insert(game_key.clone(), game::Game::new_ref(user.id, scene));
 
         super::join::join_game(games, game_key, user.id).await
     }
