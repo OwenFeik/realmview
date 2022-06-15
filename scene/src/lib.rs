@@ -71,6 +71,8 @@ pub struct Scene {
     pub id: Option<Id>,
     pub layers: Vec<Layer>,
     pub removed_layers: Vec<Layer>,
+    pub sprites: Vec<Sprite>,
+    pub removed_sprites: Vec<Sprite>,
     pub title: Option<String>,
     pub project: Option<Id>,
     pub w: u32,
@@ -93,21 +95,24 @@ impl Scene {
         scene
     }
 
+    /// Updates this scene to be the canonical Scene for a game.
     pub fn canon(&mut self) {
         for layer in &mut self.layers {
-            for sprite in &mut layer.sprites {
-                if sprite.canonical_id.is_none() {
-                    sprite.canonical_id = Some(sprite.local_id);
-                }
-            }
-
             if layer.canonical_id.is_none() {
                 layer.canonical_id = Some(layer.local_id);
             }
         }
+
+        for sprite in &mut self.sprites {
+            if sprite.canonical_id.is_none() {
+                sprite.canonical_id = Some(sprite.local_id);
+            }
+        }
+
         self.canon = true;
     }
 
+    /// Returns a non-canonical clone of this Scene.
     #[must_use]
     pub fn non_canon(&self) -> Self {
         let mut new = self.clone();
@@ -115,20 +120,13 @@ impl Scene {
         new
     }
 
-    // Returns the top layer if provided ID is 0
-    pub fn layer(&mut self, layer: Id) -> Option<&mut Layer> {
-        if layer == 0 {
-            self.layers.get_mut(0)
-        } else {
-            self.layers.iter_mut().find(|l| l.local_id == layer)
-        }
+    /// Returns the layer with the given local_id if it exists.
+    pub fn layer(&mut self, local_id: Id) -> Option<&mut Layer> {
+        self.layers.iter_mut().find(|l| l.local_id == local_id)
     }
 
-    fn layer_local(&self, layer_canonical: Id) -> Option<Id> {
-        self.layers
-            .iter()
-            .find(|l| l.canonical_id == Some(layer_canonical))
-            .map(|l| l.local_id)
+    fn layer_ref(&self, local_id: Id) -> Option<&Layer> {
+        self.layers.iter().find(|l| l.local_id == local_id)
     }
 
     fn layer_canonical(&mut self, layer_canonical: Id) -> Option<&mut Layer> {
@@ -141,6 +139,11 @@ impl Scene {
         self.layers
             .iter()
             .find(|l| l.canonical_id == Some(layer_canonical))
+    }
+
+    fn layer_local(&self, canonical_id: Id) -> Option<Id> {
+        self.layer_canonical_ref(canonical_id)
+            .map(|l| l.local_id)
     }
 
     pub fn add_layer(&mut self, layer: Layer) -> Option<SceneEvent> {
@@ -280,49 +283,61 @@ impl Scene {
         ret
     }
 
-    pub fn sprite(&mut self, local_id: Id) -> Option<&mut Sprite> {
-        for layer in self.layers.iter_mut() {
-            let s_opt = layer.sprite(local_id);
-            if s_opt.is_some() {
-                return s_opt;
-            }
-        }
-
-        None
-    }
-
-    pub fn sprite_canonical_ref(&self, canonical_id: Id) -> Option<&Sprite> {
-        for layer in self.layers.iter() {
-            let s_opt = layer.sprite_canonical_ref(canonical_id);
-            if s_opt.is_some() {
-                return s_opt;
-            }
-        }
-
-        None
+    fn sprite(&mut self, local_id: Id) -> Option<&mut Sprite> {
+        self.sprites.iter_mut().find(|s| s.local_id == local_id)
     }
 
     fn sprite_canonical(&mut self, canonical_id: Id) -> Option<&mut Sprite> {
-        for layer in self.layers.iter_mut() {
-            let s_opt = layer.sprite_canonical(canonical_id);
-            if s_opt.is_some() {
-                return s_opt;
-            }
-        }
-
-        None
+        self.sprites.iter_mut().find(|s| s.canonical_id == Some(canonical_id))
     }
 
-    pub fn sprite_at(&mut self, at: ScenePoint) -> Option<&mut Sprite> {
-        for layer in self.layers.iter_mut() {
-            // Sprites on locked or invisible layers cannot be grabbed.
-            if layer.locked || !layer.visible {
-                continue;
-            }
+    fn sprite_canonical_ref(&self, canonical_id: Id) -> Option<&Sprite> {
+        self.sprites.iter().find(|s| s.canonical_id == Some(canonical_id))
+    }
 
-            let s_opt = layer.sprite_at(at);
-            if s_opt.is_some() {
-                return s_opt;
+    fn sprite_local(&self, canonical_id: Id) -> Option<Id> {
+        self.sprites.iter().find(|l| l.canonical_id == Some(canonical_id)).map(|s| s.local_id)
+    }
+
+    fn add_sprite(&self, sprite: Sprite) {
+        self.sprites.push(sprite)
+    }
+
+    fn restore_sprite(&mut self, canonical_id: Id) {
+        if let Some(s) = self
+            .removed_sprites
+            .drain_filter(|s| s.canonical_id == Some(canonical_id))
+            .last()
+        {
+            self.sprites.push(s);
+        }
+    }
+
+    fn take_sprite(&mut self, local_id: Id) -> Option<Sprite> {
+        self.sprites.drain_filter(|s| s.local_id == local_id).last()
+    }
+
+    fn take_sprite_canonical(&mut self, canonical_id: Id) -> Option<Sprite> {
+        self.sprites
+            .drain_filter(|s| s.canonical_id == Some(canonical_id))
+            .last()
+    }
+
+    pub fn remove_sprite(&mut self, local_id: Id) -> Option<SceneEvent> {
+        if let Some(s) = self.take_sprite(local_id) {
+            self.removed_sprites.push(s);
+            s.canonical_id.map(SceneEvent::SpriteRemove)
+        } else {
+            None
+        }
+    }
+
+
+    // TODO order sprites
+    pub fn sprite_at(&mut self, at: ScenePoint) -> Option<&mut Sprite> {
+        for sprite in self.sprites.iter_mut().rev() {
+            if sprite.rect.contains_point(at) {
+                return Some(sprite);
             }
         }
 
@@ -330,81 +345,44 @@ impl Scene {
     }
 
     pub fn sprite_at_ref(&self, at: ScenePoint) -> Option<&Sprite> {
-        for layer in &self.layers {
-            if layer.locked || !layer.visible {
-                continue;
-            }
-            let s_opt = layer.sprite_at_ref(at);
-            if s_opt.is_some() {
-                return s_opt;
+        for sprite in self.sprites.iter().rev() {
+            if sprite.rect.contains_point(at) {
+                return Some(sprite);
             }
         }
+
         None
     }
 
-    pub fn sprites_in(&mut self, region: Rect, all_layers: bool) -> Vec<Id> {
-        let mut ids = vec![];
-        for layer in &self.layers {
-            if layer.selectable() {
-                ids.append(&mut layer.sprites_in(region));
-                if !ids.is_empty() && !all_layers {
-                    return ids;
+    // TODO single / multiple layer
+    pub fn sprites_in(&self, region: Rect) -> Vec<Id> {
+        let mut ret = vec![];
+        for sprite in &self.sprites {
+            if region.contains_rect(sprite.rect) {
+                ret.push(sprite.local_id);
+            }
+        }
+        ret
+    }
+
+    pub fn sprite_layer(&mut self, sprite_lid: Id, layer_lid: Id) -> Option<SceneEvent> {
+        if let Some(layer) = self.layer_ref(layer_lid) {
+            if let Some(sprite) = self.sprite(sprite_lid) {
+                let old_layer_lid = sprite.layer;
+                sprite.layer = layer_lid;
+
+                // Only emit an event if we have canonical IDs for the sprite,
+                // the old layer and the new layer.
+                if let Some(sprite_id) = sprite.canonical_id {
+                    if let Some(new_layer) = layer.canonical_id {
+                        if let Some(Some(old_layer)) = self.layer_ref(old_layer_lid).map(|l| l.canonical_id) {
+                            return sprite.canonical_id.map(|sprite_id| SceneEvent::SpriteLayer(sprite_id, old_layer, new_layer));
+                        }
+                    }
                 }
             }
         }
-        ids
-    }
-
-    pub fn add_sprite(&mut self, sprite: Sprite, layer: Id) -> Option<SceneEvent> {
-        if let Some(l) = self.layer(layer) {
-            l.add_sprite(sprite)
-        } else {
-            None
-        }
-    }
-
-    pub fn add_sprites(&mut self, mut sprites: Vec<Sprite>, layer: Id) {
-        if let Some(l) = self.layer(layer) {
-            l.add_sprites(&mut sprites);
-        }
-    }
-
-    pub fn remove_sprite(&mut self, local_id: Id) -> Option<SceneEvent> {
-        for layer in &mut self.layers {
-            let opt = layer.remove_sprite(local_id);
-            if opt.is_some() {
-                return opt;
-            }
-        }
-        None
-    }
-
-    fn restore_sprite(&mut self, canonical_id: Id) {
-        for layer in &mut self.layers {
-            layer.restore_sprite(canonical_id);
-        }
-    }
-
-    pub fn sprite_layer(&mut self, local_id: Id, layer: Id) -> Option<SceneEvent> {
-        let mut s = None;
-        let mut from_id = None;
-        for l in &mut self.layers {
-            s = l.take_sprite(local_id);
-            if s.is_some() {
-                from_id = l.canonical_id;
-                break;
-            }
-        }
-
-        if let Some(sprite) = s {
-            if let Some(SceneEvent::SpriteNew(_, new_layer)) = self.add_sprite(sprite, layer) {
-                if let Some(old_layer) = from_id {
-                    return sprite
-                        .canonical_id
-                        .map(|id| SceneEvent::SpriteLayer(id, old_layer, new_layer));
-                }
-            }
-        }
+        
         None
     }
 
@@ -477,54 +455,32 @@ impl Scene {
                 SceneEventAck::Approval
             }
             SceneEvent::SpriteNew(s, l) => {
-                if let Some(canonical_id) = s.canonical_id {
-                    if self.sprite_canonical(canonical_id).is_none() {
-                        let sprite = Sprite::from_remote(&s);
-
-                        if let Some(layer) = self.layer_local(l) {
-                            if self.add_sprite(sprite, layer).is_some() {
-                                SceneEventAck::SpriteNew(s.local_id, sprite.canonical_id)
-                            } else {
-                                SceneEventAck::Rejection
-                            }
-                        } else {
-                            SceneEventAck::Rejection
+                if let Some(sprite_cid) = s.canonical_id {
+                    if self.sprite_canonical(sprite_cid).is_none() {
+                        if let Some(layer_lid) = self.layer_local(l) {
+                            let sprite = Sprite::from_remote(&s, layer_lid);
+                            self.add_sprite(sprite);
+                            return SceneEventAck::SpriteNew(s.local_id, sprite.canonical_id);
                         }
-                    } else {
-                        SceneEventAck::Rejection
                     }
-                } else {
-                    let mut sprite = Sprite::from_remote(&s);
+                } else if let Some(layer_lid) = self.layer_local(l) {
+                    let mut sprite = Sprite::from_remote(&s, layer_lid);
                     if self.canon {
                         sprite.canonical_id = Some(sprite.local_id);
                     }
-
-                    if self.add_sprite(sprite, l).is_some() {
-                        SceneEventAck::SpriteNew(s.local_id, sprite.canonical_id)
-                    } else {
-                        SceneEventAck::Rejection
-                    }
+                    self.add_sprite(sprite);
+                    return SceneEventAck::SpriteNew(sprite.local_id, sprite.canonical_id);
                 }
+                SceneEventAck::Rejection
             }
             SceneEvent::SpriteLayer(id, old_layer, new_layer) => {
-                let layer = if let Some(l) = self.layer_canonical(new_layer) {
-                    l.local_id
-                } else {
-                    return SceneEventAck::Rejection;
-                };
-
-                let local_id = if let Some(l) = self.layer_canonical(old_layer) {
-                    if let Some(s) = l.sprite_canonical(id) {
-                        s.local_id
-                    } else {
-                        return SceneEventAck::Rejection;
+                if let (Some(old_lid), Some(new_lid), Some(s)) = (self.layer_local(old_layer), self.layer_local(new_layer), self.sprite_canonical(id)) {
+                    if s.layer == old_lid {
+                        s.layer = new_lid;
+                        return SceneEventAck::Approval
                     }
-                } else {
-                    return SceneEventAck::Rejection;
                 };
-
-                self.sprite_layer(local_id, layer);
-                SceneEventAck::Approval
+                SceneEventAck::Rejection
             }
             SceneEvent::SpriteMove(id, from, to) => {
                 let canon = self.canon;
@@ -630,11 +586,15 @@ impl Scene {
         }
     }
 
-    // Clear the local_id values from the server side, using the local id
-    // pool instead to avoid conflicts.
+    /// When using a serialised scene from the remote server, this should be
+    /// called to use the local ID pool instead.
     pub fn refresh_local_ids(&mut self) {
         for layer in &mut self.layers {
-            layer.refresh_local_ids();
+            layer.refresh_local_id();
+        }
+
+        for sprite in &mut self.sprites {
+            sprite.refresh_local_id();
         }
     }
 }
@@ -650,6 +610,8 @@ impl Default for Scene {
                 Layer::new("Background", -2),
             ],
             removed_layers: vec![],
+            sprites: vec![],
+            removed_sprites: vec![],
             title: None,
             project: None,
             w: Scene::DEFAULT_SIZE,

@@ -18,30 +18,41 @@ pub struct Sprite {
 
     // ID of the Sprite on the server side
     pub canonical_id: Option<Id>,
+
+    pub layer: Id,
 }
 
 impl Sprite {
     // Minimum size of a sprite dimension; too small and sprites can be lost.
     const MIN_SIZE: f32 = 0.25;
 
-    pub fn new(texture: Id) -> Sprite {
+    fn next_id() -> Id {
         static SPRITE_ID: AtomicI64 = AtomicI64::new(1);
+        SPRITE_ID.fetch_add(1, Ordering::Relaxed)
+    }
+
+    pub fn new(texture: Id, layer: Id) -> Sprite {
 
         Sprite {
             rect: Rect::new(0.0, 0.0, 1.0, 1.0),
             z: 1,
             texture,
-            local_id: SPRITE_ID.fetch_add(1, Ordering::Relaxed),
+            local_id: Sprite::next_id(),
             canonical_id: None,
+            layer
         }
+    }
+
+    pub fn refresh_local_id(&mut self) {
+        self.local_id = Self::next_id();
     }
 
     fn event<F: Fn(Id) -> SceneEvent>(&self, clos: F) -> Option<SceneEvent> {
         self.canonical_id.map(clos)
     }
 
-    pub fn from_remote(sprite: &Sprite) -> Sprite {
-        let mut new = Sprite::new(sprite.texture);
+    pub fn from_remote(sprite: &Sprite, layer: Id) -> Sprite {
+        let mut new = Sprite::new(sprite.texture, layer);
         new.set_rect(sprite.rect);
         new.z = sprite.z;
         new.canonical_id = sprite.canonical_id;

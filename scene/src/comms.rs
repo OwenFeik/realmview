@@ -13,7 +13,8 @@ pub enum SceneEvent {
     LayerRename(Id, String, String), // (layer, old_title, new_title)
     LayerVisibility(Id, bool),       // (layer, status)
     SpriteNew(Sprite, Id),           // (new_sprite, layer)
-    SpriteLayer(Id, Id, Id),         // (sprite, old_layer, new_layer)
+    /// (sprite, old_layer, new_layer)
+    SpriteLayer(Id, Id, Id),         
     SpriteMove(Id, Rect, Rect),      // (sprite, from, to)
     SpriteRemove(Id),                // (sprite)
     SpriteTexture(Id, Id, Id),       // (sprite, old_texture, new_texture)
