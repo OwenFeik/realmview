@@ -32,14 +32,13 @@ impl Sprite {
     }
 
     pub fn new(texture: Id, layer: Id) -> Sprite {
-
         Sprite {
             rect: Rect::new(0.0, 0.0, 1.0, 1.0),
             z: 1,
             texture,
             local_id: Sprite::next_id(),
             canonical_id: None,
-            layer
+            layer,
         }
     }
 

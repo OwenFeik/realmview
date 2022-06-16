@@ -14,10 +14,10 @@ pub enum SceneEvent {
     LayerVisibility(Id, bool),       // (layer, status)
     SpriteNew(Sprite, Id),           // (new_sprite, layer)
     /// (sprite, old_layer, new_layer)
-    SpriteLayer(Id, Id, Id),         
-    SpriteMove(Id, Rect, Rect),      // (sprite, from, to)
-    SpriteRemove(Id),                // (sprite)
-    SpriteTexture(Id, Id, Id),       // (sprite, old_texture, new_texture)
+    SpriteLayer(Id, Id, Id),
+    SpriteMove(Id, Rect, Rect), // (sprite, from, to)
+    SpriteRemove(Id),           // (sprite)
+    SpriteTexture(Id, Id, Id),  // (sprite, old_texture, new_texture)
 }
 
 impl SceneEvent {

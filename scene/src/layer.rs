@@ -2,9 +2,9 @@ use std::sync::atomic::{AtomicI64, Ordering};
 
 use serde_derive::{Deserialize, Serialize};
 
-use crate::{comms::SceneEvent, Rect};
+use crate::comms::SceneEvent;
 
-use super::{Id, ScenePoint, Sprite};
+use super::Id;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Layer {
