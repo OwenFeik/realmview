@@ -1,7 +1,10 @@
 # TODO
 
+* Scene
+    * Undo and redo, keep stack of events
 * Layers
     * Select from selected layer first (possibly)
+    * Layer opacity
 * Map size
     * Make map size configurable, as setting on scene, editable from project
         offcanvas
