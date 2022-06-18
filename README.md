@@ -1,7 +1,6 @@
 # TODO
 
 * Scene
-    * Undo and redo, keep stack of events
 * Layers
     * Select from selected layer first (possibly)
     * Layer opacity
@@ -9,6 +8,7 @@
     * Make map size configurable, as setting on scene, editable from project
         offcanvas
 * Sprites
+    * When creating history entries, movement entries should be grouped
 * Media
     * Delete media items
     * Might be better if we never exposed media IDs, just used the URLs

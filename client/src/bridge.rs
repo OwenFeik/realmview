@@ -7,7 +7,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{
     Blob, Document, FileReader, HtmlCanvasElement, HtmlElement, HtmlImageElement, HtmlInputElement,
-    InputEvent, ProgressEvent, UiEvent, Url, WebGl2RenderingContext, Window,
+    ProgressEvent, UiEvent, Url, WebGl2RenderingContext, Window,
 };
 
 use scene::{Id, Rect, Sprite};
@@ -208,10 +208,10 @@ impl Canvas {
     fn configure_events(&self) -> Result<(), JsError> {
         for event_name in &["mousedown", "mouseup", "mouseleave", "mousemove", "wheel"] {
             let events = self.events.clone();
-            let listener = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
+            let listener = Closure::wrap(Box::new(move |event: web_sys::UiEvent| {
                 event.prevent_default();
                 events.push(&event);
-            }) as Box<dyn FnMut(web_sys::MouseEvent)>);
+            }) as Box<dyn FnMut(web_sys::UiEvent)>);
 
             match self
                 .element
@@ -228,14 +228,28 @@ impl Canvas {
             listener.forget();
         }
 
-        Ok(())
+        let events = self.events.clone();
+        let listener = Closure::wrap(Box::new(move |event: web_sys::UiEvent| {
+            events.push(&event);
+        }) as Box<dyn FnMut(web_sys::UiEvent)>);
+        let ret = match window()?
+            .add_event_listener_with_callback("keydown", listener.as_ref().unchecked_ref())
+        {
+            Ok(_) => Ok(()),
+            Err(_) => Err(JsError::ResourceError(
+                "Failed to add keyboard event listener to window.",
+            )),
+        };
+        listener.forget();
+
+        ret
     }
 
     fn configure_upload(&self, texture_queue: Rc<Array>) -> Result<(), JsError> {
         let input = Rc::new(create_file_upload()?);
         let result = {
             let c_input = input.clone();
-            let closure = Closure::wrap(Box::new(move |_event: InputEvent| {
+            let closure = Closure::wrap(Box::new(move |_event: web_sys::InputEvent| {
                 let file = match c_input.files() {
                     Some(fs) => match fs.get(0) {
                         Some(f) => f,
@@ -324,15 +338,16 @@ impl Canvas {
     }
 }
 
-pub enum EventType {
-    MouseDown,
-    MouseUp,
-    MouseLeave,
-    MouseMove,
-    MouseWheel(f32),
+#[derive(Debug)]
+pub enum MouseAction {
+    Down,
+    Up,
+    Leave,
+    Move,
+    Wheel(f32),
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum MouseButton {
     Left,
     Middle,
@@ -357,36 +372,145 @@ impl MouseButton {
     }
 }
 
-pub struct MouseEvent {
-    pub at: ViewportPoint,
-    pub button: MouseButton,
-    pub event_type: EventType,
+#[derive(Debug)]
+pub enum KeyboardAction {
+    Down,
+    Up,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Key {
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+    G,
+    H,
+    I,
+    J,
+    K,
+    L,
+    M,
+    N,
+    O,
+    P,
+    Q,
+    R,
+    S,
+    T,
+    U,
+    V,
+    X,
+    Y,
+    Z,
+    Control,
+    Shift,
+    Alt,
+    Unknown,
+}
+
+impl Key {
+    fn from(key: &str) -> Self {
+        match key {
+            "a" => Self::A,
+            "b" => Self::B,
+            "c" => Self::C,
+            "d" => Self::D,
+            "e" => Self::E,
+            "f" => Self::F,
+            "g" => Self::G,
+            "h" => Self::H,
+            "i" => Self::I,
+            "j" => Self::J,
+            "k" => Self::K,
+            "l" => Self::L,
+            "m" => Self::M,
+            "n" => Self::N,
+            "o" => Self::O,
+            "p" => Self::P,
+            "q" => Self::Q,
+            "r" => Self::R,
+            "s" => Self::S,
+            "t" => Self::T,
+            "u" => Self::U,
+            "v" => Self::V,
+            "x" => Self::X,
+            "y" => Self::Y,
+            "z" => Self::Z,
+            "Control" => Self::Control,
+            "Shift" => Self::Shift,
+            "Alt" => Self::Alt,
+            _ => Self::Unknown,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum Input {
+    Mouse(ViewportPoint, MouseAction, MouseButton),
+    Keyboard(KeyboardAction, Key),
+}
+
+#[derive(Debug)]
+pub struct InputEvent {
+    pub input: Input,
     pub shift: bool,
     pub ctrl: bool,
     pub alt: bool,
 }
 
-impl MouseEvent {
-    fn from_web_sys(event: &web_sys::MouseEvent) -> Option<MouseEvent> {
-        let event_type = match event.type_().as_str() {
-            "mousedown" => EventType::MouseDown,
-            "mouseleave" => EventType::MouseLeave,
-            "mousemove" => EventType::MouseMove,
-            "mouseup" => EventType::MouseUp,
+impl InputEvent {
+    fn from_web_sys(event: &web_sys::UiEvent) -> Option<InputEvent> {
+        match event.type_().as_str() {
+            "keydown" | "keyup" => {
+                Self::from_keyboard(event.unchecked_ref::<web_sys::KeyboardEvent>())
+            }
+            "mousedown" | "mouseleave" | "mousemove" | "mouseup" | "wheel" => {
+                Self::from_mouse(event.unchecked_ref::<web_sys::MouseEvent>())
+            }
+            _ => None,
+        }
+    }
+
+    fn from_mouse(event: &web_sys::MouseEvent) -> Option<InputEvent> {
+        let action = match event.type_().as_str() {
+            "mousedown" => MouseAction::Down,
+            "mouseleave" => MouseAction::Leave,
+            "mousemove" => MouseAction::Move,
+            "mouseup" => MouseAction::Up,
             "wheel" => {
                 let event = event.unchecked_ref::<web_sys::WheelEvent>();
 
                 // Because the app never has scroll bars, the delta is always
                 // reported in the y
-                EventType::MouseWheel(event.delta_y() as f32)
+                MouseAction::Wheel(event.delta_y() as f32)
             }
             _ => return None,
         };
 
-        Some(MouseEvent {
-            at: ViewportPoint::new(event.x(), event.y()),
-            button: MouseButton::from(event.button()),
-            event_type,
+        Some(InputEvent {
+            input: Input::Mouse(
+                ViewportPoint::new(event.x(), event.y()),
+                action,
+                MouseButton::from(event.button()),
+            ),
+            shift: event.shift_key(),
+            ctrl: event.ctrl_key(),
+            alt: event.alt_key(),
+        })
+    }
+
+    fn from_keyboard(event: &web_sys::KeyboardEvent) -> Option<InputEvent> {
+        let action = match event.type_().as_str() {
+            "keydown" => KeyboardAction::Down,
+            "keyup" => KeyboardAction::Up,
+            _ => return None,
+        };
+
+        Some(InputEvent {
+            input: Input::Keyboard(action, Key::from(&event.key())),
             shift: event.shift_key(),
             ctrl: event.ctrl_key(),
             alt: event.alt_key(),
@@ -436,7 +560,7 @@ impl Context {
         (self.canvas.element.width(), self.canvas.element.height())
     }
 
-    pub fn events(&self) -> Option<Vec<MouseEvent>> {
+    pub fn events(&self) -> Option<Vec<InputEvent>> {
         if self.canvas.events.length() == 0 {
             return None;
         }
@@ -444,8 +568,8 @@ impl Context {
         let mut events = Vec::new();
         while self.canvas.events.length() > 0 {
             let event = self.canvas.events.pop();
-            let event = event.unchecked_ref::<web_sys::MouseEvent>();
-            if let Some(e) = MouseEvent::from_web_sys(event) {
+            let event = event.unchecked_ref::<web_sys::UiEvent>();
+            if let Some(e) = InputEvent::from_web_sys(event) {
                 events.push(e);
             };
         }

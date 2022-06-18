@@ -11,12 +11,14 @@ pub enum SceneEvent {
     LayerMove(Id, i32, bool),        // (layer, starting_z, up)
     LayerNew(Id, String, i32),       // (local_id, title, z)
     LayerRemove(Id),                 // (layer)
+    LayerRestore(Id),                // (layer)
     LayerRename(Id, String, String), // (layer, old_title, new_title)
     LayerVisibility(Id, bool),       // (layer, status)
     SpriteNew(Sprite, Id),           // (new_sprite, layer)
     SpriteLayer(Id, Id, Id),         // (sprite, old_layer, new_layer)
     SpriteMove(Id, Rect, Rect),      // (sprite, from, to)
     SpriteRemove(Id),                // (sprite)
+    SpriteRestore(Id),               // (sprite)
     SpriteTexture(Id, Id, Id),       // (sprite, old_texture, new_texture)
 }
 

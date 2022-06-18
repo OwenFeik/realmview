@@ -71,6 +71,8 @@ pub struct Interactor {
     changed: bool,
     client: Option<Client>,
     holding: HeldObject,
+    history: Vec<SceneEvent>,
+    redo_history: Vec<Option<SceneEvent>>,
     issued_events: Vec<ClientMessage>,
     layers_changed: bool,
     scene: Scene,
@@ -86,6 +88,8 @@ impl Interactor {
             changed: true,
             client,
             holding: HeldObject::None,
+            history: vec![],
+            redo_history: vec![],
             issued_events: vec![],
             layers_changed: true,
             scene: Scene::new(),
@@ -167,10 +171,10 @@ impl Interactor {
         }
     }
 
-    fn client_event(&mut self, scene_event: SceneEvent) {
+    fn issue_client_event(&mut self, scene_event: SceneEvent) {
         static EVENT_ID: AtomicI64 = AtomicI64::new(1);
 
-        // nop unless we actually have a connection.
+        // Queue event to be sent to server
         if let Some(client) = &self.client {
             let message = ClientMessage {
                 id: EVENT_ID.fetch_add(1, Ordering::Relaxed),
@@ -181,9 +185,38 @@ impl Interactor {
         }
     }
 
-    fn client_option(&mut self, event_option: Option<SceneEvent>) {
-        if let Some(scene_event) = event_option {
-            self.client_event(scene_event);
+    fn scene_event(&mut self, event: SceneEvent) {
+        self.issue_client_event(event.clone());
+
+        // When adding a new entry to the history, all undone events are lost.
+        self.redo_history.clear();
+        self.history.push(event);
+    }
+
+    fn scene_option(&mut self, event_option: Option<SceneEvent>) {
+        if let Some(event) = event_option {
+            self.scene_event(event);
+        }
+    }
+
+    pub fn undo(&mut self) {
+        if let Some(event) = self.history.pop() {
+            let opt = self.scene.unwind_event(event);
+            if let Some(event) = &opt {
+                self.issue_client_event(event.clone());
+                self.change();
+            }
+            self.redo_history.push(opt);
+        }
+    }
+
+    pub fn redo(&mut self) {
+        if let Some(Some(event)) = self.redo_history.pop() {
+            if let Some(event) = self.scene.unwind_event(event) {
+                self.issue_client_event(event.clone());
+                self.history.push(event);
+                self.change();
+            }
         }
     }
 
@@ -218,7 +251,7 @@ impl Interactor {
                 .collect::<Vec<SceneEvent>>();
 
             if !events.is_empty() {
-                self.client_event(SceneEvent::EventSet(events));
+                self.scene_event(SceneEvent::EventSet(events));
                 self.change();
             }
         }
@@ -267,7 +300,7 @@ impl Interactor {
             }
             _ => return, // Other types aren't sprite-related
         };
-        self.client_event(event);
+        self.scene_event(event);
         self.change();
     }
 
@@ -317,7 +350,7 @@ impl Interactor {
     fn release_held_sprite(&mut self, id: Id, snap_to_grid: bool) {
         if let Some(s) = self.scene.sprite(id) {
             let opt = Self::release_sprite(s, snap_to_grid);
-            self.client_option(opt);
+            self.scene_option(opt);
             self.change();
         };
     }
@@ -413,19 +446,19 @@ impl Interactor {
             .map(|l| (l.z + 1).max(1))
             .unwrap_or(1);
         let opt = self.scene.new_layer("Untitled", z);
-        self.client_option(opt);
+        self.scene_option(opt);
         self.layer_change();
     }
 
     pub fn remove_layer(&mut self, layer: Id) {
         let opt = self.scene.remove_layer(layer);
-        self.client_option(opt);
+        self.scene_option(opt);
         self.both_change();
     }
 
     pub fn rename_layer(&mut self, layer: Id, title: String) {
         let opt = self.scene.rename_layer(layer, title);
-        self.client_option(opt);
+        self.scene_option(opt);
         self.layer_change();
     }
 
@@ -434,26 +467,26 @@ impl Interactor {
             let opt = l.set_visible(visible);
             let changed = !l.sprites.is_empty();
             self.change_if(changed);
-            self.client_option(opt);
+            self.scene_option(opt);
         }
     }
 
     pub fn set_layer_locked(&mut self, layer: Id, locked: bool) {
         if let Some(l) = self.scene.layer(layer) {
             let opt = l.set_locked(locked);
-            self.client_option(opt);
+            self.scene_option(opt);
         }
     }
 
     pub fn move_layer(&mut self, layer: Id, up: bool) {
         let opt = self.scene.move_layer(layer, up);
-        self.client_option(opt);
+        self.scene_option(opt);
         self.both_change();
     }
 
     pub fn new_sprite(&mut self, texture: Id, layer: Id) {
         let opt = self.scene.new_sprite(texture, layer);
-        self.client_option(opt);
+        self.scene_option(opt);
         self.change();
     }
 
@@ -461,12 +494,12 @@ impl Interactor {
         if sprite == Self::SELECTION_ID {
             if let Some(ids) = &self.selected_sprites {
                 let event = self.scene.remove_sprites(ids);
-                self.client_event(event);
+                self.scene_event(event);
                 self.change();
             }
         } else {
             let opt = self.scene.remove_sprite(sprite);
-            self.client_option(opt);
+            self.scene_option(opt);
             self.change();
         }
     }
@@ -475,12 +508,12 @@ impl Interactor {
         if sprite == Self::SELECTION_ID {
             if let Some(ids) = &self.selected_sprites {
                 let event = self.scene.sprites_layer(ids, layer);
-                self.client_event(event);
+                self.scene_event(event);
                 self.change();
             }
         } else {
             let opt = self.scene.sprite_layer(sprite, layer);
-            self.client_option(opt);
+            self.scene_option(opt);
             self.change();
         }
     }

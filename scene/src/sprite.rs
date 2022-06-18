@@ -44,8 +44,10 @@ impl Sprite {
         self.rect.h = h;
     }
 
-    pub fn set_texture(&mut self, new: Id) {
+    pub fn set_texture(&mut self, new: Id) -> SceneEvent {
+        let old = self.texture;
         self.texture = new;
+        SceneEvent::SpriteTexture(self.id, old, new)
     }
 
     pub fn snap_to_grid(&mut self) -> SceneEvent {

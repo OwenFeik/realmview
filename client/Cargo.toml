@@ -35,6 +35,7 @@ features = [
     'HtmlImageElement',       # Load images from URL
     'HtmlInputElement',       # Direct upload through canvas
     'InputEvent',             # Canvas direct upload functionality
+    'KeyboardEvent',          # Handle keyboard input
     'Location',               # Read URL parameters from Window
     'MessageEvent',           # Receive and send WebSocket messages
     'MouseEvent',             # Interaction with canvas

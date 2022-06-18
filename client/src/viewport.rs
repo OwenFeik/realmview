@@ -1,5 +1,8 @@
 use crate::{
-    bridge::{sprite_dropdown, update_layers_list, Context, EventType, JsError, MouseButton},
+    bridge::{
+        sprite_dropdown, update_layers_list, Context, Input, JsError, Key, KeyboardAction,
+        MouseAction, MouseButton,
+    },
     client::Client,
     interactor::Interactor,
 };
@@ -180,6 +183,18 @@ impl Viewport {
             .drag(at.scene_point(self.viewport, self.grid_zoom));
     }
 
+    fn handle_key_down(&mut self, key: Key, ctrl: bool) {
+        if !ctrl {
+            return;
+        }
+
+        match key {
+            Key::Y => self.scene.redo(),
+            Key::Z => self.scene.undo(),
+            _ => (),
+        };
+    }
+
     fn process_ui_events(&mut self) {
         let events = match self.context.events() {
             Some(e) => e,
@@ -187,14 +202,18 @@ impl Viewport {
         };
 
         for event in &events {
-            match event.event_type {
-                EventType::MouseDown => self.handle_mouse_down(event.at, event.button),
-                EventType::MouseLeave => self.handle_mouse_up(event.alt, event.button),
-                EventType::MouseMove => self.handle_mouse_move(event.at),
-                EventType::MouseUp => self.handle_mouse_up(event.alt, event.button),
-                EventType::MouseWheel(delta) => {
-                    self.handle_scroll(event.at, delta, event.shift, event.ctrl)
+            match event.input {
+                Input::Mouse(at, MouseAction::Down, button) => self.handle_mouse_down(at, button),
+                Input::Mouse(_, MouseAction::Leave, button) => {
+                    self.handle_mouse_up(event.alt, button)
                 }
+                Input::Mouse(at, MouseAction::Move, _) => self.handle_mouse_move(at),
+                Input::Mouse(_, MouseAction::Up, button) => self.handle_mouse_up(event.alt, button),
+                Input::Mouse(at, MouseAction::Wheel(delta), _) => {
+                    self.handle_scroll(at, delta, event.shift, event.ctrl)
+                }
+                Input::Keyboard(KeyboardAction::Down, key) => self.handle_key_down(key, event.ctrl),
+                Input::Keyboard(KeyboardAction::Up, _) => (),
             };
         }
     }

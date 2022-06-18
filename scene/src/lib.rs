@@ -162,9 +162,12 @@ impl Scene {
         Some(event)
     }
 
-    fn restore_layer(&mut self, layer: Id) {
+    fn restore_layer(&mut self, layer: Id) -> Option<SceneEvent> {
         if let Some(l) = self.removed_layers.drain_filter(|l| l.id == layer).last() {
             self.add_layer(l);
+            Some(SceneEvent::LayerRestore(layer))
+        } else {
+            None
         }
     }
 
@@ -340,13 +343,13 @@ impl Scene {
         )
     }
 
-    fn restore_sprite(&mut self, sprite: Id) -> bool {
+    fn restore_sprite(&mut self, sprite: Id) -> Option<SceneEvent> {
         for layer in &mut self.layers {
             if layer.restore_sprite(sprite) {
-                return true;
+                return Some(SceneEvent::SpriteRestore(sprite));
             }
         }
-        false
+        None
     }
 
     pub fn sprite_layer(&mut self, sprite: Id, layer: Id) -> Option<SceneEvent> {
@@ -408,6 +411,7 @@ impl Scene {
                 true
             }
             SceneEvent::LayerRemove(l) => self.remove_layer(l).is_some(),
+            SceneEvent::LayerRestore(l) => self.restore_layer(l).is_some(),
             SceneEvent::LayerRename(id, old_title, new_title) => {
                 if let Some(layer) = self.layer(id) {
                     if layer.title == old_title {
@@ -458,6 +462,7 @@ impl Scene {
                 // it is ideal.
                 true
             }
+            SceneEvent::SpriteRestore(id) => self.restore_sprite(id).is_some(),
             SceneEvent::SpriteTexture(id, old, new) => {
                 let canon = !self.canon;
                 match self.sprite(id) {
@@ -471,62 +476,57 @@ impl Scene {
         }
     }
 
-    pub fn unwind_event(&mut self, event: SceneEvent) {
+    pub fn unwind_event(&mut self, event: SceneEvent) -> Option<SceneEvent> {
         match event {
-            SceneEvent::Dummy => (),
-            SceneEvent::EventSet(events) => {
-                for event in events {
-                    self.unwind_event(event);
-                }
-            }
+            SceneEvent::Dummy => None,
+            SceneEvent::EventSet(events) => Some(SceneEvent::EventSet(
+                events
+                    .into_iter()
+                    .filter_map(|e| self.unwind_event(e))
+                    .collect::<Vec<SceneEvent>>(),
+            )),
             SceneEvent::LayerLocked(l, locked) => {
-                self.layer(l).map(|l| l.set_locked(!locked));
-            }
-            SceneEvent::LayerMove(l, _, up) => {
-                self.move_layer(l, !up);
-            }
-            SceneEvent::LayerNew(id, _, _) => {
-                self.remove_layer(id);
-            }
-            SceneEvent::LayerRemove(l) => self.restore_layer(l),
-            SceneEvent::LayerRename(id, old_title, _) => {
-                if let Some(l) = self.layer(id) {
-                    l.rename(old_title);
+                if let Some(layer) = self.layer(l) {
+                    layer.set_locked(!locked)
+                } else {
+                    None
                 }
+            }
+            SceneEvent::LayerMove(l, _, up) => self.move_layer(l, !up),
+            SceneEvent::LayerNew(id, _, _) => self.remove_layer(id),
+            SceneEvent::LayerRemove(l) => self.restore_layer(l),
+            SceneEvent::LayerRestore(l) => self.remove_layer(l),
+            SceneEvent::LayerRename(id, old_title, _) => {
+                self.layer(id).map(|l| l.rename(old_title))
             }
             SceneEvent::LayerVisibility(l, visible) => {
-                self.layer(l).map(|l| l.set_visible(!visible));
-            }
-            SceneEvent::SpriteNew(s, _) => {
-                self.remove_sprite(s.id);
-            }
-            SceneEvent::SpriteLayer(id, old_layer, new_layer) => {
-                let sprite = if let Some(l) = self.layer(new_layer) {
-                    if let Some(s) = l.take_sprite(id) {
-                        s
-                    } else {
-                        return;
-                    }
+                if let Some(layer) = self.layer(l) {
+                    layer.set_visible(!visible)
                 } else {
-                    return;
-                };
-
-                if let Some(layer) = self.layer(old_layer) {
-                    layer.add_sprite(sprite);
+                    None
                 }
             }
+            SceneEvent::SpriteNew(s, _) => self.remove_sprite(s.id),
+            SceneEvent::SpriteLayer(id, old_layer, new_layer) => {
+                if let Some(l) = self.layer_ref(new_layer) {
+                    if l.sprite_ref(id).is_some() {
+                        return self.sprite_layer(id, old_layer);
+                    }
+                }
+                None
+            }
             SceneEvent::SpriteMove(id, from, to) => {
-                self.sprite(id).map(|s| s.set_rect(s.rect - (to - from)));
+                self.sprite(id).map(|s| s.set_rect(s.rect - (to - from)))
             }
-            SceneEvent::SpriteRemove(id) => {
-                self.restore_sprite(id);
-            }
+            SceneEvent::SpriteRemove(id) => self.restore_sprite(id),
+            SceneEvent::SpriteRestore(id) => self.remove_sprite(id),
             SceneEvent::SpriteTexture(id, old, _new) => {
                 if let Some(s) = self.sprite(id) {
                     if s.texture == _new {
-                        s.set_texture(old);
+                        return Some(s.set_texture(old));
                     }
                 }
+                None
             }
         }
     }
