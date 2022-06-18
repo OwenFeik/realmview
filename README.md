@@ -9,8 +9,6 @@
     * Make map size configurable, as setting on scene, editable from project
         offcanvas
 * Sprites
-    * Delete sprite selection
-    * Move sprite selection to other layer
 * Media
     * Delete media items
     * Might be better if we never exposed media IDs, just used the URLs

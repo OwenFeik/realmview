@@ -79,6 +79,8 @@ pub struct Interactor {
 }
 
 impl Interactor {
+    const SELECTION_ID: Id = -1;
+
     pub fn new(client: Option<Client>) -> Self {
         Interactor {
             changed: true,
@@ -200,6 +202,28 @@ impl Interactor {
         }
     }
 
+    /// Apply a closure to each selected sprite, issuing the resulting vector
+    /// of events as a single EventSet event.
+    fn selection_effect<F: Fn(&mut Sprite) -> Option<SceneEvent>>(&mut self, effect: F) {
+        if let Some(ids) = &self.selected_sprites {
+            let events = ids
+                .iter()
+                .filter_map(|id| {
+                    if let Some(s) = self.scene.sprite(*id) {
+                        effect(s)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<SceneEvent>>();
+
+            if !events.is_empty() {
+                self.client_event(SceneEvent::EventSet(events));
+                self.change();
+            }
+        }
+    }
+
     pub fn grab(&mut self, at: ScenePoint) {
         self.holding = match self.scene.sprite_at(at) {
             Some(s) => {
@@ -254,19 +278,7 @@ impl Interactor {
             return;
         };
 
-        if let Some(ids) = self.selected_sprites.clone() {
-            let opts = ids
-                .iter()
-                .map(|id| self.scene.sprite(*id).map(|s| s.move_by(delta)))
-                .collect::<Vec<Option<SceneEvent>>>();
-
-            for opt in opts {
-                self.client_option(opt);
-            }
-
-            self.change();
-        }
-
+        self.selection_effect(|s| Some(s.move_by(delta)));
         self.holding = HeldObject::Selection(to);
     }
 
@@ -283,19 +295,35 @@ impl Interactor {
     }
 
     pub fn sprite_at(&self, at: ScenePoint) -> Option<Id> {
-        self.scene.sprite_at_ref(at).map(|s| s.id)
+        if let Some(id) = self.scene.sprite_at_ref(at).map(|s| s.id) {
+            if let Some(ids) = &self.selected_sprites {
+                if ids.contains(&id) {
+                    return Some(Self::SELECTION_ID);
+                }
+            }
+            return Some(id);
+        }
+        None
+    }
+
+    fn release_sprite(sprite: &mut Sprite, snap_to_grid: bool) -> Option<SceneEvent> {
+        if snap_to_grid {
+            Some(sprite.snap_to_grid())
+        } else {
+            sprite.enforce_min_size()
+        }
     }
 
     fn release_held_sprite(&mut self, id: Id, snap_to_grid: bool) {
         if let Some(s) = self.scene.sprite(id) {
-            let opt = if snap_to_grid {
-                Some(s.snap_to_grid())
-            } else {
-                s.enforce_min_size()
-            };
+            let opt = Self::release_sprite(s, snap_to_grid);
             self.client_option(opt);
             self.change();
         };
+    }
+
+    fn release_selection(&mut self, snap_to_grid: bool) {
+        self.selection_effect(|s| Self::release_sprite(s, snap_to_grid));
     }
 
     pub fn release(&mut self, alt: bool) {
@@ -308,13 +336,7 @@ impl Interactor {
                 self.change();
             }
             HeldObject::None => {}
-            HeldObject::Selection(_) => {
-                if let Some(ids) = self.selected_sprites.clone() {
-                    for id in ids {
-                        self.release_held_sprite(id, !alt);
-                    }
-                }
-            }
+            HeldObject::Selection(_) => self.release_selection(!alt),
             HeldObject::Sprite(id, _) | HeldObject::Anchor(id, _, _) => {
                 self.release_held_sprite(id, !alt)
             }
@@ -436,14 +458,30 @@ impl Interactor {
     }
 
     pub fn remove_sprite(&mut self, sprite: Id) {
-        let opt = self.scene.remove_sprite(sprite);
-        self.client_option(opt);
-        self.change();
+        if sprite == Self::SELECTION_ID {
+            if let Some(ids) = &self.selected_sprites {
+                let event = self.scene.remove_sprites(ids);
+                self.client_event(event);
+                self.change();
+            }
+        } else {
+            let opt = self.scene.remove_sprite(sprite);
+            self.client_option(opt);
+            self.change();
+        }
     }
 
     pub fn sprite_layer(&mut self, sprite: Id, layer: Id) {
-        let opt = self.scene.sprite_layer(sprite, layer);
-        self.client_option(opt);
-        self.change();
+        if sprite == Self::SELECTION_ID {
+            if let Some(ids) = &self.selected_sprites {
+                let event = self.scene.sprites_layer(ids, layer);
+                self.client_event(event);
+                self.change();
+            }
+        } else {
+            let opt = self.scene.sprite_layer(sprite, layer);
+            self.client_option(opt);
+            self.change();
+        }
     }
 }

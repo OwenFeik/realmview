@@ -80,6 +80,9 @@ pub struct Scene {
 
 impl Scene {
     const DEFAULT_SIZE: u32 = 32;
+
+    // When creating a clone of this scene for a client, this many IDs will be
+    // set aside for use by that client.
     const ID_SPACE_INCREMENT: i64 = 2_i64.pow(24);
 
     pub fn new() -> Self {
@@ -319,14 +322,22 @@ impl Scene {
         self.layer(layer).map(|l| l.add_sprites(sprites))
     }
 
-    pub fn remove_sprite(&mut self, local_id: Id) -> Option<SceneEvent> {
+    pub fn remove_sprite(&mut self, id: Id) -> Option<SceneEvent> {
         for layer in &mut self.layers {
-            let opt = layer.remove_sprite(local_id);
+            let opt = layer.remove_sprite(id);
             if opt.is_some() {
                 return opt;
             }
         }
         None
+    }
+
+    pub fn remove_sprites(&mut self, ids: &[Id]) -> SceneEvent {
+        SceneEvent::EventSet(
+            ids.iter()
+                .filter_map(|id| self.remove_sprite(*id))
+                .collect::<Vec<SceneEvent>>(),
+        )
     }
 
     fn restore_sprite(&mut self, sprite: Id) -> bool {
@@ -357,6 +368,15 @@ impl Scene {
             }
         }
         None
+    }
+
+    pub fn sprites_layer(&mut self, sprites: &[Id], layer: Id) -> SceneEvent {
+        SceneEvent::EventSet(
+            sprites
+                .iter()
+                .filter_map(|id| self.sprite_layer(*id, layer))
+                .collect::<Vec<SceneEvent>>(),
+        )
     }
 
     // If canonical is true, this is the ground truth scene.
