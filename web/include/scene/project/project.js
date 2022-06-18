@@ -227,7 +227,10 @@ function set_active_scene(scene_key) {
         resp => {
             document.getElementById("scene_select").value = scene_key;
             document.getElementById("scene_title").value = resp.title;
-            load_scene(resp.scene);
+
+            if (resp.success) {
+                load_scene(resp.scene);
+            }
             update_url_project_scene();
         },
         null,
@@ -278,7 +281,9 @@ function save_project() {
             encoded: RustFuncs.export_scene()
         },
         resp => {
-            load_scene(resp.scene);
+            if (resp.success) {
+                load_scene(resp.scene);
+            }
 
             // Only update if the selected project is unchanged
             if (selected_project() === proj) {

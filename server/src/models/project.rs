@@ -100,27 +100,19 @@ impl Project {
 
         for layer in scene.removed_layers.iter() {
             for sprite in &layer.sprites {
-                if let Some(id) = sprite.canonical_id {
-                    SpriteRecord::delete(conn, id).await?;
-                }
-            }
-
-            if let Some(l) = layer.canonical_id {
-                LayerRecord::delete(conn, l).await?;
+                SpriteRecord::delete(conn, sprite.id, s.id).await?;
             }
         }
 
         for layer in &scene.layers {
             for sprite in &layer.removed_sprites {
-                if let Some(id) = sprite.canonical_id {
-                    SpriteRecord::delete(conn, id).await?;
-                }
+                SpriteRecord::delete(conn, sprite.id, s.id).await?;
             }
 
             let l = LayerRecord::update_or_create(conn, layer, s.id).await?;
 
             for sprite in &layer.sprites {
-                SpriteRecord::save(conn, sprite, l.id).await?;
+                SpriteRecord::save(conn, sprite, l.id, s.id).await?;
             }
         }
 
@@ -232,14 +224,14 @@ mod scene_record {
             conn: &mut SqliteConnection,
         ) -> anyhow::Result<scene::Scene> {
             let layers = LayerRecord::load_scene_layers(conn, self.id).await?;
-            let mut sprites = SpriteRecord::sprites_for_layers(conn, &layers).await?;
+            let mut sprites = SpriteRecord::load_scene_sprites(conn, self.id).await?;
             let mut layers = layers
                 .iter()
                 .map(|lr| lr.to_layer())
                 .collect::<Vec<scene::Layer>>();
 
             while let Some(s) = sprites.pop() {
-                if let Some(l) = layers.iter_mut().find(|l| l.canonical_id == Some(s.layer)) {
+                if let Some(l) = layers.iter_mut().find(|l| l.id == s.layer) {
                     l.add_sprite(s.to_sprite());
                 }
             }
@@ -294,8 +286,7 @@ mod layer {
     impl LayerRecord {
         pub fn to_layer(&self) -> scene::Layer {
             scene::Layer {
-                local_id: self.id,
-                canonical_id: Some(self.id),
+                id: self.id,
                 title: self.title.clone(),
                 z: self.z as i32,
                 visible: self.visible,
@@ -307,28 +298,17 @@ mod layer {
             }
         }
 
-        async fn load(conn: &mut SqliteConnection, id: i64) -> anyhow::Result<LayerRecord> {
-            sqlx::query_as("SELECT * FROM layers WHERE id = ?1;")
+        async fn load(
+            conn: &mut SqliteConnection,
+            scene: i64,
+            id: i64,
+        ) -> anyhow::Result<LayerRecord> {
+            sqlx::query_as("SELECT * FROM layers WHERE scene = ?1 AND id = ?2;")
+                .bind(scene)
                 .bind(id)
                 .fetch_one(conn)
                 .await
                 .map_err(|_| anyhow!("Failed to load layer."))
-        }
-
-        // Note: will panic if called with a layer with canonical_id = None
-        async fn update(
-            conn: &mut SqliteConnection,
-            layer: &scene::Layer,
-        ) -> anyhow::Result<LayerRecord> {
-            sqlx::query_as("UPDATE layers SET (title, z, visible, locked) = (?1, ?2, ?3, ?4) WHERE id = ?5 RETURNING *;")
-                .bind(layer.title.clone())
-                .bind(layer.z)
-                .bind(layer.visible)
-                .bind(layer.locked)
-                .bind(layer.canonical_id.unwrap())
-                .fetch_one(conn)
-                .await
-                .map_err(|e| anyhow!("Failed to update layer: {e}"))
         }
 
         async fn create(
@@ -336,7 +316,8 @@ mod layer {
             layer: &scene::Layer,
             scene: i64,
         ) -> anyhow::Result<LayerRecord> {
-            sqlx::query_as("INSERT INTO layers (scene, title, z, visible, locked) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING *;")
+            sqlx::query_as("INSERT INTO layers (id, scene, title, z, visible, locked) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING *;")
+                .bind(layer.id)
                 .bind(scene)
                 .bind(&layer.title)
                 .bind(layer.z as i64)
@@ -347,9 +328,14 @@ mod layer {
                 .map_err(|_| anyhow!("Failed to create layer."))
         }
 
-        pub async fn delete(conn: &mut SqliteConnection, id: i64) -> anyhow::Result<()> {
-            sqlx::query("DELETE FROM layers WHERE id = ?1;")
+        pub async fn delete(
+            conn: &mut SqliteConnection,
+            id: i64,
+            scene: i64,
+        ) -> anyhow::Result<()> {
+            sqlx::query("DELETE FROM layers WHERE id = ?1 AND scene = ?2;")
                 .bind(id)
+                .bind(scene)
                 .execute(conn)
                 .await
                 .map(|_| ())
@@ -361,10 +347,8 @@ mod layer {
             layer: &scene::Layer,
             scene: i64,
         ) -> anyhow::Result<LayerRecord> {
-            match layer.canonical_id {
-                Some(_) => LayerRecord::update(conn, layer).await,
-                None => LayerRecord::create(conn, layer, scene).await,
-            }
+            LayerRecord::delete(conn, layer.id, scene).await.ok();
+            LayerRecord::create(conn, layer, scene).await
         }
 
         pub async fn load_scene_layers(
@@ -384,8 +368,6 @@ mod sprite {
     use anyhow::anyhow;
     use sqlx::{Row, SqliteConnection};
 
-    use super::layer::LayerRecord;
-
     // Can't use RETURNING * with SQLite due to bug with REAL columns, which is
     // relevant to the Sprite type because x, y, w, h are all REAL. May be
     // resolved in a future SQLite version but error persists in 3.38.0.
@@ -394,8 +376,8 @@ mod sprite {
     #[derive(sqlx::FromRow)]
     pub struct SpriteRecord {
         id: i64,
-        pub layer: i64,
         media: i64,
+        pub layer: i64,
         x: f32,
         y: f32,
         w: f32,
@@ -419,45 +401,26 @@ mod sprite {
 
         pub fn to_sprite(&self) -> scene::Sprite {
             scene::Sprite {
+                id: self.id,
                 rect: scene::Rect::new(self.x, self.y, self.w, self.h),
                 z: self.z as i32,
                 texture: self.media,
-                local_id: self.id,
-                canonical_id: Some(self.id),
             }
-        }
-
-        // NB: will panic if called with a scene::Sprite with canonical_id None
-        async fn update_from(
-            conn: &mut SqliteConnection,
-            sprite: &scene::Sprite,
-            layer: i64,
-        ) -> anyhow::Result<()> {
-            sqlx::query("UPDATE sprites SET (layer, media, x, y, w, h, z) = (?1, ?2, ?3, ?4, ?5, ?6, ?7) WHERE id = ?8;")
-                .bind(layer)
-                .bind(sprite.texture)
-                .bind(sprite.rect.x)
-                .bind(sprite.rect.y)
-                .bind(sprite.rect.w)
-                .bind(sprite.rect.h)
-                .bind(sprite.z)
-                .bind(sprite.canonical_id.unwrap())
-                .execute(conn)
-                .await
-                .map(|_| ())
-                .map_err(|e| anyhow!("Failed to update sprite: {e}"))
         }
 
         async fn create_from(
             conn: &mut SqliteConnection,
             sprite: &scene::Sprite,
             layer: i64,
+            scene: i64,
         ) -> anyhow::Result<i64> {
             sqlx::query(
-                "INSERT INTO sprites (layer, media, x, y, w, h, z) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) RETURNING id;"
+                "INSERT INTO sprites (id, scene, media, layer, x, y, w, h, z) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) RETURNING id;"
             )
-                .bind(layer)
+                .bind(sprite.id)
+                .bind(scene)
                 .bind(sprite.texture)
+                .bind(layer)
                 .bind(sprite.rect.x)
                 .bind(sprite.rect.y)
                 .bind(sprite.rect.w)
@@ -469,9 +432,14 @@ mod sprite {
                 .map_err(|e| anyhow!("Failed to create sprite: {e}"))
         }
 
-        pub async fn delete(conn: &mut SqliteConnection, id: i64) -> anyhow::Result<()> {
-            sqlx::query("DELETE FROM sprites WHERE id = ?1;")
+        pub async fn delete(
+            conn: &mut SqliteConnection,
+            id: i64,
+            scene: i64,
+        ) -> anyhow::Result<()> {
+            sqlx::query("DELETE FROM sprites WHERE id = ?1 AND scene = ?2;")
                 .bind(id)
+                .bind(scene)
                 .execute(conn)
                 .await
                 .map(|_| ())
@@ -482,32 +450,22 @@ mod sprite {
             conn: &mut SqliteConnection,
             sprite: &scene::Sprite,
             layer: i64,
+            scene: i64,
         ) -> anyhow::Result<SpriteRecord> {
-            let id = match sprite.canonical_id {
-                Some(id) => {
-                    SpriteRecord::update_from(conn, sprite, layer).await?;
-                    id
-                }
-                None => SpriteRecord::create_from(conn, sprite, layer).await?,
-            };
+            SpriteRecord::delete(conn, sprite.id, scene).await.ok();
+            let id = SpriteRecord::create_from(conn, sprite, layer, scene).await?;
             Ok(SpriteRecord::from_sprite(sprite, layer, id))
         }
 
-        pub async fn sprites_for_layers(
+        pub async fn load_scene_sprites(
             conn: &mut SqliteConnection,
-            layers: &[LayerRecord],
+            scene: i64,
         ) -> anyhow::Result<Vec<SpriteRecord>> {
-            sqlx::query_as(&format!(
-                "SELECT * FROM sprites WHERE layer IN ({});",
-                layers
-                    .iter()
-                    .map(|l| l.id.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", ")
-            ))
-            .fetch_all(conn)
-            .await
-            .map_err(|_| anyhow::anyhow!("Failed to load sprite list."))
+            sqlx::query_as("SELECT * FROM sprites WHERE scene = ?1;")
+                .bind(scene)
+                .fetch_all(conn)
+                .await
+                .map_err(|_| anyhow::anyhow!("Failed to load sprite list."))
         }
     }
 }

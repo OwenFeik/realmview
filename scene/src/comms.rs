@@ -6,6 +6,7 @@ use super::{Id, Rect, Scene, Sprite};
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum SceneEvent {
     Dummy,                           // To trigger redraws, etc
+    EventSet(Vec<SceneEvent>),       // Collection of other events
     LayerLocked(Id, bool),           // (layer, status)
     LayerMove(Id, i32, bool),        // (layer, starting_z, up)
     LayerNew(Id, String, i32),       // (local_id, title, z)
@@ -33,31 +34,6 @@ impl SceneEvent {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub enum SceneEventAck {
-    Approval,                  // Catchall OK
-    Rejection,                 // Catchall reject
-    LayerNew(Id, Option<Id>),  // (original_id, canonical_id)
-    SpriteNew(Id, Option<Id>), // (original_id, canonical_id)
-}
-
-impl SceneEventAck {
-    pub fn from(approved: bool) -> Self {
-        if approved {
-            Self::Approval
-        } else {
-            Self::Rejection
-        }
-    }
-
-    pub fn is_approval(&self) -> bool {
-        matches!(
-            self,
-            Self::Approval | Self::LayerNew(..) | Self::SpriteNew(..)
-        )
-    }
-}
-
 #[derive(Debug, Deserialize, Serialize)]
 pub enum ClientEvent {
     Ping,
@@ -76,7 +52,8 @@ pub struct ClientMessage {
 // sent by the client, or an event propagation from another client.
 #[derive(Deserialize, Serialize)]
 pub enum ServerEvent {
-    Ack(Id, Option<SceneEventAck>),
+    Approval(Id),
+    Rejection(Id),
     SceneChange(Scene),
     SceneUpdate(SceneEvent),
 }

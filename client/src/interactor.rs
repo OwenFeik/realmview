@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 
 use bincode::serialize;
 use scene::{
-    comms::{ClientEvent, ClientMessage, SceneEvent, SceneEventAck, ServerEvent},
+    comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent},
     Id, Layer, Rect, Scene, ScenePoint, Sprite,
 };
 
@@ -55,7 +55,7 @@ impl HeldObject {
         }
 
         if closest != (2, 2) {
-            Some(Self::Anchor(sprite.local_id, closest.0, closest.1))
+            Some(Self::Anchor(sprite.id, closest.0, closest.1))
         } else {
             None
         }
@@ -63,7 +63,7 @@ impl HeldObject {
 
     fn grab_sprite(sprite: &Sprite, at: ScenePoint) -> Self {
         Self::grab_sprite_anchor(sprite, at)
-            .unwrap_or_else(|| Self::Sprite(sprite.local_id, at - sprite.rect.top_left()))
+            .unwrap_or_else(|| Self::Sprite(sprite.id, at - sprite.rect.top_left()))
     }
 }
 
@@ -151,25 +151,16 @@ impl Interactor {
         }
     }
 
-    fn process_scene_ack(&mut self, id: Id, ack: SceneEventAck) {
-        match ack {
-            SceneEventAck::Rejection => self.unwind_event(id),
-            _ => {
-                self.scene.apply_ack(&ack);
-                self.approve_event(id);
-            }
-        };
-    }
-
     fn process_server_event(&mut self, event: ServerEvent) {
         match event {
-            ServerEvent::Ack(id, None) => self.approve_event(id),
-            ServerEvent::Ack(id, Some(ack)) => self.process_scene_ack(id, ack),
+            ServerEvent::Approval(id) => self.approve_event(id),
+            ServerEvent::Rejection(id) => self.unwind_event(id),
             ServerEvent::SceneChange(scene) => self.replace_scene(scene),
             ServerEvent::SceneUpdate(scene_event) => {
                 self.layer_change_if(scene_event.is_layer());
-                let ack = self.scene.apply_event(scene_event);
-                self.change_if(ack.is_approval());
+                if self.scene.apply_event(scene_event) {
+                    self.change();
+                }
             }
         }
     }
@@ -213,11 +204,7 @@ impl Interactor {
         self.holding = match self.scene.sprite_at(at) {
             Some(s) => {
                 if self.selected_sprites.is_some()
-                    && self
-                        .selected_sprites
-                        .as_ref()
-                        .unwrap()
-                        .contains(&s.local_id)
+                    && self.selected_sprites.as_ref().unwrap().contains(&s.id)
                 {
                     HeldObject::Selection(at)
                 } else {
@@ -240,11 +227,9 @@ impl Interactor {
             return;
         };
 
-        let opt = match holding {
+        let event = match holding {
             HeldObject::Sprite(_, offset) => sprite.set_pos(at - offset),
             HeldObject::Anchor(_, dx, dy) => {
-                let old_rect = sprite.rect;
-
                 let ScenePoint {
                     x: delta_x,
                     y: delta_y,
@@ -254,14 +239,11 @@ impl Interactor {
                 let w = delta_x * (dx as f32) + sprite.rect.w;
                 let h = delta_y * (dy as f32) + sprite.rect.h;
 
-                sprite.set_rect(Rect { x, y, w, h });
-                sprite
-                    .canonical_id
-                    .map(|id| SceneEvent::SpriteMove(id, old_rect, sprite.rect))
+                sprite.set_rect(Rect { x, y, w, h })
             }
             _ => return, // Other types aren't sprite-related
         };
-        self.client_option(opt);
+        self.client_event(event);
         self.change();
     }
 
@@ -275,13 +257,7 @@ impl Interactor {
         if let Some(ids) = self.selected_sprites.clone() {
             let opts = ids
                 .iter()
-                .map(|id| {
-                    if let Some(s) = self.scene.sprite(*id) {
-                        s.move_by(delta)
-                    } else {
-                        None
-                    }
-                })
+                .map(|id| self.scene.sprite(*id).map(|s| s.move_by(delta)))
                 .collect::<Vec<Option<SceneEvent>>>();
 
             for opt in opts {
@@ -307,13 +283,13 @@ impl Interactor {
     }
 
     pub fn sprite_at(&self, at: ScenePoint) -> Option<Id> {
-        self.scene.sprite_at_ref(at).map(|s| s.local_id)
+        self.scene.sprite_at_ref(at).map(|s| s.id)
     }
 
     fn release_held_sprite(&mut self, id: Id, snap_to_grid: bool) {
         if let Some(s) = self.scene.sprite(id) {
             let opt = if snap_to_grid {
-                s.snap_to_grid()
+                Some(s.snap_to_grid())
             } else {
                 s.enforce_min_size()
             };
@@ -402,8 +378,7 @@ impl Interactor {
         }
     }
 
-    pub fn replace_scene(&mut self, mut new: Scene) {
-        new.refresh_local_ids();
+    pub fn replace_scene(&mut self, new: Scene) {
         self.scene = new;
         self.both_change();
     }
@@ -415,7 +390,7 @@ impl Interactor {
             .get(0)
             .map(|l| (l.z + 1).max(1))
             .unwrap_or(1);
-        let opt = self.scene.add_layer(Layer::new("Untitled", z));
+        let opt = self.scene.new_layer("Untitled", z);
         self.client_option(opt);
         self.layer_change();
     }
@@ -455,7 +430,7 @@ impl Interactor {
     }
 
     pub fn new_sprite(&mut self, texture: Id, layer: Id) {
-        let opt = self.scene.add_sprite(Sprite::new(texture), layer);
+        let opt = self.scene.new_sprite(texture, layer);
         self.client_option(opt);
         self.change();
     }

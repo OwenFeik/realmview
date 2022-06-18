@@ -511,7 +511,7 @@ pub struct JsLayerInfo {
 impl JsLayerInfo {
     fn from(layer: &Layer) -> Self {
         JsLayerInfo {
-            id: layer.local_id,
+            id: layer.id,
             title: layer.title.clone(),
             z: layer.z as f64,
             visible: layer.visible,
@@ -531,10 +531,7 @@ fn layer_info(layers: &[Layer]) -> Array {
 }
 
 pub fn update_layers_list(layers: &[Layer]) {
-    _update_layers_list(
-        layer_info(layers),
-        layers.get(0).map(|l| l.local_id).unwrap_or(0),
-    );
+    _update_layers_list(layer_info(layers), layers.get(0).map(|l| l.id).unwrap_or(0));
 }
 
 fn create_context(element: &HtmlCanvasElement) -> Result<Gl, JsError> {

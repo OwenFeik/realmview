@@ -10,7 +10,7 @@ use tokio::sync::{
 use warp::ws::{Message, WebSocket};
 
 use scene::{
-    comms::{ClientEvent, ClientMessage, SceneEvent, SceneEventAck, ServerEvent},
+    comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent},
     Scene,
 };
 
@@ -69,7 +69,7 @@ impl Game {
         if let Some(client) = self.get_client_mut(&key) {
             client.sender = Some(sender);
             self.send_to(
-                ServerEvent::SceneChange(self.scene.read().await.non_canon()),
+                ServerEvent::SceneChange(self.scene.write().await.non_canon()),
                 &key,
             );
             true
@@ -106,14 +106,14 @@ impl Game {
     }
 
     fn send_approval(&self, event_id: i64, client_key: &str) {
-        self.send_to(ServerEvent::Ack(event_id, None), client_key);
+        self.send_to(ServerEvent::Approval(event_id), client_key);
     }
 
-    fn send_scene_ack(&self, event_id: i64, ack: SceneEventAck, client_key: &str) {
-        self.send_to(ServerEvent::Ack(event_id, Some(ack)), client_key);
+    fn send_rejection(&self, event_id: i64, client_key: &str) {
+        self.send_to(ServerEvent::Rejection(event_id), client_key);
     }
 
-    async fn apply_event(&self, event: SceneEvent) -> SceneEventAck {
+    async fn apply_event(&self, event: SceneEvent) -> bool {
         self.scene.write().await.apply_event(event)
     }
 
@@ -123,34 +123,12 @@ impl Game {
                 self.send_approval(message.id, from);
             }
             ClientEvent::SceneChange(event) => {
-                let ack = self.apply_event(event.clone()).await;
-                let ok = !matches!(ack, SceneEventAck::Rejection);
-
-                // Special case for new sprites and new layers as their
-                // canonical IDs need to be broadcast.
-                if let SceneEventAck::SpriteNew(_, Some(canonical_id)) = ack {
-                    if let SceneEvent::SpriteNew(_, layer) = event {
-                        if let Some(sprite) =
-                            self.scene.read().await.sprite_canonical_ref(canonical_id)
-                        {
-                            self.broadcast_event(
-                                ServerEvent::SceneUpdate(SceneEvent::SpriteNew(*sprite, layer)),
-                                Some(from),
-                            );
-                        }
-                    }
-                } else if let SceneEventAck::LayerNew(_, Some(canonical_id)) = ack {
-                    if let SceneEvent::LayerNew(_, title, z) = event {
-                        self.broadcast_event(
-                            ServerEvent::SceneUpdate(SceneEvent::LayerNew(canonical_id, title, z)),
-                            Some(from),
-                        );
-                    }
-                } else if ok {
+                if self.apply_event(event.clone()).await {
+                    self.send_approval(message.id, from);
                     self.broadcast_event(ServerEvent::SceneUpdate(event), Some(from));
+                } else {
+                    self.send_rejection(message.id, from)
                 }
-
-                self.send_scene_ack(message.id, ack, from);
             }
         };
     }
