@@ -8,7 +8,8 @@
     * Make map size configurable, as setting on scene, editable from project
         offcanvas
 * Sprites
-    * When creating history entries, movement entries should be grouped
+    * Show selected sprite as input form in bottom left, with ability to update
+        dimensions, texture, etc.
 * Media
     * Delete media items
     * Might be better if we never exposed media IDs, just used the URLs
