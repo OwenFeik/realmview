@@ -158,9 +158,11 @@ mod join {
 
 mod new {
     use std::convert::Infallible;
+    use std::sync::Arc;
 
     use serde_derive::Deserialize;
     use sqlx::SqlitePool;
+    use tokio::sync::RwLock;
     use warp::Filter;
 
     use crate::crypto::random_hex_string;
@@ -224,7 +226,7 @@ mod new {
         games
             .write()
             .await
-            .insert(game_key.clone(), game::Game::new_ref(user.id, scene));
+            .insert(game_key.clone(), Arc::new(RwLock::new(game::GameServer::new(user.id, scene))));
 
         super::join::join_game(games, game_key, user.id).await
     }
