@@ -8,11 +8,12 @@ use warp::ws::WebSocket;
 
 use crate::crypto::random_hex_string;
 
-mod game;
 mod client;
+mod game;
 mod perms;
 mod server;
 
+pub use game::Game;
 pub use server::Server as GameServer;
 
 pub type GameRef = Arc<RwLock<GameServer>>;
@@ -45,7 +46,7 @@ pub async fn client_connection(ws: WebSocket, key: String, game: GameRef) {
     while let Some(result) = client_ws_recv.next().await {
         match result {
             Ok(msg) => match deserialize(msg.as_bytes()) {
-                Ok(event) => game.read().await.handle_event(event, &key).await,
+                Ok(message) => game.read().await.handle_message(message, &key).await,
                 Err(e) => eprintln!("Error parsing ws message: {}", e),
             },
             Err(e) => {

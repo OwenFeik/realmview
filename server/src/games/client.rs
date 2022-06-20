@@ -2,7 +2,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use warp::ws::Message;
 
 pub struct Client {
-    user: i64,
+    pub user: i64,
     sender: Option<UnboundedSender<Message>>,
 }
 
@@ -16,7 +16,7 @@ impl Client {
             sender.send(message).ok();
         }
     }
-    
+
     pub fn set_sender(&mut self, sender: UnboundedSender<Message>) {
         self.sender = Some(sender);
     }

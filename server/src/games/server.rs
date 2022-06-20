@@ -1,14 +1,10 @@
-
 use std::collections::HashMap;
 
 use bincode::serialize;
 use tokio::sync::{mpsc::UnboundedSender, RwLock};
 use warp::ws::Message;
 
-use scene::{
-    comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent},
-    Scene,
-};
+use scene::comms::{ClientEvent, ClientMessage, ServerEvent};
 
 use super::client::Client;
 use super::game::Game;
@@ -20,11 +16,11 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(owner: i64, mut scene: Scene) -> Self {
+    pub fn new(owner: i64, game: Game) -> Self {
         Server {
             clients: HashMap::new(),
             owner,
-            game: RwLock::new(Game::new(scene)),
+            game: RwLock::new(game),
         }
     }
 
@@ -44,7 +40,7 @@ impl Server {
         if let Some(client) = self.get_client_mut(&key) {
             client.set_sender(sender);
             self.send_to(
-                ServerEvent::SceneChange(self.scene.write().await.non_canon()),
+                ServerEvent::SceneChange(self.game.write().await.client_scene()),
                 &key,
             );
             true
@@ -92,21 +88,24 @@ impl Server {
         self.send_to(ServerEvent::Rejection(event_id), client_key);
     }
 
-    async fn apply_event(&self, event: SceneEvent) -> bool {
-        self.scene.write().await.apply_event(event)
-    }
-
-    pub async fn handle_event(&self, message: ClientMessage, from: &str) {
+    pub async fn handle_message(&self, message: ClientMessage, from: &str) {
         match message.event {
             ClientEvent::Ping => {
                 self.send_approval(message.id, from);
             }
             ClientEvent::SceneChange(event) => {
-                if self.apply_event(event.clone()).await {
-                    self.send_approval(message.id, from);
-                    self.broadcast_event(ServerEvent::SceneUpdate(event), Some(from));
-                } else {
-                    self.send_rejection(message.id, from)
+                if let Some(client) = self.clients.get(from) {
+                    if self
+                        .game
+                        .write()
+                        .await
+                        .handle_event(client.user, event.clone())
+                    {
+                        self.send_approval(message.id, from);
+                        self.broadcast_event(ServerEvent::SceneUpdate(event), Some(from));
+                    } else {
+                        self.send_rejection(message.id, from);
+                    }
                 }
             }
         };

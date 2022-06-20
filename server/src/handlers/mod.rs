@@ -17,7 +17,7 @@ mod upload;
 
 pub fn routes(
     pool: SqlitePool,
-    games: crate::game::Games,
+    games: crate::games::Games,
     content_dir: String,
 ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let content_path = PathBuf::from(content_dir.clone());

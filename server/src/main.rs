@@ -8,11 +8,11 @@ use sqlx::sqlite::SqlitePool;
 use tokio::sync::RwLock;
 
 mod crypto;
-mod game;
+mod games;
 mod handlers;
 mod models;
 
-use game::Games;
+use games::Games;
 
 async fn connect_to_db() -> SqlitePool {
     SqlitePool::connect(

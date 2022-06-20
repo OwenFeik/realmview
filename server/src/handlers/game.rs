@@ -2,7 +2,7 @@ use std::{convert::Infallible, path::Path};
 
 use warp::Filter;
 
-use crate::game::Games;
+use crate::games::Games;
 
 pub fn routes(
     pool: sqlx::SqlitePool,
@@ -64,7 +64,7 @@ mod connect {
             None => return Err(warp::reject()),
         };
 
-        Ok(ws.on_upgrade(move |sock| crate::game::client_connection(sock, client_key, game)))
+        Ok(ws.on_upgrade(move |sock| crate::games::client_connection(sock, client_key, game)))
     }
 
     pub fn filter(
@@ -82,7 +82,7 @@ mod join {
     use warp::http::StatusCode;
     use warp::Filter;
 
-    use crate::game::{generate_game_key, GameRef, Games};
+    use crate::games::{generate_game_key, GameRef, Games};
     use crate::handlers::response::{as_result, Binary, ResultReply};
     use crate::models::User;
 
@@ -166,7 +166,7 @@ mod new {
     use warp::Filter;
 
     use crate::crypto::random_hex_string;
-    use crate::game;
+    use crate::games;
     use crate::handlers::{json_body, response::Binary, with_db, with_session};
     use crate::models::{SceneRecord, User};
 
@@ -180,7 +180,7 @@ mod new {
     async fn new_game(
         pool: SqlitePool,
         skey: String,
-        games: game::Games,
+        games: games::Games,
         req: NewGameRequest,
     ) -> Result<impl warp::Reply, Infallible> {
         let user = match User::get_by_session(&pool, &skey).await {
@@ -213,7 +213,7 @@ mod new {
         let game_key = {
             let games = games.read().await;
             loop {
-                if let Ok(game_key) = random_hex_string(game::GAME_KEY_LENGTH) {
+                if let Ok(game_key) = random_hex_string(games::GAME_KEY_LENGTH) {
                     if !games.contains_key(&game_key) {
                         break game_key;
                     }
@@ -223,10 +223,13 @@ mod new {
             }
         };
 
-        games
-            .write()
-            .await
-            .insert(game_key.clone(), Arc::new(RwLock::new(game::GameServer::new(user.id, scene))));
+        games.write().await.insert(
+            game_key.clone(),
+            Arc::new(RwLock::new(games::GameServer::new(
+                user.id,
+                games::Game::new(scene),
+            ))),
+        );
 
         super::join::join_game(games, game_key, user.id).await
     }
