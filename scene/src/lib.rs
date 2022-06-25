@@ -5,6 +5,7 @@ use serde_derive::{Deserialize, Serialize};
 use std::ops::{Add, Sub};
 
 pub mod comms;
+pub mod perms;
 
 mod layer;
 mod rect;
@@ -380,6 +381,22 @@ impl Scene {
                 .filter_map(|id| self.sprite_layer(*id, layer))
                 .collect::<Vec<SceneEvent>>(),
         )
+    }
+
+    fn get_sprite_layer(&self, sprite: Id) -> Option<Id> {
+        self.layers.iter().find(|l| l.sprite_ref(sprite).is_some()).map(|l| l.id)
+    }
+
+    pub fn event_layer(&self, event: &SceneEvent) -> Option<Id> {
+        if event.is_layer() {
+            event.item()
+        }
+        else if event.is_sprite() {
+            self.get_sprite_layer(event.item().unwrap())
+        }
+        else {
+            None
+        }
     }
 
     // If canonical is true, this is the ground truth scene.

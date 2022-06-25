@@ -10,7 +10,6 @@ use crate::crypto::random_hex_string;
 
 mod client;
 mod game;
-mod perms;
 mod server;
 
 pub use game::Game;

@@ -155,7 +155,15 @@ impl Interactor {
     fn unwind_event(&mut self, id: Id) {
         if let Some(i) = self.issued_events.iter().position(|c| c.id == id) {
             if let ClientEvent::SceneChange(e) = self.issued_events.remove(i).event {
+                // If we got rejected while dragging a sprite, release that
+                // sprite to prevent visual jittering and allow the position to
+                // reset. 
+                if self.held_id() == e.item() {
+                    self.holding = HeldObject::None;
+                }
+
                 self.layer_change_if(e.is_layer());
+                self.change();
                 self.scene.unwind_event(e);
             }
         }

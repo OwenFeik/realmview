@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use bincode::serialize;
+use scene::Scene;
 use tokio::sync::{mpsc::UnboundedSender, RwLock};
 use warp::ws::Message;
 
@@ -22,6 +23,10 @@ impl Server {
             owner,
             game: RwLock::new(game),
         }
+    }
+
+    pub fn new_with_scene(owner: i64, scene: Scene) -> Self {
+        Self::new(owner, super::Game::new(scene, owner))
     }
 
     pub fn add_client(&mut self, key: String, user: i64) {
