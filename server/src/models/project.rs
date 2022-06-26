@@ -232,7 +232,7 @@ mod scene_record {
 
             while let Some(s) = sprites.pop() {
                 if let Some(l) = layers.iter_mut().find(|l| l.id == s.layer) {
-                    l.add_sprite(s.to_sprite());
+                    l.add_sprite(s.to_sprite()?);
                 }
             }
 
@@ -368,6 +368,8 @@ mod sprite {
     use anyhow::anyhow;
     use sqlx::{Row, SqliteConnection};
 
+    use crate::models::Media;
+
     // Can't use RETURNING * with SQLite due to bug with REAL columns, which is
     // relevant to the Sprite type because x, y, w, h are all REAL. May be
     // resolved in a future SQLite version but error persists in 3.38.0.
@@ -376,7 +378,7 @@ mod sprite {
     #[derive(sqlx::FromRow)]
     pub struct SpriteRecord {
         id: i64,
-        media: i64,
+        media_key: String,
         pub layer: i64,
         x: f32,
         y: f32,
@@ -390,7 +392,7 @@ mod sprite {
             Self {
                 id,
                 layer,
-                media: sprite.texture,
+                media_key: Media::id_to_key(sprite.texture),
                 x: sprite.rect.x,
                 y: sprite.rect.y,
                 w: sprite.rect.w,
@@ -399,13 +401,13 @@ mod sprite {
             }
         }
 
-        pub fn to_sprite(&self) -> scene::Sprite {
-            scene::Sprite {
+        pub fn to_sprite(&self) -> anyhow::Result<scene::Sprite> {
+            Ok(scene::Sprite {
                 id: self.id,
                 rect: scene::Rect::new(self.x, self.y, self.w, self.h),
                 z: self.z as i32,
-                texture: self.media,
-            }
+                texture: Media::key_to_id(&self.media_key)?,
+            })
         }
 
         async fn create_from(
@@ -415,11 +417,11 @@ mod sprite {
             scene: i64,
         ) -> anyhow::Result<i64> {
             sqlx::query(
-                "INSERT INTO sprites (id, scene, media, layer, x, y, w, h, z) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) RETURNING id;"
+                "INSERT INTO sprites (id, scene, media_key, layer, x, y, w, h, z) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) RETURNING id;"
             )
                 .bind(sprite.id)
                 .bind(scene)
-                .bind(sprite.texture)
+                .bind(Media::id_to_key(sprite.texture))
                 .bind(layer)
                 .bind(sprite.rect.x)
                 .bind(sprite.rect.y)

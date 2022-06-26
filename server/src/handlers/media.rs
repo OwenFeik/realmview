@@ -4,7 +4,7 @@ use sqlx::SqlitePool;
 
 #[derive(serde_derive::Serialize, sqlx::FromRow)]
 struct MediaItem {
-    id: i64,
+    media_key: String,
     title: String,
 
     #[sqlx(rename = "relative_path")]
@@ -41,19 +41,19 @@ mod details {
 
     #[derive(serde_derive::Deserialize)]
     struct DetailsUpdate {
-        id: String,
+        media_key: String,
         title: String,
     }
 
     async fn update_in_db(
         pool: &SqlitePool,
         user_id: i64,
-        id: i64,
+        key: String,
         title: String,
     ) -> anyhow::Result<()> {
-        sqlx::query("UPDATE media SET title = ?1 WHERE id= ?2 AND user = ?3;")
+        sqlx::query("UPDATE media SET title = ?1 WHERE media_key = ?2 AND user = ?3;")
             .bind(&title)
-            .bind(id)
+            .bind(key)
             .bind(user_id)
             .execute(pool)
             .await?;
@@ -66,12 +66,7 @@ mod details {
             _ => return Binary::result_failure("Invalid session."),
         };
 
-        let id = match details.id.parse::<i64>() {
-            Ok(id) => id,
-            Err(_) => return Binary::result_failure("Non-integer ID provided."),
-        };
-
-        match update_in_db(&pool, user.id, id, details.title).await {
+        match update_in_db(&pool, user.id, details.media_key, details.title).await {
             Ok(()) => Binary::result_success("Media updated."),
             Err(_) => Binary::result_error("Database error."),
         }
@@ -88,13 +83,13 @@ mod details {
             .and_then(update_media)
     }
 
-    async fn media_details(id: i64, pool: SqlitePool, skey: String) -> ResultReply {
+    async fn media_details(key: String, pool: SqlitePool, skey: String) -> ResultReply {
         let user = match User::get_by_session(&pool, &skey).await {
             Ok(Some(user)) => user,
             _ => return Binary::result_failure("Invalid session."),
         };
 
-        let record = match Media::load(&pool, id).await {
+        let record = match Media::load(&pool, &key).await {
             Ok(record) => record,
             _ => return Binary::result_failure("Media not found."),
         };
@@ -104,7 +99,7 @@ mod details {
         }
 
         MediaItemResponse::result(super::MediaItem {
-            id: record.id,
+            media_key: record.media_key,
             title: record.title,
             url: record.relative_path,
         })
@@ -113,7 +108,7 @@ mod details {
     fn retrieve_filter(
         pool: SqlitePool,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        warp::path!("media" / "details" / i64)
+        warp::path!("media" / "details" / String)
             .and(warp::get())
             .and(with_db(pool))
             .and(with_session())
@@ -156,7 +151,7 @@ mod list {
     }
 
     async fn user_media(pool: &SqlitePool, user_id: i64) -> anyhow::Result<Vec<MediaItem>> {
-        let results = sqlx::query_as("SELECT id, title, relative_path FROM media WHERE user = ?1;")
+        let results = sqlx::query_as("SELECT media_key, title, relative_path FROM media WHERE user = ?1;")
             .bind(user_id)
             .fetch_all(pool)
             .await?;

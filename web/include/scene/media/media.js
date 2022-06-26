@@ -10,8 +10,8 @@ class MediaManager {
         this.media = {};
     }
 
-    load_media_with_id(texture_id, callback) {
-        let image = this.media[texture_id];
+    load_media_with_key(media_key, callback) {
+        let image = this.media[media_key];
         if (image) {
             if (image.complete) {
                 callback(image);
@@ -22,7 +22,7 @@ class MediaManager {
         }
         else {
             get(
-                "/media/details/" + texture_id,
+                "/media/details/" + media_key,
                 resp => {
                     if (!resp.success) {
                         return;
@@ -30,11 +30,9 @@ class MediaManager {
     
                     let i = new Image();
                     i.src = resp.details.url;
-                    i.setAttribute(
-                        "{{ constant(DATA_ID_ATTR) }}",
-                        resp.details.id
+                    i.setAttribute("data-key", resp.details.media_key
                     );
-                    this.media[resp.details.id] = i;
+                    this.media[resp.details.media_key] = i;
                     i.addEventListener("load", () => callback(image));
                 }
             );    
@@ -42,9 +40,9 @@ class MediaManager {
     }
 
     add_media_with_image(image) {
-        let id = image.getAttribute("{{ constant(DATA_ID_ATTR) }}");
-        if (id) {
-            this.media[id] = image;
+        let key = image.getAttribute("data-key");
+        if (key) {
+            this.media[key] = image;
         }
     }
 }
@@ -57,7 +55,7 @@ function preview_card(src, name) {
 function media_card(media_item) {
     // Variables used in template
     let src = media_item.url;
-    let id = media_item.id;
+    let key = media_item.media_key;
     let title = media_item.title;
     let card = template_to_element(`{{ scene/media/media_card.html }}`);
     

@@ -30,7 +30,7 @@ var RustFuncs = {
 
     new_sprite: missing_func,
     /*
-    function new_sprite(texture_id: number, layer_id: number)
+    function new_sprite(layer_id: number, media_key: string)
 
     Adds a new sprite with the provided texture to the scene. Will load the
     texture if necessary.
@@ -111,8 +111,8 @@ function get_texture_queue() {
 // Loads the texture with the specified ID and pushes the HTML image to the
 // texture queue. If necessary, this will query the desired image URL from
 // the server.
-function load_texture(texture_id) {
-    media_manager.load_media_with_id(texture_id, i => texture_queue.push(i));
+function load_texture(media_key) {
+    media_manager.load_media_with_key(media_key, i => texture_queue.push(i));
 }
 
 // scene/layers/canvas_dropdown.html
@@ -154,8 +154,8 @@ function new_scene(project_id = 0) {
 function add_to_scene(image) {
     texture_queue.push(image);
     call_when_ready("new_sprite", () => RustFuncs.new_sprite(
-        parseInt(image.getAttribute("{{ constant(DATA_ID_ATTR) }}")),
-        selected_layer()
+        selected_layer(),
+        image.getAttribute("data-key")
     ));
 }
 

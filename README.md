@@ -12,7 +12,6 @@
         dimensions, texture, etc.
 * Media
     * Delete media items
-    * Might be better if we never exposed media IDs, just used the URLs
     * Media library
         * Place media in directories
         * Multiselect media, apply action to all items

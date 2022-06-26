@@ -12,12 +12,12 @@ aria-hidden="true"
       <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
     </div>
     <div class="modal-body">
-      <form id="media_details_form" action="/media_details">
+      <form id="media_details_form" action="/media/details">
         <div class="mb-3">
           <label for="media_details_title" class="form-label">Title</label>
           <input type="text" class="form-control" id="media_details_title" required maxlength="256">
         </div>
-        <input type="hidden" id="media_details_id">
+        <input type="hidden" id="media_details_media_key">
         <div data-role="error_message" class="form-text text-danger"></div>
       </form>
     </div>
@@ -46,11 +46,8 @@ aria-hidden="true"
                     .getElementById("media_details_title")
                     .value = image.getAttribute("data-title");
                 document
-                    .getElementById("media_details_id")
-                    .value = image.getAttribute(
-                      "{{ constant(DATA_ID_ATTR) }}"
-                    );
-
+                    .getElementById("media_details_media_key")
+                    .value = image.getAttribute("data-key");
                 form_error(document.getElementById("media_details_form"), "");
             });
 

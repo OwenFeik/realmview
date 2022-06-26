@@ -177,8 +177,8 @@ impl TextureManager {
     }
 
     fn load_image(&mut self, image: &HtmlImageElement) -> scene::Id {
-        let id = match image.get_attribute("data-id") {
-            Some(s) => s.parse::<scene::Id>().unwrap_or(0),
+        let id = match image.get_attribute("data-key") {
+            Some(s) => parse_media_key(&s),
             None => 0,
         };
 
@@ -208,7 +208,7 @@ impl TextureManager {
         } else {
             if !self.loading.contains(&id) {
                 self.loading.push(id);
-                crate::bridge::load_texture(id);
+                crate::bridge::load_texture(format!("{id:16X}"));
             }
 
             // This unwrap is safe because we always add a missing texture
@@ -710,4 +710,26 @@ fn m4_scale(m: &mut [f32; 16], sx: f32, sy: f32, sz: f32) {
     m[9] *= sz;
     m[10] *= sz;
     m[11] *= sz;
+}
+
+
+/// Parses a 16 digit hexadecimal media key string into an Id, reutrning 0
+/// on failure.
+pub fn parse_media_key(key: &str) -> scene::Id {
+    if key.len() != 16 {
+        return 0;
+    }
+
+    let mut raw = [0; 8];
+    for i in 0..8 {
+        let j = i * 2;
+        if let Ok(b) = u8::from_str_radix(&key[j..j + 2], 16) {
+            raw[i] = b;
+        }
+        else {
+            return 0;
+        }
+    }
+
+    i64::from_be_bytes(raw)
 }

@@ -22,7 +22,7 @@ extern "C" {
 
     // Causes the texture with this ID to be loaded as an image and added to
     // the texture queue once ready.
-    pub fn load_texture(id: Id);
+    pub fn load_texture(media_key: String);
 
     // Shows a dropdown with actions for the specified sprite at (x, y) on the
     // scene canvas.

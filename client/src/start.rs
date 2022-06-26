@@ -62,11 +62,13 @@ pub fn start() -> Result<(), JsValue> {
     new_scene_closure.forget();
 
     let vp_ref = vp.clone();
-    let new_sprite_closure = Closure::wrap(Box::new(move |id: f64, layer: f64| {
-        vp_ref.lock().scene.new_sprite(id as i64, layer as i64);
-    }) as Box<dyn FnMut(f64, f64)>);
-    expose_closure_f64_f64("new_sprite", &new_sprite_closure);
+    let new_sprite_closure = Closure::wrap(Box::new(move |layer: f64, media_key: String| {
+        let texture = crate::programs::parse_media_key(&media_key);
+        vp_ref.lock().scene.new_sprite(texture, layer as i64);
+    }) as Box<dyn FnMut(f64, String)>);
+    expose_closure_f64_string("new_sprite", &new_sprite_closure);
     new_sprite_closure.forget();
+
 
     let vp_ref = vp.clone();
     let remove_sprite_closure = Closure::wrap(Box::new(move |id: f64| {

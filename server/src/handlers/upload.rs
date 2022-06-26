@@ -9,8 +9,8 @@ use warp::{
     Filter,
 };
 
-use crate::crypto::{random_hex_string, to_hex_string_unsized};
-use crate::models::User;
+use crate::crypto::to_hex_string_unsized;
+use crate::models::{Media, User};
 
 use super::response::{as_result, Binary};
 use super::{with_db, with_session};
@@ -19,16 +19,16 @@ use super::{with_db, with_session};
 struct UploadResponse {
     message: String,
     success: bool,
-    id: i64,
+    media_key: String,
     url: String,
 }
 
 impl UploadResponse {
-    fn new(id: i64, url: String) -> UploadResponse {
+    fn new(key: String, url: String) -> UploadResponse {
         UploadResponse {
             message: String::from("Uploaded successfully."),
             success: true,
-            id,
+            media_key: key,
             url,
         }
     }
@@ -129,11 +129,12 @@ async fn upload(
             _ => (),
         };
 
-        let relative_path = match random_hex_string(16) {
-            Ok(s) => format!("{}/{}.{}", &user.relative_dir(), s.as_str(), ext),
+        let key = match Media::generate_key() {
+            Ok(s) => s,
             Err(_) => return Binary::result_error("File name generation failed."),
         };
 
+        let relative_path = format!("{}/{}.{}", &user.relative_dir(), key, ext);
         if tokio::fs::create_dir_all(user.upload_dir(&content_dir))
             .await
             .is_err()
@@ -146,25 +147,11 @@ async fn upload(
             return Binary::result_error("Failed to write file.");
         };
 
-        return match sqlx::query(
-            "INSERT INTO media (user, relative_path, title, hashed_value) VALUES (?1, ?2, ?3, ?4) RETURNING id;"
-        )
-            .bind(user.id)
-            .bind(&relative_path)
-            .bind(title)
-            .bind(hash)
-            .fetch_one(&pool)
-            .await
+        return match Media::create(&pool, &key, user.id, &relative_path, &title, &hash).await
         {
-            Ok(row) => match row.try_get(0) {
-                Ok(id) => {
-                    let url = format!("/static/{}", &relative_path);
-                    as_result(&UploadResponse::new(id, url), warp::http::StatusCode::OK)
-                },
-                Err(_) => {
-                    tokio::fs::remove_file(&real_path).await.ok();
-                    Binary::result_error("Database error.")
-                }
+            Ok(media) => {
+                let url = format!("/static/{}", &relative_path);
+                as_result(&UploadResponse::new(media.media_key, url), warp::http::StatusCode::OK)
             },
             Err(_) => {
                 // Remove file as part of cleanup.
