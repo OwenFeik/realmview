@@ -61,10 +61,10 @@ impl Media {
         }
 
         let mut raw = [0; 8];
-        for i in 0..8 {
+        for (i, r) in raw.iter_mut().enumerate() {
             let j = i * 2;
             if let Ok(b) = u8::from_str_radix(&key[j..j + 2], 16) {
-                raw[i] = b;
+                *r = b;
             } else {
                 return Err(anyhow::anyhow!("Invalid hexadecimal."));
             }
