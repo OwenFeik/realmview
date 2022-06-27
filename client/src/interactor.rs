@@ -84,6 +84,7 @@ pub struct Interactor {
     scene: Scene,
     selected_sprites: Option<Vec<Id>>,
     selection_marquee: Option<Rect>,
+    user: Id,
 }
 
 impl Interactor {
@@ -102,6 +103,7 @@ impl Interactor {
             scene: Scene::new(),
             selected_sprites: None,
             selection_marquee: None,
+            user: scene::perms::CANONICAL_UPDATER,
         }
     }
 
@@ -176,6 +178,7 @@ impl Interactor {
         match event {
             ServerEvent::Approval(id) => self.approve_event(id),
             ServerEvent::Rejection(id) => self.unwind_event(id),
+            ServerEvent::PermsChange(perms) => self.replace_perms(perms),
             ServerEvent::PermsUpdate(perms_event) => {
                 self.perms
                     .handle_event(scene::perms::CANONICAL_UPDATER, perms_event);
@@ -186,6 +189,9 @@ impl Interactor {
                 if self.scene.apply_event(scene_event) {
                     self.change();
                 }
+            }
+            ServerEvent::UserId(id) => {
+                self.user = id;
             }
         }
     }
@@ -205,11 +211,18 @@ impl Interactor {
     }
 
     fn scene_event(&mut self, event: SceneEvent) {
-        self.issue_client_event(event.clone());
+        if self
+            .perms
+            .permitted(self.user, &event, self.scene.event_layer(&event))
+        {
+            self.issue_client_event(event.clone());
 
-        // When adding a new entry to the history, all undone events are lost.
-        self.redo_history.clear();
-        self.history.push(event);
+            // When adding a new entry to the history, all undone events are lost.
+            self.redo_history.clear();
+            self.history.push(event);
+        } else {
+            self.scene.unwind_event(event);
+        }
     }
 
     fn scene_option(&mut self, event_option: Option<SceneEvent>) {
@@ -500,6 +513,10 @@ impl Interactor {
             }
             self.change();
         }
+    }
+
+    fn replace_perms(&mut self, new: Perms) {
+        self.perms = new;
     }
 
     pub fn replace_scene(&mut self, new: Scene) {

@@ -44,10 +44,16 @@ impl Server {
     pub async fn connect_client(&mut self, key: String, sender: UnboundedSender<Message>) -> bool {
         if let Some(client) = self.get_client_mut(&key) {
             client.set_sender(sender);
-            self.send_to(
-                ServerEvent::SceneChange(self.game.write().await.client_scene()),
-                &key,
-            );
+            let player = client.user;
+            let mut lock = self.game.write().await;
+
+            if let Some(event) = lock.add_player(player) {
+                self.broadcast_event(ServerEvent::PermsUpdate(event), Some(&key));
+            }
+
+            self.send_to(ServerEvent::UserId(player), &key);
+            self.send_to(ServerEvent::SceneChange(lock.client_scene()), &key);
+            self.send_to(ServerEvent::PermsChange(lock.client_perms()), &key);
             true
         } else {
             self.drop_client(&key);

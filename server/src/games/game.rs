@@ -1,4 +1,8 @@
-use scene::{comms::SceneEvent, perms::Perms, Scene};
+use scene::{
+    comms::{PermsEvent, SceneEvent},
+    perms::{self, Perms},
+    Scene,
+};
 
 pub struct Game {
     scene: Scene,
@@ -11,6 +15,15 @@ impl Game {
         let mut perms = Perms::new();
         perms.set_owner(owner);
         Self { scene, perms }
+    }
+
+    pub fn handle_perms(&mut self, user: i64, event: PermsEvent) -> bool {
+        self.perms.handle_event(user, event)
+    }
+
+    pub fn add_player(&mut self, user: i64) -> Option<PermsEvent> {
+        self.perms
+            .role_change(perms::CANONICAL_UPDATER, user, perms::Role::Player)
     }
 
     pub fn handle_event(&mut self, user: i64, event: SceneEvent) -> bool {
@@ -26,5 +39,9 @@ impl Game {
 
     pub fn client_scene(&mut self) -> Scene {
         self.scene.non_canon()
+    }
+
+    pub fn client_perms(&mut self) -> Perms {
+        self.perms.clone()
     }
 }

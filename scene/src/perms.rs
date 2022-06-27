@@ -40,17 +40,14 @@ impl Perm {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Role {
-    /// Full permissions, irrevocable.
-    Owner,
-
-    /// Full permissions to alter scene.
-    Editor,
-
-    /// Can only handle sprites on specific layers.
-    Player,
-
     /// Cannot interact with sprites or layers.
     Spectator,
+    /// Can only handle sprites on specific layers.
+    Player,
+    /// Full permissions to alter scene.
+    Editor,
+    /// Full permissions, irrevocable.
+    Owner,
 }
 
 impl Role {
@@ -107,6 +104,7 @@ impl Override {
     }
 }
 
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Perms {
     roles: HashMap<Id, Role>,
     items: HashMap<Id, PermSet>,

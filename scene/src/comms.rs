@@ -1,6 +1,6 @@
 use serde_derive::{Deserialize, Serialize};
 
-use crate::perms::{Override, PermSet, Role};
+use crate::perms::{Override, PermSet, Perms, Role};
 
 use super::{Id, Rect, Scene, Sprite};
 
@@ -101,7 +101,9 @@ pub struct ClientMessage {
 pub enum ServerEvent {
     Approval(Id),
     Rejection(Id),
+    PermsChange(Perms),
     PermsUpdate(PermsEvent),
     SceneChange(Scene),
     SceneUpdate(SceneEvent),
+    UserId(Id),
 }
