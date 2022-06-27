@@ -38,8 +38,9 @@ fn hash_file(raw: &[u8]) -> anyhow::Result<String> {
     to_hex_string_unsized(digest::digest(&digest::SHA256, raw).as_ref())
 }
 
-async fn file_exists(pool: &SqlitePool, hash: &str) -> anyhow::Result<Option<String>> {
-    let row_opt = sqlx::query("SELECT title FROM media WHERE hashed_value = ?1;")
+async fn file_exists(pool: &SqlitePool, user: i64, hash: &str) -> anyhow::Result<Option<String>> {
+    let row_opt = sqlx::query("SELECT title FROM media WHERE user = ?1 AND hashed_value = ?1;")
+        .bind(user)
         .bind(hash)
         .fetch_optional(pool)
         .await?;
@@ -112,7 +113,7 @@ async fn upload(
             Err(_) => return Binary::result_error("Failed to hash file."),
         };
 
-        match file_exists(&pool, &hash).await {
+        match file_exists(&pool, user.id, &hash).await {
             Err(_) => return Binary::result_error("Database error checking for duplicate."),
             Ok(Some(existing_title)) => {
                 return {
