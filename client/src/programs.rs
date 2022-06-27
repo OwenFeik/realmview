@@ -712,7 +712,6 @@ fn m4_scale(m: &mut [f32; 16], sx: f32, sy: f32, sz: f32) {
     m[11] *= sz;
 }
 
-
 /// Parses a 16 digit hexadecimal media key string into an Id, reutrning 0
 /// on failure.
 pub fn parse_media_key(key: &str) -> scene::Id {
@@ -725,8 +724,7 @@ pub fn parse_media_key(key: &str) -> scene::Id {
         let j = i * 2;
         if let Ok(b) = u8::from_str_radix(&key[j..j + 2], 16) {
             raw[i] = b;
-        }
-        else {
+        } else {
             return 0;
         }
     }

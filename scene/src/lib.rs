@@ -384,17 +384,18 @@ impl Scene {
     }
 
     fn get_sprite_layer(&self, sprite: Id) -> Option<Id> {
-        self.layers.iter().find(|l| l.sprite_ref(sprite).is_some()).map(|l| l.id)
+        self.layers
+            .iter()
+            .find(|l| l.sprite_ref(sprite).is_some())
+            .map(|l| l.id)
     }
 
     pub fn event_layer(&self, event: &SceneEvent) -> Option<Id> {
         if event.is_layer() {
             event.item()
-        }
-        else if event.is_sprite() {
+        } else if event.is_sprite() {
             self.get_sprite_layer(event.item().unwrap())
-        }
-        else {
+        } else {
             None
         }
     }

@@ -1,5 +1,7 @@
 use serde_derive::{Deserialize, Serialize};
 
+use crate::perms::{Override, PermSet, Role};
+
 use super::{Id, Rect, Scene, Sprite};
 
 // Events processed by Scene
@@ -70,9 +72,19 @@ impl SceneEvent {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub enum PermsEvent {
+    /// Update to the role of a user
+    RoleChange(Id, Role),
+    /// Replace the PermSet for an item
+    ItemPerms(PermSet),
+    /// Issue a new Override
+    NewOverride(Override),
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub enum ClientEvent {
     Ping,
-    SceneChange(SceneEvent),
+    SceneUpdate(SceneEvent),
 }
 
 // Events sent by Client. The client will keep track of these after sending them
@@ -89,6 +101,7 @@ pub struct ClientMessage {
 pub enum ServerEvent {
     Approval(Id),
     Rejection(Id),
+    PermsUpdate(PermsEvent),
     SceneChange(Scene),
     SceneUpdate(SceneEvent),
 }

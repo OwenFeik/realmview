@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 use bincode::serialize;
 use scene::{
     comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent},
+    perms::Perms,
     Id, Layer, Rect, Scene, ScenePoint, Sprite,
 };
 
@@ -79,6 +80,7 @@ pub struct Interactor {
     redo_history: Vec<Option<SceneEvent>>,
     issued_events: Vec<ClientMessage>,
     layers_changed: bool,
+    perms: Perms,
     scene: Scene,
     selected_sprites: Option<Vec<Id>>,
     selection_marquee: Option<Rect>,
@@ -96,6 +98,7 @@ impl Interactor {
             redo_history: vec![],
             issued_events: vec![],
             layers_changed: true,
+            perms: Perms::new(),
             scene: Scene::new(),
             selected_sprites: None,
             selection_marquee: None,
@@ -154,10 +157,10 @@ impl Interactor {
 
     fn unwind_event(&mut self, id: Id) {
         if let Some(i) = self.issued_events.iter().position(|c| c.id == id) {
-            if let ClientEvent::SceneChange(e) = self.issued_events.remove(i).event {
+            if let ClientEvent::SceneUpdate(e) = self.issued_events.remove(i).event {
                 // If we got rejected while dragging a sprite, release that
                 // sprite to prevent visual jittering and allow the position to
-                // reset. 
+                // reset.
                 if self.held_id() == e.item() {
                     self.holding = HeldObject::None;
                 }
@@ -173,6 +176,10 @@ impl Interactor {
         match event {
             ServerEvent::Approval(id) => self.approve_event(id),
             ServerEvent::Rejection(id) => self.unwind_event(id),
+            ServerEvent::PermsUpdate(perms_event) => {
+                self.perms
+                    .handle_event(scene::perms::CANONICAL_UPDATER, perms_event);
+            }
             ServerEvent::SceneChange(scene) => self.replace_scene(scene),
             ServerEvent::SceneUpdate(scene_event) => {
                 self.layer_change_if(scene_event.is_layer());
@@ -190,7 +197,7 @@ impl Interactor {
         if let Some(client) = &self.client {
             let message = ClientMessage {
                 id: EVENT_ID.fetch_add(1, Ordering::Relaxed),
-                event: ClientEvent::SceneChange(scene_event),
+                event: ClientEvent::SceneUpdate(scene_event),
             };
             client.send_message(&message);
             self.issued_events.push(message);

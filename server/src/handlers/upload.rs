@@ -147,12 +147,14 @@ async fn upload(
             return Binary::result_error("Failed to write file.");
         };
 
-        return match Media::create(&pool, &key, user.id, &relative_path, &title, &hash).await
-        {
+        return match Media::create(&pool, &key, user.id, &relative_path, &title, &hash).await {
             Ok(media) => {
                 let url = format!("/static/{}", &relative_path);
-                as_result(&UploadResponse::new(media.media_key, url), warp::http::StatusCode::OK)
-            },
+                as_result(
+                    &UploadResponse::new(media.media_key, url),
+                    warp::http::StatusCode::OK,
+                )
+            }
             Err(_) => {
                 // Remove file as part of cleanup.
                 tokio::fs::remove_file(&real_path).await.ok();

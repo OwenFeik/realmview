@@ -13,7 +13,14 @@ pub struct Media {
 impl Media {
     const KEY_LENGTH: usize = 16;
 
-    pub async fn create(pool: &sqlx::SqlitePool, key: &str, user: i64, relative_path: &str, title: &str, hash: &str) -> anyhow::Result<Media> {
+    pub async fn create(
+        pool: &sqlx::SqlitePool,
+        key: &str,
+        user: i64,
+        relative_path: &str,
+        title: &str,
+        hash: &str,
+    ) -> anyhow::Result<Media> {
         sqlx::query_as(
             "INSERT INTO media (media_key, user, relative_path, title, hashed_value) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING *;"
         )
@@ -37,14 +44,13 @@ impl Media {
 
     pub fn generate_key() -> anyhow::Result<String> {
         let key = random_hex_string(Media::KEY_LENGTH)?;
-        
+
         // Always generate a key with a positive value.
         // 63 / 64 keys generated should already be positive, so this is
         // unlikely to recurse very far.
         if Self::key_to_id(&key)? <= 0 {
             Self::generate_key()
-        }
-        else {
+        } else {
             Ok(key)
         }
     }
@@ -53,22 +59,21 @@ impl Media {
         if key.len() != Media::KEY_LENGTH {
             return Err(anyhow::anyhow!("Invalid media key."));
         }
-    
+
         let mut raw = [0; 8];
         for i in 0..8 {
             let j = i * 2;
             if let Ok(b) = u8::from_str_radix(&key[j..j + 2], 16) {
                 raw[i] = b;
-            }
-            else {
+            } else {
                 return Err(anyhow::anyhow!("Invalid hexadecimal."));
             }
         }
-    
+
         Ok(i64::from_be_bytes(raw))
     }
-    
+
     pub fn id_to_key(id: i64) -> String {
-        format!("{:16X}", id)    
-    }    
+        format!("{:16X}", id)
+    }
 }

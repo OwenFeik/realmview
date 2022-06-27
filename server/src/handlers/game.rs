@@ -226,8 +226,7 @@ mod new {
         games.write().await.insert(
             game_key.clone(),
             Arc::new(RwLock::new(games::GameServer::new_with_scene(
-                user.id,
-                scene,
+                user.id, scene,
             ))),
         );
 

@@ -98,7 +98,7 @@ impl Server {
             ClientEvent::Ping => {
                 self.send_approval(message.id, from);
             }
-            ClientEvent::SceneChange(event) => {
+            ClientEvent::SceneUpdate(event) => {
                 if let Some(client) = self.clients.get(from) {
                     if self
                         .game

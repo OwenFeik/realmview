@@ -69,7 +69,6 @@ pub fn start() -> Result<(), JsValue> {
     expose_closure_f64_string("new_sprite", &new_sprite_closure);
     new_sprite_closure.forget();
 
-
     let vp_ref = vp.clone();
     let remove_sprite_closure = Closure::wrap(Box::new(move |id: f64| {
         vp_ref.lock().scene.remove_sprite(id as i64);

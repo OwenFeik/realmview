@@ -141,10 +141,11 @@ mod list {
     }
 
     async fn user_media(pool: &SqlitePool, user_id: i64) -> anyhow::Result<Vec<MediaItem>> {
-        let results = sqlx::query_as("SELECT media_key, title, relative_path FROM media WHERE user = ?1;")
-            .bind(user_id)
-            .fetch_all(pool)
-            .await?;
+        let results =
+            sqlx::query_as("SELECT media_key, title, relative_path FROM media WHERE user = ?1;")
+                .bind(user_id)
+                .fetch_all(pool)
+                .await?;
         Ok(results)
     }
 
