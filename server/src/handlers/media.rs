@@ -83,20 +83,11 @@ mod details {
             .and_then(update_media)
     }
 
-    async fn media_details(key: String, pool: SqlitePool, skey: String) -> ResultReply {
-        let user = match User::get_by_session(&pool, &skey).await {
-            Ok(Some(user)) => user,
-            _ => return Binary::result_failure("Invalid session."),
-        };
-
+    async fn media_details(key: String, pool: SqlitePool) -> ResultReply {
         let record = match Media::load(&pool, &key).await {
             Ok(record) => record,
             _ => return Binary::result_failure("Media not found."),
         };
-
-        if record.user != user.id {
-            return Binary::result_failure("Media not found.");
-        }
 
         MediaItemResponse::result(super::MediaItem {
             media_key: record.media_key,
@@ -111,7 +102,6 @@ mod details {
         warp::path!("media" / "details" / String)
             .and(warp::get())
             .and(with_db(pool))
-            .and(with_session())
             .and_then(media_details)
     }
 

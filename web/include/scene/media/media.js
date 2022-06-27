@@ -30,10 +30,9 @@ class MediaManager {
     
                     let i = new Image();
                     i.src = resp.details.url;
-                    i.setAttribute("data-key", resp.details.media_key
-                    );
+                    i.setAttribute("data-key", resp.details.media_key);
                     this.media[resp.details.media_key] = i;
-                    i.addEventListener("load", () => callback(image));
+                    i.addEventListener("load", () => callback(i));
                 }
             );    
         }        

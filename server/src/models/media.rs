@@ -28,7 +28,7 @@ impl Media {
     }
 
     pub async fn load(pool: &sqlx::SqlitePool, key: &str) -> anyhow::Result<Media> {
-        sqlx::query_as("SELECT * FROM media WHERE key = ?1;")
+        sqlx::query_as("SELECT * FROM media WHERE media_key = ?1;")
             .bind(key)
             .fetch_one(pool)
             .await
