@@ -20,7 +20,7 @@
           import init from "/pkg/client.js";
           init();
         </script>
-        {{ scene/layers/canvas_dropdown.html }}
+        {{ scene/menu/layers/canvas_dropdown.html }}
         <canvas
           id="canvas"
           class="bg-light"
@@ -30,13 +30,16 @@
         <div
           class="position-absolute btn-group-vertical"
           id="show_offcanvas"
-          style="left: {{ constant(HOVER_ELEM_INSET) }}; top: {{ constant(HOVER_ELEM_INSET) }};"
+          style="
+            left: {{ constant(HOVER_ELEM_INSET) }};
+            top: {{ constant(HOVER_ELEM_INSET) }};
+          "
         >
           {{ offcanvas_button(target=media) }}
           {{ offcanvas_button(target=game) }}
           {{ offcanvas_button(target=project) }}
         </div>
-        {{ scene/layers/layers_list.html }}
+        {{ scene/menu/menu.html }}
         {{ confirmation_modal.html }}
         {{ scene/media/media_offcanvas.html }}
         {{ scene/game/game_offcanvas.html }}

@@ -35,7 +35,7 @@ wasm: content-dir
 		wasm-pack build client/ --out-dir ${content}/pkg --target web
 
 html: content-dir
-	python3 ${root}/web/build.py ${content}/
+	python3.9 ${root}/web/build.py ${content}/
 
 content-dir: build-dir
 	mkdir -p ${content}
@@ -44,8 +44,8 @@ build-dir:
 	mkdir -p ${build}
 
 lint: test
-	python3 -m black ${root}/web/build.py
-	MYPY_CACHE_DIR=${build}/.mypy_cache python3 -m mypy ${root}/web/build.py
+	python3.9 -m black ${root}/web/build.py
+	MYPY_CACHE_DIR=${build}/.mypy_cache python3.9 -m mypy ${root}/web/build.py
 	${cargo} fmt
 	${cargo} clippy
 
@@ -54,7 +54,7 @@ test:
 
 install:
 	${cargo} install wasm-pack
-	python3 -m pip install -r ${root}/web/requirements.txt
+	python3.9 -m pip install -r ${root}/web/requirements.txt
 
 clean:
 	rm -rf ${build}

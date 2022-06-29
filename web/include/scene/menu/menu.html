@@ -1,0 +1,13 @@
+<div class="accordion" id="canvas_menu">
+  {{ scene/menu/sprite/sprite_menu.html }}
+  {{ scene/menu/layers/layers_list.html }}
+</div>
+<style>
+#canvas_menu .accordion-item {
+    bottom: {{ constant(HOVER_ELEM_INSET) }};
+    height: auto;
+    position: absolute;
+    right: {{ constant(HOVER_ELEM_INSET) }};
+    width: 400px;
+}
+</style>

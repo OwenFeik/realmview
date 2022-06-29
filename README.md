@@ -1,6 +1,7 @@
 # TODO
 
 * Scene
+    * Hide or show UI elements depending on user role.
 * Layers
     * Select from selected layer first (possibly)
     * Layer opacity
@@ -27,7 +28,6 @@
     * Specify which users are allowed to join the game
     * Feedback for when connecting to a game as a given CLIENT_KEY fails
     * Permission levels
-        * Users should be either a player or an editor
         * Editor should be able to configure permissions by layer, allowing or
             forbidding users to
             

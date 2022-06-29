@@ -115,7 +115,7 @@ function load_texture(media_key) {
     media_manager.load_media_with_key(media_key, i => texture_queue.push(i));
 }
 
-// scene/layers/canvas_dropdown.html
+// scene/menu/layers/canvas_dropdown.html
 // function sprite_downdown(id: number, x: number, y: number)
 
 // End :: Externs

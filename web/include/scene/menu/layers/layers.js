@@ -1,7 +1,9 @@
 function layers_list_entry(layer) {
     let id = layer.id;
-    let label = layer.title; // Used in below
-    let el = template_to_element(`{{ scene/layers/layer_list_item.html }}`);
+    let label = layer.title; // Used in template
+    let el = template_to_element(
+        `{{ scene/menu/layers/layer_list_item.html }}`
+    );
 
     if (!layer.visible) {
         let btn = el.querySelector(".bi-eye").parentNode; 
@@ -20,7 +22,9 @@ function layers_list_entry(layer) {
 
 function canvas_layers_list_entry(layer) {
     // Uses layer.id and layer.title
-    return template_to_element(`{{ scene/layers/canvas_list_item.html }}`);
+    return template_to_element(
+        `{{ scene/menu/layers/canvas_list_item.html }}`
+    );
 }
 
 function update_canvas_layers_list(layers) {

@@ -41,17 +41,21 @@ impl Perm {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Role {
     /// Cannot interact with sprites or layers.
-    Spectator,
+    Spectator = 0,
     /// Can only handle sprites on specific layers.
-    Player,
+    Player = 1,
     /// Full permissions to alter scene.
-    Editor,
+    Editor = 2,
     /// Full permissions, irrevocable.
-    Owner,
+    Owner = 3,
 }
 
 impl Role {
     fn allows(&self, perm: Perm) -> bool {
+        if self >= &Role::Editor {
+            return true;
+        }
+
         match perm {
             Perm::Special => false,
             Perm::SpriteUpdate => !matches!(self, Self::Spectator),
