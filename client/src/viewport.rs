@@ -105,11 +105,11 @@ impl Viewport {
         }
     }
 
-    fn handle_mouse_down(&mut self, at: ViewportPoint, button: MouseButton) {
+    fn handle_mouse_down(&mut self, at: ViewportPoint, button: MouseButton, ctrl: bool) {
         match button {
             MouseButton::Left => self
                 .scene
-                .grab(at.scene_point(self.viewport, self.grid_zoom)),
+                .grab(at.scene_point(self.viewport, self.grid_zoom), ctrl),
             MouseButton::Right => {
                 if let Some(id) = self.scene.sprite_at(self.scene_point(at)) {
                     sprite_dropdown(id, at.x, at.y);
@@ -125,9 +125,9 @@ impl Viewport {
         self.grabbed_at = None;
     }
 
-    fn handle_mouse_up(&mut self, alt: bool, button: MouseButton) {
+    fn handle_mouse_up(&mut self, button: MouseButton, alt: bool, ctrl: bool) {
         match button {
-            MouseButton::Left => self.scene.release(alt),
+            MouseButton::Left => self.scene.release(alt, ctrl),
             MouseButton::Right => self.release_grab(),
             MouseButton::Middle => self.centre_viewport(),
             _ => {}
@@ -203,12 +203,16 @@ impl Viewport {
 
         for event in &events {
             match event.input {
-                Input::Mouse(at, MouseAction::Down, button) => self.handle_mouse_down(at, button),
+                Input::Mouse(at, MouseAction::Down, button) => {
+                    self.handle_mouse_down(at, button, event.ctrl)
+                }
                 Input::Mouse(_, MouseAction::Leave, button) => {
-                    self.handle_mouse_up(event.alt, button)
+                    self.handle_mouse_up(button, event.alt, event.ctrl)
                 }
                 Input::Mouse(at, MouseAction::Move, _) => self.handle_mouse_move(at),
-                Input::Mouse(_, MouseAction::Up, button) => self.handle_mouse_up(event.alt, button),
+                Input::Mouse(_, MouseAction::Up, button) => {
+                    self.handle_mouse_up(button, event.alt, event.ctrl)
+                }
                 Input::Mouse(at, MouseAction::Wheel(delta), _) => {
                     self.handle_scroll(at, delta, event.shift, event.ctrl)
                 }

@@ -330,21 +330,27 @@ impl Interactor {
         }
     }
 
-    pub fn grab(&mut self, at: ScenePoint) {
+    pub fn grab(&mut self, at: ScenePoint, ctrl: bool) {
         self.holding = match self.scene.sprite_at(at) {
             Some(s) => {
-                if self.selected_sprites.is_some()
-                    && self.selected_sprites.as_ref().unwrap().contains(&s.id)
-                {
-                    HeldObject::Selection(at)
+                if let Some(selected) = &mut self.selected_sprites {
+                    let already = selected.contains(&s.id);
+                    if already || ctrl {
+                        if !already && ctrl {
+                            selected.push(s.id);
+                        }
+                        HeldObject::Selection(at)
+                    } else {
+                        selected.clear();
+                        selected.push(s.id);
+                        HeldObject::grab_sprite(s, at)
+                    }
                 } else {
+                    self.selected_sprites = Some(vec![s.id]);
                     HeldObject::grab_sprite(s, at)
                 }
             }
-            None => {
-                self.selected_sprites = None;
-                HeldObject::Marquee(at)
-            }
+            None => HeldObject::Marquee(at),
         };
 
         if self.holding.is_sprite() {
@@ -437,11 +443,23 @@ impl Interactor {
         self.selection_effect(|s| Self::release_sprite(s, snap_to_grid));
     }
 
-    pub fn release(&mut self, alt: bool) {
+    pub fn release(&mut self, alt: bool, ctrl: bool) {
         match self.holding {
             HeldObject::Marquee(_) => {
+                if !ctrl {
+                    self.selected_sprites = None;
+                }
+
                 if let Some(region) = self.selection_marquee {
-                    self.selected_sprites = Some(self.scene.sprites_in(region, alt));
+                    let mut selection = self.scene.sprites_in(region, alt);
+                    if ctrl && self.selected_sprites.is_some() {
+                        self.selected_sprites
+                            .as_mut()
+                            .unwrap()
+                            .append(&mut selection);
+                    } else {
+                        self.selected_sprites = Some(selection);
+                    }
                 }
                 self.selection_marquee = None;
                 self.change();

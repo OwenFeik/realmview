@@ -10,6 +10,8 @@
             * Hollow
         * Freehand
             * Stroke width
+    * Issue when dragging multiple sprites from different selections where
+        different selections move different amounts.
 * Layers
     * Select from selected layer first (possibly)
     * Layer opacity
