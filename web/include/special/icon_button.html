@@ -4,6 +4,7 @@
       IFNDEF(OUTLINE) {{ btn-primary }}
       IFDEF(OUTLINE) {{ btn-outline-primary }} 
       IFDEF(SMALL) {{ btn-sm }}
+      IFDEF(CLASSES) {{ {{ CLASSES }} }}
     "
     type="button"
     IFDEF(ID) {{ id="{{ ID }}" }}

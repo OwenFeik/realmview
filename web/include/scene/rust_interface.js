@@ -118,6 +118,9 @@ function load_texture(media_key) {
 // scene/menu/layers/canvas_dropdown.html
 // function sprite_downdown(id: number, x: number, y: number)
 
+// scene/game/role.js
+// function update_interface(role: number)
+
 // End :: Externs
 
 // Queue a function to be called when closure func_name is loaded.

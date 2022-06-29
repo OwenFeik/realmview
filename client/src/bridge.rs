@@ -28,6 +28,9 @@ extern "C" {
     // scene canvas.
     pub fn sprite_dropdown(sprite: Id, x: f32, y: f32);
 
+    // Shows or hides the relevant UI elements given a role integer.
+    pub fn update_interface(role: i32);
+
     // Given a JS array of JsLayerInfo structs and an ID for the currently
     // selected layer, this will update the layer info accordion in the bottom
     // right of the scene and the sprite dropdown "Move to layer" option with

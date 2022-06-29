@@ -36,6 +36,8 @@ window.addEventListener("load", () => {
     current_game_tab.click();
 });
 
+{{ scene/game/role.js }}
+
 function set_up_copy_link_btn() {
     const join_game_link = document.getElementById("join_game_link");
     const btn = document.getElementById("copy_join_game_link_btn");

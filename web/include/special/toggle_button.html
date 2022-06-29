@@ -9,6 +9,7 @@
       );
       IFDEF(ACTION) {{ ({{ ACTION }})(value); }}
     ",
+    IFDEF(CLASSES) {{ {{ CLASSES }} }}
     IFDEF(OUTLINE) {{ outline=1, }}
     IFDEF(SMALL) {{ small=1, }}
     IFDEF(ID) {{ id={{ ID }}, }}

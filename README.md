@@ -2,6 +2,14 @@
 
 * Scene
     * Hide or show UI elements depending on user role.
+    * Draw on map.
+        * Shapes
+            * Ellipse
+            * Rectangle
+            * Filled
+            * Hollow
+        * Freehand
+            * Stroke width
 * Layers
     * Select from selected layer first (possibly)
     * Layer opacity
