@@ -184,15 +184,15 @@ impl Viewport {
     }
 
     fn handle_key_down(&mut self, key: Key, ctrl: bool) {
-        if !ctrl {
-            return;
+        if matches!(key, Key::Delete) {
+            self.scene.remove_sprite(Interactor::SELECTION_ID);
+        } else if ctrl {
+            match key {
+                Key::Y => self.scene.redo(),
+                Key::Z => self.scene.undo(),
+                _ => (),
+            };
         }
-
-        match key {
-            Key::Y => self.scene.redo(),
-            Key::Z => self.scene.undo(),
-            _ => (),
-        };
     }
 
     fn process_ui_events(&mut self) {

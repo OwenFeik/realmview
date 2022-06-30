@@ -383,6 +383,10 @@ pub enum KeyboardAction {
 
 #[derive(Clone, Copy, Debug)]
 pub enum Key {
+    Alt,
+    Control,
+    Delete,
+    Shift,
     A,
     B,
     C,
@@ -408,15 +412,16 @@ pub enum Key {
     X,
     Y,
     Z,
-    Control,
-    Shift,
-    Alt,
     Unknown,
 }
 
 impl Key {
     fn from(key: &str) -> Self {
         match key {
+            "Alt" => Self::Alt,
+            "Control" => Self::Control,
+            "Delete" => Self::Delete,
+            "Shift" => Self::Shift,
             "a" => Self::A,
             "b" => Self::B,
             "c" => Self::C,
@@ -442,9 +447,6 @@ impl Key {
             "x" => Self::X,
             "y" => Self::Y,
             "z" => Self::Z,
-            "Control" => Self::Control,
-            "Shift" => Self::Shift,
-            "Alt" => Self::Alt,
             _ => Self::Unknown,
         }
     }

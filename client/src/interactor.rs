@@ -88,7 +88,7 @@ pub struct Interactor {
 }
 
 impl Interactor {
-    const SELECTION_ID: Id = -1;
+    pub const SELECTION_ID: Id = -1;
 
     pub fn new(client: Option<Client>) -> Self {
         Interactor {
