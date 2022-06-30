@@ -1,4 +1,7 @@
-use std::sync::atomic::{AtomicI64, Ordering};
+use std::{
+    collections::HashMap,
+    sync::atomic::{AtomicI64, Ordering},
+};
 
 use bincode::serialize;
 use scene::{
@@ -28,7 +31,10 @@ impl HeldObject {
     }
 
     fn is_sprite(&self) -> bool {
-        matches!(self, HeldObject::Sprite(..) | HeldObject::Anchor(..))
+        matches!(
+            self,
+            HeldObject::Sprite(..) | HeldObject::Anchor(..) | HeldObject::Selection(..)
+        )
     }
 
     fn grab_sprite_anchor(sprite: &Sprite, at: ScenePoint) -> Option<Self> {
@@ -235,16 +241,9 @@ impl Interactor {
         self.history.push(SceneEvent::Dummy);
     }
 
-    fn end_move_group(&mut self) {
-        let opt = self.history.pop();
-
-        let (sprite, mut start, finish) = if let Some(event) = opt {
-            if let SceneEvent::SpriteMove(id, from, to) = event {
-                (id, from, to)
-            } else {
-                self.history.push(event);
-                return;
-            }
+    fn group_moves_single(&mut self, last: SceneEvent) {
+        let (sprite, mut start, finish) = if let SceneEvent::SpriteMove(id, from, to) = last {
+            (id, from, to)
         } else {
             return;
         };
@@ -265,6 +264,46 @@ impl Interactor {
 
         self.history
             .push(SceneEvent::SpriteMove(sprite, start, finish));
+    }
+
+    fn group_moves_set(&mut self, last: SceneEvent) {
+        self.history.push(last);
+        let mut moves = HashMap::new();
+
+        while let Some(e) = self.history.pop() {
+            if let SceneEvent::EventSet(v) = e {
+                for event in v {
+                    if let SceneEvent::SpriteMove(id, from, _) = event {
+                        if let Some(SceneEvent::SpriteMove(_, start, _)) = moves.get_mut(&id) {
+                            *start = from;
+                        } else {
+                            moves.insert(id, event);
+                        }
+                    }
+                }
+                continue;
+            }
+
+            if !matches!(e, SceneEvent::Dummy) {
+                self.history.push(e);
+            }
+            break;
+        }
+
+        self.history.push(SceneEvent::EventSet(
+            moves.into_values().collect::<Vec<SceneEvent>>(),
+        ));
+    }
+
+    fn end_move_group(&mut self) {
+        let opt = self.history.pop();
+        if let Some(event) = opt {
+            match event {
+                SceneEvent::SpriteMove(..) => self.group_moves_single(event),
+                SceneEvent::EventSet(..) => self.group_moves_set(event),
+                _ => self.history.push(event),
+            };
+        }
     }
 
     pub fn undo(&mut self) {
