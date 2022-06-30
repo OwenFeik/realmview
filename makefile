@@ -3,6 +3,7 @@ build := ${root}/build
 target := ${build}/target
 content := ${build}/content
 cargo := CARGO_TARGET_DIR=${target} RUST_BACKTRACE=1 cargo
+py := python3
 
 serve: server content
 	echo "Serving at http://localhost:3030/"
@@ -35,7 +36,7 @@ wasm: content-dir
 		wasm-pack build client/ --out-dir ${content}/pkg --target web
 
 html: content-dir
-	python3.9 ${root}/web/build.py ${content}/
+	${py} ${root}/web/build.py ${content}/
 
 content-dir: build-dir
 	mkdir -p ${content}
@@ -44,8 +45,8 @@ build-dir:
 	mkdir -p ${build}
 
 lint: test
-	python3.9 -m black ${root}/web/build.py
-	MYPY_CACHE_DIR=${build}/.mypy_cache python3.9 -m mypy ${root}/web/build.py
+	python3 -m black ${root}/web/build.py
+	MYPY_CACHE_DIR=${build}/.mypy_cache ${py} -m mypy ${root}/web/build.py
 	${cargo} fmt
 	${cargo} clippy
 
@@ -54,7 +55,7 @@ test:
 
 install:
 	${cargo} install wasm-pack
-	python3.9 -m pip install -r ${root}/web/requirements.txt
+	${py} -m pip install -r ${root}/web/requirements.txt
 
 clean:
 	rm -rf ${build}
