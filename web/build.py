@@ -246,7 +246,7 @@ def process_ifdefs(html: str, kwargs: typing.Dict[str, str]) -> str:
         if (cond == "IFDEF" and kwarg in kwargs) or (
             cond == "IFNDEF" and kwarg not in kwargs
         ):
-            repl = block_contents(block)
+            repl = block_contents(block).strip()
         html = html.replace(block, repl, 1)
     return html
 

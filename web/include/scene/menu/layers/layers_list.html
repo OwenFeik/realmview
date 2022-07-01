@@ -1,20 +1,8 @@
-<div class="accordion-item">
-  <h2 id="layers_list_heading" class="accordion-header">
-    <button
-      class="accordion-button collapsed shadow-none"
-      type="button"
-      data-bs-toggle="collapse"
-      data-bs-target="#layers_list_collapse"
-      aria-expanded="true"
-      aria-controls="layers_list_collapse"
-    >Layers</button>
-  </h2>
-  <div
-    id="layers_list_collapse"
-    class="accordion-collapse collapse"
-    aria-labelledby="layers_list_heading"
-  >
-    <div class="p-2">
+{{
+  accordion_item(
+    id="layers_list",
+    label="Layers",
+    body=|
       <button
         class="btn btn-primary btn-sm"
         type="button"
@@ -22,7 +10,7 @@
       >Add {{ bootstrap_icon(plus) }}</button>
       <ul id="layers_list" class="list-unstyled mb-0 pt-1">
       </ul>      
-    </div>
-  </div>
-</div>
+    |
+  )
+}}
 {{ javascript(scene/menu/layers/layers.js) }}

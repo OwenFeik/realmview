@@ -1,14 +1,21 @@
 PREAMBLE {{
 kwargs["ID"] = kwargs.get("ID", unique_string())
+kwargs["TYPE"] = kwargs.get("TYPE", "text")
+if "FEEDBACK" not in kwargs and "HELP" in kwargs:
+  kwargs["FEEDBACK"] = 1
 }}
+IFNDEF(NOSTART) {{
 <div class="input-group IFDEF(SMALL) {{ input-group-sm }}">
+}}
   IFDEF(BEFORE) {{ {{ BEFORE }} }}
   IFDEF(LABEL) {{ <span class="input-group-text">{{ LABEL }}</span> }}
   <input
-    type="text"
+    type="{{ TYPE }}"
     class="form-control"
     id="{{ ID }}"
     maxlength="256"
+    IFDEF(MAX) {{ max="{{ MAX }}" }}
+    IFDEF(MIN) {{ min="{{ MIN }}" }}
     autocomplete="off"
     disabled
     IFDEF(VALUE) {{ value="{{ VALUE }}" }}
@@ -41,7 +48,9 @@ kwargs["ID"] = kwargs.get("ID", unique_string())
     )
   }}
   IFDEF(AFTER) {{ {{ AFTER }} }}
-</div>
+IFNDEF(NOEND) {{ </div> }}
+IFDEF(FEEDBACK) {{
 <div class="invalid-feedback" data-feedback-for="{{ ID }}">
-  IFDEF(HELP) {{ HELP }} IFNDEF(HELP) {{Please enter a valid value.}}
-</div>
+  IFDEF(HELP) {{ HELP }} IFNDEF(HELP) {{ Please enter a valid value. }}
+</div>  
+}}

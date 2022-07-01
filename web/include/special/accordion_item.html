@@ -1,0 +1,19 @@
+<div class="accordion-item">
+  <h2 id="{{ ID }}_heading" class="accordion-header">
+    <button
+      class="accordion-button collapsed shadow-none"
+      type="button"
+      data-bs-toggle="collapse"
+      data-bs-target="#{{ ID }}_collapse"
+      aria-expanded="IFDEF(EXPANDED) {{ true }}IFNDEF(EXPANDED) {{ false }}"
+      aria-controls="{{ ID }}_collapse"
+    >{{ LABEL }}</button> 
+  </h2>
+  <div
+    id="{{ ID }}_collapse"
+    class="accordion-collapse collapse"
+    aria-labelledby="{{ ID }}_heading"
+  >
+    <div class="p-2">{{ BODY }}</div>
+  </div>
+</div>
