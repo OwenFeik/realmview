@@ -39,10 +39,24 @@
       {{ tab/end() }}
       {{ tab/start(tab=save) }}
         <div class="row py-2">
-          {{ editable_input(id=project_title, label=Project, feedback=1) }}
+          {{
+            editable_input(
+              id=project_title,
+              label=Project,
+              feedback=1,
+              button=1
+            )
+          }}
         </div>
         <div class="row py-2">
-          {{ editable_input(id=scene_title, label=Scene, feedback=1) }}
+          {{
+            editable_input(
+              id=scene_title,
+              label=Scene,
+              feedback=1,
+              button=1
+            )
+          }}
         </div>
         <div class="row py-2">
           <div class="btn-group">

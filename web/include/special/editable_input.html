@@ -19,33 +19,38 @@ IFNDEF(NOSTART) {{
     autocomplete="off"
     disabled
     IFDEF(VALUE) {{ value="{{ VALUE }}" }}
-    onkeypress="
-      // Submit on enter.
-      if (event.keyCode === 13) {
-        this.parentNode.querySelector('#{{ ID }} + button').click();
-      }
-    "
-  >
-  {{
-    icon_button(
-      icon=pencil-square,
-      outline=true,
-      IFDEF(SMALL) {{ small=true, }}
-      onclick="
-        const input = this.parentNode.querySelector('#{{ ID }}');
-        if (input.disabled) {
-          input.disabled = false;
-          input.focus();
-          input.select();
-          this.innerHTML = Icons.check_circle;
-        }
-        else {
-          input.disabled = true;
-          this.innerHTML = Icons.pencil_square;
-          IFDEF(ACTION) {{ ({{ ACTION }})(input.value); }}
+    IFDEF(BUTTON) {{
+      onkeypress="
+        // Submit on enter.
+        if (event.keyCode === 13) {
+          this.parentNode.querySelector('#{{ ID }} + button').click();
         }
       "
-    )
+    }}
+    IFNDEF(BUTTON) {{ onchange="{{ ACTION }}" }}
+  >
+  IFDEF(BUTTON) {{
+    {{
+      icon_button(
+        icon=pencil-square,
+        outline=true,
+        IFDEF(SMALL) {{ small=true, }}
+        onclick="
+          const input = this.parentNode.querySelector('#{{ ID }}');
+          if (input.disabled) {
+            input.disabled = false;
+            input.focus();
+            input.select();
+            this.innerHTML = Icons.check_circle;
+          }
+          else {
+            input.disabled = true;
+            this.innerHTML = Icons.pencil_square;
+            IFDEF(ACTION) {{ ({{ ACTION }})(input.value); }}
+          }
+        "
+      )
+    }}
   }}
   IFDEF(AFTER) {{ {{ AFTER }} }}
 IFNDEF(NOEND) {{ </div> }}

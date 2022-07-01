@@ -660,4 +660,9 @@ impl Interactor {
             self.change();
         }
     }
+
+    pub fn sprite_rect(&mut self, sprite: Id, rect: Rect) {
+        let opt = self.scene.sprite(sprite).map(|s| s.set_rect(rect));
+        self.scene_option(opt);
+    }
 }
