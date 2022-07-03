@@ -4,7 +4,15 @@ use serde_derive::{Deserialize, Serialize};
 
 use super::ScenePoint;
 
+pub enum Dimension {
+    X,
+    Y,
+    W,
+    H,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
+#[serde(default)]
 pub struct Rect {
     pub x: f32,
     pub y: f32,
@@ -32,8 +40,21 @@ impl Rect {
         rect
     }
 
-    pub fn as_floats(&self) -> (f32, f32, f32, f32) {
-        (self.x as f32, self.y as f32, self.w as f32, self.h as f32)
+    pub fn set_dimension(&mut self, dimension: Dimension, value: f32) {
+        match dimension {
+            Dimension::X => {
+                self.x = value;
+            }
+            Dimension::Y => {
+                self.y = value;
+            }
+            Dimension::W => {
+                self.w = value;
+            }
+            Dimension::H => {
+                self.h = value;
+            }
+        };
     }
 
     pub fn translate(&mut self, ScenePoint { x: dx, y: dy }: ScenePoint) {
@@ -112,6 +133,17 @@ impl Rect {
         ScenePoint {
             x: self.x,
             y: self.y,
+        }
+    }
+}
+
+impl Default for Rect {
+    fn default() -> Self {
+        Rect {
+            x: 0.0,
+            y: 0.0,
+            w: 0.0,
+            h: 0.0,
         }
     }
 }

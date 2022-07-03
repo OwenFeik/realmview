@@ -1,12 +1,12 @@
 use crate::{
     bridge::{
-        sprite_dropdown, update_layers_list, Context, Input, JsError, Key, KeyboardAction,
-        MouseAction, MouseButton,
+        set_selected_sprite, sprite_dropdown, update_layers_list, Context, Input, JsError, Key,
+        KeyboardAction, MouseAction, MouseButton,
     },
     client::Client,
     interactor::Interactor,
 };
-use scene::{Rect, ScenePoint};
+use scene::{Id, Rect, ScenePoint};
 
 #[derive(Clone, Copy, Debug)]
 pub struct ViewportPoint {
@@ -46,6 +46,9 @@ pub struct Viewport {
 
     // Flag set true whenever something changes
     redraw_needed: bool,
+
+    // Sprite that the UI is currently displaying information for.
+    selected_id: Option<Id>,
 }
 
 impl Viewport {
@@ -64,6 +67,7 @@ impl Viewport {
             grid_zoom: Viewport::BASE_GRID_ZOOM,
             grabbed_at: None,
             redraw_needed: true,
+            selected_id: None,
         };
 
         vp.update_viewport();
@@ -263,6 +267,15 @@ impl Viewport {
 
         if self.scene.handle_layer_change() {
             update_layers_list(self.scene.layers());
+        }
+
+        if self.scene.selected_id() != self.selected_id {
+            self.selected_id = self.scene.selected_id();
+            if let Some(id) = self.selected_id {
+                if let Some(sprite) = self.scene.sprite_ref(id) {
+                    set_selected_sprite(sprite);
+                }
+            }
         }
     }
 }

@@ -573,10 +573,16 @@ impl Renderer {
             .draw_texture(vp, self.texture_library.get_texture(texture), position);
     }
 
-    pub fn draw_outline(&mut self, vp: Rect, outline: Rect) {
-        let (vp_x, vp_y, vp_w, vp_h) = vp.as_floats();
-        let (x, y, w, h) = outline.as_floats();
-
+    pub fn draw_outline(
+        &mut self,
+        Rect {
+            x: vp_x,
+            y: vp_y,
+            w: vp_w,
+            h: vp_h,
+        }: Rect,
+        Rect { x, y, w, h }: Rect,
+    ) {
         self.line_renderer.scale_and_load_points(
             &mut vec![
                 x - vp_x,

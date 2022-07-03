@@ -27,7 +27,7 @@ IFNDEF(NOSTART) {{
         }
       "
     }}
-    IFNDEF(BUTTON) {{ onchange="{{ ACTION }}" }}
+    IFNDEF(BUTTON) {{ onchange="({{ ACTION }})(event.target.value)" }}
   >
   IFDEF(BUTTON) {{
     {{

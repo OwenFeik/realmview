@@ -7,7 +7,7 @@ use bincode::serialize;
 use scene::{
     comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent},
     perms::Perms,
-    Id, Layer, Rect, Scene, ScenePoint, Sprite,
+    Dimension, Id, Layer, Rect, Scene, ScenePoint, Sprite,
 };
 
 use crate::client::Client;
@@ -450,6 +450,10 @@ impl Interactor {
         };
     }
 
+    pub fn sprite_ref(&self, id: Id) -> Option<&Sprite> {
+        self.scene.sprite_ref(id)
+    }
+
     pub fn sprite_at(&self, at: ScenePoint) -> Option<Id> {
         if let Some(id) = self.scene.sprite_at_ref(at).map(|s| s.id) {
             if let Some(ids) = &self.selected_sprites {
@@ -661,8 +665,29 @@ impl Interactor {
         }
     }
 
+    pub fn sprite_dimension(&mut self, sprite: Id, dimension: Dimension, value: f32) {
+        if let Some(s) = self.scene.sprite(sprite) {
+            let event = s.set_dimension(dimension, value);
+            self.scene_event(event);
+            self.change();
+        }
+    }
+
     pub fn sprite_rect(&mut self, sprite: Id, rect: Rect) {
         let opt = self.scene.sprite(sprite).map(|s| s.set_rect(rect));
         self.scene_option(opt);
+        self.change();
+    }
+
+    pub fn selected_id(&self) -> Option<Id> {
+        if let Some(selected) = &self.selected_sprites {
+            match selected.len() {
+                1 => Some(selected[0]),
+                2.. => Some(Self::SELECTION_ID),
+                _ => None,
+            }
+        } else {
+            None
+        }
     }
 }

@@ -1,5 +1,7 @@
 use serde_derive::{Deserialize, Serialize};
 
+use crate::Dimension;
+
 use super::{comms::SceneEvent, Id, Rect, ScenePoint};
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
@@ -30,6 +32,12 @@ impl Sprite {
         self.rect.x = x;
         self.rect.y = y;
 
+        SceneEvent::SpriteMove(self.id, from, self.rect)
+    }
+
+    pub fn set_dimension(&mut self, dimension: Dimension, value: f32) -> SceneEvent {
+        let from = self.rect;
+        self.rect.set_dimension(dimension, value);
         SceneEvent::SpriteMove(self.id, from, self.rect)
     }
 

@@ -15,7 +15,7 @@ mod sprite;
 mod tests;
 
 pub use layer::Layer;
-pub use rect::Rect;
+pub use rect::{Dimension, Rect};
 pub use sprite::Sprite;
 
 use comms::SceneEvent;
@@ -263,6 +263,17 @@ impl Scene {
     pub fn sprite(&mut self, id: Id) -> Option<&mut Sprite> {
         for layer in self.layers.iter_mut() {
             let s_opt = layer.sprite(id);
+            if s_opt.is_some() {
+                return s_opt;
+            }
+        }
+
+        None
+    }
+
+    pub fn sprite_ref(&self, id: Id) -> Option<&Sprite> {
+        for layer in self.layers.iter() {
+            let s_opt = layer.sprite_ref(id);
             if s_opt.is_some() {
                 return s_opt;
             }

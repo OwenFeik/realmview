@@ -5,38 +5,72 @@
     body=|
       {{
         editable_input(
+          id="sprite_menu_x",
           label="X",
           type="number",
           noend=1,
-          small=1
+          small=1,
+          action="v => update_sprite_rect('x', v)"
         )
       }}
       {{
         editable_input(
+          id="sprite_menu_y",
           label="Y",
           type="number",
           nostart=1,
           noend=1,
-          small=1
+          small=1,
+          action="v => update_sprite_rect('y', v)"
         )
       }}
       {{
         editable_input(
+          id="sprite_menu_w",
           label="W",
           type="number",
           nostart=1,
           noend=1,
-          small=1
+          small=1,
+          action="v => update_sprite_rect('w', v)"
         )
       }}
       {{
         editable_input(
+          id="sprite_menu_h",
           label="H",
           type="number",
           nostart=1,
-          small=1
+          small=1,
+          action="v => update_sprite_rect('h', v)"
         )
       }}
     |
   )
 }}
+<script>
+function update_sprite_rect(dimension, value) {
+    let id = parseInt(
+        document
+            .getElementById("sprite_menu_heading")
+            .getAttribute("{{ constant(DATA_ID_ATTR) }}")
+    );
+    RustFuncs.sprite_rect(id, `{"${dimension}": ${value}}`);
+}
+
+function set_selected_sprite(sprite_json) {
+    let sprite = JSON.parse(sprite_json);
+    console.log(sprite);
+    document
+        .getElementById("sprite_menu_heading")
+        .setAttribute("{{ constant(DATA_ID_ATTR) }}", sprite.id);
+
+    ["x", "y", "w", "h"].forEach(
+        d => {
+            let input = document.getElementById("sprite_menu_" + d);
+            input.value = sprite[d]
+            input.disabled = false;
+        }
+    );
+}
+</script>

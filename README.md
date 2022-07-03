@@ -21,6 +21,7 @@
 * Sprites
     * Show selected sprite as input form in bottom left, with ability to update
         dimensions, texture, etc.
+    * Clone sprite option on context menu.
 * Media
     * Delete media items
     * Media library

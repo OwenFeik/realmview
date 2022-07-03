@@ -84,6 +84,15 @@ pub fn start() -> Result<(), JsValue> {
     sprite_layer_closure.forget();
 
     let vp_ref = vp.clone();
+    let sprite_rect_closure = Closure::wrap(Box::new(move |id: f64, json: String| {
+        if let Ok(rect) = serde_json::from_str(&json) {
+            vp_ref.lock().scene.sprite_rect(id as i64, rect);
+        }
+    }) as Box<dyn FnMut(f64, String)>);
+    expose_closure_f64_string("sprite_rect", &sprite_rect_closure);
+    sprite_rect_closure.forget();
+
+    let vp_ref = vp.clone();
     let rename_layer_closure = Closure::wrap(Box::new(move |id: f64, title: String| {
         vp_ref.lock().scene.rename_layer(id as i64, title);
     }) as Box<dyn FnMut(f64, String)>);
