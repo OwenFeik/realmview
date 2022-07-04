@@ -10,7 +10,7 @@
           type="number",
           noend=1,
           small=1,
-          action="v => update_sprite_rect('x', v)"
+          action="v => update_sprite_details('x', v)"
         )
       }}
       {{
@@ -21,7 +21,7 @@
           nostart=1,
           noend=1,
           small=1,
-          action="v => update_sprite_rect('y', v)"
+          action="v => update_sprite_details('y', v)"
         )
       }}
       {{
@@ -32,7 +32,7 @@
           nostart=1,
           noend=1,
           small=1,
-          action="v => update_sprite_rect('w', v)"
+          action="v => update_sprite_details('w', v)"
         )
       }}
       {{
@@ -42,20 +42,20 @@
           type="number",
           nostart=1,
           small=1,
-          action="v => update_sprite_rect('h', v)"
+          action="v => update_sprite_details('h', v)"
         )
       }}
     |
   )
 }}
 <script>
-function update_sprite_rect(dimension, value) {
+function update_sprite_details(dimension, value) {
     let id = parseInt(
         document
             .getElementById("sprite_menu_heading")
             .getAttribute("{{ constant(DATA_ID_ATTR) }}")
     );
-    RustFuncs.sprite_rect(id, `{"${dimension}": ${value}}`);
+    RustFuncs.sprite_details(id, `{"${dimension}": ${value}}`);
 }
 
 function set_selected_sprite(sprite_json) {
@@ -68,9 +68,20 @@ function set_selected_sprite(sprite_json) {
     ["x", "y", "w", "h"].forEach(
         d => {
             let input = document.getElementById("sprite_menu_" + d);
-            input.value = sprite[d]
-            input.disabled = false;
+            let v = sprite[d];
+            if (v === undefined || v === null) {
+                input.value = "";
+                input.disabled = true;
+            }
+            else {
+                input.value = v;
+                input.disabled = false;
+            }
         }
     );
+}
+
+function clear_selected_sprite() {
+    set_selected_sprite('{}');
 }
 </script>

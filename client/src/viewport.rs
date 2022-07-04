@@ -1,12 +1,12 @@
 use crate::{
     bridge::{
-        set_selected_sprite, sprite_dropdown, update_layers_list, Context, Input, JsError, Key,
-        KeyboardAction, MouseAction, MouseButton,
+        clear_selected_sprite, set_selected_sprite, sprite_dropdown, update_layers_list, Context,
+        Input, JsError, Key, KeyboardAction, MouseAction, MouseButton,
     },
     client::Client,
     interactor::Interactor,
 };
-use scene::{Id, Rect, ScenePoint};
+use scene::{Rect, ScenePoint};
 
 #[derive(Clone, Copy, Debug)]
 pub struct ViewportPoint {
@@ -46,9 +46,6 @@ pub struct Viewport {
 
     // Flag set true whenever something changes
     redraw_needed: bool,
-
-    // Sprite that the UI is currently displaying information for.
-    selected_id: Option<Id>,
 }
 
 impl Viewport {
@@ -67,7 +64,6 @@ impl Viewport {
             grid_zoom: Viewport::BASE_GRID_ZOOM,
             grabbed_at: None,
             redraw_needed: true,
-            selected_id: None,
         };
 
         vp.update_viewport();
@@ -260,21 +256,23 @@ impl Viewport {
         self.process_ui_events();
         self.scene.process_server_events();
         self.update_viewport();
-        if self.redraw_needed || self.context.load_texture_queue() || self.scene.handle_change() {
+        if self.redraw_needed
+            || self.context.load_texture_queue()
+            || self.scene.changes.handle_sprite_change()
+        {
             self.redraw();
             self.redraw_needed = false;
         }
 
-        if self.scene.handle_layer_change() {
+        if self.scene.changes.handle_layer_change() {
             update_layers_list(self.scene.layers());
         }
 
-        if self.scene.selected_id() != self.selected_id {
-            self.selected_id = self.scene.selected_id();
-            if let Some(id) = self.selected_id {
-                if let Some(sprite) = self.scene.sprite_ref(id) {
-                    set_selected_sprite(sprite);
-                }
+        if self.scene.changes.handle_selected_change() {
+            if let Some(details) = self.scene.selected_details() {
+                set_selected_sprite(details);
+            } else {
+                clear_selected_sprite();
             }
         }
     }

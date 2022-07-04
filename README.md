@@ -19,9 +19,9 @@
     * Make map size configurable, as setting on scene, editable from project
         offcanvas
 * Sprites
-    * Show selected sprite as input form in bottom left, with ability to update
-        dimensions, texture, etc.
+    * Use sprite menu to change texture.
     * Clone sprite option on context menu.
+    * Change cursor when hovering a sprite or anchor.
 * Media
     * Delete media items
     * Media library

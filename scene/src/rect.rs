@@ -4,6 +4,7 @@ use serde_derive::{Deserialize, Serialize};
 
 use super::ScenePoint;
 
+#[derive(Clone, Copy)]
 pub enum Dimension {
     X,
     Y,
@@ -12,7 +13,6 @@ pub enum Dimension {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
-#[serde(default)]
 pub struct Rect {
     pub x: f32,
     pub y: f32,
@@ -133,17 +133,6 @@ impl Rect {
         ScenePoint {
             x: self.x,
             y: self.y,
-        }
-    }
-}
-
-impl Default for Rect {
-    fn default() -> Self {
-        Rect {
-            x: 0.0,
-            y: 0.0,
-            w: 0.0,
-            h: 0.0,
         }
     }
 }

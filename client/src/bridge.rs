@@ -1,8 +1,7 @@
-use js_sys::Array;
-use scene::Layer;
-use serde_derive::Deserialize;
-use serde_derive::Serialize;
 use std::rc::Rc;
+
+use js_sys::Array;
+use serde_derive::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{
@@ -10,8 +9,9 @@ use web_sys::{
     ProgressEvent, UiEvent, Url, WebGl2RenderingContext, Window,
 };
 
-use scene::{Id, Rect, Sprite};
+use scene::{Id, Layer, Rect, Sprite};
 
+use crate::interactor::SpriteDetails;
 use crate::programs::Renderer;
 use crate::viewport::ViewportPoint;
 
@@ -34,6 +34,10 @@ extern "C" {
     // Updates the sprite menu to refer to this sprite.
     #[wasm_bindgen(js_name = set_selected_sprite)]
     fn _set_selected_sprite(sprite_json: String);
+
+    // Clears data from the sprite menu.
+    #[wasm_bindgen]
+    pub fn clear_selected_sprite();
 
     // Given a JS array of JsLayerInfo structs and an ID for the currently
     // selected layer, this will update the layer info accordion in the bottom
@@ -630,37 +634,10 @@ impl Context {
     }
 }
 
-#[wasm_bindgen(getter_with_clone)]
-#[derive(Deserialize, Serialize)]
-pub struct JsSpriteInfo {
-    pub id: Id,
-    pub x: f64,
-    pub y: f64,
-    pub w: f64,
-    pub h: f64,
-}
-
-impl JsSpriteInfo {
-    fn from(sprite: &Sprite) -> Self {
-        JsSpriteInfo {
-            id: sprite.id,
-            x: sprite.rect.x as f64,
-            y: sprite.rect.y as f64,
-            w: sprite.rect.w as f64,
-            h: sprite.rect.h as f64,
-        }
+pub fn set_selected_sprite(sprite: SpriteDetails) {
+    if let Ok(sprite_json) = serde_json::ser::to_string(&sprite) {
+        _set_selected_sprite(sprite_json);
     }
-
-    fn json_from(sprite: &Sprite) -> String {
-        match serde_json::ser::to_string(&Self::from(sprite)) {
-            Ok(json) => json,
-            _ => String::from("Sprite serialisation failed."),
-        }
-    }
-}
-
-pub fn set_selected_sprite(sprite: &Sprite) {
-    _set_selected_sprite(JsSpriteInfo::json_from(sprite));
 }
 
 #[wasm_bindgen(getter_with_clone)]

@@ -78,12 +78,12 @@ var RustFuncs = {
     Moves the specified sprite to the specified layer.
     */
 
-    sprite_rect: missing_func,
+    sprite_details: missing_func,
     /*
-    function sprite_rect(sprite_id: number, rect: string)
+    function sprite_details(sprite_id: number, json: string)
 
-    Given a sprite and a JSON rect, update the sprites dimensions using the
-    non-zero dimensions of the rect.
+    Given a sprite and a JSON object, update the sprites attributes using the
+    non-null dimensions of the json.
     */
 
     remove_sprite: missing_func,
@@ -128,6 +128,7 @@ function load_texture(media_key) {
 
 // scene/menu/sprite/sprite_menu.html
 // function set_selected_sprite(sprite_json: string)
+// function clear_selected_sprite()
 
 // scene/game/role.js
 // function update_interface(role: number)
