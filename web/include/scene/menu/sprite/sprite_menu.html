@@ -60,7 +60,6 @@ function update_sprite_details(dimension, value) {
 
 function set_selected_sprite(sprite_json) {
     let sprite = JSON.parse(sprite_json);
-    console.log(sprite);
     document
         .getElementById("sprite_menu_heading")
         .setAttribute("{{ constant(DATA_ID_ATTR) }}", sprite.id);

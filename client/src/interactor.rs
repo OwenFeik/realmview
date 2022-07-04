@@ -728,6 +728,28 @@ impl Interactor {
         self.changes.sprite_change();
     }
 
+    pub fn clone_sprite(&mut self, sprite: Id) {
+        if sprite == Self::SELECTION_ID {
+            if let Some(ids) = &self.selected_sprites {
+                let mut events = vec![];
+                for id in ids {
+                    if let Some(event) = self.scene.clone_sprite(*id) {
+                        events.push(event);
+                    }
+                }
+
+                if !events.is_empty() {
+                    self.scene_event(SceneEvent::EventSet(events));
+                    self.changes.sprite_change();
+                }
+            }
+        } else {
+            let opt = self.scene.clone_sprite(sprite);
+            self.changes.sprite_change_if(opt.is_some());
+            self.scene_option(opt);
+        }
+    }
+
     pub fn remove_sprite(&mut self, sprite: Id) {
         if sprite == Self::SELECTION_ID {
             if let Some(ids) = &self.selected_sprites {
@@ -784,7 +806,7 @@ impl Interactor {
         self.changes.sprite_change();
     }
 
-    pub fn selected_id(&self) -> Option<Id> {
+    fn selected_id(&self) -> Option<Id> {
         if let Some(selected) = &self.selected_sprites {
             match selected.len() {
                 1 => Some(selected[0]),

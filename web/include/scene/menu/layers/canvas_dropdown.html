@@ -10,11 +10,24 @@
       href="#"
       onclick="
         hide_sprite_dropdown();
+        RustFuncs.clone_sprite(parseInt(
+          this.parentNode.parentNode.getAttribute('data-id')
+        ));
+      "
+    >Clone</a>
+  </li>
+  <li>
+    <a
+      class="dropdown-item"
+      href="#"
+      onclick="
+        hide_sprite_dropdown();
         RustFuncs.remove_sprite(parseInt(
           this.parentNode.parentNode.getAttribute('data-id')
         ));
       "
-    >Delete</a></li>
+    >Delete</a>
+  </li>
   <li class="dropend">
     <a
       class="dropdown-item dropdown-toggle"
@@ -29,7 +42,7 @@
 </ul>
 <script>
 const canvas_sprite_dropdown = document.getElementById(
-  "canvas_sprite_dropdown"
+    "canvas_sprite_dropdown"
 );
 
 function sprite_dropdown(id, x, y) {
@@ -42,8 +55,8 @@ function sprite_dropdown(id, x, y) {
 
 function hide_sprite_dropdown_listener(e) {
     if (
-      e.target != canvas_sprite_dropdown
-      && !canvas_sprite_dropdown.contains(e.target)
+        e.target != canvas_sprite_dropdown
+        && !canvas_sprite_dropdown.contains(e.target)
     ) {
         hide_sprite_dropdown();
         window.removeEventListener("mousedown", hide_sprite_dropdown_listener);

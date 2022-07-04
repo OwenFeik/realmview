@@ -86,6 +86,13 @@ var RustFuncs = {
     non-null dimensions of the json.
     */
 
+    clone_sprite: missing_func,
+    /*
+    function clone_sprite(sprite_id: number)
+
+    Clones the specified sprite.
+    */
+
     remove_sprite: missing_func,
     /*
     function remove_sprite(sprite_id: number)
