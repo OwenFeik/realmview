@@ -229,37 +229,10 @@ struct TextureRenderer {
     texture_location: WebGlUniformLocation,
 }
 
-// GLSL Shaders for the TextureRenderer program
-
-const IMAGE_VERTEX_SHADER: &str = "
-attribute vec4 a_position;
-attribute vec2 a_texcoord;
-
-uniform mat4 u_matrix;
-
-varying vec2 v_texcoord;
-
-void main() {
-    gl_Position = u_matrix * a_position;
-    v_texcoord = a_texcoord;
-}
-";
-
-const IMAGE_FRAGMENT_SHADER: &str = "
-precision mediump float;
-
-varying vec2 v_texcoord;
-
-uniform sampler2D u_texture;
-
-void main() {
-    gl_FragColor = texture2D(u_texture, v_texcoord);
-}
-";
 
 impl TextureRenderer {
     pub fn new(gl: Rc<Gl>) -> Result<TextureRenderer, JsError> {
-        let program = create_program(&gl, IMAGE_VERTEX_SHADER, IMAGE_FRAGMENT_SHADER)?;
+        let program = create_program(&gl, include_str!("shaders/image.vert"), include_str!("shaders/image.frag"))?;
 
         let position_location = gl.get_attrib_location(&program, "a_position") as u32;
         let texcoord_location = gl.get_attrib_location(&program, "a_texcoord") as u32;
@@ -336,27 +309,9 @@ pub struct LineRenderer {
     point_count: i32,
 }
 
-const LINE_VERTEX_SHADER: &str = "
-attribute vec4 a_position;
-
-void main() {
-    gl_Position = a_position;
-}
-";
-
-const LINE_FRAGMENT_SHADER: &str = "
-precision mediump float;
-
-uniform vec4 u_color;
-
-void main() {
-    gl_FragColor = u_color;
-}
-";
-
 impl LineRenderer {
     fn new(gl: Rc<Gl>) -> Result<LineRenderer, JsError> {
-        let program = create_program(&gl, LINE_VERTEX_SHADER, LINE_FRAGMENT_SHADER)?;
+        let program = create_program(&gl, include_str!("shaders/line.vert"), include_str!("shaders/line.frag"))?;
         let position_location = gl.get_attrib_location(&program, "a_position") as u32;
         let position_buffer = create_buffer(&gl, None)?;
         let colour_location = match gl.get_uniform_location(&program, "u_color") {
