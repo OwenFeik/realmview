@@ -221,12 +221,10 @@ impl TextureManager {
 struct TextureRenderer {
     gl: Rc<Gl>,
     program: WebGlProgram,
-    position_buffer: WebGlBuffer,
-    position_location: u32,
     texcoord_buffer: WebGlBuffer,
     texcoord_location: u32,
-    matrix_location: WebGlUniformLocation,
     texture_location: WebGlUniformLocation,
+    square: Shape,
 }
 
 
@@ -234,24 +232,10 @@ impl TextureRenderer {
     pub fn new(gl: Rc<Gl>) -> Result<TextureRenderer, JsError> {
         let program = create_program(&gl, include_str!("shaders/image.vert"), include_str!("shaders/image.frag"))?;
 
-        let position_location = gl.get_attrib_location(&program, "a_position") as u32;
+        let square = Shape::square(&gl, &program)?;
+
         let texcoord_location = gl.get_attrib_location(&program, "a_texcoord") as u32;
-
-        // Just a square. A 4x4 matrix is used to transform this to the
-        // appropriate dimensions when rendering textures.
-        let coords = Float32Array::new_with_length(12);
-        coords.copy_from(&[0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0]);
-        let position_buffer = create_buffer(&gl, Some(&coords))?;
-        let texcoord_buffer = create_buffer(&gl, Some(&coords))?;
-
-        let matrix_location = match gl.get_uniform_location(&program, "u_matrix") {
-            Some(p) => p,
-            None => {
-                return Err(JsError::ResourceError(
-                    "Couldn't find shader matrix location.",
-                ))
-            }
-        };
+        let texcoord_buffer = create_buffer(&gl, Some(&square.coords))?;
         let texture_location = match gl.get_uniform_location(&program, "u_texture") {
             Some(l) => l,
             None => {
@@ -264,12 +248,10 @@ impl TextureRenderer {
         Ok(TextureRenderer {
             gl,
             program,
-            position_buffer,
-            position_location,
             texcoord_buffer,
             texcoord_location,
-            matrix_location,
             texture_location,
+            square
         })
     }
 
@@ -278,29 +260,68 @@ impl TextureRenderer {
 
         gl.bind_texture(Gl::TEXTURE_2D, Some(texture));
         gl.use_program(Some(&self.program));
-        gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.position_buffer));
-        gl.enable_vertex_attrib_array(self.position_location);
-        gl.vertex_attrib_pointer_with_i32(self.position_location, 2, Gl::FLOAT, false, 0, 0);
         gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.texcoord_buffer));
         gl.enable_vertex_attrib_array(self.texcoord_location);
         gl.vertex_attrib_pointer_with_i32(self.texcoord_location, 2, Gl::FLOAT, false, 0, 0);
 
-        let mut matrix = m4_orthographic(0.0, viewport.w as f32, viewport.h as f32, 0.0, -1.0, 1.0);
-        m4_translate(
-            &mut matrix,
-            (position.x - viewport.x) as f32,
-            (position.y - viewport.y) as f32,
-            0.0,
-        );
-        m4_scale(&mut matrix, position.w as f32, position.h as f32, 1.0);
-
-        gl.uniform_matrix4fv_with_f32_array(Some(&self.matrix_location), false, &matrix);
         gl.uniform1i(Some(&self.texture_location), 0);
-        gl.draw_arrays(Gl::TRIANGLES, 0, 6);
+        self.square.draw(gl, viewport, position);
     }
 }
 
-pub struct LineRenderer {
+struct Shape {
+    coords: Float32Array,
+    position_buffer: WebGlBuffer,
+    position_location: u32,
+    matrix_location: WebGlUniformLocation,
+    vertex_count: i32,
+}
+
+impl Shape {
+    // Requires that the program use "a_position" and "u_matrix"
+    fn square(gl: &Gl, program: &WebGlProgram) -> Result<Shape, JsError> {
+        let position_location = gl.get_attrib_location(program, "a_position") as u32;
+
+        // Square, which is then scaled the the appropriate dimensions.
+        let coords = Float32Array::new_with_length(12);
+        coords.copy_from(&[0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0]);
+        let position_buffer = create_buffer(&gl, Some(&coords))?;
+
+        let matrix_location = match gl.get_uniform_location(&program, "u_matrix") {
+            Some(p) => p,
+            None => {
+                return Err(JsError::ResourceError(
+                    "Couldn't find shader matrix location.",
+                ))
+            }
+        };
+
+        let vertex_count = (coords.length() / 2) as i32;
+        Ok(Shape {
+            coords,
+            position_buffer,
+            position_location,
+            matrix_location,
+            vertex_count,
+        })
+    }
+
+    // Should be called after using a program.
+    fn draw(&self, gl: &Gl, vp: Rect, at: Rect) {
+        gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.position_buffer));
+        gl.enable_vertex_attrib_array(self.position_location);
+        gl.vertex_attrib_pointer_with_i32(self.position_location, 2, Gl::FLOAT, false, 0, 0);
+        
+        let mut m = m4_orthographic(0.0, vp.w as f32, vp.h as f32, 0.0, -1.0, 1.0);
+        m4_translate(&mut m, at.x - vp.x, at.y - vp.y, 0.0);
+        m4_scale(&mut m, at.w, at.h, 1.0);
+
+        gl.uniform_matrix4fv_with_f32_array(Some(&self.matrix_location), false, &m);
+        gl.draw_arrays(Gl::TRIANGLES, 0, self.vertex_count);
+    }
+}
+
+struct LineRenderer {
     gl: Rc<Gl>,
     program: WebGlProgram,
     position_location: u32,
@@ -311,7 +332,7 @@ pub struct LineRenderer {
 
 impl LineRenderer {
     fn new(gl: Rc<Gl>) -> Result<LineRenderer, JsError> {
-        let program = create_program(&gl, include_str!("shaders/line.vert"), include_str!("shaders/line.frag"))?;
+        let program = create_program(&gl, include_str!("shaders/line.vert"), include_str!("shaders/single.frag"))?;
         let position_location = gl.get_attrib_location(&program, "a_position") as u32;
         let position_buffer = create_buffer(&gl, None)?;
         let colour_location = match gl.get_uniform_location(&program, "u_color") {
@@ -337,9 +358,9 @@ impl LineRenderer {
         for (i, v) in points.iter_mut().enumerate() {
             // Point vectors are of form [x1, y1, x2, y2 ... xn, yn] so even indices are xs.
             if i % 2 == 0 {
-                *v = (2.0 * (*v) - vp_w) / vp_w;
+                *v = to_unit(*v, vp_w);
             } else {
-                *v = -(2.0 * (*v) - vp_h) / vp_h;
+                *v = -to_unit(*v, vp_h);
             }
         }
         self.load_points(points);
