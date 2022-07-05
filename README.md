@@ -21,7 +21,6 @@
 * Sprites
     * Use sprite menu to change texture.
     * Change cursor when hovering a sprite or anchor.
-    * Resize anchors are too small / non-obvious.
 * Media
     * Delete media items
     * Media library

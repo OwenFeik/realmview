@@ -227,10 +227,13 @@ struct TextureRenderer {
     square: Shape,
 }
 
-
 impl TextureRenderer {
     pub fn new(gl: Rc<Gl>) -> Result<TextureRenderer, JsError> {
-        let program = create_program(&gl, include_str!("shaders/image.vert"), include_str!("shaders/image.frag"))?;
+        let program = create_program(
+            &gl,
+            include_str!("shaders/image.vert"),
+            include_str!("shaders/image.frag"),
+        )?;
 
         let square = Shape::square(&gl, &program)?;
 
@@ -251,7 +254,7 @@ impl TextureRenderer {
             texcoord_buffer,
             texcoord_location,
             texture_location,
-            square
+            square,
         })
     }
 
@@ -281,9 +284,9 @@ impl Shape {
     // Requires that the program use "a_position" and "u_matrix"
     fn new(gl: &Gl, program: &WebGlProgram, coords: Float32Array) -> Result<Self, JsError> {
         let position_location = gl.get_attrib_location(program, "a_position") as u32;
-        let position_buffer = create_buffer(&gl, Some(&coords))?;
+        let position_buffer = create_buffer(gl, Some(&coords))?;
 
-        let matrix_location = match gl.get_uniform_location(&program, "u_matrix") {
+        let matrix_location = match gl.get_uniform_location(program, "u_matrix") {
             Some(p) => p,
             None => {
                 return Err(JsError::ResourceError(
@@ -301,7 +304,6 @@ impl Shape {
             matrix_location,
             vertex_count,
         })
-
     }
 
     fn square(gl: &Gl, program: &WebGlProgram) -> Result<Self, JsError> {
@@ -350,7 +352,7 @@ impl Shape {
         gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.position_buffer));
         gl.enable_vertex_attrib_array(self.position_location);
         gl.vertex_attrib_pointer_with_i32(self.position_location, 2, Gl::FLOAT, false, 0, 0);
-        
+
         let mut m = m4_orthographic(0.0, vp.w as f32, vp.h as f32, 0.0, -1.0, 1.0);
         m4_translate(&mut m, at.x - vp.x, at.y - vp.y, 0.0);
         m4_scale(&mut m, at.w, at.h, 1.0);
@@ -371,7 +373,11 @@ struct LineRenderer {
 
 impl LineRenderer {
     fn new(gl: Rc<Gl>) -> Result<LineRenderer, JsError> {
-        let program = create_program(&gl, include_str!("shaders/line.vert"), include_str!("shaders/single.frag"))?;
+        let program = create_program(
+            &gl,
+            include_str!("shaders/line.vert"),
+            include_str!("shaders/single.frag"),
+        )?;
         let position_location = gl.get_attrib_location(&program, "a_position") as u32;
         let position_buffer = create_buffer(&gl, None)?;
         let colour_location = match gl.get_uniform_location(&program, "u_color") {

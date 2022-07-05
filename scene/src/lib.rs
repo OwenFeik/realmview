@@ -331,7 +331,7 @@ impl Scene {
     pub fn clone_sprite(&mut self, sprite: Id) -> Option<SceneEvent> {
         if let Some(l) = self.get_sprite_layer(sprite) {
             if let Some(s) = self.sprite_ref(sprite) {
-                let mut new = s.clone();
+                let mut new = *s;
                 new.id = self.next_id();
                 return self.add_sprite(new, l);
             }

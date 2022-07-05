@@ -215,7 +215,7 @@ pub struct Interactor {
     issued_events: Vec<ClientMessage>,
     perms: Perms,
     scene: Scene,
-    selected_sprites: Option<Vec<Id>>,
+    selected_sprites: Vec<Id>,
     selection_marquee: Option<Rect>,
     user: Id,
 }
@@ -233,7 +233,7 @@ impl Interactor {
             issued_events: vec![],
             perms: Perms::new(),
             scene: Scene::new(),
-            selected_sprites: None,
+            selected_sprites: vec![],
             selection_marquee: None,
             user: scene::perms::CANONICAL_UPDATER,
         }
@@ -437,48 +437,76 @@ impl Interactor {
         }
     }
 
+    fn has_selection(&self) -> bool {
+        !self.selected_sprites.is_empty()
+    }
+
+    fn is_selected(&self, id: Id) -> bool {
+        self.selected_sprites.contains(&id)
+    }
+
+    fn single_selected(&self) -> bool {
+        self.selected_sprites.len() == 1
+    }
+
+    fn clear_selection(&mut self) {
+        self.selected_sprites.clear();
+        self.changes.selected_change();
+    }
+
+    fn select(&mut self, id: Id) {
+        if !self.is_selected(id) {
+            self.selected_sprites.push(id);
+            self.changes.selected_change();    
+        }
+    }
+
+    fn select_multiple(&mut self, ids: &mut Vec<Id>) {
+        let mut ids = ids.drain_filter(|&mut id| !self.is_selected(id)).collect();
+        self.selected_sprites.append(&mut ids);
+    }
+
     /// Apply a closure to each selected sprite, issuing the resulting vector
     /// of events as a single EventSet event.
     fn selection_effect<F: Fn(&mut Sprite) -> Option<SceneEvent>>(&mut self, effect: F) {
-        if let Some(ids) = &self.selected_sprites {
-            let events = ids
-                .iter()
-                .filter_map(|id| {
-                    if let Some(s) = self.scene.sprite(*id) {
-                        effect(s)
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<SceneEvent>>();
+        let events = self
+            .selected_sprites
+            .iter()
+            .filter_map(|id| {
+                if let Some(s) = self.scene.sprite(*id) {
+                    effect(s)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<SceneEvent>>();
 
-            if !events.is_empty() {
-                self.scene_event(SceneEvent::EventSet(events));
-                self.changes.sprite_selected_change();
+        if !events.is_empty() {
+            self.scene_event(SceneEvent::EventSet(events));
+            self.changes.sprite_selected_change();
+        }
+    }
+
+    fn grab_selection(&mut self, at: ScenePoint) -> HeldObject {
+        if self.single_selected() {
+            if let Some(s) = self.sprite_ref(self.selected_sprites[0]) {
+                return HeldObject::grab_sprite(s, at);
             }
         }
+        HeldObject::Selection(at)
     }
 
     pub fn grab(&mut self, at: ScenePoint, ctrl: bool) {
         self.holding = match self.scene.sprite_at(at) {
             Some(s) => {
-                self.changes.selected_change();
-                if let Some(selected) = &mut self.selected_sprites {
-                    let already = selected.contains(&s.id);
-                    if already || ctrl {
-                        if !already && ctrl {
-                            selected.push(s.id);
-                        }
-                        HeldObject::Selection(at)
-                    } else {
-                        selected.clear();
-                        selected.push(s.id);
-                        HeldObject::grab_sprite(s, at)
+                let id = s.id;
+                if !self.is_selected(id) {
+                    if !ctrl {
+                        self.clear_selection();
                     }
-                } else {
-                    self.selected_sprites = Some(vec![s.id]);
-                    HeldObject::grab_sprite(s, at)
+                    self.select(id);
                 }
+                self.grab_selection(at)
             }
             None => HeldObject::Marquee(at),
         };
@@ -547,14 +575,14 @@ impl Interactor {
 
     pub fn sprite_at(&self, at: ScenePoint) -> Option<Id> {
         if let Some(id) = self.scene.sprite_at_ref(at).map(|s| s.id) {
-            if let Some(ids) = &self.selected_sprites {
-                if ids.contains(&id) {
-                    return Some(Self::SELECTION_ID);
-                }
+            if self.is_selected(id) {
+                Some(Self::SELECTION_ID)
+            } else {
+                Some(id)
             }
-            return Some(id);
+        } else {
+            None
         }
-        None
     }
 
     fn release_sprite(sprite: &mut Sprite, snap_to_grid: bool) -> Option<SceneEvent> {
@@ -581,19 +609,12 @@ impl Interactor {
         match self.holding {
             HeldObject::Marquee(_) => {
                 if !ctrl {
-                    self.selected_sprites = None;
+                    self.clear_selection();
                 }
 
                 if let Some(region) = self.selection_marquee {
                     let mut selection = self.scene.sprites_in(region, alt);
-                    if ctrl && self.selected_sprites.is_some() {
-                        self.selected_sprites
-                            .as_mut()
-                            .unwrap()
-                            .append(&mut selection);
-                    } else {
-                        self.selected_sprites = Some(selection);
-                    }
+                    self.select_multiple(&mut selection);
                 }
                 self.selection_marquee = None;
                 self.changes.sprite_selected_change();
@@ -621,11 +642,9 @@ impl Interactor {
     pub fn selections(&mut self) -> Vec<Rect> {
         let mut selections = vec![];
 
-        if let Some(ids) = &self.selected_sprites {
-            for id in ids {
-                if let Some(s) = self.scene.sprite(*id) {
-                    selections.push(s.rect);
-                }
+        for id in &self.selected_sprites {
+            if let Some(s) = self.scene.sprite(*id) {
+                selections.push(s.rect);
             }
         }
 
@@ -730,18 +749,16 @@ impl Interactor {
 
     pub fn clone_sprite(&mut self, sprite: Id) {
         if sprite == Self::SELECTION_ID {
-            if let Some(ids) = &self.selected_sprites {
-                let mut events = vec![];
-                for id in ids {
-                    if let Some(event) = self.scene.clone_sprite(*id) {
-                        events.push(event);
-                    }
+            let mut events = vec![];
+            for id in &self.selected_sprites {
+                if let Some(event) = self.scene.clone_sprite(*id) {
+                    events.push(event);
                 }
+            }
 
-                if !events.is_empty() {
-                    self.scene_event(SceneEvent::EventSet(events));
-                    self.changes.sprite_change();
-                }
+            if !events.is_empty() {
+                self.scene_event(SceneEvent::EventSet(events));
+                self.changes.sprite_change();
             }
         } else {
             let opt = self.scene.clone_sprite(sprite);
@@ -752,11 +769,9 @@ impl Interactor {
 
     pub fn remove_sprite(&mut self, sprite: Id) {
         if sprite == Self::SELECTION_ID {
-            if let Some(ids) = &self.selected_sprites {
-                let event = self.scene.remove_sprites(ids);
-                self.scene_event(event);
-                self.changes.sprite_selected_change();
-            }
+            let event = self.scene.remove_sprites(&self.selected_sprites);
+            self.scene_event(event);
+            self.clear_selection();
         } else {
             let opt = self.scene.remove_sprite(sprite);
             self.scene_option(opt);
@@ -766,11 +781,9 @@ impl Interactor {
 
     pub fn sprite_layer(&mut self, sprite: Id, layer: Id) {
         if sprite == Self::SELECTION_ID {
-            if let Some(ids) = &self.selected_sprites {
-                let event = self.scene.sprites_layer(ids, layer);
-                self.scene_event(event);
-                self.changes.sprite_selected_change();
-            }
+            let event = self.scene.sprites_layer(&self.selected_sprites, layer);
+            self.scene_event(event);
+            self.changes.sprite_selected_change();
         } else {
             let opt = self.scene.sprite_layer(sprite, layer);
             self.scene_option(opt);
@@ -780,19 +793,7 @@ impl Interactor {
 
     pub fn sprite_dimension(&mut self, sprite: Id, dimension: Dimension, value: f32) {
         if sprite == Self::SELECTION_ID {
-            if let Some(ids) = self.selected_sprites.clone() {
-                let event = SceneEvent::EventSet(
-                    ids.iter()
-                        .filter_map(|id| {
-                            self.scene
-                                .sprite(*id)
-                                .map(|s| s.set_dimension(dimension, value))
-                        })
-                        .collect(),
-                );
-                self.scene_event(event);
-                self.changes.sprite_selected_change();
-            }
+            self.selection_effect(|s| Some(s.set_dimension(dimension, value)));
         } else if let Some(s) = self.scene.sprite(sprite) {
             let event = s.set_dimension(dimension, value);
             self.scene_event(event);
@@ -807,33 +808,27 @@ impl Interactor {
     }
 
     fn selected_id(&self) -> Option<Id> {
-        if let Some(selected) = &self.selected_sprites {
-            match selected.len() {
-                1 => Some(selected[0]),
-                2.. => Some(Self::SELECTION_ID),
-                _ => None,
-            }
-        } else {
-            None
+        match self.selected_sprites.len() {
+            1 => Some(self.selected_sprites[0]),
+            2.. => Some(Self::SELECTION_ID),
+            _ => None,
         }
     }
 
     pub fn selected_details(&self) -> Option<SpriteDetails> {
         if let Some(id) = self.selected_id() {
             if id == Self::SELECTION_ID {
-                if let Some(ids) = &self.selected_sprites {
-                    if !ids.is_empty() {
-                        if let Some(sprite) = self.sprite_ref(ids[0]) {
-                            let mut details = SpriteDetails::from(id, sprite);
+                if self.has_selection() {
+                    if let Some(sprite) = self.sprite_ref(self.selected_sprites[0]) {
+                        let mut details = SpriteDetails::from(id, sprite);
 
-                            for id in &ids[1..] {
-                                if let Some(sprite) = self.sprite_ref(*id) {
-                                    details.common(sprite);
-                                }
+                        for id in &self.selected_sprites[1..] {
+                            if let Some(sprite) = self.sprite_ref(*id) {
+                                details.common(sprite);
                             }
-
-                            return Some(details);
                         }
+
+                        return Some(details);
                     }
                 }
             } else if let Some(sprite) = self.sprite_ref(id) {

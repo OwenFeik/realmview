@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![feature(drain_filter)]
 
 mod bridge;
 mod client;
