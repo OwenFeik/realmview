@@ -279,12 +279,8 @@ struct Shape {
 
 impl Shape {
     // Requires that the program use "a_position" and "u_matrix"
-    fn square(gl: &Gl, program: &WebGlProgram) -> Result<Shape, JsError> {
+    fn new(gl: &Gl, program: &WebGlProgram, coords: Float32Array) -> Result<Self, JsError> {
         let position_location = gl.get_attrib_location(program, "a_position") as u32;
-
-        // Square, which is then scaled the the appropriate dimensions.
-        let coords = Float32Array::new_with_length(12);
-        coords.copy_from(&[0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0]);
         let position_buffer = create_buffer(&gl, Some(&coords))?;
 
         let matrix_location = match gl.get_uniform_location(&program, "u_matrix") {
@@ -297,6 +293,7 @@ impl Shape {
         };
 
         let vertex_count = (coords.length() / 2) as i32;
+
         Ok(Shape {
             coords,
             position_buffer,
@@ -304,6 +301,48 @@ impl Shape {
             matrix_location,
             vertex_count,
         })
+
+    }
+
+    fn square(gl: &Gl, program: &WebGlProgram) -> Result<Self, JsError> {
+        let coords = Float32Array::new_with_length(12);
+        coords.copy_from(&[0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0]);
+        Shape::new(gl, program, coords)
+    }
+
+    // Returns a Shape for a regular polygon with n edges, or an error if the
+    // program passed is non-functional.
+    //
+    // Note the resultant shape will be oriented with the first vertex at the
+    // top center of the tile, i.e. a 4gon is a diamond and not a square.
+    //
+    // Based on:
+    // https://webglfundamentals.org/webgl/lessons/webgl-drawing-without-data.html
+    fn ngon(gl: &Gl, program: &WebGlProgram, n: u32) -> Result<Self, JsError> {
+        let n_verts = n * 3;
+        let r = 0.5;
+        let mut coords = vec![];
+        for i in 0..n_verts {
+            let vert = i as f32;
+            let slice = (vert / 3.0).floor();
+            let pos = vert % 3.0;
+            let edge = slice + pos;
+            let theta = (edge / n as f32) * std::f32::consts::TAU;
+            let radius = if pos > 1.5 { 0.0 } else { r };
+            coords.push(theta.cos() * radius + 0.5);
+            coords.push(theta.sin() * radius + 0.5);
+        }
+
+        let ary = Float32Array::new_with_length(coords.len() as u32);
+        ary.copy_from(&coords);
+        Shape::new(gl, program, ary)
+    }
+
+    fn circle(gl: &Gl, program: &WebGlProgram) -> Result<Self, JsError> {
+        // 32 looks great until sprites get absurdly large, after which it still
+        // looks decent.
+        const CIRCLE_EDGES: u32 = 32;
+        Self::ngon(gl, program, CIRCLE_EDGES)
     }
 
     // Should be called after using a program.
