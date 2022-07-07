@@ -7,7 +7,7 @@ use web_sys::{
     HtmlImageElement, WebGlBuffer, WebGlProgram, WebGlShader, WebGlTexture, WebGlUniformLocation,
 };
 
-use scene::Rect;
+use scene::{Rect, SpriteShape};
 
 use crate::bridge::{log, Gl, JsError};
 
@@ -347,6 +347,15 @@ impl Shape {
         Self::ngon(gl, program, CIRCLE_EDGES)
     }
 
+    fn from_sprite_shape(gl: &Gl, program: &WebGlProgram, shape: SpriteShape) -> Result<Self, JsError> {
+        match shape {
+            SpriteShape::Circle => Self::circle(gl, program),
+            SpriteShape::Hexagon => Self::ngon(gl, program, 6),
+            SpriteShape::Rectangle => Self::square(gl, program),
+            SpriteShape::Triangle => Self::ngon(gl, program, 3),
+        }
+    }
+
     // Should be called after using a program.
     fn draw(&self, gl: &Gl, vp: Rect, at: Rect) {
         gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.position_buffer));
@@ -360,6 +369,10 @@ impl Shape {
         gl.uniform_matrix4fv_with_f32_array(Some(&self.matrix_location), false, &m);
         gl.draw_arrays(Gl::TRIANGLES, 0, self.vertex_count);
     }
+}
+
+struct ShapeRenderer {
+
 }
 
 struct LineRenderer {

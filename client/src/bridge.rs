@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 use js_sys::Array;
+use scene::SpriteVisual;
 use serde_derive::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -621,11 +622,10 @@ impl Context {
 
     pub fn draw_sprites(&mut self, vp: Rect, sprites: &[Sprite], grid_size: f32) {
         for sprite in sprites.iter() {
-            self.renderer.draw_texture(
-                vp,
-                sprite.texture,
-                Rect::scaled_from(sprite.rect, grid_size),
-            );
+            match sprite.visual {
+                SpriteVisual::Texture(texture) => self.renderer.draw_texture(vp, texture, Rect::scaled_from(sprite.rect, grid_size)),
+                _ => ()
+            };
         }
     }
 

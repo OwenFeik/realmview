@@ -1,27 +1,26 @@
 use serde_derive::{Deserialize, Serialize};
 
-use crate::perms::{Override, PermSet, Perms, Role};
-
-use super::{Id, Rect, Scene, Sprite};
+use super::{Id, perms::{Override, PermSet, Perms, Role}, Rect, Scene, Sprite, sprite::{SpriteShape, SpriteVisual}};
 
 // Events processed by Scene
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum SceneEvent {
-    Dummy,                           // To trigger redraws, etc
-    EventSet(Vec<SceneEvent>),       // Collection of other events
-    LayerLocked(Id, bool),           // (layer, status)
-    LayerMove(Id, i32, bool),        // (layer, starting_z, up)
-    LayerNew(Id, String, i32),       // (local_id, title, z)
-    LayerRemove(Id),                 // (layer)
-    LayerRename(Id, String, String), // (layer, old_title, new_title)
-    LayerRestore(Id),                // (layer)
-    LayerVisibility(Id, bool),       // (layer, status)
-    SpriteLayer(Id, Id, Id),         // (sprite, old_layer, new_layer)
-    SpriteMove(Id, Rect, Rect),      // (sprite, from, to)
-    SpriteNew(Sprite, Id),           // (new_sprite, layer)
-    SpriteRemove(Id),                // (sprite)
-    SpriteRestore(Id),               // (sprite)
-    SpriteTexture(Id, Id, Id),       // (sprite, old_texture, new_texture)
+    Dummy,                                        // To trigger redraws, etc
+    EventSet(Vec<SceneEvent>),                    // Collection of other events
+    LayerLocked(Id, bool),                        // (layer, status)
+    LayerMove(Id, i32, bool),                     // (layer, starting_z, up)
+    LayerNew(Id, String, i32),                    // (local_id, title, z)
+    LayerRemove(Id),                              // (layer)
+    LayerRename(Id, String, String),              // (layer, old_title, new_title)
+    LayerRestore(Id),                             // (layer)
+    LayerVisibility(Id, bool),                    // (layer, status)
+    SpriteLayer(Id, Id, Id),                      // (sprite, old_layer, new_layer)
+    SpriteMove(Id, Rect, Rect),                   // (sprite, from, to)
+    SpriteNew(Sprite, Id),                        // (new_sprite, layer)
+    SpriteRemove(Id),                             // (sprite)
+    SpriteRestore(Id),                            // (sprite)
+    SpriteShape(Id, SpriteShape, SpriteShape),    // (sprite, old, new)
+    SpriteVisual(Id, SpriteVisual, SpriteVisual), // (sprite, old, new)
 }
 
 impl SceneEvent {
@@ -46,7 +45,8 @@ impl SceneEvent {
                 | Self::SpriteNew(..)
                 | Self::SpriteRemove(..)
                 | Self::SpriteRestore(..)
-                | Self::SpriteTexture(..)
+                | Self::SpriteShape(..)
+                | Self::SpriteVisual(..)
         )
     }
 
@@ -64,7 +64,8 @@ impl SceneEvent {
             Self::SpriteNew(s, ..) => &s.id,
             Self::SpriteRemove(id) => id,
             Self::SpriteRestore(id) => id,
-            Self::SpriteTexture(id, ..) => id,
+            Self::SpriteShape(id, ..) => id,
+            Self::SpriteVisual(id, ..) => id,
             _ => return None,
         };
         Some(*id)

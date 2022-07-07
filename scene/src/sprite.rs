@@ -4,25 +4,41 @@ use crate::Dimension;
 
 use super::{comms::SceneEvent, Id, Rect, ScenePoint};
 
+pub type Colour = [f32; 4];
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub enum SpriteShape {
+    Circle,
+    Hexagon,
+    Rectangle,
+    Triangle,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub enum SpriteVisual {
+    Texture(Id),
+    Colour(Colour),
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct Sprite {
     pub id: Id,
     pub rect: Rect,
     pub z: i32,
-
-    // id pointing to the texture associated with this Sprite
-    pub texture: Id,
+    pub visual: SpriteVisual,
+    pub shape: SpriteShape,
 }
 
 impl Sprite {
     // Minimum size of a sprite dimension; too small and sprites can be lost.
     const MIN_SIZE: f32 = 0.25;
 
-    pub fn new(id: Id, texture: Id) -> Sprite {
+    pub fn new(id: Id, visual: Option<SpriteVisual>) -> Sprite {
         Sprite {
             rect: Rect::new(0.0, 0.0, 1.0, 1.0),
             z: 1,
-            texture,
+            visual: visual.unwrap_or(SpriteVisual::Colour([1.0, 0.0, 1.0, 1.0])),
+            shape: SpriteShape::Rectangle,
             id,
         }
     }
@@ -52,10 +68,16 @@ impl Sprite {
         self.rect.h = h;
     }
 
-    pub fn set_texture(&mut self, new: Id) -> SceneEvent {
-        let old = self.texture;
-        self.texture = new;
-        SceneEvent::SpriteTexture(self.id, old, new)
+    pub fn set_shape(&mut self, new: SpriteShape) -> SceneEvent {
+        let old = self.shape;
+        self.shape = new;
+        SceneEvent::SpriteShape(self.id, old, new)
+    }
+
+    pub fn set_visual(&mut self, new: SpriteVisual) -> SceneEvent {
+        let old = self.visual;
+        self.visual = new;
+        SceneEvent::SpriteVisual(self.id, old, new)
     }
 
     pub fn snap_to_grid(&mut self) -> SceneEvent {
