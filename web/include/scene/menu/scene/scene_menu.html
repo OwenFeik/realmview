@@ -1,0 +1,43 @@
+{{
+  accordion_item(
+    id="scene_menu",
+    label="Scene",
+    body=|
+      {{
+        editable_input(
+          id="scene_menu_w",
+          label="Width",
+          type="number",
+          noend=1,
+          small=1,
+          action="v => update_scene_details('w', v)"
+        )
+      }}
+      {{
+        editable_input(
+          id="scene_menu_h",
+          label="Height",
+          type="number",
+          nostart=1,
+          small=1,
+          action="v => update_scene_details('h', v)"
+        )
+      }}
+    |
+  )
+}}
+<script>
+function update_scene_details(key, value) {
+  RustFuncs.scene_details(`{"${key}": ${value}}`);
+}
+
+function set_scene_details(details_json) {
+  scene = JSON.parse(details_json);
+
+  ["w", "h"].forEach(d => {
+    let input = document.getElementById("scene_menu_" + d);
+    input.value = scene[d];
+    input.disabled = false;
+  });
+}
+</script>

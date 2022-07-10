@@ -7,21 +7,23 @@ use super::{Id, Rect, Scene, Sprite};
 // Events processed by Scene
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum SceneEvent {
-    Dummy,                           // To trigger redraws, etc
-    EventSet(Vec<SceneEvent>),       // Collection of other events
-    LayerLocked(Id, bool),           // (layer, status)
-    LayerMove(Id, i32, bool),        // (layer, starting_z, up)
-    LayerNew(Id, String, i32),       // (local_id, title, z)
-    LayerRemove(Id),                 // (layer)
-    LayerRename(Id, String, String), // (layer, old_title, new_title)
-    LayerRestore(Id),                // (layer)
-    LayerVisibility(Id, bool),       // (layer, status)
-    SpriteLayer(Id, Id, Id),         // (sprite, old_layer, new_layer)
-    SpriteMove(Id, Rect, Rect),      // (sprite, from, to)
-    SpriteNew(Sprite, Id),           // (new_sprite, layer)
-    SpriteRemove(Id),                // (sprite)
-    SpriteRestore(Id),               // (sprite)
-    SpriteTexture(Id, Id, Id),       // (sprite, old_texture, new_texture)
+    Dummy,                               // To trigger redraws, etc
+    EventSet(Vec<SceneEvent>),           // Collection of other events
+    LayerLocked(Id, bool),               // (layer, status)
+    LayerMove(Id, i32, bool),            // (layer, starting_z, up)
+    LayerNew(Id, String, i32),           // (local_id, title, z)
+    LayerRemove(Id),                     // (layer)
+    LayerRename(Id, String, String),     // (layer, old_title, new_title)
+    LayerRestore(Id),                    // (layer)
+    LayerVisibility(Id, bool),           // (layer, status)
+    SceneDimensions(u32, u32, u32, u32), // (old_w, old_h, new_w, new_h)
+    SceneTitle(Option<String>, String),  // (old_title, new_title)
+    SpriteLayer(Id, Id, Id),             // (sprite, old_layer, new_layer)
+    SpriteMove(Id, Rect, Rect),          // (sprite, from, to)
+    SpriteNew(Sprite, Id),               // (new_sprite, layer)
+    SpriteRemove(Id),                    // (sprite)
+    SpriteRestore(Id),                   // (sprite)
+    SpriteTexture(Id, Id, Id),           // (sprite, old_texture, new_texture)
 }
 
 impl SceneEvent {

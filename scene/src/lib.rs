@@ -428,7 +428,6 @@ impl Scene {
         }
     }
 
-    // If canonical is true, this is the ground truth scene.
     pub fn apply_event(&mut self, event: SceneEvent) -> bool {
         match event {
             SceneEvent::Dummy => true,
@@ -470,6 +469,25 @@ impl Scene {
             SceneEvent::LayerVisibility(l, visible) => {
                 self.layer(l).map(|l| l.set_visible(visible));
                 true
+            }
+            SceneEvent::SceneDimensions(old_w, old_h, new_w, new_h) => {
+                if self.w == old_w && self.h == old_h {
+                    self.w = new_w;
+                    self.h = new_h;
+                    true
+                }
+                else {
+                    false
+                }
+            }
+            SceneEvent::SceneTitle(old, new) => {
+                if self.title == old {
+                    self.title = Some(new);
+                    true
+                }
+                else {
+                    false
+                }
             }
             SceneEvent::SpriteNew(s, l) => {
                 if self.sprite(s.id).is_none() {
@@ -551,6 +569,24 @@ impl Scene {
                 } else {
                     None
                 }
+            }
+            SceneEvent::SceneDimensions(old_w, old_h, new_w, new_h) => {
+                if self.w == new_w && self.h == new_h {
+                    self.w = old_w;
+                    self.h = old_h;
+                    Some(SceneEvent::SceneDimensions(new_w, new_h, old_w, old_h))
+                } else {
+                    None
+                }
+            }
+            SceneEvent::SceneTitle(old, new) => {
+                if self.title == Some(new.clone()) {
+                    self.title = old.clone();
+                    if let Some(title) = old {
+                        return Some(SceneEvent::SceneTitle(Some(new), title));
+                    }
+                }
+                None
             }
             SceneEvent::SpriteNew(s, _) => self.remove_sprite(s.id),
             SceneEvent::SpriteLayer(id, old_layer, new_layer) => {

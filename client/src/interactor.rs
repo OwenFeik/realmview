@@ -138,6 +138,70 @@ impl SpriteDetails {
             self.texture = None;
         }
     }
+
+    fn update_sprite(&self, sprite: &mut Sprite) -> Option<SceneEvent> {
+        let mut events = vec![];
+        if let Some(x) = self.x {
+            events.push(sprite.set_dimension(Dimension::X, x));
+        }
+
+        if let Some(y) = self.y {
+            events.push(sprite.set_dimension(Dimension::Y, y));
+        }
+
+        if let Some(w) = self.w {
+            events.push(sprite.set_dimension(Dimension::W, w));
+        }
+
+        if let Some(h) = self.h {
+            events.push(sprite.set_dimension(Dimension::H, h));
+        }
+
+        if let Some(id) = self.texture {
+            events.push(sprite.set_texture(id));
+        }
+
+        if events.is_empty() {
+            None
+        }
+        else {
+            Some(SceneEvent::EventSet(events))
+        }
+    }
+}
+
+#[derive(Debug, Default, serde_derive::Deserialize, serde_derive::Serialize)]
+#[serde(default)]
+pub struct SceneDetails {
+    pub id: Option<Id>,
+    pub title: Option<String>,
+    pub w: Option<u32>,
+    pub h: Option<u32>,
+}
+
+impl SceneDetails {
+    fn from(scene: &Scene) -> Self {
+        SceneDetails {
+            id: scene.id,
+            title: scene.title.clone(),
+            w: Some(scene.w),
+            h: Some(scene.h),
+        }
+    }
+
+    fn update_scene(&self, scene: &mut Scene) {
+        if self.title.is_some() {
+            scene.title = self.title.clone();
+        }
+
+        if let Some(w) = self.w {
+            scene.w = w;
+        }
+
+        if let Some(h) = self.h {
+            scene.h = h;
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -709,6 +773,15 @@ impl Interactor {
         self.changes.all_change();
     }
 
+    pub fn get_scene_details(&mut self) -> SceneDetails {
+        SceneDetails::from(&self.scene)
+    }
+
+    pub fn scene_details(&mut self, details: SceneDetails) {
+        details.update_scene(&mut self.scene);
+        self.changes.sprite_change();
+    }
+
     pub fn new_layer(&mut self) {
         let z = self
             .scene
@@ -842,5 +915,12 @@ impl Interactor {
         }
 
         None
+    }
+
+    pub fn sprite_details(&mut self, id: Id, details: SpriteDetails) {
+        if let Some(sprite) = self.scene.sprite(id) {
+            let opt = details.update_sprite(sprite);
+            self.scene_option(opt);
+        }
     }
 }

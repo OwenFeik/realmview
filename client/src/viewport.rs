@@ -1,6 +1,6 @@
 use crate::{
     bridge::{
-        clear_selected_sprite, set_selected_sprite, sprite_dropdown, update_layers_list, Context,
+        clear_selected_sprite, set_selected_sprite, set_scene_details, sprite_dropdown, update_layers_list, Context,
         Input, JsError, Key, KeyboardAction, MouseAction, MouseButton,
     },
     client::Client,
@@ -68,6 +68,7 @@ impl Viewport {
 
         vp.update_viewport();
         vp.centre_viewport();
+        set_scene_details(vp.scene.get_scene_details());
 
         Ok(vp)
     }

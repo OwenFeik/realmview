@@ -2,6 +2,7 @@
 
 * Scene
     * Hide or show UI elements depending on user role.
+    * Doesn't redraw on changing map size.
     * Draw on map.
         * Shapes
             * Ellipse
@@ -15,9 +16,6 @@
 * Layers
     * Select from selected layer first (possibly)
     * Layer opacity
-* Map size
-    * Make map size configurable, as setting on scene, editable from project
-        offcanvas
 * Sprites
     * Use sprite menu to change texture.
     * Change cursor when hovering a sprite or anchor.

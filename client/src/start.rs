@@ -64,6 +64,18 @@ pub fn start() -> Result<(), JsValue> {
     new_scene_closure.forget();
 
     let vp_ref = vp.clone();
+    let scene_details_closure = Closure::wrap(Box::new(move |json: String| {
+        if let Ok(details) = serde_json::from_str::<crate::interactor::SceneDetails>(&json) {
+            let mut lock = vp_ref.lock();
+            lock.scene.scene_details(details);
+            crate::bridge::set_scene_details(lock.scene.get_scene_details());
+        }
+
+    }) as Box<dyn FnMut(String)>);
+    expose_closure_string_in("scene_details", &scene_details_closure);
+    scene_details_closure.forget();
+
+    let vp_ref = vp.clone();
     let new_sprite_closure = Closure::wrap(Box::new(move |layer: f64, media_key: String| {
         let texture = crate::programs::parse_media_key(&media_key);
         vp_ref.lock().scene.new_sprite(texture, layer as i64);
@@ -96,23 +108,7 @@ pub fn start() -> Result<(), JsValue> {
     let sprite_details_closure = Closure::wrap(Box::new(move |id: f64, json: String| {
         let id = id as i64;
         if let Ok(details) = serde_json::from_str::<crate::interactor::SpriteDetails>(&json) {
-            let mut lock = vp_ref.lock();
-
-            if let Some(x) = details.x {
-                lock.scene.sprite_dimension(id, scene::Dimension::X, x);
-            }
-
-            if let Some(y) = details.y {
-                lock.scene.sprite_dimension(id, scene::Dimension::Y, y);
-            }
-
-            if let Some(w) = details.w {
-                lock.scene.sprite_dimension(id, scene::Dimension::W, w);
-            }
-
-            if let Some(h) = details.h {
-                lock.scene.sprite_dimension(id, scene::Dimension::H, h);
-            }
+            vp_ref.lock().scene.sprite_details(id, details);
         }
     }) as Box<dyn FnMut(f64, String)>);
     expose_closure_f64_string("sprite_details", &sprite_details_closure);
