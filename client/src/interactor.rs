@@ -309,6 +309,12 @@ impl Interactor {
         {
             self.issue_client_event(event.clone());
 
+            self.changes.layer_change_if(event.is_layer());
+            self.changes.sprite_change_if(event.is_sprite());
+            if let Some(id) = event.item() {
+                self.changes.selected_change_if(self.is_selected(id));
+            }
+
             // When adding a new entry to the history, all undone events are lost.
             self.redo_history.clear();
             self.history.push(event);
@@ -543,7 +549,6 @@ impl Interactor {
             _ => return, // Other types aren't sprite-related
         };
         self.scene_event(event);
-        self.changes.sprite_change();
     }
 
     fn drag_selection(&mut self, to: ScenePoint) {
@@ -713,7 +718,6 @@ impl Interactor {
             .unwrap_or(1);
         let opt = self.scene.new_layer("Untitled", z);
         self.scene_option(opt);
-        self.changes.layer_change();
     }
 
     pub fn remove_layer(&mut self, layer: Id) {
@@ -725,7 +729,6 @@ impl Interactor {
     pub fn rename_layer(&mut self, layer: Id, title: String) {
         let opt = self.scene.rename_layer(layer, title);
         self.scene_option(opt);
-        self.changes.layer_change();
     }
 
     pub fn set_layer_visible(&mut self, layer: Id, visible: bool) {
@@ -753,7 +756,6 @@ impl Interactor {
     pub fn new_sprite(&mut self, texture: Id, layer: Id) {
         let opt = self.scene.new_sprite(texture, layer);
         self.scene_option(opt);
-        self.changes.sprite_change();
     }
 
     pub fn clone_sprite(&mut self, sprite: Id) {
@@ -767,11 +769,9 @@ impl Interactor {
 
             if !events.is_empty() {
                 self.scene_event(SceneEvent::EventSet(events));
-                self.changes.sprite_change();
             }
         } else {
             let opt = self.scene.clone_sprite(sprite);
-            self.changes.sprite_change_if(opt.is_some());
             self.scene_option(opt);
         }
     }
@@ -784,7 +784,6 @@ impl Interactor {
         } else {
             let opt = self.scene.remove_sprite(sprite);
             self.scene_option(opt);
-            self.changes.sprite_change();
         }
     }
 
@@ -792,11 +791,9 @@ impl Interactor {
         if sprite == Self::SELECTION_ID {
             let event = self.scene.sprites_layer(&self.selected_sprites, layer);
             self.scene_event(event);
-            self.changes.sprite_selected_change();
         } else {
             let opt = self.scene.sprite_layer(sprite, layer);
             self.scene_option(opt);
-            self.changes.sprite_change();
         }
     }
 
@@ -813,7 +810,6 @@ impl Interactor {
     pub fn sprite_rect(&mut self, sprite: Id, rect: Rect) {
         let opt = self.scene.sprite(sprite).map(|s| s.set_rect(rect));
         self.scene_option(opt);
-        self.changes.sprite_change();
     }
 
     fn selected_id(&self) -> Option<Id> {

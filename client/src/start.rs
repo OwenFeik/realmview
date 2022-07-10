@@ -19,6 +19,8 @@ fn logged_error<T>(error_message: &str) -> Result<T, JsValue> {
 
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
+    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+
     let client = match Client::new() {
         Ok(c) => c,
         Err(_) => return logged_error("Failed to connect to game."),

@@ -26,7 +26,7 @@ pub enum SceneEvent {
 
 impl SceneEvent {
     pub fn is_layer(&self) -> bool {
-        matches!(
+        if matches!(
             self,
             Self::LayerLocked(..)
                 | Self::LayerMove(..)
@@ -35,11 +35,17 @@ impl SceneEvent {
                 | Self::LayerRename(..)
                 | Self::LayerRestore(..)
                 | Self::LayerVisibility(..)
-        )
+        ) {
+            true
+        } else if let Self::EventSet(events) = self {
+            events.iter().any(|e| e.is_layer())
+        } else {
+            false
+        }
     }
 
     pub fn is_sprite(&self) -> bool {
-        matches!(
+        if matches!(
             self,
             Self::SpriteLayer(..)
                 | Self::SpriteMove(..)
@@ -47,7 +53,13 @@ impl SceneEvent {
                 | Self::SpriteRemove(..)
                 | Self::SpriteRestore(..)
                 | Self::SpriteTexture(..)
-        )
+        ) {
+            true
+        } else if let Self::EventSet(events) = self {
+            events.iter().any(|e| e.is_sprite())
+        } else {
+            false
+        }
     }
 
     // If is_sprite or is_layer is true, this will be safe to unwrap.

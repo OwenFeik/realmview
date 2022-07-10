@@ -418,7 +418,11 @@ impl Scene {
         if event.is_layer() {
             event.item()
         } else if event.is_sprite() {
-            self.get_sprite_layer(event.item().unwrap())
+            if let Some(id) = event.item() {
+                self.get_sprite_layer(id)
+            } else {
+                None
+            }
         } else {
             None
         }

@@ -145,9 +145,11 @@ impl Perms {
         }
 
         if event.is_sprite() {
-            if let Some(ps) = self.items.get(&event.item().unwrap()) {
-                if !ps.allows(user, role) {
-                    return false;
+            if let Some(id) = event.item() {
+                if let Some(ps) = self.items.get(&id) {
+                    if !ps.allows(user, role) {
+                        return false;
+                    }
                 }
             }
         }

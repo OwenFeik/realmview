@@ -21,7 +21,6 @@
 * Sprites
     * Use sprite menu to change texture.
     * Change cursor when hovering a sprite or anchor.
-    * Deleting a sprite doesn't cause the scene to redraw.
 * Media
     * Delete media items
     * Media library
