@@ -332,6 +332,8 @@ impl Scene {
         if let Some(l) = self.get_sprite_layer(sprite) {
             if let Some(s) = self.sprite_ref(sprite) {
                 let mut new = *s;
+                new.rect.x += new.rect.w;
+                new.rect.y += new.rect.h;
                 new.id = self.next_id();
                 return self.add_sprite(new, l);
             }
