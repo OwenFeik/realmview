@@ -399,7 +399,7 @@ impl LineRenderer {
         })
     }
 
-    fn scale_and_load_points(&mut self, points: &mut Vec<f32>, vp_w: f32, vp_h: f32) {
+    fn scale_and_load_points(&mut self, points: &mut [f32], vp_w: f32, vp_h: f32) {
         for (i, v) in points.iter_mut().enumerate() {
             // Point vectors are of form [x1, y1, x2, y2 ... xn, yn] so even indices are xs.
             if i % 2 == 0 {
@@ -605,7 +605,7 @@ impl Renderer {
         Rect { x, y, w, h }: Rect,
     ) {
         self.line_renderer.scale_and_load_points(
-            &mut vec![
+            &mut [
                 x - vp_x,
                 y - vp_y,
                 x - vp_x + w,

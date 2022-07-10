@@ -640,7 +640,6 @@ pub fn set_selected_sprite(sprite: SpriteDetails) {
     }
 }
 
-#[wasm_bindgen(getter_with_clone)]
 #[derive(Deserialize, Serialize)]
 pub struct JsLayerInfo {
     pub id: Id,
