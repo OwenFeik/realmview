@@ -457,7 +457,7 @@ impl Interactor {
     fn select(&mut self, id: Id) {
         if !self.is_selected(id) {
             self.selected_sprites.push(id);
-            self.changes.selected_change();    
+            self.changes.selected_change();
         }
     }
 
@@ -585,24 +585,34 @@ impl Interactor {
         }
     }
 
-    fn release_sprite(sprite: &mut Sprite, snap_to_grid: bool) -> Option<SceneEvent> {
-        if snap_to_grid {
-            Some(sprite.snap_to_grid())
-        } else {
-            sprite.enforce_min_size()
-        }
-    }
-
-    fn release_held_sprite(&mut self, id: Id, snap_to_grid: bool) {
+    fn finish_sprite_resize(&mut self, id: Id, snap_to_grid: bool) {
         if let Some(s) = self.scene.sprite(id) {
-            let opt = Self::release_sprite(s, snap_to_grid);
-            self.scene_option(opt);
-            self.changes.sprite_selected_change();
-        };
+            if snap_to_grid {
+                let event = s.snap_size();
+                self.scene_event(event);
+            } else {
+                let opt = s.enforce_min_size();
+                self.scene_option(opt);
+            }
+        }
+        self.changes.sprite_selected_change();
     }
 
-    fn release_selection(&mut self, snap_to_grid: bool) {
-        self.selection_effect(|s| Self::release_sprite(s, snap_to_grid));
+    fn finish_sprite_drag(&mut self, id: Id, snap_to_grid: bool) {
+        if snap_to_grid {
+            if let Some(s) = self.scene.sprite(id) {
+                let event = s.snap_pos();
+                self.scene_event(event);
+            }
+        }
+        self.changes.sprite_selected_change();
+    }
+
+    fn finish_selection_drag(&mut self, snap_to_grid: bool) {
+        if snap_to_grid {
+            self.selection_effect(|s| Some(s.snap_pos()));
+        }
+        self.changes.sprite_selected_change();
     }
 
     pub fn release(&mut self, alt: bool, ctrl: bool) {
@@ -620,10 +630,9 @@ impl Interactor {
                 self.changes.sprite_selected_change();
             }
             HeldObject::None => {}
-            HeldObject::Selection(_) => self.release_selection(!alt),
-            HeldObject::Sprite(id, _) | HeldObject::Anchor(id, _, _) => {
-                self.release_held_sprite(id, !alt)
-            }
+            HeldObject::Selection(_) => self.finish_selection_drag(!alt),
+            HeldObject::Sprite(id, _) => self.finish_sprite_drag(id, !alt),
+            HeldObject::Anchor(id, _, _) => self.finish_sprite_resize(id, !alt),
         };
 
         if self.holding.is_sprite() {

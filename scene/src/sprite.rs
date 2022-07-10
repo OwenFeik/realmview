@@ -58,10 +58,19 @@ impl Sprite {
         SceneEvent::SpriteTexture(self.id, old, new)
     }
 
-    pub fn snap_to_grid(&mut self) -> SceneEvent {
-        let from = self.rect;
-        self.rect.round();
-        SceneEvent::SpriteMove(self.id, from, self.rect)
+    pub fn snap_pos(&mut self) -> SceneEvent {
+        let old = self.rect;
+        self.rect.x = round_to_nearest(old.x, determine_unit_size(old.w));
+        self.rect.y = round_to_nearest(old.y, determine_unit_size(old.h));
+        SceneEvent::SpriteMove(self.id, old, self.rect)
+    }
+
+    pub fn snap_size(&mut self) -> SceneEvent {
+        let old = self.rect;
+        self.rect.w = round_dimension(old.w);
+        self.rect.h = round_dimension(old.h);
+        self.snap_pos();
+        SceneEvent::SpriteMove(self.id, old, self.rect)
     }
 
     pub fn enforce_min_size(&mut self) -> Option<SceneEvent> {
@@ -95,4 +104,32 @@ impl Sprite {
             y: y + (h / 2.0) * (dy + 1) as f32,
         }
     }
+}
+
+fn round_dimension(d: f32) -> f32 {
+    let sign = d.signum();
+
+    if d.abs() < 0.375 {
+        sign * 0.25
+    } else if d.abs() < 0.75 {
+        sign * 0.5
+    } else {
+        d.round()
+    }
+}
+
+fn determine_unit_size(d: f32) -> f32 {
+    if d.abs() < 0.5 {
+        0.25
+    } else if d.abs() < 1.0 {
+        0.5
+    } else {
+        1.0
+    }
+}
+
+fn round_to_nearest(d: f32, n: f32) -> f32 {
+    let sign = d.signum();
+    let d = d.abs();
+    sign * (d / n).round() * n
 }
