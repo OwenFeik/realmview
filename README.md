@@ -2,7 +2,6 @@
 
 * Scene
     * Hide or show UI elements depending on user role.
-    * Doesn't redraw on changing map size.
     * Draw on map.
         * Shapes
             * Ellipse

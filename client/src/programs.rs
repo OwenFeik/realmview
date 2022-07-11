@@ -455,6 +455,7 @@ impl LineRenderer {
 
 pub struct GridRenderer {
     line_renderer: LineRenderer,
+    current_vp: Option<Rect>,
     current_grid_rect: Option<Rect>,
     current_grid_size: Option<f32>,
     current_line_count: Option<i32>,
@@ -464,6 +465,7 @@ impl GridRenderer {
     pub fn new(gl: Rc<Gl>) -> Result<GridRenderer, JsError> {
         Ok(GridRenderer {
             line_renderer: LineRenderer::new(gl)?,
+            current_vp: None,
             current_grid_rect: None,
             current_grid_size: None,
             current_line_count: None,
@@ -540,14 +542,17 @@ impl GridRenderer {
 
         verticals.append(&mut horizontals);
         self.line_renderer.load_points(&verticals);
-        self.current_grid_rect = Some(vp);
+        self.current_vp = Some(vp);
+        self.current_grid_rect = Some(dims);
         self.current_grid_size = Some(grid_size);
         self.current_line_count = Some(verticals.len() as i32 / 2);
     }
 
     pub fn render_grid(&mut self, vp: Rect, dims: Rect, grid_size: f32) {
-        if self.current_grid_rect.is_none()
-            || self.current_grid_rect.unwrap() != vp
+        if self.current_vp.is_none()
+            || self.current_vp.unwrap() != vp
+            || self.current_grid_rect.is_none()
+            || self.current_grid_rect.unwrap() != dims
             || self.current_grid_size != Some(grid_size)
         {
             self.create_grid(vp, dims, grid_size);

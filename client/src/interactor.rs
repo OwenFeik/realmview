@@ -163,8 +163,7 @@ impl SpriteDetails {
 
         if events.is_empty() {
             None
-        }
-        else {
+        } else {
             Some(SceneEvent::EventSet(events))
         }
     }

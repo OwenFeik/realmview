@@ -475,8 +475,7 @@ impl Scene {
                     self.w = new_w;
                     self.h = new_h;
                     true
-                }
-                else {
+                } else {
                     false
                 }
             }
@@ -484,8 +483,7 @@ impl Scene {
                 if self.title == old {
                     self.title = Some(new);
                     true
-                }
-                else {
+                } else {
                     false
                 }
             }

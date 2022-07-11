@@ -1,7 +1,7 @@
 use crate::{
     bridge::{
-        clear_selected_sprite, set_selected_sprite, set_scene_details, sprite_dropdown, update_layers_list, Context,
-        Input, JsError, Key, KeyboardAction, MouseAction, MouseButton,
+        clear_selected_sprite, set_scene_details, set_selected_sprite, sprite_dropdown,
+        update_layers_list, Context, Input, JsError, Key, KeyboardAction, MouseAction, MouseButton,
     },
     client::Client,
     interactor::Interactor,
