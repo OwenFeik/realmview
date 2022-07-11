@@ -541,13 +541,7 @@ impl Interactor {
         let events = self
             .selected_sprites
             .iter()
-            .filter_map(|id| {
-                if let Some(s) = self.scene.sprite(*id) {
-                    effect(s)
-                } else {
-                    None
-                }
-            })
+            .filter_map(|id| effect(self.scene.sprite(*id)?))
             .collect::<Vec<SceneEvent>>();
 
         if !events.is_empty() {
@@ -642,14 +636,11 @@ impl Interactor {
     }
 
     pub fn sprite_at(&self, at: ScenePoint) -> Option<Id> {
-        if let Some(id) = self.scene.sprite_at_ref(at).map(|s| s.id) {
-            if self.is_selected(id) {
-                Some(Self::SELECTION_ID)
-            } else {
-                Some(id)
-            }
+        let id = self.scene.sprite_at_ref(at).map(|s| s.id)?;
+        if self.is_selected(id) {
+            Some(Self::SELECTION_ID)
         } else {
-            None
+            Some(id)
         }
     }
 
@@ -893,27 +884,25 @@ impl Interactor {
     }
 
     pub fn selected_details(&self) -> Option<SpriteDetails> {
-        if let Some(id) = self.selected_id() {
-            if id == Self::SELECTION_ID {
-                if self.has_selection() {
-                    if let Some(sprite) = self.sprite_ref(self.selected_sprites[0]) {
-                        let mut details = SpriteDetails::from(id, sprite);
+        let id = self.selected_id()?;
+        if id == Self::SELECTION_ID {
+            if self.has_selection() {
+                let sprite = self.sprite_ref(self.selected_sprites[0])?;
+                let mut details = SpriteDetails::from(id, sprite);
 
-                        for id in &self.selected_sprites[1..] {
-                            if let Some(sprite) = self.sprite_ref(*id) {
-                                details.common(sprite);
-                            }
-                        }
-
-                        return Some(details);
+                for id in &self.selected_sprites[1..] {
+                    if let Some(sprite) = self.sprite_ref(*id) {
+                        details.common(sprite);
                     }
                 }
-            } else if let Some(sprite) = self.sprite_ref(id) {
-                return Some(SpriteDetails::from(id, sprite));
-            }
-        }
 
-        None
+                Some(details)
+            } else {
+                None
+            }
+        } else {
+            Some(SpriteDetails::from(id, self.sprite_ref(id)?))
+        }
     }
 
     pub fn sprite_details(&mut self, id: Id, details: SpriteDetails) {

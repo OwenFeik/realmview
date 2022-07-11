@@ -164,12 +164,9 @@ impl Scene {
     }
 
     fn restore_layer(&mut self, layer: Id) -> Option<SceneEvent> {
-        if let Some(l) = self.removed_layers.drain_filter(|l| l.id == layer).last() {
-            self.add_layer(l);
-            Some(SceneEvent::LayerRestore(layer))
-        } else {
-            None
-        }
+        let l = self.removed_layers.drain_filter(|l| l.id == layer).last()?;
+        self.add_layer(l);
+        Some(SceneEvent::LayerRestore(layer))
     }
 
     pub fn rename_layer(&mut self, layer: Id, new_name: String) -> Option<SceneEvent> {
@@ -329,16 +326,13 @@ impl Scene {
     }
 
     pub fn clone_sprite(&mut self, sprite: Id) -> Option<SceneEvent> {
-        if let Some(l) = self.get_sprite_layer(sprite) {
-            if let Some(s) = self.sprite_ref(sprite) {
-                let mut new = *s;
-                new.rect.x += new.rect.w;
-                new.rect.y += new.rect.h;
-                new.id = self.next_id();
-                return self.add_sprite(new, l);
-            }
-        }
-        None
+        let l = self.get_sprite_layer(sprite)?;
+        let s = self.sprite_ref(sprite)?;
+        let mut new = *s;
+        new.rect.x += new.rect.w;
+        new.rect.y += new.rect.h;
+        new.id = self.next_id();
+        self.add_sprite(new, l)
     }
 
     pub fn new_sprite(&mut self, texture: Id, layer: Id) -> Option<SceneEvent> {
@@ -388,14 +382,12 @@ impl Scene {
             }
         }
 
-        if let Some(sprite) = s {
-            if let Some(SceneEvent::SpriteNew(_, new_layer)) = self.add_sprite(sprite, layer) {
-                if let Some(old_layer) = from_id {
-                    return Some(SceneEvent::SpriteLayer(sprite.id, old_layer, new_layer));
-                }
-            }
+        let sprite = s?;
+        if let Some(SceneEvent::SpriteNew(_, new_layer)) = self.add_sprite(sprite, layer) {
+            Some(SceneEvent::SpriteLayer(sprite.id, from_id?, new_layer))
+        } else {
+            None
         }
-        None
     }
 
     pub fn sprites_layer(&mut self, sprites: &[Id], layer: Id) -> SceneEvent {
@@ -418,11 +410,7 @@ impl Scene {
         if event.is_layer() {
             event.item()
         } else if event.is_sprite() {
-            if let Some(id) = event.item() {
-                self.get_sprite_layer(id)
-            } else {
-                None
-            }
+            self.get_sprite_layer(event.item()?)
         } else {
             None
         }
@@ -547,13 +535,7 @@ impl Scene {
                     .filter_map(|e| self.unwind_event(e))
                     .collect::<Vec<SceneEvent>>(),
             )),
-            SceneEvent::LayerLocked(l, locked) => {
-                if let Some(layer) = self.layer(l) {
-                    layer.set_locked(!locked)
-                } else {
-                    None
-                }
-            }
+            SceneEvent::LayerLocked(l, locked) => self.layer(l)?.set_locked(!locked),
             SceneEvent::LayerMove(l, _, up) => self.move_layer(l, !up),
             SceneEvent::LayerNew(id, _, _) => self.remove_layer(id),
             SceneEvent::LayerRemove(l) => self.restore_layer(l),
@@ -561,13 +543,7 @@ impl Scene {
             SceneEvent::LayerRename(id, old_title, _) => {
                 self.layer(id).map(|l| l.rename(old_title))
             }
-            SceneEvent::LayerVisibility(l, visible) => {
-                if let Some(layer) = self.layer(l) {
-                    layer.set_visible(!visible)
-                } else {
-                    None
-                }
-            }
+            SceneEvent::LayerVisibility(l, visible) => self.layer(l)?.set_visible(!visible),
             SceneEvent::SceneDimensions(old_w, old_h, new_w, new_h) => {
                 if self.w == new_w && self.h == new_h {
                     self.w = old_w;
@@ -588,25 +564,24 @@ impl Scene {
             }
             SceneEvent::SpriteNew(s, _) => self.remove_sprite(s.id),
             SceneEvent::SpriteLayer(id, old_layer, new_layer) => {
-                if let Some(l) = self.layer_ref(new_layer) {
-                    if l.sprite_ref(id).is_some() {
-                        return self.sprite_layer(id, old_layer);
-                    }
+                if self.layer_ref(new_layer)?.sprite_ref(id).is_some() {
+                    self.sprite_layer(id, old_layer)
+                } else {
+                    None
                 }
-                None
             }
             SceneEvent::SpriteMove(id, from, to) => {
                 self.sprite(id).map(|s| s.set_rect(s.rect - (to - from)))
             }
             SceneEvent::SpriteRemove(id) => self.restore_sprite(id),
             SceneEvent::SpriteRestore(id) => self.remove_sprite(id),
-            SceneEvent::SpriteTexture(id, old, _new) => {
-                if let Some(s) = self.sprite(id) {
-                    if s.texture == _new {
-                        return Some(s.set_texture(old));
-                    }
+            SceneEvent::SpriteTexture(id, old, new) => {
+                let s = self.sprite(id)?;
+                if s.texture == new {
+                    Some(s.set_texture(old))
+                } else {
+                    None
                 }
-                None
             }
         }
     }
