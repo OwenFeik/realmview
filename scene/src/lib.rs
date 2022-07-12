@@ -16,7 +16,7 @@ mod tests;
 
 pub use layer::Layer;
 pub use rect::{Dimension, Rect};
-pub use sprite::Sprite;
+pub use sprite::{Sprite, SpriteShape, SpriteVisual};
 
 use comms::SceneEvent;
 
@@ -337,7 +337,7 @@ impl Scene {
 
     pub fn new_sprite(&mut self, texture: Id, layer: Id) -> Option<SceneEvent> {
         let id = self.next_id();
-        self.add_sprite(Sprite::new(id, texture), layer)
+        self.add_sprite(Sprite::new(id, Some(SpriteVisual::Texture(texture))), layer)
     }
 
     pub fn add_sprites(&mut self, sprites: Vec<Sprite>, layer: Id) -> Option<SceneEvent> {
@@ -513,15 +513,23 @@ impl Scene {
                 true
             }
             SceneEvent::SpriteRestore(id) => self.restore_sprite(id).is_some(),
-            SceneEvent::SpriteTexture(id, old, new) => {
-                let canon = !self.canon;
-                match self.sprite(id) {
-                    Some(s) if s.texture == old || !canon => {
-                        s.set_texture(new);
-                        true
+            SceneEvent::SpriteShape(id, old, new) => {
+                if let Some(s) = self.sprite(id) {
+                    if s.shape == old {
+                        s.set_shape(new);
+                        return true;
                     }
-                    _ => false,
                 }
+                false
+            }
+            SceneEvent::SpriteVisual(id, old, new) => {
+                if let Some(s) = self.sprite(id) {
+                    if s.visual == old {
+                        s.set_visual(new);
+                        return true;
+                    }
+                }
+                false
             }
         }
     }
@@ -573,13 +581,22 @@ impl Scene {
             SceneEvent::SpriteMove(id, from, to) => {
                 self.sprite(id).map(|s| s.set_rect(s.rect - (to - from)))
             }
+            SceneEvent::SpriteShape(id, old, new) => {
+                if let Some(s) = self.sprite(id) {
+                    if s.shape == new {
+                        return Some(s.set_shape(old));
+                    }
+                }
+                None
+            }
             SceneEvent::SpriteRemove(id) => self.restore_sprite(id),
             SceneEvent::SpriteRestore(id) => self.remove_sprite(id),
-            SceneEvent::SpriteTexture(id, old, new) => {
-                let s = self.sprite(id)?;
-                if s.texture == new {
-                    Some(s.set_texture(old))
-                } else {
+            SceneEvent::SpriteVisual(id, old, new) => {
+                let sprite = self.sprite(id)?;
+                if sprite.visual == new {
+                    Some(sprite.set_visual(old))
+                }
+                else {
                     None
                 }
             }

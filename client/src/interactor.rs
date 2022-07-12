@@ -7,7 +7,7 @@ use bincode::serialize;
 use scene::{
     comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent},
     perms::Perms,
-    Dimension, Id, Layer, Rect, Scene, ScenePoint, Sprite,
+    Dimension, Id, Layer, Rect, Scene, ScenePoint, Sprite, SpriteVisual,
 };
 
 use crate::client::Client;
@@ -107,13 +107,18 @@ pub struct SpriteDetails {
 
 impl SpriteDetails {
     fn from(id: Id, sprite: &Sprite) -> Self {
+        let texture = match sprite.visual {
+            SpriteVisual::Texture(id) => Some(id),
+            _ => None
+        };
+
         SpriteDetails {
             id,
             x: Some(sprite.rect.x),
             y: Some(sprite.rect.y),
             w: Some(sprite.rect.w),
             h: Some(sprite.rect.h),
-            texture: Some(sprite.texture),
+            texture,
         }
     }
 
@@ -134,7 +139,7 @@ impl SpriteDetails {
             self.h = None;
         }
 
-        if self.texture != Some(sprite.texture) {
+        if self.texture.is_some() && SpriteVisual::Texture(self.texture.unwrap()) != sprite.visual {
             self.texture = None;
         }
     }
@@ -158,7 +163,7 @@ impl SpriteDetails {
         }
 
         if let Some(id) = self.texture {
-            events.push(sprite.set_texture(id));
+            events.push(sprite.set_visual(SpriteVisual::Texture(id)));
         }
 
         if events.is_empty() {
