@@ -208,7 +208,7 @@ impl TextureManager {
         } else {
             if !self.loading.contains(&id) {
                 self.loading.push(id);
-                crate::bridge::load_texture(format!("{id:16X}"));
+                crate::bridge::load_texture(format!("{id:016X}"));
             }
 
             // This unwrap is safe because we always add a missing texture

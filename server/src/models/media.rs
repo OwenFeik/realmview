@@ -74,6 +74,6 @@ impl Media {
     }
 
     pub fn id_to_key(id: i64) -> String {
-        format!("{:16X}", id)
+        format!("{:016X}", id)
     }
 }

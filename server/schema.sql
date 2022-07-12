@@ -57,8 +57,12 @@ CREATE TABLE IF NOT EXISTS layers (
 CREATE TABLE IF NOT EXISTS sprites (
     id INTEGER NOT NULL,
     scene INTEGER REFERENCES scenes(id) ON DELETE CASCADE NOT NULL,
-    media_key CHAR(16) REFERENCES media(media_key) ON DELETE SET NULL,
     layer INTEGER NOT NULL,
+    media_key CHAR(16) REFERENCES media(media_key) ON DELETE SET NULL,
+    r REAL,
+    g REAL,
+    b REAL,
+    a REAL,
     x REAL NOT NULL,
     y REAL NOT NULL,
     w REAL NOT NULL,

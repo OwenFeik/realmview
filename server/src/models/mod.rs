@@ -1,5 +1,8 @@
 use sqlx::{FromRow, SqlitePool};
 
+#[cfg(test)]
+mod tests;
+
 mod media;
 mod project;
 mod user;

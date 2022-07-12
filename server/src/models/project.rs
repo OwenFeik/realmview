@@ -232,7 +232,7 @@ mod scene_record {
 
             while let Some(s) = sprites.pop() {
                 if let Some(l) = layers.iter_mut().find(|l| l.id == s.layer) {
-                    l.add_sprite(s.to_sprite()?);
+                    l.add_sprite(s.to_sprite());
                 }
             }
 
@@ -378,8 +378,12 @@ mod sprite {
     #[derive(sqlx::FromRow)]
     pub struct SpriteRecord {
         id: i64,
-        media_key: String,
         pub layer: i64,
+        media_key: Option<String>,
+        r: Option<f32>,
+        g: Option<f32>,
+        b: Option<f32>,
+        a: Option<f32>,
         x: f32,
         y: f32,
         w: f32,
@@ -389,25 +393,50 @@ mod sprite {
 
     impl SpriteRecord {
         fn from_sprite(sprite: &scene::Sprite, layer: i64, id: i64) -> Self {
-            Self {
+            let mut record = Self {
                 id,
                 layer,
-                media_key: Media::id_to_key(sprite.texture),
+                media_key: None,
+                r: None,
+                g: None,
+                b: None,
+                a: None,
                 x: sprite.rect.x,
                 y: sprite.rect.y,
                 w: sprite.rect.w,
                 h: sprite.rect.h,
                 z: sprite.z as i64,
+            };
+
+            match sprite.visual {
+                scene::SpriteVisual::Colour([r, g, b, a]) => {
+                    record.r = Some(r);
+                    record.g = Some(g);
+                    record.b = Some(b);
+                    record.a = Some(a);
+                },
+                scene::SpriteVisual::Texture(id) => {
+                    record.media_key = Some(Media::id_to_key(id)); 
+                }
+            };
+            
+            record
+        }
+
+        fn visual(&self) -> Option<scene::SpriteVisual> {
+            if let Some(key) = &self.media_key {
+                Some(scene::SpriteVisual::Texture(Media::key_to_id(key).ok()?))
+            }
+            else {
+                Some(scene::SpriteVisual::Colour([self.r?, self.g?, self.b?, self.a?]))
             }
         }
 
-        pub fn to_sprite(&self) -> anyhow::Result<scene::Sprite> {
-            Ok(scene::Sprite {
-                id: self.id,
-                rect: scene::Rect::new(self.x, self.y, self.w, self.h),
-                z: self.z as i32,
-                texture: Media::key_to_id(&self.media_key)?,
-            })
+        pub fn to_sprite(&self) -> scene::Sprite {
+            let mut sprite = scene::Sprite::new(self.id, self.visual());
+            sprite.set_rect(scene::Rect::new(self.x, self.y, self.w, self.h));
+            sprite.z = self.z as i32;
+            sprite
         }
 
         async fn create_from(
@@ -417,12 +446,22 @@ mod sprite {
             scene: i64,
         ) -> anyhow::Result<i64> {
             sqlx::query(
-                "INSERT INTO sprites (id, scene, media_key, layer, x, y, w, h, z) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) RETURNING id;"
+                r#"
+                INSERT INTO sprites (
+                    id, scene, layer, media_key, r, g, b, a, x, y, w, h, z
+                ) VALUES (
+                    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13
+                ) RETURNING id;
+                "#
             )
                 .bind(sprite.id)
                 .bind(scene)
-                .bind(Media::id_to_key(sprite.texture))
                 .bind(layer)
+                .bind(sprite.visual.texture().map(Media::id_to_key))
+                .bind(sprite.visual.colour().map(|c| c[0]))
+                .bind(sprite.visual.colour().map(|c| c[1]))
+                .bind(sprite.visual.colour().map(|c| c[2]))
+                .bind(sprite.visual.colour().map(|c| c[3]))
                 .bind(sprite.rect.x)
                 .bind(sprite.rect.y)
                 .bind(sprite.rect.w)

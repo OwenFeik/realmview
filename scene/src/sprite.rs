@@ -20,6 +20,26 @@ pub enum SpriteVisual {
     Colour(Colour),
 }
 
+impl SpriteVisual {
+    pub fn texture(self) -> Option<Id> {
+        if let SpriteVisual::Texture(id) = self {
+            Some(id)
+        }
+        else {
+            None
+        }
+    }
+
+    pub fn colour(self) -> Option<Colour> {
+        if let SpriteVisual::Colour(colour) = self {
+            Some(colour)
+        }
+        else {
+            None
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct Sprite {
     pub id: Id,
@@ -32,12 +52,13 @@ pub struct Sprite {
 impl Sprite {
     // Minimum size of a sprite dimension; too small and sprites can be lost.
     const MIN_SIZE: f32 = 0.25;
+    const DEFAULT_VISUAL: SpriteVisual = SpriteVisual::Colour([1.0, 0.0, 1.0, 1.0]);
 
     pub fn new(id: Id, visual: Option<SpriteVisual>) -> Sprite {
         Sprite {
             rect: Rect::new(0.0, 0.0, 1.0, 1.0),
             z: 1,
-            visual: visual.unwrap_or(SpriteVisual::Colour([1.0, 0.0, 1.0, 1.0])),
+            visual: visual.unwrap_or(Sprite::DEFAULT_VISUAL),
             shape: SpriteShape::Rectangle,
             id,
         }
