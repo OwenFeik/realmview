@@ -1,0 +1,29 @@
+PREAMBLE {{
+kwargs["ID"] = kwargs.get("ID", kwargs["GROUP"] + unique_string()) 
+}}
+IFNDEF(FORM) {{
+  <input
+    type="radio"
+    class="btn-check"
+    name="{{ GROUP }}"
+    id="{{ ID }}"
+    autocomplete="off"
+    IFDEF(ACTIVE) {{ checked }}
+  >
+  <label
+    class="btn btn-sm btn-outline-primary"
+    for="{{ ID }}"
+  >{{ LABEL }}</label>
+}}
+IFDEF(FORM) {{
+  <div class="form-check">
+    <input
+      class="form-check-input"
+      type="radio"
+      name="{{ GROUP }}"
+      id="{{ ID }}"
+      IFDEF(ACTIVE) {{ checked }}
+    >
+    <label class="form-check-label" for="{{ ID }}">{{ LABEL }}</label>
+  </div>  
+}}

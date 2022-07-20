@@ -1,0 +1,29 @@
+{{
+  accordion_item(
+    id="tools_menu",
+    label="Tools",
+    body=|
+      <div class="btn-group" role="group" aria-label="Tool select">
+        {{
+          radio_check(
+            group="tool_radio",
+            active=1,
+            label='{{ bootstrap_icon(cursor) }}'
+          )
+        }}
+        {{
+          radio_check(
+            group="tool_radio",
+            label='{{ bootstrap_icon(square) }}'
+          )
+        }}
+        {{
+          radio_check(
+            group="tool_radio",
+            label='{{ bootstrap_icon(circle) }}'
+          )
+        }}
+      </div>
+    |
+  )
+}}

@@ -1,5 +1,7 @@
 import json
+import multiprocessing
 import os
+import pathlib
 import re
 import sys
 import typing
@@ -68,7 +70,7 @@ def substitution_regex() -> re.Pattern:
 
 def ensure_cache_dir() -> str:
     if not os.path.isdir(INCLUDE_CACHE_DIR):
-        os.makedirs(INCLUDE_CACHE_DIR)
+        pathlib.Path(INCLUDE_CACHE_DIR).mkdir(parents=True, exist_ok=True)
 
     gitignore_path = os.path.join(INCLUDE_CACHE_DIR, ".gitignore")
     if not os.path.isfile(gitignore_path):
@@ -336,19 +338,25 @@ def process_html(html: str) -> str:
     return html
 
 
-def main() -> None:
+def process_page(page) -> None:
     output_dir = output_directory()
+    with open(os.path.join(PAGES_DIR, page), "r") as f:
+        html = f.read()
 
-    for page in os.listdir(PAGES_DIR):
-        with open(os.path.join(PAGES_DIR, page), "r") as f:
-            html = f.read()
+    html = process_html(html)
+    if "{{" in html:
+        print(f"Substitution may have failed for {page}.")
 
-        html = process_html(html)
-        if "{{" in html:
-            print(f"Substitution may have failed for {page}.")
+    with open(os.path.join(output_dir, page), "w") as f:
+        f.write(html)
 
-        with open(os.path.join(output_dir, page), "w") as f:
-            f.write(html)
+
+PROCESSES = 12
+
+
+def main() -> None:
+    with multiprocessing.Pool(PROCESSES) as pool:
+        pool.map(process_page, os.listdir(PAGES_DIR))
 
 
 if __name__ == "__main__":
