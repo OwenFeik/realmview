@@ -1,6 +1,10 @@
 use serde_derive::{Deserialize, Serialize};
 
-use super::{Id, perms::{Override, PermSet, Perms, Role}, Rect, Scene, Sprite, sprite::{SpriteShape, SpriteVisual}};
+use super::{
+    perms::{Override, PermSet, Perms, Role},
+    sprite::{SpriteShape, SpriteVisual},
+    Id, Rect, Scene, Sprite,
+};
 
 // Events processed by Scene
 #[derive(Clone, Debug, Deserialize, Serialize)]

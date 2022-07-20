@@ -414,21 +414,22 @@ mod sprite {
                     record.g = Some(g);
                     record.b = Some(b);
                     record.a = Some(a);
-                },
+                }
                 scene::SpriteVisual::Texture(id) => {
-                    record.media_key = Some(Media::id_to_key(id)); 
+                    record.media_key = Some(Media::id_to_key(id));
                 }
             };
-            
+
             record
         }
 
         fn visual(&self) -> Option<scene::SpriteVisual> {
             if let Some(key) = &self.media_key {
                 Some(scene::SpriteVisual::Texture(Media::key_to_id(key).ok()?))
-            }
-            else {
-                Some(scene::SpriteVisual::Colour([self.r?, self.g?, self.b?, self.a?]))
+            } else {
+                Some(scene::SpriteVisual::Colour([
+                    self.r?, self.g?, self.b?, self.a?,
+                ]))
             }
         }
 
@@ -452,25 +453,25 @@ mod sprite {
                 ) VALUES (
                     ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13
                 ) RETURNING id;
-                "#
+                "#,
             )
-                .bind(sprite.id)
-                .bind(scene)
-                .bind(layer)
-                .bind(sprite.visual.texture().map(Media::id_to_key))
-                .bind(sprite.visual.colour().map(|c| c[0]))
-                .bind(sprite.visual.colour().map(|c| c[1]))
-                .bind(sprite.visual.colour().map(|c| c[2]))
-                .bind(sprite.visual.colour().map(|c| c[3]))
-                .bind(sprite.rect.x)
-                .bind(sprite.rect.y)
-                .bind(sprite.rect.w)
-                .bind(sprite.rect.h)
-                .bind(sprite.z)
-                .fetch_one(conn)
-                .await
-                .map(|row: sqlx::sqlite::SqliteRow| row.get(0))
-                .map_err(|e| anyhow!("Failed to create sprite: {e}"))
+            .bind(sprite.id)
+            .bind(scene)
+            .bind(layer)
+            .bind(sprite.visual.texture().map(Media::id_to_key))
+            .bind(sprite.visual.colour().map(|c| c[0]))
+            .bind(sprite.visual.colour().map(|c| c[1]))
+            .bind(sprite.visual.colour().map(|c| c[2]))
+            .bind(sprite.visual.colour().map(|c| c[3]))
+            .bind(sprite.rect.x)
+            .bind(sprite.rect.y)
+            .bind(sprite.rect.w)
+            .bind(sprite.rect.h)
+            .bind(sprite.z)
+            .fetch_one(conn)
+            .await
+            .map(|row: sqlx::sqlite::SqliteRow| row.get(0))
+            .map_err(|e| anyhow!("Failed to create sprite: {e}"))
         }
 
         pub async fn delete(

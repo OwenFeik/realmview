@@ -595,8 +595,7 @@ impl Scene {
                 let sprite = self.sprite(id)?;
                 if sprite.visual == new {
                     Some(sprite.set_visual(old))
-                }
-                else {
+                } else {
                     None
                 }
             }

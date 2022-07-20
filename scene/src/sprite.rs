@@ -24,8 +24,7 @@ impl SpriteVisual {
     pub fn texture(self) -> Option<Id> {
         if let SpriteVisual::Texture(id) = self {
             Some(id)
-        }
-        else {
+        } else {
             None
         }
     }
@@ -33,8 +32,7 @@ impl SpriteVisual {
     pub fn colour(self) -> Option<Colour> {
         if let SpriteVisual::Colour(colour) = self {
             Some(colour)
-        }
-        else {
+        } else {
             None
         }
     }

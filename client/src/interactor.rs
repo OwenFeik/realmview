@@ -109,7 +109,7 @@ impl SpriteDetails {
     fn from(id: Id, sprite: &Sprite) -> Self {
         let texture = match sprite.visual {
             SpriteVisual::Texture(id) => Some(id),
-            _ => None
+            _ => None,
         };
 
         SpriteDetails {

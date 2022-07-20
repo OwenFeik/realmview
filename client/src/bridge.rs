@@ -627,8 +627,12 @@ impl Context {
     pub fn draw_sprites(&mut self, vp: Rect, sprites: &[Sprite], grid_size: f32) {
         for sprite in sprites.iter() {
             match sprite.visual {
-                SpriteVisual::Texture(texture) => self.renderer.draw_texture(vp, texture, Rect::scaled_from(sprite.rect, grid_size)),
-                _ => ()
+                SpriteVisual::Texture(texture) => self.renderer.draw_texture(
+                    vp,
+                    texture,
+                    Rect::scaled_from(sprite.rect, grid_size),
+                ),
+                _ => (),
             };
         }
     }

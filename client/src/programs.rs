@@ -347,7 +347,11 @@ impl Shape {
         Self::ngon(gl, program, CIRCLE_EDGES)
     }
 
-    fn from_sprite_shape(gl: &Gl, program: &WebGlProgram, shape: SpriteShape) -> Result<Self, JsError> {
+    fn from_sprite_shape(
+        gl: &Gl,
+        program: &WebGlProgram,
+        shape: SpriteShape,
+    ) -> Result<Self, JsError> {
         match shape {
             SpriteShape::Circle => Self::circle(gl, program),
             SpriteShape::Hexagon => Self::ngon(gl, program, 6),
@@ -371,9 +375,7 @@ impl Shape {
     }
 }
 
-struct ShapeRenderer {
-
-}
+struct ShapeRenderer {}
 
 struct LineRenderer {
     gl: Rc<Gl>,
