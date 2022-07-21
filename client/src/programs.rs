@@ -353,7 +353,7 @@ impl Shape {
         shape: SpriteShape,
     ) -> Result<Self, JsError> {
         match shape {
-            SpriteShape::Circle => Self::circle(gl, program),
+            SpriteShape::Ellipse => Self::circle(gl, program),
             SpriteShape::Hexagon => Self::ngon(gl, program, 6),
             SpriteShape::Rectangle => Self::square(gl, program),
             SpriteShape::Triangle => Self::ngon(gl, program, 3),

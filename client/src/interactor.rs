@@ -7,7 +7,7 @@ use bincode::serialize;
 use scene::{
     comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent},
     perms::Perms,
-    Dimension, Id, Layer, Rect, Scene, ScenePoint, Sprite, SpriteVisual,
+    Dimension, Id, Layer, Rect, Scene, ScenePoint, Sprite, SpriteShape, SpriteVisual,
 };
 
 use crate::client::Client;
@@ -283,6 +283,7 @@ pub struct Interactor {
     issued_events: Vec<ClientMessage>,
     perms: Perms,
     scene: Scene,
+    selected_layer: Id,
     selected_sprites: Vec<Id>,
     selection_marquee: Option<Rect>,
     user: Id,
@@ -292,6 +293,8 @@ impl Interactor {
     pub const SELECTION_ID: Id = -1;
 
     pub fn new(client: Option<Client>) -> Self {
+        let scene = Scene::new();
+        let selected_layer = scene.first_layer();
         Interactor {
             changes: Changes::new(),
             client,
@@ -300,7 +303,8 @@ impl Interactor {
             redo_history: vec![],
             issued_events: vec![],
             perms: Perms::new(),
-            scene: Scene::new(),
+            scene,
+            selected_layer,
             selected_sprites: vec![],
             selection_marquee: None,
             user: scene::perms::CANONICAL_UPDATER,
@@ -799,6 +803,10 @@ impl Interactor {
         self.scene_option(opt);
     }
 
+    pub fn select_layer(&mut self, layer: Id) {
+        self.selected_layer = layer;
+    }
+
     pub fn set_layer_visible(&mut self, layer: Id, visible: bool) {
         if let Some(l) = self.scene.layer(layer) {
             let opt = l.set_visible(visible);
@@ -821,8 +829,16 @@ impl Interactor {
         self.changes.all_change();
     }
 
-    pub fn new_sprite(&mut self, texture: Id, layer: Id) {
-        let opt = self.scene.new_sprite(texture, layer);
+    pub fn new_sprite(
+        &mut self,
+        visual: Option<SpriteVisual>,
+        shape: Option<SpriteShape>,
+        layer: Option<Id>,
+    ) {
+        let opt = self
+            .scene
+            .new_sprite(visual, shape, layer.unwrap_or(self.selected_layer));
+        crate::bridge::log(&format!("{opt:?}"));
         self.scene_option(opt);
     }
 

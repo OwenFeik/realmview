@@ -78,6 +78,20 @@ var RustFuncs = {
     Removes the specified layer from the scene.
     */
 
+    move_layer: missing_func,
+    /*
+    function move_layer(layer_id: number, up: bool)
+
+    Moves the specified layer up or down.
+    */
+
+    select_layer: missing_func,
+    /*
+    function select_layer(layer_id: number)
+
+    Selects the specified layer.
+    */
+
     sprite_layer: missing_func,
     /*
     function sprite_layer(sprite_id: number, layer_id: number)
@@ -105,6 +119,13 @@ var RustFuncs = {
     function remove_sprite(sprite_id: number)
 
     Deletes the specified sprite.
+    */
+
+    select_tool: missing_func,
+    /*
+    function set_tool(tool: string)
+
+    Sets the active tool.
     */
 };
 

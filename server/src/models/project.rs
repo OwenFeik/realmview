@@ -434,7 +434,7 @@ mod sprite {
         }
 
         pub fn to_sprite(&self) -> scene::Sprite {
-            let mut sprite = scene::Sprite::new(self.id, self.visual());
+            let mut sprite = scene::Sprite::new(self.id, self.visual(), None);
             sprite.set_rect(scene::Rect::new(self.x, self.y, self.w, self.h));
             sprite.z = self.z as i32;
             sprite

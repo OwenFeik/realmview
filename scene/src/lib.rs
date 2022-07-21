@@ -335,9 +335,14 @@ impl Scene {
         self.add_sprite(new, l)
     }
 
-    pub fn new_sprite(&mut self, texture: Id, layer: Id) -> Option<SceneEvent> {
+    pub fn new_sprite(
+        &mut self,
+        visual: Option<SpriteVisual>,
+        shape: Option<SpriteShape>,
+        layer: Id,
+    ) -> Option<SceneEvent> {
         let id = self.next_id();
-        self.add_sprite(Sprite::new(id, Some(SpriteVisual::Texture(texture))), layer)
+        self.add_sprite(Sprite::new(id, visual, shape), layer)
     }
 
     pub fn add_sprites(&mut self, sprites: Vec<Sprite>, layer: Id) -> Option<SceneEvent> {
@@ -414,6 +419,10 @@ impl Scene {
         } else {
             None
         }
+    }
+
+    pub fn first_layer(&self) -> Id {
+        self.layers.get(0).map(|l| l.id).unwrap_or(0)
     }
 
     pub fn apply_event(&mut self, event: SceneEvent) -> bool {

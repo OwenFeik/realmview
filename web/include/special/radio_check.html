@@ -8,6 +8,7 @@ IFNDEF(FORM) {{
     name="{{ GROUP }}"
     id="{{ ID }}"
     autocomplete="off"
+    IFDEF(ACTION) {{ oninput="{{ ACTION }}" }}
     IFDEF(ACTIVE) {{ checked }}
   >
   <label
@@ -22,6 +23,7 @@ IFDEF(FORM) {{
       type="radio"
       name="{{ GROUP }}"
       id="{{ ID }}"
+      IFDEF(ACTION) {{ oninput="{{ ACTION }}" }}
       IFDEF(ACTIVE) {{ checked }}
     >
     <label class="form-check-label" for="{{ ID }}">{{ LABEL }}</label>

@@ -11,6 +11,7 @@
           {{ constant(DATA_ID_ATTR) }}="${id}"
           name="layer_radio"
           type="radio"
+          oninput="RustFuncs.select_layer(${id})"
         >
       </div>
       |,

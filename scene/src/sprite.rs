@@ -8,7 +8,7 @@ pub type Colour = [f32; 4];
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub enum SpriteShape {
-    Circle,
+    Ellipse,
     Hexagon,
     Rectangle,
     Triangle,
@@ -52,12 +52,12 @@ impl Sprite {
     const MIN_SIZE: f32 = 0.25;
     const DEFAULT_VISUAL: SpriteVisual = SpriteVisual::Colour([1.0, 0.0, 1.0, 1.0]);
 
-    pub fn new(id: Id, visual: Option<SpriteVisual>) -> Sprite {
+    pub fn new(id: Id, visual: Option<SpriteVisual>, shape: Option<SpriteShape>) -> Sprite {
         Sprite {
             rect: Rect::new(0.0, 0.0, 1.0, 1.0),
             z: 1,
             visual: visual.unwrap_or(Sprite::DEFAULT_VISUAL),
-            shape: SpriteShape::Rectangle,
+            shape: shape.unwrap_or(SpriteShape::Rectangle),
             id,
         }
     }

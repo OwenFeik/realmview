@@ -6,7 +6,12 @@ use crate::{
     client::Client,
     interactor::Interactor,
 };
-use scene::{Rect, ScenePoint};
+use scene::{Rect, ScenePoint, SpriteShape};
+
+pub enum Tool {
+    Select,
+    Shape(SpriteShape),
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct ViewportPoint {
@@ -33,6 +38,10 @@ impl ViewportPoint {
 pub struct Viewport {
     pub scene: Interactor,
 
+    // Currently active tool
+    tool: Tool,
+
+    // WebGL rendering context wrapper
     context: Context,
 
     // Measured in scene units (tiles)
@@ -53,8 +62,9 @@ impl Viewport {
 
     pub fn new(client: Option<Client>) -> Result<Self, JsError> {
         let mut vp = Viewport {
-            context: Context::new()?,
             scene: Interactor::new(client),
+            context: Context::new()?,
+            tool: Tool::Select,
             viewport: Rect {
                 x: 0.0,
                 y: 0.0,
@@ -108,9 +118,14 @@ impl Viewport {
 
     fn handle_mouse_down(&mut self, at: ViewportPoint, button: MouseButton, ctrl: bool) {
         match button {
-            MouseButton::Left => self
-                .scene
-                .grab(at.scene_point(self.viewport, self.grid_zoom), ctrl),
+            MouseButton::Left => match self.tool {
+                Tool::Select => self
+                    .scene
+                    .grab(at.scene_point(self.viewport, self.grid_zoom), ctrl),
+                Tool::Shape(shape) => {
+                    self.scene.new_sprite(None, Some(shape), None);
+                }
+            },
             MouseButton::Right => {
                 if let Some(id) = self.scene.sprite_at(self.scene_point(at)) {
                     sprite_dropdown(id, at.x, at.y);
@@ -276,5 +291,9 @@ impl Viewport {
                 clear_selected_sprite();
             }
         }
+    }
+
+    pub fn set_tool(&mut self, tool: Tool) {
+        self.tool = tool;
     }
 }

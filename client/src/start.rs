@@ -10,7 +10,7 @@ use crate::bridge::{
     request_animation_frame,
 };
 use crate::client::Client;
-use crate::viewport::Viewport;
+use crate::viewport::{Tool, Viewport};
 
 fn logged_error<T>(error_message: &str) -> Result<T, JsValue> {
     log(error_message);
@@ -77,7 +77,11 @@ pub fn start() -> Result<(), JsValue> {
     let vp_ref = vp.clone();
     let new_sprite_closure = Closure::wrap(Box::new(move |layer: f64, media_key: String| {
         let texture = crate::programs::parse_media_key(&media_key);
-        vp_ref.lock().scene.new_sprite(texture, layer as i64);
+        vp_ref.lock().scene.new_sprite(
+            Some(scene::SpriteVisual::Texture(texture)),
+            None,
+            Some(layer as i64),
+        );
     }) as Box<dyn FnMut(f64, String)>);
     expose_closure_f64_string("new_sprite", &new_sprite_closure);
     new_sprite_closure.forget();
@@ -154,6 +158,25 @@ pub fn start() -> Result<(), JsValue> {
     }) as Box<dyn FnMut(f64, bool)>);
     expose_closure_f64_bool("move_layer", &move_layer_closure);
     move_layer_closure.forget();
+
+    let vp_ref = vp.clone();
+    let select_layer_closure = Closure::wrap(Box::new(move |id: f64| {
+        vp_ref.lock().scene.select_layer(id as i64);
+    }) as Box<dyn FnMut(f64)>);
+    expose_closure_f64("select_layer", &select_layer_closure);
+    select_layer_closure.forget();
+
+    let vp_ref = vp.clone();
+    let select_tool_closure = Closure::wrap(Box::new(move |tool: String| {
+        vp_ref.lock().set_tool(match tool.as_str() {
+            "Select" => Tool::Select,
+            "Rectangle" => Tool::Shape(scene::SpriteShape::Rectangle),
+            "Ellipse" => Tool::Shape(scene::SpriteShape::Ellipse),
+            _ => Tool::Select,
+        });
+    }) as Box<dyn FnMut(String)>);
+    expose_closure_string_in("select_tool", &select_tool_closure);
+    select_tool_closure.forget();
 
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
