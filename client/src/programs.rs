@@ -375,7 +375,36 @@ impl Shape {
     }
 }
 
-struct ShapeRenderer {}
+struct Shapes {
+    ellipse: Shape,
+    hexagon: Shape,
+    rectangle: Shape,
+    triangle: Shape,
+}
+
+impl Shapes {
+    fn new(&self, gl: &Gl, program: &WebGlProgram) -> Result<Self, JsError> {
+        Ok(Shapes {
+            ellipse: Shape::from_sprite_shape(gl, program, SpriteShape::Ellipse)?,
+            hexagon: Shape::from_sprite_shape(gl, program, SpriteShape::Hexagon)?,
+            rectangle: Shape::from_sprite_shape(gl, program, SpriteShape::Rectangle)?,
+            triangle: Shape::from_sprite_shape(gl, program, SpriteShape::Triangle)?,
+        })
+    }
+}
+
+struct ShapeRenderer {
+    shapes: Shapes,
+}
+
+impl ShapeRenderer {
+    fn render(&self, shape: SpriteShape, colour: Colour) {
+        // match shape {
+        //     SpriteShape::Ellipse => self.shapes.ellipse.draw()
+        //     _ => ()
+        // };
+    }
+}
 
 struct LineRenderer {
     gl: Rc<Gl>,
