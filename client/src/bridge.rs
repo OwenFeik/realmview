@@ -1,7 +1,6 @@
 use std::rc::Rc;
 
 use js_sys::Array;
-use scene::SpriteVisual;
 use serde_derive::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -87,8 +86,18 @@ pub type Gl = WebGl2RenderingContext;
 
 #[derive(Debug)]
 pub enum JsError {
-    ResourceError(&'static str),
-    TypeError(&'static str),
+    ResourceError(String),
+    TypeError(String),
+}
+
+impl JsError {
+    pub fn new(message: &str) -> Self {
+        JsError::ResourceError(message.into())
+    }
+
+    pub fn error<T>(message: &str) -> Result<T, Self> {
+        Err(JsError::new(message))
+    }
 }
 
 struct Element {
@@ -99,7 +108,7 @@ impl Element {
     fn new(name: &str) -> Result<Element, JsError> {
         match create_element(name)?.dyn_into::<HtmlElement>() {
             Ok(e) => Ok(Element { element: e }),
-            Err(_) => Err(JsError::TypeError("Couldn't cast to HtmlElement.")),
+            Err(_) => Err(JsError::TypeError("Couldn't cast to HtmlElement.".into())),
         }
     }
 
@@ -107,15 +116,13 @@ impl Element {
         self.element
             .style()
             .set_property(property, value)
-            .or(Err(JsError::ResourceError("Failed to set element CSS.")))
+            .or_else(|_| JsError::error("Failed to set element CSS."))
     }
 
     fn set_attr(&self, name: &str, value: &str) -> Result<(), JsError> {
         self.element
             .set_attribute(name, value)
-            .or(Err(JsError::ResourceError(
-                "Failed to set element attribute.",
-            )))
+            .or_else(|_| JsError::error("Failed to set element attribute."))
     }
 }
 
@@ -150,7 +157,11 @@ impl Canvas {
 
         let canvas = match element.dyn_into::<HtmlCanvasElement>() {
             Ok(c) => Canvas::new(c)?,
-            Err(_) => return Err(JsError::TypeError("Couldn't cast Element to HtmlCanvas.")),
+            Err(_) => {
+                return Err(JsError::TypeError(
+                    "Couldn't cast Element to HtmlCanvas.".into(),
+                ))
+            }
         };
 
         canvas.init()?;
@@ -183,7 +194,7 @@ impl Canvas {
         self.element
             .style()
             .set_property(property, value)
-            .or(Err(JsError::ResourceError("Failed to set canvas CSS.")))
+            .or_else(|_| JsError::error("Failed to set canvas CSS."))
     }
 
     /// Set CSS on the canvas element to ensure it fills the screen without
@@ -216,9 +227,7 @@ impl Canvas {
         let result =
             window()?.add_event_listener_with_callback("resize", closure.as_ref().unchecked_ref());
         closure.forget();
-        result.or(Err(JsError::ResourceError(
-            "Failed to add resize listener.",
-        )))
+        result.or_else(|_| JsError::error("Failed to add resize listener."))
     }
 
     fn configure_events(&self) -> Result<(), JsError> {
@@ -234,11 +243,7 @@ impl Canvas {
                 .add_event_listener_with_callback(event_name, listener.as_ref().unchecked_ref())
             {
                 Ok(_) => (),
-                Err(_) => {
-                    return Err(JsError::ResourceError(
-                        "Failed to add mouse event listener to canvas.",
-                    ))
-                }
+                Err(_) => return JsError::error("Failed to add mouse event listener to canvas."),
             };
 
             listener.forget();
@@ -252,9 +257,7 @@ impl Canvas {
             .add_event_listener_with_callback("keydown", listener.as_ref().unchecked_ref())
         {
             Ok(_) => Ok(()),
-            Err(_) => Err(JsError::ResourceError(
-                "Failed to add keyboard event listener to window.",
-            )),
+            Err(_) => JsError::error("Failed to add keyboard event listener to window."),
         };
         listener.forget();
 
@@ -337,7 +340,7 @@ impl Canvas {
 
         match result {
             Ok(()) => (),
-            Err(_) => return Err(JsError::ResourceError("Failed to add event listener.")),
+            Err(_) => return JsError::error("Failed to add event listener."),
         };
 
         {
@@ -350,7 +353,7 @@ impl Canvas {
             closure.forget();
             result
         }
-        .or(Err(JsError::ResourceError("Failed to add click listener.")))
+        .or_else(|_| JsError::error("Failed to add click listener."))
     }
 }
 
@@ -626,14 +629,8 @@ impl Context {
 
     pub fn draw_sprites(&mut self, vp: Rect, sprites: &[Sprite], grid_size: f32) {
         for sprite in sprites.iter() {
-            match sprite.visual {
-                SpriteVisual::Texture(texture) => self.renderer.draw_texture(
-                    vp,
-                    texture,
-                    Rect::scaled_from(sprite.rect, grid_size),
-                ),
-                _ => (),
-            };
+            self.renderer
+                .draw_sprite(sprite, vp, Rect::scaled_from(sprite.rect, grid_size));
         }
     }
 
@@ -694,9 +691,13 @@ fn create_context(element: &HtmlCanvasElement) -> Result<Gl, JsError> {
     let gl = match element.get_context("webgl2") {
         Ok(Some(c)) => match c.dyn_into::<Gl>() {
             Ok(c) => c,
-            Err(_) => return Err(JsError::TypeError("Failed to cast to WebGL context.")),
+            Err(_) => {
+                return Err(JsError::TypeError(
+                    "Failed to cast to WebGL context.".into(),
+                ))
+            }
         },
-        _ => return Err(JsError::ResourceError("Failed to get rendering context.")),
+        _ => return JsError::error("Failed to get rendering context."),
     };
 
     // Enable transparency
@@ -709,33 +710,33 @@ fn create_context(element: &HtmlCanvasElement) -> Result<Gl, JsError> {
 fn window() -> Result<Window, JsError> {
     match web_sys::window() {
         Some(w) => Ok(w),
-        None => Err(JsError::ResourceError("No Window.")),
+        None => JsError::error("No Window."),
     }
 }
 
 fn get_document() -> Result<Document, JsError> {
     match window()?.document() {
         Some(d) => Ok(d),
-        None => Err(JsError::ResourceError("No Document.")),
+        None => JsError::error("No Document."),
     }
 }
 
 fn get_body() -> Result<HtmlElement, JsError> {
     match get_document()?.body() {
         Some(b) => Ok(b),
-        None => Err(JsError::ResourceError("No Body.")),
+        None => JsError::error("No Body."),
     }
 }
 
 pub fn websocket_url() -> Result<Option<String>, JsError> {
     let win = match window() {
         Ok(w) => w,
-        Err(_) => return Err(JsError::ResourceError("Failed to read window Location.")),
+        Err(_) => return JsError::error("Failed to read window Location."),
     };
     let loc = win.location();
     let host = match loc.host() {
         Ok(h) => h,
-        Err(_) => return Err(JsError::ResourceError("Failed to read window host.")),
+        Err(_) => return JsError::error("Failed to read window host."),
     };
 
     match loc.pathname() {
@@ -750,21 +751,21 @@ pub fn websocket_url() -> Result<Option<String>, JsError> {
                 _ => Ok(None),
             }
         }
-        Err(_) => Err(JsError::ResourceError("Failed to read window pathname.")),
+        Err(_) => JsError::error("Failed to read window pathname."),
     }
 }
 
 fn create_element(name: &str) -> Result<web_sys::Element, JsError> {
     get_document()?
         .create_element(name)
-        .or(Err(JsError::ResourceError("Element creation failed.")))
+        .or_else(|_| JsError::error("Element creation failed."))
 }
 
 fn create_appended(name: &str) -> Result<web_sys::Element, JsError> {
     let element = create_element(name)?;
     match get_body()?.append_child(&element) {
         Ok(_) => Ok(element),
-        Err(_) => Err(JsError::ResourceError("Failed to append element.")),
+        Err(_) => JsError::error("Failed to append element."),
     }
 }
 
@@ -774,9 +775,9 @@ fn get_window_dimensions() -> Result<(u32, u32), JsError> {
     match (win.inner_width(), win.inner_height()) {
         (Ok(w), Ok(h)) => match (w.as_f64(), h.as_f64()) {
             (Some(w), Some(h)) => Ok((w as u32, h as u32)),
-            _ => Err(JsError::TypeError("Window dimensions non-numeric.")),
+            _ => JsError::error("Window dimensions non-numeric."),
         },
-        _ => Err(JsError::ResourceError("No Window dimensions.")),
+        _ => JsError::error("No Window dimensions."),
     }
 }
 
@@ -789,14 +790,12 @@ fn create_file_upload() -> Result<HtmlInputElement, JsError> {
     element
         .element
         .dyn_into::<HtmlInputElement>()
-        .or(Err(JsError::TypeError(
-            "Failed to cast element to HtmlInputElement.",
-        )))
+        .map_err(|_| JsError::TypeError("Failed to cast element to HtmlInputElement.".into()))
 }
 
 pub fn request_animation_frame(f: &Closure<dyn FnMut()>) -> Result<(), JsError> {
     match window()?.request_animation_frame(f.as_ref().unchecked_ref()) {
         Ok(_) => Ok(()),
-        Err(_) => Err(JsError::ResourceError("Failed to get animation frame.")),
+        Err(_) => JsError::error("Failed to get animation frame."),
     }
 }

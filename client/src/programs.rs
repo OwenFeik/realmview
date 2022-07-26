@@ -7,7 +7,7 @@ use web_sys::{
     HtmlImageElement, WebGlBuffer, WebGlProgram, WebGlShader, WebGlTexture, WebGlUniformLocation,
 };
 
-use scene::{Rect, SpriteShape};
+use scene::{Rect, Sprite, SpriteShape, SpriteVisual};
 
 use crate::bridge::{log, Gl, JsError};
 
@@ -44,7 +44,7 @@ impl Texture {
     fn create_gl_texture(gl: &Gl) -> Result<WebGlTexture, JsError> {
         match gl.create_texture() {
             Some(t) => Ok(t),
-            None => Err(JsError::ResourceError("Unable to create texture.")),
+            None => JsError::error("Unable to create texture."),
         }
     }
 
@@ -71,7 +71,7 @@ impl Texture {
             )
             .is_err()
         {
-            return Err(JsError::ResourceError("Unable to load array."));
+            return JsError::error("Unable to load array.");
         }
 
         self.gen_mipmap(gl);
@@ -122,7 +122,7 @@ impl Texture {
             )
             .is_err()
         {
-            return Err(JsError::ResourceError("Failed to create WebGL image."));
+            return JsError::error("Failed to create WebGL image.");
         }
 
         Ok(())
@@ -136,7 +136,7 @@ impl Texture {
         // Create HTML image to load image from url
         let image = match HtmlImageElement::new() {
             Ok(i) => Rc::new(i),
-            Err(_) => return Err(JsError::ResourceError("Unable to create image element.")),
+            Err(_) => return JsError::error("Unable to create image element."),
         };
         image.set_cross_origin(Some("")); // ?
 
@@ -218,60 +218,6 @@ impl TextureManager {
     }
 }
 
-struct TextureRenderer {
-    gl: Rc<Gl>,
-    program: WebGlProgram,
-    texcoord_buffer: WebGlBuffer,
-    texcoord_location: u32,
-    texture_location: WebGlUniformLocation,
-    square: Shape,
-}
-
-impl TextureRenderer {
-    pub fn new(gl: Rc<Gl>) -> Result<TextureRenderer, JsError> {
-        let program = create_program(
-            &gl,
-            include_str!("shaders/image.vert"),
-            include_str!("shaders/image.frag"),
-        )?;
-
-        let square = Shape::square(&gl, &program)?;
-
-        let texcoord_location = gl.get_attrib_location(&program, "a_texcoord") as u32;
-        let texcoord_buffer = create_buffer(&gl, Some(&square.coords))?;
-        let texture_location = match gl.get_uniform_location(&program, "u_texture") {
-            Some(l) => l,
-            None => {
-                return Err(JsError::ResourceError(
-                    "Couldn't find texture matrix location.",
-                ))
-            }
-        };
-
-        Ok(TextureRenderer {
-            gl,
-            program,
-            texcoord_buffer,
-            texcoord_location,
-            texture_location,
-            square,
-        })
-    }
-
-    pub fn draw_texture(&self, viewport: Rect, texture: &WebGlTexture, position: Rect) {
-        let gl = &self.gl;
-
-        gl.bind_texture(Gl::TEXTURE_2D, Some(texture));
-        gl.use_program(Some(&self.program));
-        gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.texcoord_buffer));
-        gl.enable_vertex_attrib_array(self.texcoord_location);
-        gl.vertex_attrib_pointer_with_i32(self.texcoord_location, 2, Gl::FLOAT, false, 0, 0);
-
-        gl.uniform1i(Some(&self.texture_location), 0);
-        self.square.draw(gl, viewport, position);
-    }
-}
-
 struct Shape {
     coords: Float32Array,
     position_buffer: WebGlBuffer,
@@ -281,19 +227,20 @@ struct Shape {
 }
 
 impl Shape {
+    // Prebuild most shapes as there's no need to recompute common shapes every
+    // time they're needed.
+    const CIRCLE_EDGES: u32 = 32;
+    const RECTANGLE: &'static [f32] = &[0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0];
+
     // Requires that the program use "a_position" and "u_matrix"
-    fn new(gl: &Gl, program: &WebGlProgram, coords: Float32Array) -> Result<Self, JsError> {
+    fn new(gl: &Gl, program: &WebGlProgram, points: &[f32]) -> Result<Self, JsError> {
+        let coords = Float32Array::new_with_length(points.len() as u32);
+        coords.copy_from(points);
+
         let position_location = gl.get_attrib_location(program, "a_position") as u32;
         let position_buffer = create_buffer(gl, Some(&coords))?;
 
-        let matrix_location = match gl.get_uniform_location(program, "u_matrix") {
-            Some(p) => p,
-            None => {
-                return Err(JsError::ResourceError(
-                    "Couldn't find shader matrix location.",
-                ))
-            }
-        };
+        let matrix_location = get_uniform_location(gl, program, "u_matrix")?;
 
         let vertex_count = (coords.length() / 2) as i32;
 
@@ -306,12 +253,6 @@ impl Shape {
         })
     }
 
-    fn square(gl: &Gl, program: &WebGlProgram) -> Result<Self, JsError> {
-        let coords = Float32Array::new_with_length(12);
-        coords.copy_from(&[0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0]);
-        Shape::new(gl, program, coords)
-    }
-
     // Returns a Shape for a regular polygon with n edges, or an error if the
     // program passed is non-functional.
     //
@@ -320,7 +261,7 @@ impl Shape {
     //
     // Based on:
     // https://webglfundamentals.org/webgl/lessons/webgl-drawing-without-data.html
-    fn ngon(gl: &Gl, program: &WebGlProgram, n: u32) -> Result<Self, JsError> {
+    fn ngon(n: u32) -> Vec<f32> {
         let n_verts = n * 3;
         let r = 0.5;
         let mut coords = vec![];
@@ -335,16 +276,7 @@ impl Shape {
             coords.push(theta.sin() * radius + 0.5);
         }
 
-        let ary = Float32Array::new_with_length(coords.len() as u32);
-        ary.copy_from(&coords);
-        Shape::new(gl, program, ary)
-    }
-
-    fn circle(gl: &Gl, program: &WebGlProgram) -> Result<Self, JsError> {
-        // 32 looks great until sprites get absurdly large, after which it still
-        // looks decent.
-        const CIRCLE_EDGES: u32 = 32;
-        Self::ngon(gl, program, CIRCLE_EDGES)
+        coords
     }
 
     fn from_sprite_shape(
@@ -353,10 +285,10 @@ impl Shape {
         shape: SpriteShape,
     ) -> Result<Self, JsError> {
         match shape {
-            SpriteShape::Ellipse => Self::circle(gl, program),
-            SpriteShape::Hexagon => Self::ngon(gl, program, 6),
-            SpriteShape::Rectangle => Self::square(gl, program),
-            SpriteShape::Triangle => Self::ngon(gl, program, 3),
+            SpriteShape::Ellipse => Self::new(gl, program, &Self::ngon(Self::CIRCLE_EDGES)),
+            SpriteShape::Hexagon => Self::new(gl, program, &Self::ngon(6)),
+            SpriteShape::Rectangle => Self::new(gl, program, Self::RECTANGLE),
+            SpriteShape::Triangle => Self::new(gl, program, &Self::ngon(3)),
         }
     }
 
@@ -383,7 +315,7 @@ struct Shapes {
 }
 
 impl Shapes {
-    fn new(&self, gl: &Gl, program: &WebGlProgram) -> Result<Self, JsError> {
+    fn new(gl: &Gl, program: &WebGlProgram) -> Result<Self, JsError> {
         Ok(Shapes {
             ellipse: Shape::from_sprite_shape(gl, program, SpriteShape::Ellipse)?,
             hexagon: Shape::from_sprite_shape(gl, program, SpriteShape::Hexagon)?,
@@ -391,18 +323,103 @@ impl Shapes {
             triangle: Shape::from_sprite_shape(gl, program, SpriteShape::Triangle)?,
         })
     }
+
+    fn shape(&self, shape: SpriteShape) -> &Shape {
+        match shape {
+            SpriteShape::Ellipse => &self.ellipse,
+            SpriteShape::Hexagon => &self.hexagon,
+            SpriteShape::Rectangle => &self.rectangle,
+            SpriteShape::Triangle => &self.triangle,
+        }
+    }
 }
 
-struct ShapeRenderer {
+struct SolidRenderer {
+    gl: Rc<Gl>,
+    program: WebGlProgram,
+    colour_location: WebGlUniformLocation,
     shapes: Shapes,
 }
 
-impl ShapeRenderer {
-    fn render(&self, shape: SpriteShape, colour: Colour) {
-        // match shape {
-        //     SpriteShape::Ellipse => self.shapes.ellipse.draw()
-        //     _ => ()
-        // };
+impl SolidRenderer {
+    fn new(gl: Rc<Gl>) -> Result<Self, JsError> {
+        let program = create_program(
+            &gl,
+            include_str!("shaders/solid.vert"),
+            include_str!("shaders/single.frag"),
+        )?;
+
+        let colour_location = get_uniform_location(&gl, &program, "u_color")?;
+        let shapes = Shapes::new(&gl, &program)?;
+
+        Ok(SolidRenderer {
+            gl,
+            program,
+            colour_location,
+            shapes,
+        })
+    }
+
+    fn draw_shape(&self, shape: SpriteShape, colour: Colour, viewport: Rect, position: Rect) {
+        let gl = &self.gl;
+
+        gl.use_program(Some(&self.program));
+        gl.uniform4fv_with_f32_array(Some(&self.colour_location), &colour);
+
+        self.shapes.shape(shape).draw(gl, viewport, position);
+    }
+}
+
+struct TextureRenderer {
+    gl: Rc<Gl>,
+    program: WebGlProgram,
+    texcoord_buffer: WebGlBuffer,
+    texcoord_location: u32,
+    texture_location: WebGlUniformLocation,
+    shapes: Shapes,
+}
+
+impl TextureRenderer {
+    fn new(gl: Rc<Gl>) -> Result<Self, JsError> {
+        let program = create_program(
+            &gl,
+            include_str!("shaders/solid.vert"),
+            include_str!("shaders/image.frag"),
+        )?;
+
+        let shapes = Shapes::new(&gl, &program)?;
+
+        let texcoord_location = gl.get_attrib_location(&program, "a_texcoord") as u32;
+        let texcoord_buffer = create_buffer(&gl, Some(&shapes.rectangle.coords))?;
+        let texture_location = get_uniform_location(&gl, &program, "u_texture")?;
+
+        Ok(TextureRenderer {
+            gl,
+            program,
+            texcoord_buffer,
+            texcoord_location,
+            texture_location,
+            shapes,
+        })
+    }
+
+    fn draw_texture(
+        &self,
+        shape: SpriteShape,
+        texture: &WebGlTexture,
+        viewport: Rect,
+        position: Rect,
+    ) {
+        let gl = &self.gl;
+
+        gl.bind_texture(Gl::TEXTURE_2D, Some(texture));
+        gl.use_program(Some(&self.program));
+        gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.texcoord_buffer));
+        gl.enable_vertex_attrib_array(self.texcoord_location);
+        gl.vertex_attrib_pointer_with_i32(self.texcoord_location, 2, Gl::FLOAT, false, 0, 0);
+
+        gl.uniform1i(Some(&self.texture_location), 0);
+        self.shapes.shape(shape).draw(gl, viewport, position);
     }
 }
 
@@ -424,14 +441,7 @@ impl LineRenderer {
         )?;
         let position_location = gl.get_attrib_location(&program, "a_position") as u32;
         let position_buffer = create_buffer(&gl, None)?;
-        let colour_location = match gl.get_uniform_location(&program, "u_color") {
-            Some(l) => l,
-            None => {
-                return Err(JsError::ResourceError(
-                    "Failed to get location for colour vector.",
-                ))
-            }
-        };
+        let colour_location = get_uniform_location(&gl, &program, "u_color")?;
 
         Ok(LineRenderer {
             gl,
@@ -610,6 +620,8 @@ pub struct Renderer {
     // Loads and stores references to textures
     texture_library: TextureManager,
 
+    solid_renderer: SolidRenderer,
+
     // Rendering program, used to draw sprites.
     texture_renderer: TextureRenderer,
 
@@ -624,6 +636,7 @@ impl Renderer {
     pub fn new(gl: Rc<Gl>) -> Result<Renderer, JsError> {
         Ok(Renderer {
             texture_library: TextureManager::new(gl.clone())?,
+            solid_renderer: SolidRenderer::new(gl.clone())?,
             texture_renderer: TextureRenderer::new(gl.clone())?,
             line_renderer: LineRenderer::new(gl.clone())?,
             grid_renderer: GridRenderer::new(gl)?,
@@ -638,9 +651,19 @@ impl Renderer {
         self.texture_library.load_image(image)
     }
 
-    pub fn draw_texture(&mut self, vp: Rect, texture: scene::Id, position: Rect) {
-        self.texture_renderer
-            .draw_texture(vp, self.texture_library.get_texture(texture), position);
+    pub fn draw_sprite(&mut self, sprite: &Sprite, viewport: Rect, position: Rect) {
+        match sprite.visual {
+            SpriteVisual::Colour(colour) => {
+                self.solid_renderer
+                    .draw_shape(sprite.shape, colour, viewport, position)
+            }
+            SpriteVisual::Texture(id) => self.texture_renderer.draw_texture(
+                sprite.shape,
+                self.texture_library.get_texture(id),
+                viewport,
+                position,
+            ),
+        }
     }
 
     pub fn draw_outline(
@@ -675,7 +698,7 @@ impl Renderer {
 fn create_shader(gl: &Gl, src: &str, stype: u32) -> Result<WebGlShader, JsError> {
     let shader = match gl.create_shader(stype) {
         Some(s) => s,
-        None => return Err(JsError::ResourceError("Failed to create shader.")),
+        None => return JsError::error("Failed to create shader."),
     };
 
     gl.shader_source(&shader, src);
@@ -686,10 +709,8 @@ fn create_shader(gl: &Gl, src: &str, stype: u32) -> Result<WebGlShader, JsError>
         .is_falsy()
     {
         return match gl.get_shader_info_log(&shader) {
-            Some(_) => Err(JsError::ResourceError("Shader compilation failed.")),
-            None => Err(JsError::ResourceError(
-                "Shader compilation failed, no error message.",
-            )),
+            Some(_) => JsError::error("Shader compilation failed."),
+            None => JsError::error("Shader compilation failed, no error message."),
         };
     }
 
@@ -699,7 +720,7 @@ fn create_shader(gl: &Gl, src: &str, stype: u32) -> Result<WebGlShader, JsError>
 fn create_program(gl: &Gl, vert: &str, frag: &str) -> Result<WebGlProgram, JsError> {
     let program = match gl.create_program() {
         Some(p) => p,
-        None => return Err(JsError::ResourceError("WebGL program creation failed.")),
+        None => return JsError::error("WebGL program creation failed."),
     };
 
     gl.attach_shader(&program, &create_shader(gl, vert, Gl::VERTEX_SHADER)?);
@@ -712,7 +733,7 @@ fn create_program(gl: &Gl, vert: &str, frag: &str) -> Result<WebGlProgram, JsErr
         .is_falsy()
     {
         gl.delete_program(Some(&program));
-        return Err(JsError::ResourceError("WebGL program linking failed."));
+        return JsError::error("WebGL program linking failed.");
     }
 
     Ok(program)
@@ -721,7 +742,7 @@ fn create_program(gl: &Gl, vert: &str, frag: &str) -> Result<WebGlProgram, JsErr
 fn create_buffer(gl: &Gl, data_opt: Option<&Float32Array>) -> Result<WebGlBuffer, JsError> {
     let buffer = match gl.create_buffer() {
         Some(b) => b,
-        None => return Err(JsError::ResourceError("Failed to create WebGL buffer.")),
+        None => return JsError::error("Failed to create WebGL buffer."),
     };
 
     if let Some(data) = data_opt {
@@ -734,6 +755,19 @@ fn create_buffer(gl: &Gl, data_opt: Option<&Float32Array>) -> Result<WebGlBuffer
     }
 
     Ok(buffer)
+}
+
+fn get_uniform_location(
+    gl: &Gl,
+    program: &WebGlProgram,
+    location: &str,
+) -> Result<WebGlUniformLocation, JsError> {
+    match gl.get_uniform_location(program, location) {
+        Some(l) => Ok(l),
+        None => Err(JsError::ResourceError(format!(
+            "Failed to get WebGlUniformLocation {location}."
+        ))),
+    }
 }
 
 // Map value (as a proportion of scale) to [-1, 1]
