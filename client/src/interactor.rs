@@ -94,7 +94,7 @@ impl Changes {
     }
 }
 
-#[derive(Default, serde_derive::Deserialize, serde_derive::Serialize)]
+#[derive(Debug, Default, serde_derive::Deserialize, serde_derive::Serialize)]
 #[serde(default)]
 pub struct SpriteDetails {
     pub id: Id,
@@ -102,6 +102,7 @@ pub struct SpriteDetails {
     pub y: Option<f32>,
     pub w: Option<f32>,
     pub h: Option<f32>,
+    pub shape: Option<SpriteShape>,
     pub texture: Option<Id>,
 }
 
@@ -118,6 +119,7 @@ impl SpriteDetails {
             y: Some(sprite.rect.y),
             w: Some(sprite.rect.w),
             h: Some(sprite.rect.h),
+            shape: Some(sprite.shape),
             texture,
         }
     }
@@ -160,6 +162,10 @@ impl SpriteDetails {
 
         if let Some(h) = self.h {
             events.push(sprite.set_dimension(Dimension::H, h));
+        }
+
+        if let Some(shape) = self.shape {
+            events.push(sprite.set_shape(shape));
         }
 
         if let Some(id) = self.texture {

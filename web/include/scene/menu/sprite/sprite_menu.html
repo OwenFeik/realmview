@@ -10,7 +10,7 @@
           type="number",
           noend=1,
           small=1,
-          action="v => update_sprite_details('x', v)"
+          action="v => update_sprite_details('x', parseInt(v))"
         )
       }}
       {{
@@ -21,7 +21,7 @@
           nostart=1,
           noend=1,
           small=1,
-          action="v => update_sprite_details('y', v)"
+          action="v => update_sprite_details('y', parseInt(v))"
         )
       }}
       {{
@@ -32,7 +32,7 @@
           nostart=1,
           noend=1,
           small=1,
-          action="v => update_sprite_details('w', v)"
+          action="v => update_sprite_details('w', parseInt(v))"
         )
       }}
       {{
@@ -42,9 +42,17 @@
           type="number",
           nostart=1,
           small=1,
-          action="v => update_sprite_details('h', v)"
+          action="v => update_sprite_details('h', parseInt(v))"
         )
       }}
+      <div class="input-group mt-1">
+        {{ dropdown_button(label="Shape", small=1) }}
+        <ul class="dropdown-menu">
+          {{ menu/sprite_shape_option(shape="Rectangle") }}
+          {{ menu/sprite_shape_option(shape="Ellipse") }}
+          {{ menu/sprite_shape_option(shape="Hexagon") }}
+        </ul>
+      </div>
     |
   )
 }}
@@ -55,7 +63,10 @@ function update_sprite_details(dimension, value) {
             .getElementById("sprite_menu_heading")
             .getAttribute("{{ constant(DATA_ID_ATTR) }}")
     );
-    RustFuncs.sprite_details(id, `{"${dimension}": ${value}}`);
+
+    let obj = {};
+    obj[dimension] = value;
+    RustFuncs.sprite_details(id, JSON.stringify(obj));
 }
 
 function set_selected_sprite(sprite_json) {
