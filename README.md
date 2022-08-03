@@ -3,9 +3,8 @@
 * Scene
     * Hide or show UI elements depending on user role.
     * Draw on map.
+        * Choose colour
         * Shapes
-            * Ellipse
-            * Rectangle
             * Filled
             * Hollow
         * Freehand
@@ -16,7 +15,7 @@
     * Select from selected layer first (possibly)
     * Layer opacity
 * Sprites
-    * Use sprite menu to change texture.
+    * Use sprite menu to change texture and colour.
     * Change cursor when hovering a sprite or anchor.
 * Media
     * Delete media items

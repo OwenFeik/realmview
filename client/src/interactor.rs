@@ -834,12 +834,36 @@ impl Interactor {
         visual: Option<SpriteVisual>,
         shape: Option<SpriteShape>,
         layer: Option<Id>,
-    ) {
+    ) -> Option<Id> {
         let opt = self
             .scene
             .new_sprite(visual, shape, layer.unwrap_or(self.selected_layer));
-        crate::bridge::log(&format!("{opt:?}"));
+        let ret = if let Some(SceneEvent::SpriteNew(s, _)) = opt {
+            Some(s.id)
+        } else {
+            None
+        };
         self.scene_option(opt);
+        ret
+    }
+
+    pub fn new_grabbed_sprite(
+        &mut self,
+        visual: Option<SpriteVisual>,
+        shape: Option<SpriteShape>,
+        layer: Option<Id>,
+        at: ScenePoint,
+    ) {
+        self.release(false, false);
+        self.clear_selection();
+
+        if let Some(id) = self.new_sprite(visual, shape, layer) {
+            let opt = self.scene.sprite(id).map(|s| {
+                self.holding = HeldObject::Anchor(s.id, 1, 1);
+                s.set_rect(Rect::new(at.x, at.y, 0.0, 0.0))
+            });
+            self.scene_option(opt);
+        }
     }
 
     pub fn clone_sprite(&mut self, sprite: Id) {

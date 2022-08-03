@@ -119,11 +119,10 @@ impl Viewport {
     fn handle_mouse_down(&mut self, at: ViewportPoint, button: MouseButton, ctrl: bool) {
         match button {
             MouseButton::Left => match self.tool {
-                Tool::Select => self
-                    .scene
-                    .grab(at.scene_point(self.viewport, self.grid_zoom), ctrl),
+                Tool::Select => self.scene.grab(self.scene_point(at), ctrl),
                 Tool::Shape(shape) => {
-                    self.scene.new_sprite(None, Some(shape), None);
+                    self.scene
+                        .new_grabbed_sprite(None, Some(shape), None, self.scene_point(at));
                 }
             },
             MouseButton::Right => {
