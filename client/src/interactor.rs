@@ -545,15 +545,15 @@ impl Interactor {
         self.selected_sprites.len() == 1
     }
 
-    fn clear_selection(&mut self) {
+    pub fn clear_selection(&mut self) {
         self.selected_sprites.clear();
-        self.changes.selected_change();
+        self.changes.sprite_selected_change();
     }
 
     fn select(&mut self, id: Id) {
         if !self.is_selected(id) {
             self.selected_sprites.push(id);
-            self.changes.selected_change();
+            self.changes.sprite_selected_change();
         }
     }
 
