@@ -403,6 +403,10 @@ pub enum Key {
     Control,
     Delete,
     Shift,
+    Down,
+    Left,
+    Right,
+    Up,
     A,
     B,
     C,
@@ -438,6 +442,10 @@ impl Key {
             "Control" => Self::Control,
             "Delete" => Self::Delete,
             "Shift" => Self::Shift,
+            "ArrowDown" => Self::Down,
+            "ArrowLeft" => Self::Left,
+            "ArrowRight" => Self::Right,
+            "ArrowUp" => Self::Up,
             "a" => Self::A,
             "b" => Self::B,
             "c" => Self::C,
@@ -465,6 +473,10 @@ impl Key {
             "z" => Self::Z,
             _ => Self::Unknown,
         }
+    }
+
+    pub fn is_arrow(&self) -> bool {
+        matches!(self, Key::Down | Key::Left | Key::Right | Key::Up)
     }
 }
 

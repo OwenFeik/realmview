@@ -9,21 +9,21 @@
             group="tool_radio",
             active=1,
             label='{{ bootstrap_icon(cursor) }}',
-            action="RustFuncs.select_tool('Select')"
+            action="RustFuncs.select_tool('Select'); this.blur();"
           )
         }}
         {{
           radio_check(
             group="tool_radio",
             label='{{ bootstrap_icon(square) }}',
-            action="RustFuncs.select_tool('Rectangle')"
+            action="RustFuncs.select_tool('Rectangle'); this.blur();"
           )
         }}
         {{
           radio_check(
             group="tool_radio",
             label='{{ bootstrap_icon(circle) }}',
-            action="RustFuncs.select_tool('Ellipse')"
+            action="RustFuncs.select_tool('Ellipse'); this.blur();"
           )
         }}
       </div>

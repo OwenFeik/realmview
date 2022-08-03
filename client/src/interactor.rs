@@ -533,7 +533,7 @@ impl Interactor {
         }
     }
 
-    fn has_selection(&self) -> bool {
+    pub fn has_selection(&self) -> bool {
         !self.selected_sprites.is_empty()
     }
 
@@ -975,5 +975,12 @@ impl Interactor {
             let opt = details.update_sprite(sprite);
             self.scene_option(opt);
         }
+    }
+
+    pub fn move_selection(&mut self, delta: ScenePoint) {
+        if delta.x == 0.0 && delta.y == 0.0 {
+            return;
+        }
+        self.selection_effect(|s| Some(s.move_by(delta)));
     }
 }

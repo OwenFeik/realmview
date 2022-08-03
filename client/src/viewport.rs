@@ -198,9 +198,28 @@ impl Viewport {
             .drag(at.scene_point(self.viewport, self.grid_zoom));
     }
 
+    fn handle_arrow_key_down(&mut self, key: Key, ctrl: bool) {
+        let delta = match key {
+            Key::Down => ScenePoint { x: 0.0, y: 1.0 },
+            Key::Left => ScenePoint { x: -1.0, y: 0.0 },
+            Key::Right => ScenePoint { x: 1.0, y: 0.0 },
+            Key::Up => ScenePoint { x: 0.0, y: -1.0 },
+            _ => ScenePoint { x: 0.0, y: 0.0 },
+        };
+
+        if ctrl || !self.scene.has_selection() {
+            self.viewport.translate(delta);
+            self.redraw_needed = true;
+        } else {
+            self.scene.move_selection(delta);
+        }
+    }
+
     fn handle_key_down(&mut self, key: Key, ctrl: bool) {
         if matches!(key, Key::Delete) {
             self.scene.remove_sprite(Interactor::SELECTION_ID);
+        } else if key.is_arrow() {
+            self.handle_arrow_key_down(key, ctrl);
         } else if ctrl {
             match key {
                 Key::Y => self.scene.redo(),
