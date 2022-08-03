@@ -7,7 +7,7 @@ use bincode::serialize;
 use scene::{
     comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent},
     perms::Perms,
-    Dimension, Id, Layer, Rect, Scene, ScenePoint, Sprite, SpriteShape, SpriteVisual,
+    Colour, Dimension, Id, Layer, Rect, Scene, ScenePoint, Sprite, SpriteShape, SpriteVisual,
 };
 
 use crate::client::Client;
@@ -103,14 +103,15 @@ pub struct SpriteDetails {
     pub w: Option<f32>,
     pub h: Option<f32>,
     pub shape: Option<SpriteShape>,
+    pub colour: Option<Colour>,
     pub texture: Option<Id>,
 }
 
 impl SpriteDetails {
     fn from(id: Id, sprite: &Sprite) -> Self {
-        let texture = match sprite.visual {
-            SpriteVisual::Texture(id) => Some(id),
-            _ => None,
+        let (texture, colour) = match sprite.visual {
+            SpriteVisual::Colour(c) => (None, Some(c)),
+            SpriteVisual::Texture(id) => (Some(id), None),
         };
 
         SpriteDetails {
@@ -120,6 +121,7 @@ impl SpriteDetails {
             w: Some(sprite.rect.w),
             h: Some(sprite.rect.h),
             shape: Some(sprite.shape),
+            colour,
             texture,
         }
     }
@@ -139,6 +141,14 @@ impl SpriteDetails {
 
         if self.h != Some(sprite.rect.h) {
             self.h = None;
+        }
+
+        if self.shape != Some(sprite.shape) {
+            self.shape = None;
+        }
+
+        if self.colour.is_some() && SpriteVisual::Colour(self.colour.unwrap()) != sprite.visual {
+            self.colour = None;
         }
 
         if self.texture.is_some() && SpriteVisual::Texture(self.texture.unwrap()) != sprite.visual {
@@ -168,7 +178,9 @@ impl SpriteDetails {
             events.push(sprite.set_shape(shape));
         }
 
-        if let Some(id) = self.texture {
+        if let Some(c) = self.colour {
+            events.push(sprite.set_visual(SpriteVisual::Colour(c)));
+        } else if let Some(id) = self.texture {
             events.push(sprite.set_visual(SpriteVisual::Texture(id)));
         }
 
@@ -957,7 +969,9 @@ impl Interactor {
     }
 
     pub fn sprite_details(&mut self, id: Id, details: SpriteDetails) {
-        if let Some(sprite) = self.scene.sprite(id) {
+        if id == Self::SELECTION_ID {
+            self.selection_effect(|s| details.update_sprite(s));
+        } else if let Some(sprite) = self.scene.sprite(id) {
             let opt = details.update_sprite(sprite);
             self.scene_option(opt);
         }

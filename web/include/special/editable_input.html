@@ -5,7 +5,13 @@ if "FEEDBACK" not in kwargs and "HELP" in kwargs:
   kwargs["FEEDBACK"] = 1
 }}
 IFNDEF(NOSTART) {{
-<div class="input-group IFDEF(SMALL) {{ input-group-sm }}">
+<div
+  class="
+    input-group
+    IFDEF(SMALL) {{ input-group-sm }}
+    IFDEF(STARTCLASS) {{ {{ STARTCLASS }} }}
+  "
+>
 }}
   IFDEF(BEFORE) {{ {{ BEFORE }} }}
   IFDEF(LABEL) {{ <span class="input-group-text">{{ LABEL }}</span> }}

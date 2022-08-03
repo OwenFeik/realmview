@@ -16,7 +16,7 @@ mod tests;
 
 pub use layer::Layer;
 pub use rect::{Dimension, Rect};
-pub use sprite::{Sprite, SpriteShape, SpriteVisual};
+pub use sprite::{Colour, Sprite, SpriteShape, SpriteVisual};
 
 use comms::SceneEvent;
 

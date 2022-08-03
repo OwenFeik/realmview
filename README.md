@@ -13,7 +13,7 @@
     * Select from selected layer first (possibly)
     * Layer opacity
 * Sprites
-    * Use sprite menu to change texture and colour.
+    * Use sprite menu to change texture.
     * Change cursor when hovering a sprite or anchor.
 * Media
     * Delete media items
@@ -21,7 +21,6 @@
         * Place media in directories
         * Multiselect media, apply action to all items
     * Pressing enter in modal breaks things
-    * When duplicate media is rejected, database error is the response
 * Projects
     * /project/PROJECT_KEY should show a page with the scenes in that project
         and project metadata
