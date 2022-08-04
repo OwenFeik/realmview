@@ -847,7 +847,7 @@ impl Interactor {
         self.changes.all_change();
     }
 
-    pub fn new_sprite(
+    fn new_sprite(
         &mut self,
         visual: Option<SpriteVisual>,
         shape: Option<SpriteShape>,
@@ -880,6 +880,19 @@ impl Interactor {
                 self.holding = HeldObject::Anchor(s.id, 1, 1);
                 s.set_rect(Rect::new(at.x, at.y, 0.0, 0.0))
             });
+            self.scene_option(opt);
+        }
+    }
+
+    pub fn new_sprite_at(
+        &mut self,
+        visual: Option<SpriteVisual>,
+        shape: Option<SpriteShape>,
+        layer: Option<Id>,
+        at: ScenePoint,
+    ) {
+        if let Some(id) = self.new_sprite(visual, shape, layer) {
+            let opt = self.scene.sprite(id).map(|s| s.set_pos(at));
             self.scene_option(opt);
         }
     }

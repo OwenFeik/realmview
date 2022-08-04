@@ -77,10 +77,13 @@ pub fn start() -> Result<(), JsValue> {
     let vp_ref = vp.clone();
     let new_sprite_closure = Closure::wrap(Box::new(move |layer: f64, media_key: String| {
         let texture = crate::programs::parse_media_key(&media_key);
-        vp_ref.lock().scene.new_sprite(
+        let mut lock = vp_ref.lock();
+        let at = lock.centre_tile();
+        lock.scene.new_sprite_at(
             Some(scene::SpriteVisual::Texture(texture)),
             None,
             Some(layer as i64),
+            at,
         );
     }) as Box<dyn FnMut(f64, String)>);
     expose_closure_f64_string("new_sprite", &new_sprite_closure);

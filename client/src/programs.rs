@@ -370,36 +370,67 @@ impl SolidRenderer {
     }
 }
 
-struct TextureRenderer {
+struct TextureShapeRenderer {
     gl: Rc<Gl>,
     program: WebGlProgram,
     texcoord_buffer: WebGlBuffer,
     texcoord_location: u32,
     texture_location: WebGlUniformLocation,
-    shapes: Shapes,
+    shape: Shape,
 }
 
-impl TextureRenderer {
-    fn new(gl: Rc<Gl>) -> Result<Self, JsError> {
+impl TextureShapeRenderer {
+    fn new(gl: Rc<Gl>, shape: SpriteShape) -> Result<Self, JsError> {
         let program = create_program(
             &gl,
             include_str!("shaders/solid.vert"),
             include_str!("shaders/image.frag"),
         )?;
 
-        let shapes = Shapes::new(&gl, &program)?;
+        let shape = Shape::from_sprite_shape(&gl, &program, shape)?;
 
         let texcoord_location = gl.get_attrib_location(&program, "a_texcoord") as u32;
-        let texcoord_buffer = create_buffer(&gl, Some(&shapes.rectangle.coords))?;
+        let texcoord_buffer = create_buffer(&gl, Some(&shape.coords))?;
         let texture_location = get_uniform_location(&gl, &program, "u_texture")?;
 
-        Ok(TextureRenderer {
+        Ok(TextureShapeRenderer {
             gl,
             program,
             texcoord_buffer,
             texcoord_location,
             texture_location,
-            shapes,
+            shape,
+        })
+    }
+
+    fn draw_texture(&self, texture: &WebGlTexture, viewport: Rect, position: Rect) {
+        let gl = &self.gl;
+
+        gl.bind_texture(Gl::TEXTURE_2D, Some(texture));
+        gl.use_program(Some(&self.program));
+        gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.texcoord_buffer));
+        gl.enable_vertex_attrib_array(self.texcoord_location);
+        gl.vertex_attrib_pointer_with_i32(self.texcoord_location, 2, Gl::FLOAT, false, 0, 0);
+
+        gl.uniform1i(Some(&self.texture_location), 0);
+        self.shape.draw(gl, viewport, position);
+    }
+}
+
+struct TextureRenderer {
+    ellipse: TextureShapeRenderer,
+    hexagon: TextureShapeRenderer,
+    rectangle: TextureShapeRenderer,
+    triangle: TextureShapeRenderer,
+}
+
+impl TextureRenderer {
+    fn new(gl: Rc<Gl>) -> Result<Self, JsError> {
+        Ok(TextureRenderer {
+            ellipse: TextureShapeRenderer::new(gl.clone(), SpriteShape::Ellipse)?,
+            hexagon: TextureShapeRenderer::new(gl.clone(), SpriteShape::Hexagon)?,
+            rectangle: TextureShapeRenderer::new(gl.clone(), SpriteShape::Rectangle)?,
+            triangle: TextureShapeRenderer::new(gl, SpriteShape::Triangle)?,
         })
     }
 
@@ -410,16 +441,12 @@ impl TextureRenderer {
         viewport: Rect,
         position: Rect,
     ) {
-        let gl = &self.gl;
-
-        gl.bind_texture(Gl::TEXTURE_2D, Some(texture));
-        gl.use_program(Some(&self.program));
-        gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.texcoord_buffer));
-        gl.enable_vertex_attrib_array(self.texcoord_location);
-        gl.vertex_attrib_pointer_with_i32(self.texcoord_location, 2, Gl::FLOAT, false, 0, 0);
-
-        gl.uniform1i(Some(&self.texture_location), 0);
-        self.shapes.shape(shape).draw(gl, viewport, position);
+        match shape {
+            SpriteShape::Ellipse => self.ellipse.draw_texture(texture, viewport, position),
+            SpriteShape::Hexagon => self.hexagon.draw_texture(texture, viewport, position),
+            SpriteShape::Rectangle => self.rectangle.draw_texture(texture, viewport, position),
+            SpriteShape::Triangle => self.triangle.draw_texture(texture, viewport, position),
+        }
     }
 }
 

@@ -42,6 +42,14 @@ impl ScenePoint {
             h: y - self.y,
         }
     }
+
+    #[must_use]
+    pub fn round(&self) -> Self {
+        ScenePoint {
+            x: self.x.round(),
+            y: self.y.round(),
+        }
+    }
 }
 
 impl Add for ScenePoint {

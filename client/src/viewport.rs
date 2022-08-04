@@ -316,4 +316,13 @@ impl Viewport {
     pub fn set_tool(&mut self, tool: Tool) {
         self.tool = tool;
     }
+
+    pub fn centre_tile(&self) -> ScenePoint {
+        (self.viewport.top_left()
+            + ScenePoint {
+                x: self.viewport.w / 2.0,
+                y: self.viewport.h / 2.0,
+            })
+        .round()
+    }
 }

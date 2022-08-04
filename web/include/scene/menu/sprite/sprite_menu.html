@@ -45,57 +45,58 @@
           action="v => update_sprite_details('h', parseInt(v))"
         )
       }}
-      {{
-        editable_input(
-          id="sprite_menu_r",
-          label="R",
-          type="number",
-          min=0,
-          max=255,
-          noend=1,
-          small=1,
-          action="() => update_sprite_colour()",
-          startclass="mt-1"
-        )
-      }}
-      {{
-        editable_input(
-          id="sprite_menu_g",
-          label="G",
-          type="number",
-          min=0,
-          max=255,
-          nostart=1,
-          noend=1,
-          small=1,
-          action="() => update_sprite_colour()"
-        )
-      }}
-      {{
-        editable_input(
-          id="sprite_menu_b",
-          label="B",
-          type="number",
-          min=0,
-          max=255,
-          nostart=1,
-          noend=1,
-          small=1,
-          action="() => update_sprite_colour()"
-        )
-      }}
-      {{
-        editable_input(
-          id="sprite_menu_a",
-          label="A",
-          type="number",
-          min=0,
-          max=255,
-          nostart=1,
-          small=1,
-          action="() => update_sprite_colour()"
-        )
-      }}
+      <div id="sprite_menu_colour" class="mt-1">
+        {{
+          editable_input(
+            id="sprite_menu_r",
+            label="R",
+            type="number",
+            min=0,
+            max=255,
+            noend=1,
+            small=1,
+            action="() => update_sprite_colour()",
+          )
+        }}
+        {{
+          editable_input(
+            id="sprite_menu_g",
+            label="G",
+            type="number",
+            min=0,
+            max=255,
+            nostart=1,
+            noend=1,
+            small=1,
+            action="() => update_sprite_colour()"
+          )
+        }}
+        {{
+          editable_input(
+            id="sprite_menu_b",
+            label="B",
+            type="number",
+            min=0,
+            max=255,
+            nostart=1,
+            noend=1,
+            small=1,
+            action="() => update_sprite_colour()"
+          )
+        }}
+        {{
+          editable_input(
+            id="sprite_menu_a",
+            label="A",
+            type="number",
+            min=0,
+            max=255,
+            nostart=1,
+            small=1,
+            action="() => update_sprite_colour()"
+          )
+        }}  
+      </div>
       <div class="input-group mt-1">
         {{ dropdown_button(label="Shape", small=1) }}
         <ul class="dropdown-menu">
@@ -139,10 +140,17 @@ function set_selected_sprite(sprite_json) {
 
     let colour = sprite?.colour;
     let colour_keys = ["r", "g", "b", "a"];
-    for (let i = 0; i < 4; i++) {
-        sprite[colour_keys[i]] = (
-            colour ? (colour[i] * 255).toFixed(0) : undefined
-        );
+    let colour_menu = document.getElementById("sprite_menu_colour");
+    if (colour) {
+        for (let i = 0; i < 4; i++) {
+            sprite[colour_keys[i]] = (
+                colour ? (colour[i] * 255).toFixed(0) : undefined
+            );
+        }
+        colour_menu.style.display = "block";
+    }
+    else {
+        colour_menu.style.display = "none";
     }
 
     ["x", "y", "w", "h"].concat(colour_keys).forEach(
