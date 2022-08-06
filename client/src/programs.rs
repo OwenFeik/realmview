@@ -218,6 +218,63 @@ impl TextureManager {
     }
 }
 
+struct PointsRenderer {
+    gl: Rc<Gl>,
+    program: WebGlProgram,
+    position_buffer: WebGlBuffer,
+    position_location: u32,
+    colour_location: WebGlUniformLocation,
+}
+
+impl PointsRenderer {
+    fn new(gl: Rc<Gl>) -> Result<Self, JsError> {
+        let program = create_program(
+            &gl,
+            include_str!("shaders/pos.vert"),
+            include_str!("shaders/single.frag"),
+        )?;
+        let position_location = gl.get_attrib_location(&program, "a_position") as u32;
+        let position_buffer = create_buffer(&gl, None)?;
+        let colour_location = get_uniform_location(&gl, &program, "u_colour")?;
+
+        Ok(Self {
+            gl,
+            program,
+            position_buffer,
+            position_location,
+            colour_location,
+        })
+    }
+
+    fn draw(&self, points: &mut [f32], colour: Colour, vp: Rect) {
+        let gl = &self.gl;
+
+        let n = (points.len() / 2) as i32;
+        scale_points(points, vp.w, vp.h);
+        let points = &*points;
+        let data = Float32Array::from(points);
+
+        // Set program
+        gl.use_program(Some(&self.program));
+
+        // Set position buffer and load point data
+        gl.enable_vertex_attrib_array(self.position_location);
+        gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.position_buffer));
+        gl.buffer_data_with_opt_array_buffer(
+            Gl::ARRAY_BUFFER,
+            Some(&data.buffer()),
+            Gl::STATIC_DRAW,
+        );
+        gl.vertex_attrib_pointer_with_i32(self.position_location, 2, Gl::FLOAT, false, 0, 0);
+
+        // Set colour
+        gl.uniform4fv_with_f32_array(Some(&self.colour_location), &colour);
+
+        // Draw points
+        gl.draw_arrays(Gl::POINTS, 0, n);
+    }
+}
+
 struct Shape {
     coords: Float32Array,
     position_buffer: WebGlBuffer,
@@ -349,7 +406,7 @@ impl SolidRenderer {
             include_str!("shaders/single.frag"),
         )?;
 
-        let colour_location = get_uniform_location(&gl, &program, "u_color")?;
+        let colour_location = get_uniform_location(&gl, &program, "u_colour")?;
         let shapes = Shapes::new(&gl, &program)?;
 
         Ok(SolidRenderer {
@@ -463,12 +520,12 @@ impl LineRenderer {
     fn new(gl: Rc<Gl>) -> Result<LineRenderer, JsError> {
         let program = create_program(
             &gl,
-            include_str!("shaders/line.vert"),
+            include_str!("shaders/pos.vert"),
             include_str!("shaders/single.frag"),
         )?;
         let position_location = gl.get_attrib_location(&program, "a_position") as u32;
         let position_buffer = create_buffer(&gl, None)?;
-        let colour_location = get_uniform_location(&gl, &program, "u_color")?;
+        let colour_location = get_uniform_location(&gl, &program, "u_colour")?;
 
         Ok(LineRenderer {
             gl,
@@ -481,14 +538,7 @@ impl LineRenderer {
     }
 
     fn scale_and_load_points(&mut self, points: &mut [f32], vp_w: f32, vp_h: f32) {
-        for (i, v) in points.iter_mut().enumerate() {
-            // Point vectors are of form [x1, y1, x2, y2 ... xn, yn] so even indices are xs.
-            if i % 2 == 0 {
-                *v = to_unit(*v, vp_w);
-            } else {
-                *v = -to_unit(*v, vp_h);
-            }
-        }
+        scale_points(points, vp_w, vp_h);
         self.load_points(points);
     }
 
@@ -647,10 +697,14 @@ pub struct Renderer {
     // Loads and stores references to textures
     texture_library: TextureManager,
 
+    // Draw solid shapes
     solid_renderer: SolidRenderer,
 
-    // Rendering program, used to draw sprites.
+    // Draw textures in shapes
     texture_renderer: TextureRenderer,
+
+    // Draw series of points
+    point_renderer: PointsRenderer,
 
     // To render outlines &c
     line_renderer: LineRenderer,
@@ -665,6 +719,7 @@ impl Renderer {
             texture_library: TextureManager::new(gl.clone())?,
             solid_renderer: SolidRenderer::new(gl.clone())?,
             texture_renderer: TextureRenderer::new(gl.clone())?,
+            point_renderer: PointsRenderer::new(gl.clone())?,
             line_renderer: LineRenderer::new(gl.clone())?,
             grid_renderer: GridRenderer::new(gl)?,
         })
@@ -689,7 +744,9 @@ impl Renderer {
                 viewport,
                 position,
             ),
-            _ => (),
+            SpriteVisual::Drawing { colour, points: _ } => self
+                .point_renderer
+                .draw(&mut sprite.drawing_points().unwrap(), colour, viewport),
         }
     }
 
@@ -800,6 +857,17 @@ fn get_uniform_location(
 // Map value (as a proportion of scale) to [-1, 1]
 fn to_unit(value: f32, scale: f32) -> f32 {
     ((2.0 * value) - scale) / scale
+}
+
+fn scale_points(points: &mut [f32], vp_w: f32, vp_h: f32) {
+    for (i, v) in points.iter_mut().enumerate() {
+        // Point vectors are of form [x1, y1, x2, y2 ... xn, yn] so even indices are xs.
+        if i % 2 == 0 {
+            *v = to_unit(*v, vp_w);
+        } else {
+            *v = -to_unit(*v, vp_h);
+        }
+    }
 }
 
 // see https://webglfundamentals.org/webgl/resources/m4.js

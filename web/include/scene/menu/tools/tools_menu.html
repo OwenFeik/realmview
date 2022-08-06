@@ -15,6 +15,13 @@
         {{
           radio_check(
             group="tool_radio",
+            label='{{ bootstrap_icon(brush) }}',
+            action="RustFuncs.select_tool('Draw'); this.blur();"
+          )
+        }}
+        {{
+          radio_check(
+            group="tool_radio",
             label='{{ bootstrap_icon(square) }}',
             action="RustFuncs.select_tool('Rectangle'); this.blur();"
           )

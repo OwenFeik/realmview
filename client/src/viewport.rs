@@ -9,6 +9,7 @@ use crate::{
 use scene::{Rect, ScenePoint, SpriteShape, SpriteVisual};
 
 pub enum Tool {
+    Draw,
     Select,
     Shape(SpriteShape),
 }
@@ -119,6 +120,7 @@ impl Viewport {
     fn handle_mouse_down(&mut self, at: ViewportPoint, button: MouseButton, ctrl: bool) {
         match button {
             MouseButton::Left => match self.tool {
+                Tool::Draw => self.scene.begin_draw(self.scene_point(at)),
                 Tool::Select => self.scene.grab(self.scene_point(at), ctrl),
                 Tool::Shape(shape) => {
                     self.scene.new_grabbed_sprite(

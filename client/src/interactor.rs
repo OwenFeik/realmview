@@ -236,6 +236,7 @@ impl SceneDetails {
 #[derive(Clone, Copy, Debug)]
 enum HeldObject {
     Anchor(Id, i32, i32),
+    Drawing(Id),
     Marquee(ScenePoint),
     None,
     Selection(ScenePoint),
@@ -557,6 +558,11 @@ impl Interactor {
         self.changes.sprite_selected_change();
     }
 
+    fn clear_held_selection(&mut self) {
+        self.release(false, false);
+        self.clear_selection();
+    }
+
     fn select(&mut self, id: Id) {
         if !self.is_selected(id) {
             self.selected_sprites.push(id);
@@ -615,6 +621,23 @@ impl Interactor {
         self.changes.sprite_change();
     }
 
+    pub fn begin_draw(&mut self, at: ScenePoint) {
+        self.clear_held_selection();
+        if let Some(id) = self.new_sprite(
+            Some(SpriteVisual::Drawing {
+                colour: [1.0, 0.0, 0.0, 1.0],
+                points: vec![0.0, 0.0],
+            }),
+            None,
+        ) {
+            self.holding = HeldObject::Drawing(id);
+            if let Some(sprite) = self.scene.sprite(id) {
+                let event = sprite.set_pos(at);
+                self.scene_event(event);
+            }
+        }
+    }
+
     fn update_held_sprite(&mut self, at: ScenePoint) {
         let holding = self.holding;
         let sprite = if let Some(s) = self.held_sprite() {
@@ -655,6 +678,11 @@ impl Interactor {
 
     pub fn drag(&mut self, at: ScenePoint) {
         match self.holding {
+            HeldObject::Drawing(id) => {
+                if let Some(Some(event)) = self.scene.sprite(id).map(|s| s.add_drawing_point(at)) {
+                    self.scene_event(event);
+                }
+            },
             HeldObject::Marquee(from) => {
                 self.selection_marquee = Some(from.rect(at));
                 self.changes.sprite_selected_change();
@@ -710,6 +738,7 @@ impl Interactor {
 
     pub fn release(&mut self, alt: bool, ctrl: bool) {
         match self.holding {
+            HeldObject::Drawing(_) | HeldObject::None => {}
             HeldObject::Marquee(_) => {
                 if !ctrl {
                     self.clear_selection();
@@ -722,7 +751,6 @@ impl Interactor {
                 self.selection_marquee = None;
                 self.changes.sprite_selected_change();
             }
-            HeldObject::None => {}
             HeldObject::Selection(_) => self.finish_selection_drag(!alt),
             HeldObject::Sprite(id, _) => self.finish_sprite_drag(id, !alt),
             HeldObject::Anchor(id, _, _) => self.finish_sprite_resize(id, !alt),
@@ -873,9 +901,7 @@ impl Interactor {
         layer: Option<Id>,
         at: ScenePoint,
     ) {
-        self.release(false, false);
-        self.clear_selection();
-
+        self.clear_held_selection();
         if let Some(id) = self.new_sprite(visual, layer) {
             let opt = self.scene.sprite(id).map(|s| {
                 self.holding = HeldObject::Anchor(s.id, 1, 1);
