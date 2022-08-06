@@ -42,6 +42,7 @@ impl SpriteVisual {
 pub struct Sprite {
     pub id: Id,
     pub rect: Rect,
+    pub theta: f32,
     pub z: i32,
     pub visual: SpriteVisual,
     pub shape: SpriteShape,
@@ -55,6 +56,7 @@ impl Sprite {
     pub fn new(id: Id, visual: Option<SpriteVisual>, shape: Option<SpriteShape>) -> Sprite {
         Sprite {
             rect: Rect::new(0.0, 0.0, 1.0, 1.0),
+            theta: 0.0,
             z: 1,
             visual: visual.unwrap_or(Sprite::DEFAULT_VISUAL),
             shape: shape.unwrap_or(SpriteShape::Rectangle),

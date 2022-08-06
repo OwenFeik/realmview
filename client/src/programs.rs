@@ -293,14 +293,15 @@ impl Shape {
     }
 
     // Should be called after using a program.
-    fn draw(&self, gl: &Gl, vp: Rect, at: Rect) {
+    fn draw(&self, gl: &Gl, vp: Rect, at: Rect, theta: f32) {
         gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.position_buffer));
         gl.enable_vertex_attrib_array(self.position_location);
         gl.vertex_attrib_pointer_with_i32(self.position_location, 2, Gl::FLOAT, false, 0, 0);
 
         let mut m = m4_orthographic(0.0, vp.w as f32, vp.h as f32, 0.0, -1.0, 1.0);
-        m4_translate(&mut m, at.x - vp.x, at.y - vp.y, 0.0);
         m4_scale(&mut m, at.w, at.h, 1.0);
+        m4_rotatez(&mut m, theta);
+        m4_translate(&mut m, at.x - vp.x, at.y - vp.y, 0.0);
 
         gl.uniform_matrix4fv_with_f32_array(Some(&self.matrix_location), false, &m);
         gl.draw_arrays(Gl::TRIANGLES, 0, self.vertex_count);
@@ -360,13 +361,13 @@ impl SolidRenderer {
         })
     }
 
-    fn draw_shape(&self, shape: SpriteShape, colour: Colour, viewport: Rect, position: Rect) {
+    fn draw_shape(&self, shape: SpriteShape, colour: Colour, viewport: Rect, position: Rect, theta: f32) {
         let gl = &self.gl;
 
         gl.use_program(Some(&self.program));
         gl.uniform4fv_with_f32_array(Some(&self.colour_location), &colour);
 
-        self.shapes.shape(shape).draw(gl, viewport, position);
+        self.shapes.shape(shape).draw(gl, viewport, position, theta);
     }
 }
 
@@ -403,7 +404,7 @@ impl TextureShapeRenderer {
         })
     }
 
-    fn draw_texture(&self, texture: &WebGlTexture, viewport: Rect, position: Rect) {
+    fn draw_texture(&self, texture: &WebGlTexture, viewport: Rect, position: Rect, theta: f32) {
         let gl = &self.gl;
 
         gl.bind_texture(Gl::TEXTURE_2D, Some(texture));
@@ -413,7 +414,7 @@ impl TextureShapeRenderer {
         gl.vertex_attrib_pointer_with_i32(self.texcoord_location, 2, Gl::FLOAT, false, 0, 0);
 
         gl.uniform1i(Some(&self.texture_location), 0);
-        self.shape.draw(gl, viewport, position);
+        self.shape.draw(gl, viewport, position, theta);
     }
 }
 
@@ -440,12 +441,13 @@ impl TextureRenderer {
         texture: &WebGlTexture,
         viewport: Rect,
         position: Rect,
+        theta: f32
     ) {
         match shape {
-            SpriteShape::Ellipse => self.ellipse.draw_texture(texture, viewport, position),
-            SpriteShape::Hexagon => self.hexagon.draw_texture(texture, viewport, position),
-            SpriteShape::Rectangle => self.rectangle.draw_texture(texture, viewport, position),
-            SpriteShape::Triangle => self.triangle.draw_texture(texture, viewport, position),
+            SpriteShape::Ellipse => self.ellipse.draw_texture(texture, viewport, position, theta),
+            SpriteShape::Hexagon => self.hexagon.draw_texture(texture, viewport, position, theta),
+            SpriteShape::Rectangle => self.rectangle.draw_texture(texture, viewport, position, theta),
+            SpriteShape::Triangle => self.triangle.draw_texture(texture, viewport, position, theta),
         }
     }
 }
@@ -682,13 +684,14 @@ impl Renderer {
         match sprite.visual {
             SpriteVisual::Colour(colour) => {
                 self.solid_renderer
-                    .draw_shape(sprite.shape, colour, viewport, position)
+                    .draw_shape(sprite.shape, colour, viewport, position, std::f32::consts::PI / 4.0)
             }
             SpriteVisual::Texture(id) => self.texture_renderer.draw_texture(
                 sprite.shape,
                 self.texture_library.get_texture(id),
                 viewport,
                 position,
+                std::f32::consts::PI / 2.0
             ),
         }
     }
@@ -847,6 +850,29 @@ fn m4_scale(m: &mut [f32; 16], sx: f32, sy: f32, sz: f32) {
     m[9] *= sz;
     m[10] *= sz;
     m[11] *= sz;
+}
+
+// NB: in place
+fn m4_rotatez(m: &mut [f32; 16], theta: f32) {
+    let m00 = m[0 * 4 + 0];
+    let m01 = m[0 * 4 + 1];
+    let m02 = m[0 * 4 + 2];
+    let m03 = m[0 * 4 + 3];
+    let m10 = m[1 * 4 + 0];
+    let m11 = m[1 * 4 + 1];
+    let m12 = m[1 * 4 + 2];
+    let m13 = m[1 * 4 + 3];
+    let c = theta.cos();
+    let s = theta.sin();
+
+    m[0] = c * m00 + s * m10;
+    m[1] = c * m01 + s * m11;
+    m[2] = c * m02 + s * m12;
+    m[3] = c * m03 + s * m13;
+    m[4] = c * m10 - s * m00;
+    m[5] = c * m11 - s * m01;
+    m[6] = c * m12 - s * m02;
+    m[7] = c * m13 - s * m03;
 }
 
 /// Parses a 16 digit hexadecimal media key string into an Id, reutrning 0
