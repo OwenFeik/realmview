@@ -6,7 +6,7 @@ use crate::{
     client::Client,
     interactor::Interactor,
 };
-use scene::{Rect, ScenePoint, SpriteShape};
+use scene::{Rect, ScenePoint, SpriteShape, SpriteVisual};
 
 pub enum Tool {
     Select,
@@ -121,8 +121,14 @@ impl Viewport {
             MouseButton::Left => match self.tool {
                 Tool::Select => self.scene.grab(self.scene_point(at), ctrl),
                 Tool::Shape(shape) => {
-                    self.scene
-                        .new_grabbed_sprite(None, Some(shape), None, self.scene_point(at));
+                    self.scene.new_grabbed_sprite(
+                        Some(SpriteVisual::Solid {
+                            colour: [0.0, 1.0, 0.0, 1.0],
+                            shape,
+                        }),
+                        None,
+                        self.scene_point(at),
+                    );
                 }
             },
             MouseButton::Right => {

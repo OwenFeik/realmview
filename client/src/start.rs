@@ -1,3 +1,6 @@
+// The #[wasm_bindgen(start)] call is needed but Clippy doesn't see that.
+#![allow(clippy::unused_unit)]
+
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -80,8 +83,10 @@ pub fn start() -> Result<(), JsValue> {
         let mut lock = vp_ref.lock();
         let at = lock.centre_tile();
         lock.scene.new_sprite_at(
-            Some(scene::SpriteVisual::Texture(texture)),
-            None,
+            Some(scene::SpriteVisual::Texture {
+                id: texture,
+                shape: scene::SpriteShape::Rectangle,
+            }),
             Some(layer as i64),
             at,
         );

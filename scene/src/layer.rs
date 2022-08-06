@@ -84,7 +84,7 @@ impl Layer {
 
     pub fn add_sprite(&mut self, sprite: Sprite) -> SceneEvent {
         self.update_z_bounds(&sprite);
-        self.sprites.push(sprite);
+        self.sprites.push(sprite.clone());
         self.sort_sprites();
         SceneEvent::SpriteNew(sprite, self.id)
     }

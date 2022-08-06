@@ -7,57 +7,64 @@ use super::{comms::SceneEvent, Id, Rect, ScenePoint};
 pub type Colour = [f32; 4];
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
-pub enum SpriteShape {
+pub enum Shape {
     Ellipse,
     Hexagon,
     Rectangle,
     Triangle,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
-pub enum SpriteVisual {
-    Texture(Id),
-    Colour(Colour),
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub enum Visual {
+    Texture { id: Id, shape: Shape },
+    Solid { colour: Colour, shape: Shape },
+    Drawing { colour: Colour, points: Vec<f32> },
 }
 
-impl SpriteVisual {
-    pub fn texture(self) -> Option<Id> {
-        if let SpriteVisual::Texture(id) = self {
-            Some(id)
-        } else {
-            None
+impl Visual {
+    pub fn colour(&self) -> Option<Colour> {
+        match self {
+            Self::Solid { colour, shape: _ } | Self::Drawing { colour, points: _ } => Some(*colour),
+            _ => None,
         }
     }
 
-    pub fn colour(self) -> Option<Colour> {
-        if let SpriteVisual::Colour(colour) = self {
-            Some(colour)
-        } else {
-            None
+    pub fn texture(&self) -> Option<Id> {
+        match self {
+            Self::Texture { id, shape: _ } => Some(*id),
+            _ => None,
+        }
+    }
+
+    pub fn shape(&self) -> Option<Shape> {
+        match self {
+            Self::Solid { colour: _, shape } | Self::Texture { id: _, shape } => Some(*shape),
+            _ => None,
         }
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Sprite {
     pub id: Id,
     pub rect: Rect,
     pub z: i32,
-    pub visual: SpriteVisual,
-    pub shape: SpriteShape,
+    pub visual: Visual,
 }
 
 impl Sprite {
     // Minimum size of a sprite dimension; too small and sprites can be lost.
     const MIN_SIZE: f32 = 0.25;
-    const DEFAULT_VISUAL: SpriteVisual = SpriteVisual::Colour([1.0, 0.0, 1.0, 1.0]);
+    const DEFAULT_VISUAL: Visual = Visual::Solid {
+        colour: [1.0, 0.0, 1.0, 1.0],
+        shape: Shape::Rectangle,
+    };
 
-    pub fn new(id: Id, visual: Option<SpriteVisual>, shape: Option<SpriteShape>) -> Sprite {
+    pub fn new(id: Id, visual: Option<Visual>) -> Sprite {
         Sprite {
             rect: Rect::new(0.0, 0.0, 1.0, 1.0),
             z: 1,
             visual: visual.unwrap_or(Sprite::DEFAULT_VISUAL),
-            shape: shape.unwrap_or(SpriteShape::Rectangle),
             id,
         }
     }
@@ -87,16 +94,9 @@ impl Sprite {
         self.rect.h = h;
     }
 
-    pub fn set_shape(&mut self, new: SpriteShape) -> SceneEvent {
-        let old = self.shape;
-        self.shape = new;
-        SceneEvent::SpriteShape(self.id, old, new)
-    }
-
-    pub fn set_visual(&mut self, new: SpriteVisual) -> SceneEvent {
-        let old = self.visual;
-        self.visual = new;
-        SceneEvent::SpriteVisual(self.id, old, new)
+    pub fn set_visual(&mut self, mut new: Visual) -> SceneEvent {
+        std::mem::swap(&mut new, &mut self.visual);
+        SceneEvent::SpriteVisual(self.id, new, self.visual.clone())
     }
 
     pub fn snap_pos(&mut self) -> SceneEvent {
@@ -143,6 +143,49 @@ impl Sprite {
         ScenePoint {
             x: x + (w / 2.0) * (dx + 1) as f32,
             y: y + (h / 2.0) * (dy + 1) as f32,
+        }
+    }
+
+    pub fn set_colour(&mut self, new: Colour) -> Option<SceneEvent> {
+        let old = self.visual.clone();
+        match self.visual.clone() {
+            Visual::Solid { colour: _, shape } => {
+                self.visual = Visual::Solid { colour: new, shape };
+                Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
+            }
+            Visual::Drawing { colour: _, points } => {
+                self.visual = Visual::Drawing {
+                    colour: new,
+                    points,
+                };
+                Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn set_shape(&mut self, new: Shape) -> Option<SceneEvent> {
+        let old = self.visual.clone();
+        match self.visual.clone() {
+            Visual::Solid { colour, shape: _ } => {
+                self.visual = Visual::Solid { colour, shape: new };
+                Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
+            }
+            Visual::Texture { id, shape: _ } => {
+                self.visual = Visual::Texture { id, shape: new };
+                Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn set_texture(&mut self, new: Id) -> Option<SceneEvent> {
+        if let Visual::Texture { id: _, shape } = self.visual {
+            let old = self.visual.clone();
+            self.visual = Visual::Texture { id: new, shape };
+            Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
+        } else {
+            None
         }
     }
 }

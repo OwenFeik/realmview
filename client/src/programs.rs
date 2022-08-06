@@ -680,16 +680,16 @@ impl Renderer {
 
     pub fn draw_sprite(&mut self, sprite: &Sprite, viewport: Rect, position: Rect) {
         match sprite.visual {
-            SpriteVisual::Colour(colour) => {
-                self.solid_renderer
-                    .draw_shape(sprite.shape, colour, viewport, position)
-            }
-            SpriteVisual::Texture(id) => self.texture_renderer.draw_texture(
-                sprite.shape,
+            SpriteVisual::Solid { colour, shape } => self
+                .solid_renderer
+                .draw_shape(shape, colour, viewport, position),
+            SpriteVisual::Texture { id, shape } => self.texture_renderer.draw_texture(
+                shape,
                 self.texture_library.get_texture(id),
                 viewport,
                 position,
             ),
+            _ => (),
         }
     }
 

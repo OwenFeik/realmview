@@ -109,9 +109,10 @@ pub struct SpriteDetails {
 
 impl SpriteDetails {
     fn from(id: Id, sprite: &Sprite) -> Self {
-        let (texture, colour) = match sprite.visual {
-            SpriteVisual::Colour(c) => (None, Some(c)),
-            SpriteVisual::Texture(id) => (Some(id), None),
+        let (texture, colour, shape) = match sprite.visual {
+            SpriteVisual::Solid { colour, shape } => (None, Some(colour), Some(shape)),
+            SpriteVisual::Texture { id, shape } => (Some(id), None, Some(shape)),
+            _ => (None, None, None),
         };
 
         SpriteDetails {
@@ -120,7 +121,7 @@ impl SpriteDetails {
             y: Some(sprite.rect.y),
             w: Some(sprite.rect.w),
             h: Some(sprite.rect.h),
-            shape: Some(sprite.shape),
+            shape,
             colour,
             texture,
         }
@@ -143,15 +144,15 @@ impl SpriteDetails {
             self.h = None;
         }
 
-        if self.shape != Some(sprite.shape) {
+        if self.shape.is_some() && self.shape != sprite.visual.shape() {
             self.shape = None;
         }
 
-        if self.colour.is_some() && SpriteVisual::Colour(self.colour.unwrap()) != sprite.visual {
+        if self.colour.is_some() && self.colour != sprite.visual.colour() {
             self.colour = None;
         }
 
-        if self.texture.is_some() && SpriteVisual::Texture(self.texture.unwrap()) != sprite.visual {
+        if self.texture.is_some() && self.texture != sprite.visual.texture() {
             self.texture = None;
         }
     }
@@ -175,13 +176,19 @@ impl SpriteDetails {
         }
 
         if let Some(shape) = self.shape {
-            events.push(sprite.set_shape(shape));
+            if let Some(event) = sprite.set_shape(shape) {
+                events.push(event);
+            }
         }
 
         if let Some(c) = self.colour {
-            events.push(sprite.set_visual(SpriteVisual::Colour(c)));
+            if let Some(event) = sprite.set_colour(c) {
+                events.push(event);
+            }
         } else if let Some(id) = self.texture {
-            events.push(sprite.set_visual(SpriteVisual::Texture(id)));
+            if let Some(event) = sprite.set_texture(id) {
+                events.push(event);
+            }
         }
 
         if events.is_empty() {
@@ -847,16 +854,11 @@ impl Interactor {
         self.changes.all_change();
     }
 
-    fn new_sprite(
-        &mut self,
-        visual: Option<SpriteVisual>,
-        shape: Option<SpriteShape>,
-        layer: Option<Id>,
-    ) -> Option<Id> {
+    fn new_sprite(&mut self, visual: Option<SpriteVisual>, layer: Option<Id>) -> Option<Id> {
         let opt = self
             .scene
-            .new_sprite(visual, shape, layer.unwrap_or(self.selected_layer));
-        let ret = if let Some(SceneEvent::SpriteNew(s, _)) = opt {
+            .new_sprite(visual, layer.unwrap_or(self.selected_layer));
+        let ret = if let Some(SceneEvent::SpriteNew(s, _)) = &opt {
             Some(s.id)
         } else {
             None
@@ -868,14 +870,13 @@ impl Interactor {
     pub fn new_grabbed_sprite(
         &mut self,
         visual: Option<SpriteVisual>,
-        shape: Option<SpriteShape>,
         layer: Option<Id>,
         at: ScenePoint,
     ) {
         self.release(false, false);
         self.clear_selection();
 
-        if let Some(id) = self.new_sprite(visual, shape, layer) {
+        if let Some(id) = self.new_sprite(visual, layer) {
             let opt = self.scene.sprite(id).map(|s| {
                 self.holding = HeldObject::Anchor(s.id, 1, 1);
                 s.set_rect(Rect::new(at.x, at.y, 0.0, 0.0))
@@ -887,11 +888,10 @@ impl Interactor {
     pub fn new_sprite_at(
         &mut self,
         visual: Option<SpriteVisual>,
-        shape: Option<SpriteShape>,
         layer: Option<Id>,
         at: ScenePoint,
     ) {
-        if let Some(id) = self.new_sprite(visual, shape, layer) {
+        if let Some(id) = self.new_sprite(visual, layer) {
             let opt = self.scene.sprite(id).map(|s| s.set_pos(at));
             self.scene_option(opt);
         }

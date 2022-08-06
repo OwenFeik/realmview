@@ -379,6 +379,7 @@ mod sprite {
     pub struct SpriteRecord {
         id: i64,
         pub layer: i64,
+        shape: Option<u8>,
         media_key: Option<String>,
         r: Option<f32>,
         g: Option<f32>,
@@ -396,7 +397,8 @@ mod sprite {
             let mut record = Self {
                 id,
                 layer,
-                media_key: None,
+                shape: sprite.visual.shape().map(Self::shape_to_u8),
+                media_key: sprite.visual.texture().map(Media::id_to_key),
                 r: None,
                 g: None,
                 b: None,
@@ -408,33 +410,50 @@ mod sprite {
                 z: sprite.z as i64,
             };
 
-            match sprite.visual {
-                scene::SpriteVisual::Colour([r, g, b, a]) => {
-                    record.r = Some(r);
-                    record.g = Some(g);
-                    record.b = Some(b);
-                    record.a = Some(a);
-                }
-                scene::SpriteVisual::Texture(id) => {
-                    record.media_key = Some(Media::id_to_key(id));
-                }
-            };
+            if let Some([r, g, b, a]) = sprite.visual.colour() {
+                record.r = Some(r);
+                record.g = Some(g);
+                record.b = Some(b);
+                record.a = Some(a);
+            }
 
             record
         }
 
+        fn shape_to_u8(shape: scene::SpriteShape) -> u8 {
+            match shape {
+                scene::SpriteShape::Ellipse => 1,
+                scene::SpriteShape::Hexagon => 2,
+                scene::SpriteShape::Triangle => 3,
+                scene::SpriteShape::Rectangle => 4,
+            }
+        }
+
+        fn u8_to_shape(int: u8) -> scene::SpriteShape {
+            match int {
+                1 => scene::SpriteShape::Ellipse,
+                2 => scene::SpriteShape::Hexagon,
+                3 => scene::SpriteShape::Triangle,
+                _ => scene::SpriteShape::Rectangle,
+            }
+        }
+
         fn visual(&self) -> Option<scene::SpriteVisual> {
             if let Some(key) = &self.media_key {
-                Some(scene::SpriteVisual::Texture(Media::key_to_id(key).ok()?))
+                Some(scene::SpriteVisual::Texture {
+                    id: Media::key_to_id(key).ok()?,
+                    shape: Self::u8_to_shape(self.shape?),
+                })
             } else {
-                Some(scene::SpriteVisual::Colour([
-                    self.r?, self.g?, self.b?, self.a?,
-                ]))
+                Some(scene::SpriteVisual::Solid {
+                    colour: [self.r?, self.g?, self.b?, self.a?],
+                    shape: Self::u8_to_shape(self.shape?),
+                })
             }
         }
 
         pub fn to_sprite(&self) -> scene::Sprite {
-            let mut sprite = scene::Sprite::new(self.id, self.visual(), None);
+            let mut sprite = scene::Sprite::new(self.id, self.visual());
             sprite.set_rect(scene::Rect::new(self.x, self.y, self.w, self.h));
             sprite.z = self.z as i32;
             sprite

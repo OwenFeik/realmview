@@ -2,8 +2,7 @@ use serde_derive::{Deserialize, Serialize};
 
 use super::{
     perms::{Override, PermSet, Perms, Role},
-    sprite::{SpriteShape, SpriteVisual},
-    Id, Rect, Scene, Sprite,
+    Id, Rect, Scene, Sprite, SpriteVisual,
 };
 
 // Events processed by Scene
@@ -25,7 +24,6 @@ pub enum SceneEvent {
     SpriteNew(Sprite, Id),                        // (new_sprite, layer)
     SpriteRemove(Id),                             // (sprite)
     SpriteRestore(Id),                            // (sprite)
-    SpriteShape(Id, SpriteShape, SpriteShape),    // (sprite, old, new)
     SpriteVisual(Id, SpriteVisual, SpriteVisual), // (sprite, old, new)
 }
 
@@ -57,7 +55,6 @@ impl SceneEvent {
                 | Self::SpriteNew(..)
                 | Self::SpriteRemove(..)
                 | Self::SpriteRestore(..)
-                | Self::SpriteShape(..)
                 | Self::SpriteVisual(..)
         ) {
             true
@@ -82,7 +79,6 @@ impl SceneEvent {
             Self::SpriteNew(s, ..) => &s.id,
             Self::SpriteRemove(id) => id,
             Self::SpriteRestore(id) => id,
-            Self::SpriteShape(id, ..) => id,
             Self::SpriteVisual(id, ..) => id,
             _ => return None,
         };
