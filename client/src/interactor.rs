@@ -680,9 +680,10 @@ impl Interactor {
         match self.holding {
             HeldObject::Drawing(id) => {
                 if let Some(Some(event)) = self.scene.sprite(id).map(|s| s.add_drawing_point(at)) {
+                    self.changes.sprite_change();
                     self.scene_event(event);
                 }
-            },
+            }
             HeldObject::Marquee(from) => {
                 self.selection_marquee = Some(from.rect(at));
                 self.changes.sprite_selected_change();

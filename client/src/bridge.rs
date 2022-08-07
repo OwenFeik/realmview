@@ -643,8 +643,7 @@ impl Context {
 
     pub fn draw_sprites(&mut self, vp: Rect, sprites: &[Sprite], grid_size: f32) {
         for sprite in sprites.iter() {
-            self.renderer
-                .draw_sprite(sprite, vp, Rect::scaled_from(sprite.rect, grid_size));
+            self.renderer.draw_sprite(sprite, vp, grid_size);
         }
     }
 

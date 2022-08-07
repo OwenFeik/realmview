@@ -218,63 +218,6 @@ impl TextureManager {
     }
 }
 
-struct PointsRenderer {
-    gl: Rc<Gl>,
-    program: WebGlProgram,
-    position_buffer: WebGlBuffer,
-    position_location: u32,
-    colour_location: WebGlUniformLocation,
-}
-
-impl PointsRenderer {
-    fn new(gl: Rc<Gl>) -> Result<Self, JsError> {
-        let program = create_program(
-            &gl,
-            include_str!("shaders/pos.vert"),
-            include_str!("shaders/single.frag"),
-        )?;
-        let position_location = gl.get_attrib_location(&program, "a_position") as u32;
-        let position_buffer = create_buffer(&gl, None)?;
-        let colour_location = get_uniform_location(&gl, &program, "u_colour")?;
-
-        Ok(Self {
-            gl,
-            program,
-            position_buffer,
-            position_location,
-            colour_location,
-        })
-    }
-
-    fn draw(&self, points: &mut [f32], colour: Colour, vp: Rect) {
-        let gl = &self.gl;
-
-        let n = (points.len() / 2) as i32;
-        scale_points(points, vp.w, vp.h);
-        let points = &*points;
-        let data = Float32Array::from(points);
-
-        // Set program
-        gl.use_program(Some(&self.program));
-
-        // Set position buffer and load point data
-        gl.enable_vertex_attrib_array(self.position_location);
-        gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.position_buffer));
-        gl.buffer_data_with_opt_array_buffer(
-            Gl::ARRAY_BUFFER,
-            Some(&data.buffer()),
-            Gl::STATIC_DRAW,
-        );
-        gl.vertex_attrib_pointer_with_i32(self.position_location, 2, Gl::FLOAT, false, 0, 0);
-
-        // Set colour
-        gl.uniform4fv_with_f32_array(Some(&self.colour_location), &colour);
-
-        // Draw points
-        gl.draw_arrays(Gl::POINTS, 0, n);
-    }
-}
-
 struct Shape {
     coords: Float32Array,
     position_buffer: WebGlBuffer,
@@ -538,7 +481,15 @@ impl LineRenderer {
     }
 
     fn scale_and_load_points(&mut self, points: &mut [f32], vp_w: f32, vp_h: f32) {
-        scale_points(points, vp_w, vp_h);
+        for (i, v) in points.iter_mut().enumerate() {
+            // Point vectors are of form [x1, y1, x2, y2 ... xn, yn] so even indices are xs.
+            if i % 2 == 0 {
+                *v = to_unit(*v, vp_w);
+            } else {
+                *v = -to_unit(*v, vp_h);
+            }
+        }
+
         self.load_points(points);
     }
 
@@ -703,9 +654,6 @@ pub struct Renderer {
     // Draw textures in shapes
     texture_renderer: TextureRenderer,
 
-    // Draw series of points
-    point_renderer: PointsRenderer,
-
     // To render outlines &c
     line_renderer: LineRenderer,
 
@@ -719,7 +667,6 @@ impl Renderer {
             texture_library: TextureManager::new(gl.clone())?,
             solid_renderer: SolidRenderer::new(gl.clone())?,
             texture_renderer: TextureRenderer::new(gl.clone())?,
-            point_renderer: PointsRenderer::new(gl.clone())?,
             line_renderer: LineRenderer::new(gl.clone())?,
             grid_renderer: GridRenderer::new(gl)?,
         })
@@ -733,20 +680,23 @@ impl Renderer {
         self.texture_library.load_image(image)
     }
 
-    pub fn draw_sprite(&mut self, sprite: &Sprite, viewport: Rect, position: Rect) {
-        match sprite.visual {
+    pub fn draw_sprite(&mut self, sprite: &Sprite, viewport: Rect, grid_size: f32) {
+        let position = sprite.rect * grid_size;
+        match &sprite.visual {
             SpriteVisual::Solid { colour, shape } => self
                 .solid_renderer
-                .draw_shape(shape, colour, viewport, position),
+                .draw_shape(*shape, *colour, viewport, position),
             SpriteVisual::Texture { id, shape } => self.texture_renderer.draw_texture(
-                shape,
-                self.texture_library.get_texture(id),
+                *shape,
+                self.texture_library.get_texture(*id),
                 viewport,
                 position,
             ),
-            SpriteVisual::Drawing { colour, points: _ } => self
-                .point_renderer
-                .draw(&mut sprite.drawing_points().unwrap(), colour, viewport),
+            SpriteVisual::Drawing { colour, points } => {
+                self.line_renderer
+                    .load_points(&draw_lines(points, 10.0, grid_size, viewport.w, viewport.h));
+                self.line_renderer.render_solid(Some(*colour));
+            }
         }
     }
 
@@ -859,17 +809,6 @@ fn to_unit(value: f32, scale: f32) -> f32 {
     ((2.0 * value) - scale) / scale
 }
 
-fn scale_points(points: &mut [f32], vp_w: f32, vp_h: f32) {
-    for (i, v) in points.iter_mut().enumerate() {
-        // Point vectors are of form [x1, y1, x2, y2 ... xn, yn] so even indices are xs.
-        if i % 2 == 0 {
-            *v = to_unit(*v, vp_w);
-        } else {
-            *v = -to_unit(*v, vp_h);
-        }
-    }
-}
-
 // see https://webglfundamentals.org/webgl/resources/m4.js
 fn m4_orthographic(l: f32, r: f32, b: f32, t: f32, n: f32, f: f32) -> [f32; 16] {
     [
@@ -935,4 +874,85 @@ pub fn parse_media_key(key: &str) -> scene::Id {
     }
 
     i64::from_be_bytes(raw)
+}
+
+/// Given a series of (x, y) coordinates, points, and a line width, produces a
+/// series of triangles (x1, y1, x2, y2, x3, y3) to render the drawing defined
+/// by those points. Assumes the input array is in scene units and produces
+/// points pre-scaled to [-1, 1] for drawing.
+fn draw_lines(points: &[f32], line_width: f32, grid_size: f32, vp_w: f32, vp_h: f32) -> Vec<f32> {
+    let mut ret = Vec::new();
+    let w = line_width / 2.0;
+    for i in (2..points.len()).step_by(2) {
+        // First point: (px, py)
+        let px = points[i - 2] * grid_size;
+        let py = points[i - 1] * grid_size;
+
+        // Second point (qx, qy)
+        let qx = points[i] * grid_size;
+        let qy = points[i + 1] * grid_size;
+
+        // Triangle dimensions
+        let dx = qx - px;
+        let dy = qy - py;
+
+        // Angle between points
+        let theta = dy.atan2(dx);
+
+        // Normals above and below the line
+        let above = theta + std::f32::consts::PI / 2.0;
+        let below = theta - std::f32::consts::PI / 2.0;
+
+        // Distances to add to create line segment
+        let ca = w * above.cos();
+        let sa = w * above.sin();
+        let cb = w * below.cos();
+        let sb = w * below.sin();
+
+        // Rectangular line segment from (px, py) to (qx, qy)
+        // Uses four points (a, b, c, d) around the two points to draw the
+        // segment, like so:
+        //
+        //   (px, py) _ (a)
+        //        _,o^ \
+        //    (b) \  \  \
+        //         \  \  \
+        //          \  \  \
+        //           \  \  \
+        //            \  \  \
+        //             \  \  \
+        //              \  \  \
+        //               \  \  \
+        //                \  \  \
+        //                 \  \  \
+        //                  \  \  \ (d)
+        //                   \_,o~^
+        //                (c)   (qx qy)
+        //
+
+        // First triangle: lower half
+        // Above starting point (a)
+        ret.push(to_unit(px + ca, vp_w));
+        ret.push(to_unit(py + sa, vp_h));
+        // Below starting point (b)
+        ret.push(to_unit(px + cb, vp_w));
+        ret.push(to_unit(px + sb, vp_h));
+        // Below ending point (c)
+        ret.push(to_unit(qx + cb, vp_w));
+        ret.push(to_unit(qx + sb, vp_h));
+
+        // Second triangle: upper half
+        // Below ending point (c)
+        ret.push(to_unit(qx + cb, vp_w));
+        ret.push(to_unit(qx + sb, vp_h));
+        // Above ending point (d)
+        ret.push(to_unit(qx + ca, vp_w));
+        ret.push(to_unit(qx + sa, vp_h));
+        // Above starting point (a)
+        ret.push(to_unit(px + ca, vp_w));
+        ret.push(to_unit(py + sa, vp_h));
+    }
+
+    crate::bridge::log(&format!("{ret:?}"));
+    ret
 }

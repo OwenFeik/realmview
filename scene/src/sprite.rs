@@ -190,54 +190,17 @@ impl Sprite {
     }
 
     pub fn add_drawing_point(&mut self, at: ScenePoint) -> Option<SceneEvent> {
-        let ScenePoint { x, y } = at - self.pos();
+        let ScenePoint { x, y } = at;
         if let Visual::Drawing { colour: _, points } = &mut self.visual {
             points.push(x);
             points.push(y);
-
-            let mut x_min = 0.0;
-            let mut y_min = 0.0;
-            let mut x_max = 0.0;
-            let mut y_max = 0.0;
-
-            for i in (0..points.len()).step_by(2) {
-                let x = points[i];
-                if x < x_min {
-                    x_min = x;
-                } else if x > x_max {
-                    x_max = x;
-                }
-
-                let y = points[i + 1];
-                if y < y_min {
-                    y_min = y;
-                } else if y > y_max {
-                    y_max = y;
-                }
-            }
-
-            let old = self.rect;
-
-            self.rect.x += x_min;
-            self.rect.y += y_min;
-            self.rect.w = x_max - x_min;
-            self.rect.h = y_max - y_min;
-
-            Some(SceneEvent::SpriteMove(self.id, old, self.rect))
         }
-        else {
-            None
-        }
+        None
     }
 
-    pub fn drawing_points(&self) -> Option<Vec<f32>> {
+    pub fn drawing_points(&self) -> Option<&[f32]> {
         if let Visual::Drawing { colour: _, points } = &self.visual {
-            let mut ret = Vec::with_capacity(points.len());
-            for i in (0..points.len()).step_by(2) {
-                ret.push(points[i] - self.rect.x);
-                ret.push(points[i + 1] - self.rect.y);
-            }
-            Some(ret)
+            Some(points)
         } else {
             None
         }
