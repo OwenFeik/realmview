@@ -487,6 +487,24 @@ impl Scene {
                     false
                 }
             }
+            SceneEvent::SpriteDrawingFinish(id) => {
+                if let Some(sprite) = self.sprite(id) {
+                    sprite.calculate_drawing_rect().is_some()
+                } else {
+                    false
+                }
+            }
+            SceneEvent::SpriteDrawingPoint(id, n, at) => {
+                if let Some(sprite) = self.sprite(id) {
+                    if sprite.n_drawing_points() == n - 1 {
+                        sprite.add_drawing_point(at).is_some()
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            }
             SceneEvent::SpriteNew(s, l) => {
                 if self.sprite(s.id).is_none() {
                     self.add_sprite(s, l).is_some()
@@ -570,6 +588,13 @@ impl Scene {
                     if let Some(title) = old {
                         return Some(SceneEvent::SceneTitle(Some(new), title));
                     }
+                }
+                None
+            }
+            SceneEvent::SpriteDrawingFinish(_) => None,
+            SceneEvent::SpriteDrawingPoint(id, n, _) => {
+                if let Some(sprite) = self.sprite(id) {
+                    sprite.keep_drawing_points(n);
                 }
                 None
             }

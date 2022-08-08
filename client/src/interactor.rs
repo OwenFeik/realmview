@@ -109,21 +109,15 @@ pub struct SpriteDetails {
 
 impl SpriteDetails {
     fn from(id: Id, sprite: &Sprite) -> Self {
-        let (texture, colour, shape) = match sprite.visual {
-            SpriteVisual::Solid { colour, shape } => (None, Some(colour), Some(shape)),
-            SpriteVisual::Texture { id, shape } => (Some(id), None, Some(shape)),
-            _ => (None, None, None),
-        };
-
         SpriteDetails {
             id,
             x: Some(sprite.rect.x),
             y: Some(sprite.rect.y),
             w: Some(sprite.rect.w),
             h: Some(sprite.rect.h),
-            shape,
-            colour,
-            texture,
+            shape: sprite.visual.shape(),
+            colour: sprite.visual.colour(),
+            texture: sprite.visual.texture(),
         }
     }
 
@@ -621,7 +615,7 @@ impl Interactor {
         self.changes.sprite_change();
     }
 
-    pub fn begin_draw(&mut self, at: ScenePoint) {
+    pub fn start_draw(&mut self, at: ScenePoint) {
         self.clear_held_selection();
         if let Some(id) = self.new_sprite(
             Some(SpriteVisual::Drawing {
@@ -739,7 +733,13 @@ impl Interactor {
 
     pub fn release(&mut self, alt: bool, ctrl: bool) {
         match self.holding {
-            HeldObject::Drawing(_) | HeldObject::None => {}
+            HeldObject::Drawing(id) => {
+                if let Some(sprite) = self.scene.sprite(id) {
+                    let opt = sprite.calculate_drawing_rect();
+                    self.scene_option(opt);
+                }
+            }
+            HeldObject::None => {}
             HeldObject::Marquee(_) => {
                 if !ctrl {
                     self.clear_selection();

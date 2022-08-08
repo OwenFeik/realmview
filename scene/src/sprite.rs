@@ -53,6 +53,9 @@ pub struct Sprite {
 }
 
 impl Sprite {
+    // Width of lines for sprites which are drawings
+    pub const DRAWING_LINE_WIDTH: f32 = 0.2;
+
     // Minimum size of a sprite dimension; too small and sprites can be lost.
     const MIN_SIZE: f32 = 0.25;
     const DEFAULT_VISUAL: Visual = Visual::Solid {
@@ -189,18 +192,65 @@ impl Sprite {
         }
     }
 
+    pub fn n_drawing_points(&self) -> usize {
+        if let Visual::Drawing { colour: _, points } = &self.visual {
+            points.len() / 2
+        } else {
+            0
+        }
+    }
+
+    pub fn keep_drawing_points(&mut self, n: usize) {
+        if let Visual::Drawing { colour: _, points } = &mut self.visual {
+            points.truncate(n);
+        }
+    }
+
     pub fn add_drawing_point(&mut self, at: ScenePoint) -> Option<SceneEvent> {
-        let ScenePoint { x, y } = at;
+        let ScenePoint { x, y } = at - self.pos();
         if let Visual::Drawing { colour: _, points } = &mut self.visual {
             points.push(x);
             points.push(y);
+            Some(SceneEvent::SpriteDrawingPoint(
+                self.id,
+                self.n_drawing_points(),
+                at,
+            ))
+        } else {
+            None
         }
-        None
     }
 
-    pub fn drawing_points(&self) -> Option<&[f32]> {
-        if let Visual::Drawing { colour: _, points } = &self.visual {
-            Some(points)
+    pub fn calculate_drawing_rect(&mut self) -> Option<SceneEvent> {
+        if let Visual::Drawing { colour: _, points } = &mut self.visual {
+            let mut x_min = std::f32::MAX;
+            let mut x_max = std::f32::MIN;
+            let mut y_min = std::f32::MAX;
+            let mut y_max = std::f32::MIN;
+
+            for i in (0..points.len()).step_by(2) {
+                let x = points[i];
+                let y = points[i + 1];
+
+                x_min = x_min.min(x);
+                x_max = x_max.max(x);
+                y_min = y_min.min(y);
+                y_max = y_max.max(y);
+            }
+
+            self.rect = Rect::new(
+                x_min + self.rect.x - Self::DRAWING_LINE_WIDTH,
+                y_min + self.rect.y - Self::DRAWING_LINE_WIDTH,
+                x_max - x_min + 2.0 * Self::DRAWING_LINE_WIDTH,
+                y_max - y_min + 2.0 * Self::DRAWING_LINE_WIDTH,
+            );
+
+            for i in (0..points.len()).step_by(2) {
+                points[i] -= x_min - Self::DRAWING_LINE_WIDTH;
+                points[i + 1] -= y_min - Self::DRAWING_LINE_WIDTH;
+            }
+
+            Some(SceneEvent::SpriteDrawingFinish(self.id))
         } else {
             None
         }

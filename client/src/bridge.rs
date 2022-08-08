@@ -75,12 +75,23 @@ extern "C" {
     #[wasm_bindgen(js_name = expose_closure)]
     pub fn expose_closure_array(name: &str, closure: &Closure<dyn FnMut() -> Array>);
 
-    #[wasm_bindgen(js_namespace = console)]
+    #[wasm_bindgen(js_namespace = console, js_name = log)]
     pub fn log(s: &str);
 
     #[wasm_bindgen(js_namespace = console, js_name = log)]
     pub fn log_js_value(v: &JsValue);
 }
+
+// I want this around for debugging
+#[allow(unused_macros)]
+macro_rules! flog {
+    ($($tts:tt)*) => {
+        crate::bridge::log(&format!($($tts)*));
+    }
+}
+
+#[allow(unused_imports)]
+pub(crate) use flog;
 
 pub type Gl = WebGl2RenderingContext;
 

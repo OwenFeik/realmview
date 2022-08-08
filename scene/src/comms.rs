@@ -2,7 +2,7 @@ use serde_derive::{Deserialize, Serialize};
 
 use super::{
     perms::{Override, PermSet, Perms, Role},
-    Id, Rect, Scene, Sprite, SpriteVisual,
+    Id, Rect, Scene, ScenePoint, Sprite, SpriteVisual,
 };
 
 // Events processed by Scene
@@ -19,6 +19,8 @@ pub enum SceneEvent {
     LayerVisibility(Id, bool),                    // (layer, status)
     SceneDimensions(u32, u32, u32, u32),          // (old_w, old_h, new_w, new_h)
     SceneTitle(Option<String>, String),           // (old_title, new_title)
+    SpriteDrawingFinish(Id),                      // (sprite)
+    SpriteDrawingPoint(Id, usize, ScenePoint),    // (sprite, npoints, point)
     SpriteLayer(Id, Id, Id),                      // (sprite, old_layer, new_layer)
     SpriteMove(Id, Rect, Rect),                   // (sprite, from, to)
     SpriteNew(Sprite, Id),                        // (new_sprite, layer)
@@ -50,7 +52,9 @@ impl SceneEvent {
     pub fn is_sprite(&self) -> bool {
         if matches!(
             self,
-            Self::SpriteLayer(..)
+            Self::SpriteDrawingFinish(..)
+                | Self::SpriteDrawingPoint(..)
+                | Self::SpriteLayer(..)
                 | Self::SpriteMove(..)
                 | Self::SpriteNew(..)
                 | Self::SpriteRemove(..)

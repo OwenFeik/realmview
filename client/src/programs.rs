@@ -12,6 +12,7 @@ use scene::{Rect, Sprite, SpriteShape, SpriteVisual};
 use crate::bridge::{log, Gl, JsError};
 
 type Colour = [f32; 4];
+type Point = (f32, f32);
 
 // 0 is the default and what is used here
 const GL_TEXTURE_DETAIL_LEVEL: i32 = 0;
@@ -693,8 +694,12 @@ impl Renderer {
                 position,
             ),
             SpriteVisual::Drawing { colour, points } => {
-                self.line_renderer
-                    .load_points(&draw_lines(points, 10.0, grid_size, viewport.w, viewport.h));
+                self.line_renderer.load_points(&draw_lines(
+                    points,
+                    grid_size,
+                    viewport,
+                    sprite.rect,
+                ));
                 self.line_renderer.render_solid(Some(*colour));
             }
         }
@@ -880,19 +885,74 @@ pub fn parse_media_key(key: &str) -> scene::Id {
 /// series of triangles (x1, y1, x2, y2, x3, y3) to render the drawing defined
 /// by those points. Assumes the input array is in scene units and produces
 /// points pre-scaled to [-1, 1] for drawing.
-fn draw_lines(points: &[f32], line_width: f32, grid_size: f32, vp_w: f32, vp_h: f32) -> Vec<f32> {
+fn draw_lines(
+    points: &[f32],
+    grid_size: f32,
+    Rect {
+        x: vx,
+        y: vy,
+        w: vw,
+        h: vh,
+    }: Rect,
+    pos: Rect,
+) -> Vec<f32> {
     let mut ret = Vec::new();
-    let w = line_width / 2.0;
+
+    // Sprite position (offset of points) (scene units)
+    let sx = pos.x;
+    let sy = pos.y;
+
+    // Helper functions for calculating and adding points
+    let calc_point = |x, y| (to_unit(x, vw), -to_unit(y, vh));
+    let mut add_point = |(x, y)| {
+        ret.push(x);
+        ret.push(y);
+    };
+    let mut triangle = |a, b, c| {
+        add_point(a);
+        add_point(b);
+        add_point(c);
+    };
+
+    // Rectangular line segment from (px, py) to (qx, qy)
+    // Uses four points (a, b, c, d) around the two points to draw the
+    // segment, like so:
+    //
+    //   (px, py) _ (a)
+    //        _,o^ \
+    //    (b) \  \  \
+    //         \  \  \
+    //          \  \  \
+    //           \  \  \
+    //            \  \  \
+    //             \  \  \
+    //              \  \  \
+    //               \  \  \
+    //                \  \  \
+    //                 \  \  \
+    //                  \  \  \ (d)
+    //                   \_,o~^
+    //                (c)   (qx qy)
+    //
+
+    // Line width in viewport units. This is the distance from one of the
+    // points defining the line to one of the edge points, e.g. |(px, py), (a)|
+    let lw = grid_size * scene::Sprite::DRAWING_LINE_WIDTH / 2.0;
+
+    // Previous line endponts, used to close up gaps at corners
+    let mut prev_c: Option<Point> = None;
+    let mut prev_d: Option<Point> = None;
+
     for i in (2..points.len()).step_by(2) {
         // First point: (px, py)
-        let px = points[i - 2] * grid_size;
-        let py = points[i - 1] * grid_size;
+        let px = (sx + points[i - 2]) * grid_size - vx;
+        let py = (sy + points[i - 1]) * grid_size - vy;
 
         // Second point (qx, qy)
-        let qx = points[i] * grid_size;
-        let qy = points[i + 1] * grid_size;
+        let qx = (sx + points[i]) * grid_size - vx;
+        let qy = (sy + points[i + 1]) * grid_size - vy;
 
-        // Triangle dimensions
+        // Dimensions of triangle formed by line points
         let dx = qx - px;
         let dy = qy - py;
 
@@ -903,56 +963,32 @@ fn draw_lines(points: &[f32], line_width: f32, grid_size: f32, vp_w: f32, vp_h: 
         let above = theta + std::f32::consts::PI / 2.0;
         let below = theta - std::f32::consts::PI / 2.0;
 
-        // Distances to add to create line segment
-        let ca = w * above.cos();
-        let sa = w * above.sin();
-        let cb = w * below.cos();
-        let sb = w * below.sin();
+        // Distances to corner points for x (c) and y (s)
+        let ca = lw * above.cos();
+        let sa = lw * above.sin();
+        let cb = lw * below.cos();
+        let sb = lw * below.sin();
 
-        // Rectangular line segment from (px, py) to (qx, qy)
-        // Uses four points (a, b, c, d) around the two points to draw the
-        // segment, like so:
-        //
-        //   (px, py) _ (a)
-        //        _,o^ \
-        //    (b) \  \  \
-        //         \  \  \
-        //          \  \  \
-        //           \  \  \
-        //            \  \  \
-        //             \  \  \
-        //              \  \  \
-        //               \  \  \
-        //                \  \  \
-        //                 \  \  \
-        //                  \  \  \ (d)
-        //                   \_,o~^
-        //                (c)   (qx qy)
-        //
+        // Calculate points
+        let a = calc_point(px + ca, py + sa);
+        let b = calc_point(px + cb, py + sb);
+        let c = calc_point(qx + cb, qy + sb);
+        let d = calc_point(qx + ca, qy + sa);
 
-        // First triangle: lower half
-        // Above starting point (a)
-        ret.push(to_unit(px + ca, vp_w));
-        ret.push(to_unit(py + sa, vp_h));
-        // Below starting point (b)
-        ret.push(to_unit(px + cb, vp_w));
-        ret.push(to_unit(px + sb, vp_h));
-        // Below ending point (c)
-        ret.push(to_unit(qx + cb, vp_w));
-        ret.push(to_unit(qx + sb, vp_h));
+        // Two triangles form the line, lower half and upper half
+        triangle(a, b, c);
+        triangle(a, c, d);
 
-        // Second triangle: upper half
-        // Below ending point (c)
-        ret.push(to_unit(qx + cb, vp_w));
-        ret.push(to_unit(qx + sb, vp_h));
-        // Above ending point (d)
-        ret.push(to_unit(qx + ca, vp_w));
-        ret.push(to_unit(qx + sa, vp_h));
-        // Above starting point (a)
-        ret.push(to_unit(px + ca, vp_w));
-        ret.push(to_unit(py + sa, vp_h));
+        // Draw triangles over on the corner to close up the gap
+        if let (Some(pc), Some(pd)) = (prev_c, prev_d) {
+            triangle(a, b, pc);
+            triangle(a, b, pd);
+        }    
+
+        // Store c and d for the next gap
+        prev_c = Some(c);
+        prev_d = Some(d);
     }
 
-    crate::bridge::log(&format!("{ret:?}"));
     ret
 }
