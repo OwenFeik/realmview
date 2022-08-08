@@ -9,8 +9,8 @@ use wasm_bindgen::prelude::*;
 
 use crate::bridge::{
     expose_closure, expose_closure_f64, expose_closure_f64_bool, expose_closure_f64_f64,
-    expose_closure_f64_string, expose_closure_string_in, expose_closure_string_out, log,
-    request_animation_frame,
+    expose_closure_f64_string, expose_closure_f64x4, expose_closure_string_in,
+    expose_closure_string_out, log, request_animation_frame,
 };
 use crate::client::Client;
 use crate::viewport::{Tool, Viewport};
@@ -186,6 +186,16 @@ pub fn start() -> Result<(), JsValue> {
     }) as Box<dyn FnMut(String)>);
     expose_closure_string_in("select_tool", &select_tool_closure);
     select_tool_closure.forget();
+
+    let vp_ref = vp.clone();
+    let select_colour_closure = Closure::wrap(Box::new(move |r: f64, g: f64, b: f64, a: f64| {
+        vp_ref
+            .lock()
+            .scene
+            .set_colour([r as f32, g as f32, b as f32, a as f32]);
+    }) as Box<dyn FnMut(f64, f64, f64, f64)>);
+    expose_closure_f64x4("select_colour", &select_colour_closure);
+    select_colour_closure.forget();
 
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();

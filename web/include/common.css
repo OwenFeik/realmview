@@ -34,4 +34,14 @@
     height: 1.25em;
     transform: translateY(-0.1em);
 }
+
+/* Fit colour inputs in input groups properly. */
+.input-group input[type='color'] {
+    height: 38px;
+}
+
+.input-group-sm input[type='color'] {
+    height: 31px;
+}
+
 /* End BS overrides */

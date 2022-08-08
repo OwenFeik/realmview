@@ -297,6 +297,7 @@ impl HeldObject {
 pub struct Interactor {
     pub changes: Changes,
     client: Option<Client>,
+    colour: Colour,
     holding: HeldObject,
     history: Vec<SceneEvent>,
     redo_history: Vec<Option<SceneEvent>>,
@@ -318,6 +319,7 @@ impl Interactor {
         Interactor {
             changes: Changes::new(),
             client,
+            colour: [1.0, 0.0, 0.0, 1.0], // Solid red
             holding: HeldObject::None,
             history: vec![],
             redo_history: vec![],
@@ -619,7 +621,7 @@ impl Interactor {
         self.clear_held_selection();
         if let Some(id) = self.new_sprite(
             Some(SpriteVisual::Drawing {
-                colour: [1.0, 0.0, 0.0, 1.0],
+                colour: self.colour,
                 points: vec![0.0, 0.0],
             }),
             None,
@@ -896,14 +898,15 @@ impl Interactor {
         ret
     }
 
-    pub fn new_grabbed_sprite(
-        &mut self,
-        visual: Option<SpriteVisual>,
-        layer: Option<Id>,
-        at: ScenePoint,
-    ) {
+    pub fn new_held_shape(&mut self, shape: SpriteShape, at: ScenePoint) {
         self.clear_held_selection();
-        if let Some(id) = self.new_sprite(visual, layer) {
+        if let Some(id) = self.new_sprite(
+            Some(SpriteVisual::Solid {
+                colour: self.colour,
+                shape,
+            }),
+            Some(self.selected_layer),
+        ) {
             let opt = self.scene.sprite(id).map(|s| {
                 self.holding = HeldObject::Anchor(s.id, 1, 1);
                 s.set_rect(Rect::new(at.x, at.y, 0.0, 0.0))
@@ -1022,5 +1025,9 @@ impl Interactor {
             return;
         }
         self.selection_effect(|s| Some(s.move_by(delta)));
+    }
+
+    pub fn set_colour(&mut self, colour: Colour) {
+        self.colour = colour;
     }
 }

@@ -73,6 +73,9 @@ extern "C" {
     pub fn expose_closure_f64_f64(name: &str, closure: &Closure<dyn FnMut(f64, f64)>);
 
     #[wasm_bindgen(js_name = expose_closure)]
+    pub fn expose_closure_f64x4(name: &str, closure: &Closure<dyn FnMut(f64, f64, f64, f64)>);
+
+    #[wasm_bindgen(js_name = expose_closure)]
     pub fn expose_closure_array(name: &str, closure: &Closure<dyn FnMut() -> Array>);
 
     #[wasm_bindgen(js_namespace = console, js_name = log)]

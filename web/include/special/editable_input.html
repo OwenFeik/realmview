@@ -23,9 +23,9 @@ IFNDEF(NOSTART) {{
     IFDEF(MAX) {{ max="{{ MAX }}" }}
     IFDEF(MIN) {{ min="{{ MIN }}" }}
     autocomplete="off"
-    disabled
     IFDEF(VALUE) {{ value="{{ VALUE }}" }}
     IFDEF(BUTTON) {{
+      disabled
       onkeypress="
         // Submit on enter.
         if (event.keyCode === 13) {

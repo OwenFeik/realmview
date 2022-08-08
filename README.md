@@ -3,12 +3,12 @@
 * Scene
     * Hide or show UI elements depending on user role.
     * Draw on map.
-        * Choose colour
         * Shapes
             * Filled
             * Hollow
         * Freehand
             * Stroke width
+            * Redo rendering to render once and then scale with matrix
 * Layers
     * Select from selected layer first (possibly)
     * Layer opacity

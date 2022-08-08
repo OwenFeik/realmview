@@ -1,3 +1,24 @@
+<script>
+function get_colour(id_prefix, callback) {
+    const parse_str = str => parseInt(str, 16) / 255;
+    
+    let hex = document.getElementById(id_prefix + "colour").value.toLowerCase();
+    let r = parse_str(hex.substr(1, 2));
+    let g = parse_str(hex.substr(3, 2));
+    let b = parse_str(hex.substr(5, 2));
+
+    let a = Math.min(
+        Math.max(
+            parseInt(document.getElementById(id_prefix + "alpha").value),
+            0
+        ),
+        100
+    ) / 100;
+
+    let colour = [r, g, b, a].map(v => isNaN(v) ? 0 : v);
+    callback(colour);
+}
+</script>
 <div class="accordion" id="canvas_menu">
   {{ scene/menu/tools/tools_menu.html }}
   {{ scene/menu/sprite/sprite_menu.html }}

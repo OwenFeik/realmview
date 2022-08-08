@@ -123,9 +123,16 @@ var RustFuncs = {
 
     select_tool: missing_func,
     /*
-    function set_tool(tool: string)
+    function select_tool(tool: string)
 
     Sets the active tool.
+    */
+
+    select_colour: missing_func,
+    /*
+    function select_colour(r: number, g: number, b: number, a: number)
+
+    Sets the colour for drawing.
     */
 };
 

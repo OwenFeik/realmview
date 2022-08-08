@@ -1,0 +1,26 @@
+PREAMBLE {{
+kwargs["id"] = kwargs.get("ID", unique_string())
+}}
+{{
+  editable_input(
+    id="{{ ID }}_colour",
+    type="color",
+    label="Colour",
+    small=1,
+    action="() => get_colour('{{ ID }}_', {{ ACTION }})",
+    noend=1,
+    IFDEF(VALUE) {{ value="{{ VALUE }}" }}
+  )
+}}
+{{
+  editable_input(
+    id="{{ ID }}_alpha",
+    type="number",
+    label="Opacity",
+    value=100,
+    min=0,
+    max=100,
+    action="() => get_colour('{{ ID }}_', {{ ACTION }})",
+    nostart=1
+  )
+}}

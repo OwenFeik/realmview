@@ -983,7 +983,7 @@ fn draw_lines(
         if let (Some(pc), Some(pd)) = (prev_c, prev_d) {
             triangle(a, b, pc);
             triangle(a, b, pd);
-        }    
+        }
 
         // Store c and d for the next gap
         prev_c = Some(c);

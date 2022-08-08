@@ -6,7 +6,7 @@ use crate::{
     client::Client,
     interactor::Interactor,
 };
-use scene::{Rect, ScenePoint, SpriteShape, SpriteVisual};
+use scene::{Rect, ScenePoint, SpriteShape};
 
 pub enum Tool {
     Draw,
@@ -122,16 +122,7 @@ impl Viewport {
             MouseButton::Left => match self.tool {
                 Tool::Draw => self.scene.start_draw(self.scene_point(at)),
                 Tool::Select => self.scene.grab(self.scene_point(at), ctrl),
-                Tool::Shape(shape) => {
-                    self.scene.new_grabbed_sprite(
-                        Some(SpriteVisual::Solid {
-                            colour: [0.0, 1.0, 0.0, 1.0],
-                            shape,
-                        }),
-                        None,
-                        self.scene_point(at),
-                    );
-                }
+                Tool::Shape(shape) => self.scene.new_held_shape(shape, self.scene_point(at)),
             },
             MouseButton::Right => {
                 if let Some(id) = self.scene.sprite_at(self.scene_point(at)) {

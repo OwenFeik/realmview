@@ -37,3 +37,18 @@
     |
   )
 }}
+{{
+  accordion_item(
+    id="draw_menu",
+    label="Draw",
+    body=|
+      {{
+        colour_input(
+          id="draw_menu",
+          action="([r, g, b, a]) => RustFuncs.select_colour(r, g, b, a)",
+          value="#FF0000"
+        )
+      }}
+    |
+  )
+}}
