@@ -375,39 +375,46 @@ mod sprite {
     // resolved in a future SQLite version but error persists in 3.38.0.
     // see: https://github.com/launchbadge/sqlx/issues/1596
 
-    #[derive(sqlx::FromRow)]
+    #[derive(Debug, sqlx::FromRow)]
     pub struct SpriteRecord {
         id: i64,
+        scene: i64,
         pub layer: i64,
-        shape: Option<u8>,
-        media_key: Option<String>,
-        r: Option<f32>,
-        g: Option<f32>,
-        b: Option<f32>,
-        a: Option<f32>,
         x: f32,
         y: f32,
         w: f32,
         h: f32,
         z: i64,
+        shape: Option<u8>,
+        media_key: Option<String>,
+        points: Option<Vec<u8>>,
+        r: Option<f32>,
+        g: Option<f32>,
+        b: Option<f32>,
+        a: Option<f32>,
     }
 
     impl SpriteRecord {
-        fn from_sprite(sprite: &scene::Sprite, layer: i64, id: i64) -> Self {
+        fn from_sprite(sprite: &scene::Sprite, layer: i64, scene: i64) -> Self {
             let mut record = Self {
-                id,
+                id: sprite.id,
+                scene,
                 layer,
-                shape: sprite.visual.shape().map(Self::shape_to_u8),
-                media_key: sprite.visual.texture().map(Media::id_to_key),
-                r: None,
-                g: None,
-                b: None,
-                a: None,
                 x: sprite.rect.x,
                 y: sprite.rect.y,
                 w: sprite.rect.w,
                 h: sprite.rect.h,
                 z: sprite.z as i64,
+                shape: sprite.visual.shape().map(Self::shape_to_u8),
+                media_key: sprite.visual.texture().map(Media::id_to_key),
+                points: sprite
+                    .visual
+                    .points()
+                    .map(|p| p.iter().flat_map(|f| f.to_be_bytes()).collect()),
+                r: sprite.visual.colour().map(|c| c[0]),
+                g: sprite.visual.colour().map(|c| c[1]),
+                b: sprite.visual.colour().map(|c| c[2]),
+                a: sprite.visual.colour().map(|c| c[3]),
             };
 
             if let Some([r, g, b, a]) = sprite.visual.colour() {
@@ -439,7 +446,15 @@ mod sprite {
         }
 
         fn visual(&self) -> Option<scene::SpriteVisual> {
-            if let Some(key) = &self.media_key {
+            if let Some(points) = &self.points {
+                Some(scene::SpriteVisual::Drawing {
+                    colour: [self.r?, self.g?, self.b?, self.a?],
+                    points: points
+                        .chunks_exact(32 / 8)
+                        .map(|b| f32::from_be_bytes([b[0], b[1], b[2], b[3]]))
+                        .collect(),
+                })
+            } else if let Some(key) = &self.media_key {
                 Some(scene::SpriteVisual::Texture {
                     id: Media::key_to_id(key).ok()?,
                     shape: Self::u8_to_shape(self.shape?),
@@ -465,28 +480,31 @@ mod sprite {
             layer: i64,
             scene: i64,
         ) -> anyhow::Result<i64> {
+            let record = Self::from_sprite(sprite, layer, scene);
             sqlx::query(
                 r#"
                 INSERT INTO sprites (
-                    id, scene, layer, media_key, r, g, b, a, x, y, w, h, z
+                    id, scene, layer, x, y, w, h, z, shape, media_key, points, r, g, b, a
                 ) VALUES (
-                    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13
+                    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15
                 ) RETURNING id;
                 "#,
             )
-            .bind(sprite.id)
-            .bind(scene)
-            .bind(layer)
-            .bind(sprite.visual.texture().map(Media::id_to_key))
-            .bind(sprite.visual.colour().map(|c| c[0]))
-            .bind(sprite.visual.colour().map(|c| c[1]))
-            .bind(sprite.visual.colour().map(|c| c[2]))
-            .bind(sprite.visual.colour().map(|c| c[3]))
-            .bind(sprite.rect.x)
-            .bind(sprite.rect.y)
-            .bind(sprite.rect.w)
-            .bind(sprite.rect.h)
-            .bind(sprite.z)
+            .bind(record.id)
+            .bind(record.scene)
+            .bind(record.layer)
+            .bind(record.x)
+            .bind(record.y)
+            .bind(record.w)
+            .bind(record.h)
+            .bind(record.z)
+            .bind(record.shape)
+            .bind(record.media_key)
+            .bind(record.points)
+            .bind(record.r)
+            .bind(record.g)
+            .bind(record.b)
+            .bind(record.a)
             .fetch_one(conn)
             .await
             .map(|row: sqlx::sqlite::SqliteRow| row.get(0))
@@ -526,7 +544,7 @@ mod sprite {
                 .bind(scene)
                 .fetch_all(conn)
                 .await
-                .map_err(|_| anyhow::anyhow!("Failed to load sprite list."))
+                .map_err(|e| anyhow::anyhow!("Failed to load sprite list: {e}."))
         }
     }
 }

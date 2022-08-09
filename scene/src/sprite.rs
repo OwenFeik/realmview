@@ -42,6 +42,14 @@ impl Visual {
             _ => None,
         }
     }
+
+    pub fn points(&self) -> Option<Vec<f32>> {
+        if let Self::Drawing { colour: _, points } = self {
+            Some(points.clone())
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

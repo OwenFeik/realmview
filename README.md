@@ -8,6 +8,8 @@
             * Hollow
         * Freehand
             * Stroke width
+            * Arrowheads / rounded caps
+            * Draw ephemeral arrows (while holding alt?)
             * Redo rendering to render once and then scale with matrix
 * Layers
     * Select from selected layer first (possibly)

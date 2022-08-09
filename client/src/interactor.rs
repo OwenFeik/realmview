@@ -375,6 +375,7 @@ impl Interactor {
             ServerEvent::SceneChange(scene) => self.replace_scene(scene),
             ServerEvent::SceneUpdate(scene_event) => {
                 self.changes.layer_change_if(scene_event.is_layer());
+                self.scene.apply_event(scene_event);
             }
             ServerEvent::UserId(id) => {
                 self.user = id;
@@ -733,14 +734,21 @@ impl Interactor {
         self.changes.sprite_selected_change();
     }
 
+    fn finish_draw(&mut self, id: Id) {
+        if let Some(sprite) = self.scene.sprite(id) {
+            // If this was just a single click, no line drawn, just remove it
+            if sprite.n_drawing_points() == 1 {
+                self.remove_sprite(id);
+            } else {
+                let opt = sprite.calculate_drawing_rect();
+                self.scene_option(opt);
+            }
+        }
+    }
+
     pub fn release(&mut self, alt: bool, ctrl: bool) {
         match self.holding {
-            HeldObject::Drawing(id) => {
-                if let Some(sprite) = self.scene.sprite(id) {
-                    let opt = sprite.calculate_drawing_rect();
-                    self.scene_option(opt);
-                }
-            }
+            HeldObject::Drawing(id) => self.finish_draw(id),
             HeldObject::None => {}
             HeldObject::Marquee(_) => {
                 if !ctrl {

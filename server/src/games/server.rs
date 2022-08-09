@@ -115,6 +115,7 @@ impl Server {
                         self.send_approval(message.id, from);
                         self.broadcast_event(ServerEvent::SceneUpdate(event), Some(from));
                     } else {
+                        println!("Rejected event: {event:?}");
                         self.send_rejection(message.id, from);
                     }
                 }

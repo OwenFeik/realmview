@@ -24,11 +24,12 @@ database: build-dir
 	@if \
 		[ ! -f ${build}/schema.sql ] \
 		|| [ ! -f ${build}/database.db ] \
-		|| ! cmp -s ${root}/server/schema.sql ${build}/schema.sql; \
+		|| ! cmp -s ${root}/server/sql/schema.sql ${build}/schema.sql; \
 	then \
 		rm -f ${build}/database.db; \
-		cp ${root}/server/schema.sql ${build}/schema.sql; \
+		cp ${root}/server/sql/schema.sql ${build}/schema.sql; \
 		sqlite3 ${build}/database.db < ${build}/schema.sql; \
+		sqlite3 ${build}/database.db < ${root}/server/sql/test_data.sql; \
 	fi
 
 wasm: content-dir
