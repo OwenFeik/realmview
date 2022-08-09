@@ -1,5 +1,11 @@
 <button
-  class="btn IFDEF(SMALL) {{ btn-sm }} btn-outline-primary dropdown-toggle"
+  class="
+    btn
+    IFDEF(SMALL) {{ btn-sm }}
+    IFDEF(SECONDARY) {{ btn-outline-secondary }}
+    IFNDEF(SECONDARY) {{ btn-outline-primary }}
+    dropdown-toggle
+  "
   type="button"
   data-bs-toggle="dropdown"
   aria-expanded="false"

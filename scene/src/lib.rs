@@ -594,9 +594,13 @@ impl Scene {
             SceneEvent::SpriteDrawingFinish(_) => None,
             SceneEvent::SpriteDrawingPoint(id, n, _) => {
                 if let Some(sprite) = self.sprite(id) {
-                    sprite.keep_drawing_points(n);
+                    sprite.keep_drawing_points(n - 1);
+                    sprite
+                        .last_drawing_point()
+                        .map(|at| SceneEvent::SpriteDrawingPoint(id, n, at))
+                } else {
+                    None
                 }
-                None
             }
             SceneEvent::SpriteNew(s, _) => self.remove_sprite(s.id),
             SceneEvent::SpriteLayer(id, old_layer, new_layer) => {

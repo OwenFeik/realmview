@@ -134,6 +134,13 @@ var RustFuncs = {
 
     Sets the colour for drawing.
     */
+
+    select_stroke: missing_func,
+    /*
+    function select_stroke(stroke: number)
+    
+    Sets the stroke width for drawing.
+    */
 };
 
 // Array of callbacks to be performed when a given closure is available.
@@ -144,6 +151,11 @@ const queued = {};
 
 // Allow exposure of closures with references to the relevant structs.
 function expose_closure(name, closure) {
+    if (RustFuncs[name] !== missing_func) {
+        console.error(`Attempted to rebind exposed closure "${name}".`);
+        return;
+    }
+
     RustFuncs[name] = closure;
 
     if (queued[name]) {

@@ -4,7 +4,6 @@
     * Hide or show UI elements depending on user role.
     * Draw on map.
         * Freehand
-            * Stroke width
             * Arrowheads / rounded caps
             * Draw ephemeral arrows (while holding alt?)
             * Redo rendering to render once and then scale with matrix

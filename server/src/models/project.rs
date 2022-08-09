@@ -386,6 +386,7 @@ mod sprite {
         h: f32,
         z: i64,
         shape: Option<u8>,
+        stroke: Option<f32>,
         media_key: Option<String>,
         points: Option<Vec<u8>>,
         r: Option<f32>,
@@ -406,6 +407,7 @@ mod sprite {
                 h: sprite.rect.h,
                 z: sprite.z as i64,
                 shape: sprite.visual.shape().map(Self::shape_to_u8),
+                stroke: sprite.visual.stroke(),
                 media_key: sprite.visual.texture().map(Media::id_to_key),
                 points: sprite
                     .visual
@@ -448,6 +450,7 @@ mod sprite {
         fn visual(&self) -> Option<scene::SpriteVisual> {
             if let Some(points) = &self.points {
                 Some(scene::SpriteVisual::Drawing {
+                    stroke: self.stroke?,
                     colour: [self.r?, self.g?, self.b?, self.a?],
                     points: points
                         .chunks_exact(32 / 8)
@@ -456,13 +459,14 @@ mod sprite {
                 })
             } else if let Some(key) = &self.media_key {
                 Some(scene::SpriteVisual::Texture {
-                    id: Media::key_to_id(key).ok()?,
                     shape: Self::u8_to_shape(self.shape?),
+                    id: Media::key_to_id(key).ok()?,
                 })
             } else {
                 Some(scene::SpriteVisual::Solid {
-                    colour: [self.r?, self.g?, self.b?, self.a?],
                     shape: Self::u8_to_shape(self.shape?),
+                    stroke: self.stroke?,
+                    colour: [self.r?, self.g?, self.b?, self.a?],
                 })
             }
         }

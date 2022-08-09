@@ -16,15 +16,26 @@ pub enum Shape {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum Visual {
-    Texture { id: Id, shape: Shape },
-    Solid { colour: Colour, shape: Shape },
-    Drawing { colour: Colour, points: Vec<f32> },
+    Texture {
+        shape: Shape,
+        id: Id,
+    },
+    Solid {
+        shape: Shape,
+        stroke: f32,
+        colour: Colour,
+    },
+    Drawing {
+        stroke: f32,
+        colour: Colour,
+        points: Vec<f32>,
+    },
 }
 
 impl Visual {
     pub fn colour(&self) -> Option<Colour> {
         match self {
-            Self::Solid { colour, shape: _ } | Self::Drawing { colour, points: _ } => Some(*colour),
+            Self::Solid { colour, .. } | Self::Drawing { colour, .. } => Some(*colour),
             _ => None,
         }
     }
@@ -38,16 +49,32 @@ impl Visual {
 
     pub fn shape(&self) -> Option<Shape> {
         match self {
-            Self::Solid { colour: _, shape } | Self::Texture { id: _, shape } => Some(*shape),
+            Self::Solid { shape, .. } | Self::Texture { id: _, shape } => Some(*shape),
             _ => None,
         }
     }
 
     pub fn points(&self) -> Option<Vec<f32>> {
-        if let Self::Drawing { colour: _, points } = self {
+        if let Self::Drawing { points, .. } = self {
             Some(points.clone())
         } else {
             None
+        }
+    }
+
+    pub fn stroke(&self) -> Option<f32> {
+        match self {
+            Self::Solid {
+                colour: _,
+                shape: _,
+                stroke,
+            }
+            | Self::Drawing {
+                colour: _,
+                points: _,
+                stroke,
+            } => Some(*stroke),
+            _ => None,
         }
     }
 }
@@ -62,13 +89,15 @@ pub struct Sprite {
 
 impl Sprite {
     // Width of lines for sprites which are drawings
-    pub const DRAWING_LINE_WIDTH: f32 = 0.2;
+    pub const DEFAULT_STROKE: f32 = 0.2;
+    pub const SOLID_STROKE: f32 = 0.0;
 
     // Minimum size of a sprite dimension; too small and sprites can be lost.
     const MIN_SIZE: f32 = 0.25;
     const DEFAULT_VISUAL: Visual = Visual::Solid {
         colour: [1.0, 0.0, 1.0, 1.0],
         shape: Shape::Rectangle,
+        stroke: Sprite::SOLID_STROKE,
     };
 
     pub fn new(id: Id, visual: Option<Visual>) -> Sprite {
@@ -160,14 +189,19 @@ impl Sprite {
     pub fn set_colour(&mut self, new: Colour) -> Option<SceneEvent> {
         let old = self.visual.clone();
         match self.visual.clone() {
-            Visual::Solid { colour: _, shape } => {
-                self.visual = Visual::Solid { colour: new, shape };
+            Visual::Solid { shape, stroke, .. } => {
+                self.visual = Visual::Solid {
+                    colour: new,
+                    shape,
+                    stroke,
+                };
                 Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
             }
-            Visual::Drawing { colour: _, points } => {
+            Visual::Drawing { points, stroke, .. } => {
                 self.visual = Visual::Drawing {
                     colour: new,
                     points,
+                    stroke,
                 };
                 Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
             }
@@ -178,12 +212,39 @@ impl Sprite {
     pub fn set_shape(&mut self, new: Shape) -> Option<SceneEvent> {
         let old = self.visual.clone();
         match self.visual.clone() {
-            Visual::Solid { colour, shape: _ } => {
-                self.visual = Visual::Solid { colour, shape: new };
+            Visual::Solid { colour, stroke, .. } => {
+                self.visual = Visual::Solid {
+                    colour,
+                    shape: new,
+                    stroke,
+                };
                 Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
             }
             Visual::Texture { id, shape: _ } => {
                 self.visual = Visual::Texture { id, shape: new };
+                Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn set_stroke(&mut self, new: f32) -> Option<SceneEvent> {
+        let old = self.visual.clone();
+        match self.visual.clone() {
+            Visual::Solid { shape, colour, .. } => {
+                self.visual = Visual::Solid {
+                    shape,
+                    stroke: new,
+                    colour,
+                };
+                Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
+            }
+            Visual::Drawing { colour, points, .. } => {
+                self.visual = Visual::Drawing {
+                    stroke: new,
+                    colour,
+                    points,
+                };
                 Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
             }
             _ => None,
@@ -201,7 +262,7 @@ impl Sprite {
     }
 
     pub fn n_drawing_points(&self) -> usize {
-        if let Visual::Drawing { colour: _, points } = &self.visual {
+        if let Visual::Drawing { points, .. } = &self.visual {
             points.len() / 2
         } else {
             0
@@ -209,14 +270,32 @@ impl Sprite {
     }
 
     pub fn keep_drawing_points(&mut self, n: usize) {
-        if let Visual::Drawing { colour: _, points } = &mut self.visual {
-            points.truncate(n);
+        if let Visual::Drawing { points, .. } = &mut self.visual {
+            points.truncate(n * 2);
+        }
+    }
+
+    pub fn last_drawing_point(&self) -> Option<ScenePoint> {
+        if let Visual::Drawing { points, .. } = &self.visual {
+            if self.n_drawing_points() > 0 {
+                let mut last: Vec<&f32> = points.iter().rev().take(2).collect();
+
+                // These unwraps are safe because we checked that there is at
+                // one point in the vec, implying at least two entries.
+                let y = *last.pop().unwrap();
+                let x = *last.pop().unwrap();
+                Some(ScenePoint::new(x, y))
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 
     pub fn add_drawing_point(&mut self, at: ScenePoint) -> Option<SceneEvent> {
         let ScenePoint { x, y } = at - self.pos();
-        if let Visual::Drawing { colour: _, points } = &mut self.visual {
+        if let Visual::Drawing { points, .. } = &mut self.visual {
             points.push(x);
             points.push(y);
             Some(SceneEvent::SpriteDrawingPoint(
@@ -230,7 +309,7 @@ impl Sprite {
     }
 
     pub fn calculate_drawing_rect(&mut self) -> Option<SceneEvent> {
-        if let Visual::Drawing { colour: _, points } = &mut self.visual {
+        if let Visual::Drawing { points, .. } = &mut self.visual {
             let mut x_min = std::f32::MAX;
             let mut x_max = std::f32::MIN;
             let mut y_min = std::f32::MAX;
@@ -247,15 +326,15 @@ impl Sprite {
             }
 
             self.rect = Rect::new(
-                x_min + self.rect.x - Self::DRAWING_LINE_WIDTH,
-                y_min + self.rect.y - Self::DRAWING_LINE_WIDTH,
-                x_max - x_min + 2.0 * Self::DRAWING_LINE_WIDTH,
-                y_max - y_min + 2.0 * Self::DRAWING_LINE_WIDTH,
+                x_min + self.rect.x - Self::DEFAULT_STROKE,
+                y_min + self.rect.y - Self::DEFAULT_STROKE,
+                x_max - x_min + 2.0 * Self::DEFAULT_STROKE,
+                y_max - y_min + 2.0 * Self::DEFAULT_STROKE,
             );
 
             for i in (0..points.len()).step_by(2) {
-                points[i] -= x_min - Self::DRAWING_LINE_WIDTH;
-                points[i + 1] -= y_min - Self::DRAWING_LINE_WIDTH;
+                points[i] -= x_min - Self::DEFAULT_STROKE;
+                points[i + 1] -= y_min - Self::DEFAULT_STROKE;
             }
 
             Some(SceneEvent::SpriteDrawingFinish(self.id))

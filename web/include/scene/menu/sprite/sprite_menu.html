@@ -53,13 +53,27 @@
           )
         }}
       </div>
-      <div class="input-group mt-1">
-        {{ dropdown_button(label="Shape", small=1) }}
-        <ul class="dropdown-menu">
-          {{ menu/sprite_shape_option(shape="Rectangle") }}
-          {{ menu/sprite_shape_option(shape="Ellipse") }}
-          {{ menu/sprite_shape_option(shape="Hexagon") }}
-        </ul>
+      <div class="mt-1">
+        {{
+          editable_input(
+            id="sprite_menu_stroke",
+            label="Stroke Width",
+            type="number",
+            min=0,
+            max=1000,
+            small=1,
+            value=20,
+            action="v => update_sprite_details('stroke', v / 100)",
+            after=|
+              {{ dropdown_button(label="Shape", secondary=1, small=1) }}
+              <ul class="dropdown-menu">
+                {{ menu/sprite_shape_option(shape="Rectangle") }}
+                {{ menu/sprite_shape_option(shape="Ellipse") }}
+                {{ menu/sprite_shape_option(shape="Hexagon") }}
+              </ul>
+            |
+          )
+        }}  
       </div>
     |
   )

@@ -103,6 +103,7 @@ pub struct SpriteDetails {
     pub w: Option<f32>,
     pub h: Option<f32>,
     pub shape: Option<SpriteShape>,
+    pub stroke: Option<f32>,
     pub colour: Option<Colour>,
     pub texture: Option<Id>,
 }
@@ -116,6 +117,7 @@ impl SpriteDetails {
             w: Some(sprite.rect.w),
             h: Some(sprite.rect.h),
             shape: sprite.visual.shape(),
+            stroke: sprite.visual.stroke(),
             colour: sprite.visual.colour(),
             texture: sprite.visual.texture(),
         }
@@ -140,6 +142,10 @@ impl SpriteDetails {
 
         if self.shape.is_some() && self.shape != sprite.visual.shape() {
             self.shape = None;
+        }
+
+        if self.stroke.is_some() && self.stroke != sprite.visual.stroke() {
+            self.stroke = None;
         }
 
         if self.colour.is_some() && self.colour != sprite.visual.colour() {
@@ -175,11 +181,19 @@ impl SpriteDetails {
             }
         }
 
+        if let Some(stroke) = self.stroke {
+            if let Some(event) = sprite.set_stroke(stroke) {
+                events.push(event);
+            }
+        }
+
         if let Some(c) = self.colour {
             if let Some(event) = sprite.set_colour(c) {
                 events.push(event);
             }
-        } else if let Some(id) = self.texture {
+        }
+
+        if let Some(id) = self.texture {
             if let Some(event) = sprite.set_texture(id) {
                 events.push(event);
             }
@@ -249,7 +263,7 @@ impl HeldObject {
     fn is_sprite(&self) -> bool {
         matches!(
             self,
-            HeldObject::Sprite(..) | HeldObject::Anchor(..) | HeldObject::Selection(..)
+            HeldObject::Anchor(..) | HeldObject::Selection(..) | HeldObject::Sprite(..)
         )
     }
 
@@ -297,7 +311,8 @@ impl HeldObject {
 pub struct Interactor {
     pub changes: Changes,
     client: Option<Client>,
-    colour: Colour,
+    draw_colour: Colour,
+    draw_stroke: f32,
     holding: HeldObject,
     history: Vec<SceneEvent>,
     redo_history: Vec<Option<SceneEvent>>,
@@ -319,7 +334,8 @@ impl Interactor {
         Interactor {
             changes: Changes::new(),
             client,
-            colour: [1.0, 0.0, 0.0, 1.0], // Solid red
+            draw_colour: [1.0, 0.0, 0.0, 1.0], // Solid red
+            draw_stroke: Sprite::DEFAULT_STROKE,
             holding: HeldObject::None,
             history: vec![],
             redo_history: vec![],
@@ -428,6 +444,17 @@ impl Interactor {
         self.history.push(SceneEvent::Dummy);
     }
 
+    fn consume_history_until<F: FnMut(&SceneEvent) -> bool>(&mut self, mut pred: F) {
+        while let Some(e) = self.history.pop() {
+            if !pred(&e) {
+                if !matches!(e, SceneEvent::Dummy) {
+                    self.history.push(e);
+                }
+                break;
+            }
+        }
+    }
+
     fn group_moves_single(&mut self, last: SceneEvent) {
         let (sprite, mut start, finish) = if let SceneEvent::SpriteMove(id, from, to) = last {
             (id, from, to)
@@ -435,47 +462,64 @@ impl Interactor {
             return;
         };
 
-        while let Some(e) = self.history.pop() {
+        self.consume_history_until(|e| {
             if let SceneEvent::SpriteMove(id, from, _) = e {
-                if id == sprite {
-                    start = from;
-                    continue;
+                if *id == sprite {
+                    start = *from;
+                    return true;
                 }
             }
-
-            if !matches!(e, SceneEvent::Dummy) {
-                self.history.push(e);
-            }
-            break;
-        }
+            false
+        });
 
         self.history
             .push(SceneEvent::SpriteMove(sprite, start, finish));
+    }
+
+    fn group_moves_drawing(&mut self, last: SceneEvent) {
+        let sprite = if let SceneEvent::SpriteDrawingFinish(id) = last {
+            id
+        } else {
+            return;
+        };
+
+        let mut opt = None;
+        self.consume_history_until(|e| match e {
+            SceneEvent::SpriteDrawingPoint(id, ..) => *id == sprite,
+            SceneEvent::SpriteNew(s, ..) => {
+                if s.id == sprite {
+                    opt = Some(e.clone());
+                }
+                false
+            }
+            _ => false,
+        });
+
+        if let Some(event) = opt {
+            self.history.push(event);
+        }
     }
 
     fn group_moves_set(&mut self, last: SceneEvent) {
         self.history.push(last);
         let mut moves = HashMap::new();
 
-        while let Some(e) = self.history.pop() {
+        self.consume_history_until(|e| {
             if let SceneEvent::EventSet(v) = e {
                 for event in v {
                     if let SceneEvent::SpriteMove(id, from, _) = event {
-                        if let Some(SceneEvent::SpriteMove(_, start, _)) = moves.get_mut(&id) {
-                            *start = from;
+                        if let Some(SceneEvent::SpriteMove(_, start, _)) = moves.get_mut(id) {
+                            *start = *from;
                         } else {
-                            moves.insert(id, event);
+                            moves.insert(*id, event.clone());
                         }
                     }
                 }
-                continue;
+                true
+            } else {
+                false
             }
-
-            if !matches!(e, SceneEvent::Dummy) {
-                self.history.push(e);
-            }
-            break;
-        }
+        });
 
         self.history.push(SceneEvent::EventSet(
             moves.into_values().collect::<Vec<SceneEvent>>(),
@@ -486,6 +530,7 @@ impl Interactor {
         let opt = self.history.pop();
         if let Some(event) = opt {
             match event {
+                SceneEvent::SpriteDrawingFinish(..) => self.group_moves_drawing(event),
                 SceneEvent::SpriteMove(..) => self.group_moves_single(event),
                 SceneEvent::EventSet(..) => self.group_moves_set(event),
                 _ => self.history.push(event),
@@ -622,11 +667,13 @@ impl Interactor {
         self.clear_held_selection();
         if let Some(id) = self.new_sprite(
             Some(SpriteVisual::Drawing {
-                colour: self.colour,
+                colour: self.draw_colour,
                 points: vec![0.0, 0.0],
+                stroke: self.draw_stroke,
             }),
             None,
         ) {
+            self.start_move_group();
             self.holding = HeldObject::Drawing(id);
             if let Some(sprite) = self.scene.sprite(id) {
                 let event = sprite.set_pos(at);
@@ -742,6 +789,7 @@ impl Interactor {
             } else {
                 let opt = sprite.calculate_drawing_rect();
                 self.scene_option(opt);
+                self.end_move_group();
             }
         }
     }
@@ -910,8 +958,9 @@ impl Interactor {
         self.clear_held_selection();
         if let Some(id) = self.new_sprite(
             Some(SpriteVisual::Solid {
-                colour: self.colour,
+                colour: self.draw_colour,
                 shape,
+                stroke: Sprite::SOLID_STROKE,
             }),
             Some(self.selected_layer),
         ) {
@@ -1036,6 +1085,10 @@ impl Interactor {
     }
 
     pub fn set_colour(&mut self, colour: Colour) {
-        self.colour = colour;
+        self.draw_colour = colour;
+    }
+
+    pub fn set_stroke(&mut self, stroke: f32) {
+        self.draw_stroke = stroke;
     }
 }

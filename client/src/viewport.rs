@@ -215,18 +215,17 @@ impl Viewport {
     }
 
     fn handle_key_down(&mut self, key: Key, ctrl: bool) {
-        if matches!(key, Key::Delete) {
-            self.scene.remove_sprite(Interactor::SELECTION_ID);
-        } else if matches!(key, Key::Escape) {
-            self.scene.clear_selection();
-        } else if key.is_arrow() {
+        if key.is_arrow() {
             self.handle_arrow_key_down(key, ctrl);
-        } else if ctrl {
-            match key {
-                Key::Y => self.scene.redo(),
-                Key::Z => self.scene.undo(),
-                _ => (),
-            };
+            return;
+        }
+
+        match key {
+            Key::Delete => self.scene.remove_sprite(Interactor::SELECTION_ID),
+            Key::Escape => self.scene.clear_selection(),
+            Key::Y => self.scene.redo(),
+            Key::Z => self.scene.undo(),
+            _ => {}
         }
     }
 

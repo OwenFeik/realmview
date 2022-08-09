@@ -49,6 +49,20 @@
           value="#FF0000"
         )
       }}
+      <div class="mt-1">
+        {{
+          editable_input(
+            id="draw_menu_stroke",
+            label="Stroke Width",
+            type="number",
+            min=0,
+            max=1000,
+            small=1,
+            value=20,
+            action="v => RustFuncs.select_stroke(v / 100)"
+          )
+        }}  
+      </div>
     |
   )
 }}

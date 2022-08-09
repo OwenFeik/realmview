@@ -245,37 +245,47 @@ impl Canvas {
     }
 
     fn configure_events(&self) -> Result<(), JsError> {
-        for event_name in &["mousedown", "mouseup", "mouseleave", "mousemove", "wheel"] {
+        for event_name in ["mouseenter", "mousemove"] {
+            // Grab focus on mouse events
+            let element = self.element.clone();
+            let listener = Closure::wrap(Box::new(move |_event: web_sys::MouseEvent| {
+                element.focus().ok();
+            }) as Box<dyn FnMut(web_sys::MouseEvent)>);
+            if self
+                .element
+                .add_event_listener_with_callback(event_name, listener.as_ref().unchecked_ref())
+                .is_err()
+            {
+                return JsError::error("Failed to add mouse event listener to canvas.");
+            }
+            listener.forget();
+        }
+
+        for event_name in [
+            "mousedown",
+            "mouseup",
+            "mouseleave",
+            "mousemove",
+            "wheel",
+            "keydown",
+        ] {
             let events = self.events.clone();
             let listener = Closure::wrap(Box::new(move |event: web_sys::UiEvent| {
-                event.prevent_default();
                 events.push(&event);
             }) as Box<dyn FnMut(web_sys::UiEvent)>);
 
-            match self
+            if self
                 .element
                 .add_event_listener_with_callback(event_name, listener.as_ref().unchecked_ref())
+                .is_err()
             {
-                Ok(_) => (),
-                Err(_) => return JsError::error("Failed to add mouse event listener to canvas."),
-            };
+                return JsError::error("Failed to add event listener to canvas.");
+            }
 
             listener.forget();
         }
 
-        let events = self.events.clone();
-        let listener = Closure::wrap(Box::new(move |event: web_sys::UiEvent| {
-            events.push(&event);
-        }) as Box<dyn FnMut(web_sys::UiEvent)>);
-        let ret = match window()?
-            .add_event_listener_with_callback("keydown", listener.as_ref().unchecked_ref())
-        {
-            Ok(_) => Ok(()),
-            Err(_) => JsError::error("Failed to add keyboard event listener to window."),
-        };
-        listener.forget();
-
-        ret
+        Ok(())
     }
 
     fn configure_upload(&self, texture_queue: Rc<Array>) -> Result<(), JsError> {

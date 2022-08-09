@@ -197,6 +197,13 @@ pub fn start() -> Result<(), JsValue> {
     expose_closure_f64x4("select_colour", &select_colour_closure);
     select_colour_closure.forget();
 
+    let vp_ref = vp.clone();
+    let select_stroke_closure = Closure::wrap(Box::new(move |stroke: f64| {
+        vp_ref.lock().scene.set_stroke(stroke as f32);
+    }) as Box<dyn FnMut(f64)>);
+    expose_closure_f64("select_stroke", &select_stroke_closure);
+    select_stroke_closure.forget();
+
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
 

@@ -286,7 +286,7 @@ impl Shape {
     }
 
     // Returns points for a hollow regular polygon with n edges and a line
-    // width of lw units. 
+    // width of lw units.
     fn hollow_ngon(n: u32, lw: f32) -> Vec<f32> {
         let mut coords = Vec::new();
 
@@ -732,7 +732,7 @@ impl Renderer {
     pub fn draw_sprite(&mut self, sprite: &Sprite, viewport: Rect, grid_size: f32) {
         let position = sprite.rect * grid_size;
         match &sprite.visual {
-            SpriteVisual::Solid { colour, shape } => self
+            SpriteVisual::Solid { colour, shape, .. } => self
                 .solid_renderer
                 .draw_shape(*shape, *colour, viewport, position),
             SpriteVisual::Texture { id, shape } => self.texture_renderer.draw_texture(
@@ -741,12 +741,17 @@ impl Renderer {
                 viewport,
                 position,
             ),
-            SpriteVisual::Drawing { colour, points } => {
+            SpriteVisual::Drawing {
+                stroke,
+                colour,
+                points,
+            } => {
                 self.line_renderer.load_points(&draw_lines(
                     points,
                     grid_size,
                     viewport,
                     sprite.rect,
+                    *stroke,
                 ));
                 self.line_renderer.render_solid(Some(*colour));
             }
@@ -943,6 +948,7 @@ fn draw_lines(
         h: vh,
     }: Rect,
     pos: Rect,
+    stroke: f32,
 ) -> Vec<f32> {
     let mut ret = Vec::new();
 
@@ -985,7 +991,7 @@ fn draw_lines(
 
     // Line width in viewport units. This is the distance from one of the
     // points defining the line to one of the edge points, e.g. |(px, py), (a)|
-    let lw = grid_size * scene::Sprite::DRAWING_LINE_WIDTH / 2.0;
+    let lw = grid_size * stroke / 2.0;
 
     // Previous line endponts, used to close up gaps at corners
     let mut prev_c: Option<Point> = None;
