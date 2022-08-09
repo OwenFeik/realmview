@@ -3,9 +3,6 @@
 * Scene
     * Hide or show UI elements depending on user role.
     * Draw on map.
-        * Shapes
-            * Filled
-            * Hollow
         * Freehand
             * Stroke width
             * Arrowheads / rounded caps
@@ -15,8 +12,10 @@
     * Select from selected layer first (possibly)
     * Layer opacity
 * Sprites
-    * Use sprite menu to change texture.
-    * Change cursor when hovering a sprite or anchor.
+    * Use sprite menu to change texture
+    * Change cursor when hovering a sprite or anchor
+    * Group sprites
+    * Set stroke width for hollow shapes
 * Media
     * Delete media items
     * Media library

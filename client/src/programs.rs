@@ -254,27 +254,75 @@ impl Shape {
         })
     }
 
-    // Returns a Shape for a regular polygon with n edges, or an error if the
-    // program passed is non-functional.
+    // Returns points for a regular polygon with n edges.
     //
     // Note the resultant shape will be oriented with the first vertex at the
     // top center of the tile, i.e. a 4gon is a diamond and not a square.
-    //
-    // Based on:
-    // https://webglfundamentals.org/webgl/lessons/webgl-drawing-without-data.html
     fn ngon(n: u32) -> Vec<f32> {
-        let n_verts = n * 3;
-        let r = 0.5;
         let mut coords = vec![];
-        for i in 0..n_verts {
-            let vert = i as f32;
-            let slice = (vert / 3.0).floor();
-            let pos = vert % 3.0;
-            let edge = slice + pos;
-            let theta = (edge / n as f32) * std::f32::consts::TAU;
-            let radius = if pos > 1.5 { 0.0 } else { r };
-            coords.push(theta.cos() * radius + 0.5);
-            coords.push(theta.sin() * radius + 0.5);
+
+        let r = 0.5;
+        let dt = 2.0 * std::f32::consts::PI / n as f32;
+
+        let mut add_point = |(x, y)| {
+            coords.push(x + r);
+            coords.push(y + r);
+        };
+
+        let c = (0.0, 0.0);
+        let mut prev = None;
+        for i in 0..=n {
+            let theta = i as f32 * dt;
+            let q = (r * theta.cos(), r * theta.sin());
+            if let Some(p) = prev {
+                add_point(p);
+                add_point(q);
+                add_point(c);
+            }
+            prev = Some(q);
+        }
+
+        coords
+    }
+
+    // Returns points for a hollow regular polygon with n edges and a line
+    // width of lw units. 
+    fn hollow_ngon(n: u32, lw: f32) -> Vec<f32> {
+        let mut coords = Vec::new();
+
+        let ra = 0.5;
+
+        let mut add_point = |(x, y)| {
+            coords.push(x + ra);
+            coords.push(y + ra);
+        };
+        let mut add_triangle = |a, b, c| {
+            add_point(a);
+            add_point(b);
+            add_point(c);
+        };
+
+        let rb = ra - lw;
+        let dt = 2.0 * std::f32::consts::PI / n as f32;
+
+        let mut prev_a = None;
+        let mut prev_b = None;
+        for i in 0..=n {
+            let theta = i as f32 * dt;
+
+            let ct = theta.cos();
+            let st = theta.sin();
+
+            let a = (ra * ct, ra * st);
+            let b = (rb * ct, rb * st);
+
+            if let (Some(pa), Some(pb)) = (prev_a, prev_b) {
+                add_triangle(pa, pb, a);
+                add_triangle(a, b, pb);
+            }
+
+            prev_a = Some(a);
+            prev_b = Some(b);
         }
 
         coords
