@@ -259,7 +259,8 @@ impl Shape {
     // Note the resultant shape will be oriented with the first vertex at the
     // top center of the tile, i.e. a 4gon is a diamond and not a square.
     fn ngon(n: u32) -> Vec<f32> {
-        let mut coords = vec![];
+        // n sides, each side a triangle of 3 points, each point 2 floats
+        let mut coords = Vec::with_capacity((n * 3 * 2) as usize);
 
         let r = 0.5;
         let dt = 2.0 * std::f32::consts::PI / n as f32;
@@ -288,7 +289,9 @@ impl Shape {
     // Returns points for a hollow regular polygon with n edges and a line
     // width of lw units.
     fn hollow_ngon(n: u32, lw: f32) -> Vec<f32> {
-        let mut coords = Vec::new();
+        // n sides, each side is made up of 2 triangles,
+        // which are made up of 3 points, which are 2 floats
+        let mut coords = Vec::with_capacity((n * 2 * 3 * 2) as usize);
 
         let ra = 0.5;
 
