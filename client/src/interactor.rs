@@ -7,7 +7,8 @@ use bincode::serialize;
 use scene::{
     comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent},
     perms::Perms,
-    Colour, Dimension, Id, Layer, Rect, Scene, ScenePoint, Sprite, SpriteShape, SpriteVisual,
+    Colour, Dimension, Id, Layer, Rect, Scene, ScenePoint, Sprite, SpriteDrawing, SpriteShape,
+    SpriteVisual,
 };
 
 use crate::client::Client;
@@ -668,7 +669,7 @@ impl Interactor {
         if let Some(id) = self.new_sprite(
             Some(SpriteVisual::Drawing {
                 colour: self.draw_colour,
-                points: vec![0.0, 0.0],
+                drawing: SpriteDrawing::default(),
                 stroke: self.draw_stroke,
             }),
             None,
@@ -787,7 +788,7 @@ impl Interactor {
             if sprite.n_drawing_points() == 1 {
                 self.remove_sprite(id);
             } else {
-                let opt = sprite.calculate_drawing_rect();
+                let opt = sprite.finish_drawing();
                 self.scene_option(opt);
                 self.end_move_group();
             }

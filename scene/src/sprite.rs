@@ -14,6 +14,101 @@ pub enum Shape {
     Triangle,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub enum Cap {
+    Arrow,
+    None,
+    Round,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct Drawing {
+    pub points: Vec<f32>,
+    pub cap_start: Cap,
+    pub cap_end: Cap,
+}
+
+impl Drawing {
+    pub fn new(points: Vec<f32>, cap_start: Cap, cap_end: Cap) -> Self {
+        Self {
+            points,
+            cap_start,
+            cap_end,
+        }
+    }
+
+    pub fn n_points(&self) -> usize {
+        self.points.len() / 2
+    }
+
+    fn keep_n_points(&mut self, n: usize) {
+        self.points.truncate(n * 2);
+    }
+
+    fn last_point(&self) -> Option<ScenePoint> {
+        if self.n_points() > 0 {
+            let mut last: Vec<&f32> = self.points.iter().rev().take(2).collect();
+
+            // These unwraps are safe because we checked that there is at
+            // one point in the vec, implying at least two entries.
+            let y = *last.pop().unwrap();
+            let x = *last.pop().unwrap();
+            Some(ScenePoint::new(x, y))
+        } else {
+            None
+        }
+    }
+
+    fn add_point(&mut self, ScenePoint { x, y }: ScenePoint) {
+        self.points.push(x);
+        self.points.push(y);
+    }
+
+    fn rect(&mut self) -> Rect {
+        let mut x_min = std::f32::MAX;
+        let mut x_max = std::f32::MIN;
+        let mut y_min = std::f32::MAX;
+        let mut y_max = std::f32::MIN;
+
+        let points = &self.points;
+        for i in (0..points.len()).step_by(2) {
+            let x = points[i];
+            let y = points[i + 1];
+
+            x_min = x.min(x_min);
+            x_max = x.max(x_max);
+            y_min = y.min(y_min);
+            y_max = y.max(y_max);
+        }
+
+        Rect::new(x_min, y_min, x_max - x_min, y_max - y_min)
+    }
+
+    // Simplifies the drawing's points so that the top-left-most point is the
+    // origin, returning a ScenePoint indicating the change in position of the
+    // top-left-most point.
+    fn simplify(&mut self) -> ScenePoint {
+        let rect = self.rect();
+
+        for i in (0..self.points.len()).step_by(2) {
+            self.points[i] -= rect.x;
+            self.points[i + 1] -= rect.y;
+        }
+
+        rect.top_left()
+    }
+}
+
+impl Default for Drawing {
+    fn default() -> Self {
+        Self {
+            points: vec![0.0, 0.0],
+            cap_start: Cap::None,
+            cap_end: Cap::None,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum Visual {
     Texture {
@@ -28,7 +123,7 @@ pub enum Visual {
     Drawing {
         stroke: f32,
         colour: Colour,
-        points: Vec<f32>,
+        drawing: Drawing,
     },
 }
 
@@ -54,9 +149,9 @@ impl Visual {
         }
     }
 
-    pub fn points(&self) -> Option<Vec<f32>> {
-        if let Self::Drawing { points, .. } = self {
-            Some(points.clone())
+    pub fn drawing(&self) -> Option<&Drawing> {
+        if let Self::Drawing { drawing, .. } = self {
+            Some(drawing)
         } else {
             None
         }
@@ -64,16 +159,7 @@ impl Visual {
 
     pub fn stroke(&self) -> Option<f32> {
         match self {
-            Self::Solid {
-                colour: _,
-                shape: _,
-                stroke,
-            }
-            | Self::Drawing {
-                colour: _,
-                points: _,
-                stroke,
-            } => Some(*stroke),
+            Self::Solid { stroke, .. } | Self::Drawing { stroke, .. } => Some(*stroke),
             _ => None,
         }
     }
@@ -197,11 +283,15 @@ impl Sprite {
                 };
                 Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
             }
-            Visual::Drawing { points, stroke, .. } => {
+            Visual::Drawing {
+                stroke,
+                colour: _,
+                drawing,
+            } => {
                 self.visual = Visual::Drawing {
-                    colour: new,
-                    points,
                     stroke,
+                    colour: new,
+                    drawing,
                 };
                 Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
             }
@@ -239,11 +329,15 @@ impl Sprite {
                 };
                 Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
             }
-            Visual::Drawing { colour, points, .. } => {
+            Visual::Drawing {
+                stroke: _,
+                colour,
+                drawing,
+            } => {
                 self.visual = Visual::Drawing {
                     stroke: new,
                     colour,
-                    points,
+                    drawing,
                 };
                 Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
             }
@@ -262,45 +356,34 @@ impl Sprite {
     }
 
     pub fn n_drawing_points(&self) -> usize {
-        if let Visual::Drawing { points, .. } = &self.visual {
-            points.len() / 2
+        if let Visual::Drawing { drawing, .. } = &self.visual {
+            drawing.n_points()
         } else {
             0
         }
     }
 
     pub fn keep_drawing_points(&mut self, n: usize) {
-        if let Visual::Drawing { points, .. } = &mut self.visual {
-            points.truncate(n * 2);
+        if let Visual::Drawing { drawing, .. } = &mut self.visual {
+            drawing.keep_n_points(n * 2);
         }
     }
 
     pub fn last_drawing_point(&self) -> Option<ScenePoint> {
-        if let Visual::Drawing { points, .. } = &self.visual {
-            if self.n_drawing_points() > 0 {
-                let mut last: Vec<&f32> = points.iter().rev().take(2).collect();
-
-                // These unwraps are safe because we checked that there is at
-                // one point in the vec, implying at least two entries.
-                let y = *last.pop().unwrap();
-                let x = *last.pop().unwrap();
-                Some(ScenePoint::new(x, y))
-            } else {
-                None
-            }
+        if let Visual::Drawing { drawing, .. } = &self.visual {
+            drawing.last_point()
         } else {
             None
         }
     }
 
     pub fn add_drawing_point(&mut self, at: ScenePoint) -> Option<SceneEvent> {
-        let ScenePoint { x, y } = at - self.pos();
-        if let Visual::Drawing { points, .. } = &mut self.visual {
-            points.push(x);
-            points.push(y);
+        let point = at - self.pos();
+        if let Visual::Drawing { drawing, .. } = &mut self.visual {
+            drawing.add_point(point);
             Some(SceneEvent::SpriteDrawingPoint(
                 self.id,
-                self.n_drawing_points(),
+                drawing.n_points(),
                 at,
             ))
         } else {
@@ -308,35 +391,17 @@ impl Sprite {
         }
     }
 
-    pub fn calculate_drawing_rect(&mut self) -> Option<SceneEvent> {
-        if let Visual::Drawing { points, .. } = &mut self.visual {
-            let mut x_min = std::f32::MAX;
-            let mut x_max = std::f32::MIN;
-            let mut y_min = std::f32::MAX;
-            let mut y_max = std::f32::MIN;
-
-            for i in (0..points.len()).step_by(2) {
-                let x = points[i];
-                let y = points[i + 1];
-
-                x_min = x_min.min(x);
-                x_max = x_max.max(x);
-                y_min = y_min.min(y);
-                y_max = y_max.max(y);
-            }
-
-            self.rect = Rect::new(
-                x_min + self.rect.x - Self::DEFAULT_STROKE,
-                y_min + self.rect.y - Self::DEFAULT_STROKE,
-                x_max - x_min + 2.0 * Self::DEFAULT_STROKE,
-                y_max - y_min + 2.0 * Self::DEFAULT_STROKE,
-            );
-
-            for i in (0..points.len()).step_by(2) {
-                points[i] -= x_min - Self::DEFAULT_STROKE;
-                points[i + 1] -= y_min - Self::DEFAULT_STROKE;
-            }
-
+    pub fn finish_drawing(&mut self) -> Option<SceneEvent> {
+        if let Visual::Drawing {
+            stroke, drawing, ..
+        } = &mut self.visual
+        {
+            let stroke = *stroke;
+            let dpos = drawing.simplify();
+            let Rect { x: _, y: _, w, h } = drawing.rect();
+            self.rect.translate(dpos);
+            self.rect.w = w + 2.0 * stroke;
+            self.rect.h = h + 2.0 * stroke;
             Some(SceneEvent::SpriteDrawingFinish(self.id))
         } else {
             None

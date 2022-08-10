@@ -393,10 +393,22 @@ mod sprite {
         g: Option<f32>,
         b: Option<f32>,
         a: Option<f32>,
+        cap_start: Option<u8>,
+        cap_end: Option<u8>,
     }
 
     impl SpriteRecord {
         fn from_sprite(sprite: &scene::Sprite, layer: i64, scene: i64) -> Self {
+            let (cap_start, cap_end) =
+                if let scene::SpriteVisual::Drawing { drawing, .. } = &sprite.visual {
+                    (
+                        Some(Self::cap_to_u8(drawing.cap_start)),
+                        Some(Self::cap_to_u8(drawing.cap_end)),
+                    )
+                } else {
+                    (None, None)
+                };
+
             let mut record = Self {
                 id: sprite.id,
                 scene,
@@ -411,12 +423,14 @@ mod sprite {
                 media_key: sprite.visual.texture().map(Media::id_to_key),
                 points: sprite
                     .visual
-                    .points()
-                    .map(|p| p.iter().flat_map(|f| f.to_be_bytes()).collect()),
+                    .drawing()
+                    .map(|p| p.points.iter().flat_map(|f| f.to_be_bytes()).collect()),
                 r: sprite.visual.colour().map(|c| c[0]),
                 g: sprite.visual.colour().map(|c| c[1]),
                 b: sprite.visual.colour().map(|c| c[2]),
                 a: sprite.visual.colour().map(|c| c[3]),
+                cap_start,
+                cap_end,
             };
 
             if let Some([r, g, b, a]) = sprite.visual.colour() {
@@ -447,15 +461,35 @@ mod sprite {
             }
         }
 
+        fn cap_to_u8(cap: scene::SpriteCap) -> u8 {
+            match cap {
+                scene::SpriteCap::Arrow => 1,
+                scene::SpriteCap::Round => 2,
+                scene::SpriteCap::None => u8::MAX,
+            }
+        }
+
+        fn u8_to_cap(int: u8) -> scene::SpriteCap {
+            match int {
+                1 => scene::SpriteCap::Arrow,
+                3 => scene::SpriteCap::Round,
+                _ => scene::SpriteCap::None,
+            }
+        }
+
         fn visual(&self) -> Option<scene::SpriteVisual> {
             if let Some(points) = &self.points {
                 Some(scene::SpriteVisual::Drawing {
                     stroke: self.stroke?,
                     colour: [self.r?, self.g?, self.b?, self.a?],
-                    points: points
-                        .chunks_exact(32 / 8)
-                        .map(|b| f32::from_be_bytes([b[0], b[1], b[2], b[3]]))
-                        .collect(),
+                    drawing: scene::SpriteDrawing::new(
+                        points
+                            .chunks_exact(32 / 8)
+                            .map(|b| f32::from_be_bytes([b[0], b[1], b[2], b[3]]))
+                            .collect(),
+                        Self::u8_to_cap(self.cap_start?),
+                        Self::u8_to_cap(self.cap_end?),
+                    ),
                 })
             } else if let Some(key) = &self.media_key {
                 Some(scene::SpriteVisual::Texture {
@@ -488,9 +522,9 @@ mod sprite {
             sqlx::query(
                 r#"
                 INSERT INTO sprites (
-                    id, scene, layer, x, y, w, h, z, shape, media_key, points, r, g, b, a
+                    id, scene, layer, x, y, w, h, z, shape, media_key, points, r, g, b, a, cap_start, cap_end
                 ) VALUES (
-                    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15
+                    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17
                 ) RETURNING id;
                 "#,
             )
@@ -509,6 +543,8 @@ mod sprite {
             .bind(record.g)
             .bind(record.b)
             .bind(record.a)
+            .bind(record.cap_start)
+            .bind(record.cap_end)
             .fetch_one(conn)
             .await
             .map(|row: sqlx::sqlite::SqliteRow| row.get(0))

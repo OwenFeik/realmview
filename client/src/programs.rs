@@ -7,7 +7,7 @@ use web_sys::{
     HtmlImageElement, WebGlBuffer, WebGlProgram, WebGlShader, WebGlTexture, WebGlUniformLocation,
 };
 
-use scene::{Rect, Sprite, SpriteShape, SpriteVisual};
+use scene::{Rect, Sprite, SpriteDrawing, SpriteShape, SpriteVisual};
 
 use crate::bridge::{log, Gl, JsError};
 
@@ -743,15 +743,15 @@ impl Renderer {
             ),
             SpriteVisual::Drawing {
                 stroke,
+                drawing,
                 colour,
-                points,
             } => {
                 self.line_renderer.load_points(&draw_lines(
-                    points,
+                    *stroke,
+                    drawing,
                     grid_size,
                     viewport,
                     sprite.rect,
-                    *stroke,
                 ));
                 self.line_renderer.render_solid(Some(*colour));
             }
@@ -939,7 +939,8 @@ pub fn parse_media_key(key: &str) -> scene::Id {
 /// by those points. Assumes the input array is in scene units and produces
 /// points pre-scaled to [-1, 1] for drawing.
 fn draw_lines(
-    points: &[f32],
+    stroke: f32,
+    drawing: &SpriteDrawing,
     grid_size: f32,
     Rect {
         x: vx,
@@ -948,13 +949,13 @@ fn draw_lines(
         h: vh,
     }: Rect,
     pos: Rect,
-    stroke: f32,
 ) -> Vec<f32> {
     let mut ret = Vec::new();
 
     // Sprite position (offset of points) (scene units)
-    let sx = pos.x;
-    let sy = pos.y;
+    // Add stroke because sprites pad around their drawings by stroke units
+    let sx = pos.x + stroke;
+    let sy = pos.y + stroke;
 
     // Helper functions for calculating and adding points
     let calc_point = |x, y| (to_unit(x, vw), -to_unit(y, vh));
@@ -997,6 +998,7 @@ fn draw_lines(
     let mut prev_c: Option<Point> = None;
     let mut prev_d: Option<Point> = None;
 
+    let points = &drawing.points;
     for i in (2..points.len()).step_by(2) {
         // First point: (px, py)
         let px = (sx + points[i - 2]) * grid_size - vx;

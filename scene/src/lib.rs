@@ -2,7 +2,7 @@
 #![feature(drain_filter)]
 
 use serde_derive::{Deserialize, Serialize};
-use std::ops::{Add, Sub};
+use std::ops::{Add, Neg, Sub};
 
 pub mod comms;
 pub mod perms;
@@ -16,7 +16,10 @@ mod tests;
 
 pub use layer::Layer;
 pub use rect::{Dimension, Rect};
-pub use sprite::{Colour, Shape as SpriteShape, Sprite, Visual as SpriteVisual};
+pub use sprite::{
+    Cap as SpriteCap, Colour, Drawing as SpriteDrawing, Shape as SpriteShape, Sprite,
+    Visual as SpriteVisual,
+};
 
 use comms::SceneEvent;
 
@@ -59,6 +62,17 @@ impl Add for ScenePoint {
         ScenePoint {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
+        }
+    }
+}
+
+impl Neg for ScenePoint {
+    type Output = ScenePoint;
+
+    fn neg(self) -> Self::Output {
+        ScenePoint {
+            x: -self.x,
+            y: -self.y,
         }
     }
 }
@@ -489,7 +503,7 @@ impl Scene {
             }
             SceneEvent::SpriteDrawingFinish(id) => {
                 if let Some(sprite) = self.sprite(id) {
-                    sprite.calculate_drawing_rect().is_some()
+                    sprite.finish_drawing().is_some()
                 } else {
                     false
                 }
