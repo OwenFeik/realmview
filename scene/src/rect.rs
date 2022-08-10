@@ -135,6 +135,11 @@ impl Rect {
             y: self.y,
         }
     }
+
+    pub fn delta(&self, other: Rect) -> f32 {
+        let rect = other - *self;
+        (rect.x + rect.y + rect.w + rect.h).abs()
+    }
 }
 
 impl Add for Rect {

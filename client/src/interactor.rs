@@ -319,12 +319,12 @@ impl SceneDetails {
 
 #[derive(Clone, Copy, Debug)]
 enum HeldObject {
-    Anchor(Id, i32, i32),
+    Anchor(Id, i32, i32, Rect), // (sprite, dx, dy, starting_rect)
     Drawing(Id),
     Marquee(ScenePoint),
     None,
     Selection(ScenePoint),
-    Sprite(Id, ScenePoint),
+    Sprite(Id, ScenePoint, Rect), // (sprite, delta, starting_rect)
 }
 
 impl HeldObject {
@@ -372,7 +372,7 @@ impl HeldObject {
         }
 
         if closest != (2, 2) {
-            Some(Self::Anchor(sprite.id, closest.0, closest.1))
+            Some(Self::Anchor(sprite.id, closest.0, closest.1, sprite.rect))
         } else {
             None
         }
@@ -380,7 +380,7 @@ impl HeldObject {
 
     fn grab_sprite(sprite: &Sprite, at: ScenePoint) -> Self {
         Self::grab_sprite_anchor(sprite, at)
-            .unwrap_or_else(|| Self::Sprite(sprite.id, at - sprite.rect.top_left()))
+            .unwrap_or_else(|| Self::Sprite(sprite.id, at - sprite.rect.top_left(), sprite.rect))
     }
 }
 
@@ -644,8 +644,8 @@ impl Interactor {
 
     fn held_id(&self) -> Option<Id> {
         match self.holding {
-            HeldObject::Sprite(id, _) => Some(id),
-            HeldObject::Anchor(id, _, _) => Some(id),
+            HeldObject::Sprite(id, ..) => Some(id),
+            HeldObject::Anchor(id, ..) => Some(id),
             _ => None,
         }
     }
@@ -675,7 +675,7 @@ impl Interactor {
     }
 
     fn clear_held_selection(&mut self) {
-        self.release(false, false);
+        self.holding = HeldObject::None;
         self.clear_selection();
     }
 
@@ -766,8 +766,8 @@ impl Interactor {
         };
 
         let event = match holding {
-            HeldObject::Sprite(_, offset) => sprite.set_pos(at - offset),
-            HeldObject::Anchor(_, dx, dy) => {
+            HeldObject::Sprite(_, offset, _) => sprite.set_pos(at - offset),
+            HeldObject::Anchor(_, dx, dy, _) => {
                 let ScenePoint {
                     x: delta_x,
                     y: delta_y,
@@ -809,7 +809,7 @@ impl Interactor {
             }
             HeldObject::None => {}
             HeldObject::Selection(_) => self.drag_selection(at),
-            HeldObject::Sprite(_, _) | HeldObject::Anchor(_, _, _) => self.update_held_sprite(at),
+            HeldObject::Sprite(..) | HeldObject::Anchor(..) => self.update_held_sprite(at),
         };
     }
 
@@ -826,21 +826,38 @@ impl Interactor {
         }
     }
 
-    fn finish_sprite_resize(&mut self, id: Id, snap_to_grid: bool) {
-        if let Some(s) = self.scene.sprite(id) {
-            if snap_to_grid {
-                let event = s.snap_size();
-                self.scene_event(event);
-            } else {
-                let opt = s.enforce_min_size();
-                self.scene_option(opt);
+    fn apply_ignore_threshold(&mut self, id: Id, starting_rect: Rect) -> bool {
+        const IGNORE_THRESHOLD: f32 = 0.01;
+
+        if let Some(sprite) = self.scene.sprite(id) {
+            if sprite.rect.delta(starting_rect) < IGNORE_THRESHOLD {
+                if sprite.rect != starting_rect {
+                    let event = sprite.set_rect(starting_rect);
+                    self.scene_event(event);
+                }
+                return true;
+            }
+        }
+        false
+    }
+
+    fn finish_sprite_resize(&mut self, id: Id, starting_rect: Rect, snap_to_grid: bool) {
+        if !self.apply_ignore_threshold(id, starting_rect) {
+            if let Some(s) = self.scene.sprite(id) {
+                if snap_to_grid {
+                    let event = s.snap_size();
+                    self.scene_event(event);
+                } else {
+                    let opt = s.enforce_min_size();
+                    self.scene_option(opt);
+                }
             }
         }
         self.changes.sprite_selected_change();
     }
 
-    fn finish_sprite_drag(&mut self, id: Id, snap_to_grid: bool) {
-        if snap_to_grid {
+    fn finish_sprite_drag(&mut self, id: Id, starting_rect: Rect, snap_to_grid: bool) {
+        if !self.apply_ignore_threshold(id, starting_rect) && snap_to_grid {
             if let Some(s) = self.scene.sprite(id) {
                 let event = s.snap_pos();
                 self.scene_event(event);
@@ -886,8 +903,8 @@ impl Interactor {
                 self.changes.sprite_selected_change();
             }
             HeldObject::Selection(_) => self.finish_selection_drag(!alt),
-            HeldObject::Sprite(id, _) => self.finish_sprite_drag(id, !alt),
-            HeldObject::Anchor(id, _, _) => self.finish_sprite_resize(id, !alt),
+            HeldObject::Sprite(id, _, start) => self.finish_sprite_drag(id, start, !alt),
+            HeldObject::Anchor(id, _, _, start) => self.finish_sprite_resize(id, start, !alt),
         };
 
         if self.holding.is_sprite() {
@@ -1040,7 +1057,7 @@ impl Interactor {
             Some(self.selected_layer),
         ) {
             let opt = self.scene.sprite(id).map(|s| {
-                self.holding = HeldObject::Anchor(s.id, 1, 1);
+                self.holding = HeldObject::Anchor(s.id, 1, 1, s.rect);
                 s.set_rect(Rect::new(at.x, at.y, 0.0, 0.0))
             });
             self.scene_option(opt);

@@ -10,7 +10,6 @@
     * Select from selected layer first (possibly)
     * Layer opacity
 * Sprites
-    * Click to select without snapping to grid
     * Use sprite menu to change texture
     * Change cursor when hovering a sprite or anchor
     * Group sprites
