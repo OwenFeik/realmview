@@ -14,7 +14,6 @@
     * Change cursor when hovering a sprite or anchor
     * Group sprites
     * Set stroke width for hollow shapes
-    * Hide or show settings depending on sprite type
     * Drawings.
         * Draw ephemeral arrows (while holding alt?)
         * Redo rendering to render once and then scale with matrix

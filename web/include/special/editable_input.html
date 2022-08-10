@@ -14,7 +14,9 @@ IFNDEF(NOSTART) {{
 >
 }}
   IFDEF(BEFORE) {{ {{ BEFORE }} }}
-  IFDEF(LABEL) {{ <span class="input-group-text">{{ LABEL }}</span> }}
+  IFDEF(LABEL) {{
+    <span id="{{ ID }}_label" class="input-group-text">{{ LABEL }}</span>
+  }}
   <input
     type="{{ TYPE }}"
     class="form-control"

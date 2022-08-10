@@ -65,7 +65,14 @@
             value=20,
             action="v => update_sprite_details('stroke', v / 100)",
             after=|
-              {{ dropdown_button(label="Start", secondary=1, small=1) }}
+              {{
+                dropdown_button(
+                  id="sprite_menu_cap_start",
+                  label="Start",
+                  secondary=1,
+                  small=1
+                )
+              }}
               <ul class="dropdown-menu">
                 {{
                   menu/sprite_dropdown_option(
@@ -83,7 +90,14 @@
                 }}
                 {{ menu/sprite_dropdown_option(key="cap_start", name="None") }}
               </ul>
-              {{ dropdown_button(label="End", secondary=1, small=1) }}
+              {{
+                dropdown_button(
+                  id="sprite_menu_cap_end",
+                  label="End",
+                  secondary=1,
+                  small=1
+                )
+              }}
               <ul class="dropdown-menu">
                 {{
                   menu/sprite_dropdown_option(
@@ -105,7 +119,7 @@
           )
         }}  
       </div>
-      <div class="input-group mt-1">
+      <div id="sprite_menu_shape" class="input-group mt-1">
         {{ dropdown_button(label="Shape", secondary=1, small=1) }}
         <ul class="dropdown-menu">
           {{ menu/sprite_dropdown_option(key="shape", name="Rectangle") }}
@@ -152,6 +166,16 @@ function set_sprite_colour(colour) {
 
 }
 
+function set_visible(id, check) {
+    let el = document.getElementById(id);
+    if (check) {
+        el.style.display = "";
+    }
+    else {
+        el.style.display = "none";
+    }
+}
+
 function set_selected_sprite(sprite_json) {
     let sprite = JSON.parse(sprite_json);
     document
@@ -173,6 +197,12 @@ function set_selected_sprite(sprite_json) {
             }
         }
     );
+
+    set_visible("sprite_menu_shape", sprite.shape);
+    set_visible("sprite_menu_stroke", sprite.stroke);
+    set_visible("sprite_menu_stroke_label", sprite.stroke);
+    set_visible("sprite_menu_cap_start", sprite.cap_start);
+    set_visible("sprite_menu_cap_end", sprite.cap_end);
 }
 
 function clear_selected_sprite() {
