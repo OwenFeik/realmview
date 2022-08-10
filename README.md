@@ -1,20 +1,22 @@
 # TODO
 
 * Scene
-    * Hide or show UI elements depending on user role.
-    * Draw on map.
-        * Freehand
-            * Arrowheads / rounded caps
-            * Draw ephemeral arrows (while holding alt?)
-            * Redo rendering to render once and then scale with matrix
+    * Hide or show UI elements depending on user role
+    * Change cursor depending on active tool
 * Layers
     * Select from selected layer first (possibly)
     * Layer opacity
 * Sprites
+    * Click to select without snapping to grid
     * Use sprite menu to change texture
     * Change cursor when hovering a sprite or anchor
     * Group sprites
     * Set stroke width for hollow shapes
+    * Drawings.
+        * Arrowheads / rounded caps
+        * Draw ephemeral arrows (while holding alt?)
+        * Redo rendering to render once and then scale with matrix
+        * Straight lines
 * Media
     * Delete media items
     * Media library
