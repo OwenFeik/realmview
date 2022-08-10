@@ -45,8 +45,8 @@
       {{
         colour_input(
           id="draw_menu",
-          action="([r, g, b, a]) => RustFuncs.select_colour(r, g, b, a)",
-          value="#FF0000"
+          action="c => update_draw_details('colour', c)",
+          value="#FF00FF"
         )
       }}
       <div class="mt-1">
@@ -59,10 +59,55 @@
             max=1000,
             small=1,
             value=20,
-            action="v => RustFuncs.select_stroke(v / 100)"
+            action="v => update_draw_details('stroke', v / 100)",
+            noend=1
           )
-        }}  
+        }}
+          {{ dropdown_button(label="Start", secondary=1, small=1) }}
+          <ul class="dropdown-menu">
+            {{
+              menu/draw_dropdown_option(
+                key="cap_start",
+                name="Arrow",
+                label='Arrow {{ bootstrap_icon(arrow-left) }}'
+              )
+            }}
+            {{
+              menu/draw_dropdown_option(
+                key="cap_start",
+                name="Round",
+                label='Round {{ bootstrap_icon(circle) }}'
+              )
+            }}
+            {{ menu/draw_dropdown_option(key="cap_start", name="None") }}
+          </ul>
+          {{ dropdown_button(label="End", secondary=1, small=1) }}
+          <ul class="dropdown-menu">
+            {{
+              menu/draw_dropdown_option(
+                key="cap_end",
+                name="Arrow",
+                label='Arrow {{ bootstrap_icon(arrow-right) }}'
+              )
+            }}
+            {{
+              menu/draw_dropdown_option(
+                key="cap_end",
+                name="Round",
+                label='Round {{ bootstrap_icon(circle) }}'
+              )
+            }}
+            {{ menu/draw_dropdown_option(key="cap_end", name="None") }}
+          </ul>
+        </div>
       </div>
     |
   )
 }}
+<script>
+function update_draw_details(property, value) {
+    let obj = {};
+    obj[property] = value;
+    RustFuncs.draw_details(JSON.stringify(obj));
+}
+</script>

@@ -953,6 +953,8 @@ fn draw_lines(
     }: Rect,
     pos: Rect,
 ) -> Vec<f32> {
+    const ARROWHEAD_MULTIPLIER: f32 = 4.0;
+
     let mut ret = Vec::new();
 
     // Sprite position (offset of points) (scene units)
@@ -1002,6 +1004,7 @@ fn draw_lines(
     let mut prev_d: Option<Point> = None;
 
     let points = &drawing.points;
+    let last = points.len() - 2;
     for i in (2..points.len()).step_by(2) {
         // First point: (px, py)
         let px = (sx + points[i - 2]) * grid_size - vx;
@@ -1033,6 +1036,68 @@ fn draw_lines(
         let b = calc_point(px + cb, py + sb);
         let c = calc_point(qx + cb, qy + sb);
         let d = calc_point(qx + ca, qy + sa);
+
+        // Draw caps for first and last line segment
+        if i == 2 {
+            match drawing.cap_start {
+                scene::SpriteCap::Arrow => {
+                    let r = ARROWHEAD_MULTIPLIER;
+                    let behind = theta + std::f32::consts::PI;
+                    triangle(
+                        calc_point(px + r * ca, py + r * sa), // Above
+                        calc_point(px + r * cb, py + r * sb), // Below
+                        calc_point(
+                            px + 2.0 * r * lw * behind.cos(),
+                            py + 2.0 * r * lw * behind.sin(),
+                        ), // Behind
+                    );
+                }
+                scene::SpriteCap::Round => {
+                    let n = Shape::CIRCLE_EDGES / 2;
+                    let mut prev = None;
+                    let centre = calc_point(px, py);
+                    let dt = std::f32::consts::PI / n as f32;
+                    for i in 0..=n {
+                        let theta = above + dt * i as f32;
+                        let n = calc_point(px + lw * theta.cos(), py + lw * theta.sin());
+                        if let Some(m) = prev {
+                            triangle(m, n, centre);
+                        }
+                        prev = Some(n);
+                    }
+                }
+                _ => {}
+            }
+        } else if i == last {
+            match drawing.cap_end {
+                scene::SpriteCap::Arrow => {
+                    let r = ARROWHEAD_MULTIPLIER;
+                    triangle(
+                        calc_point(px + r * ca, py + r * sa), // Above
+                        calc_point(px + r * cb, py + r * sb), // Below
+                        calc_point(
+                            px + 2.0 * r * lw * theta.cos(),
+                            py + 2.0 * r * lw * theta.sin(),
+                        ), // Ahead
+                    );
+                }
+                scene::SpriteCap::Round => {
+                    let n = Shape::CIRCLE_EDGES / 2;
+                    let mut prev = None;
+                    let centre = calc_point(qx, qy);
+                    let dt = std::f32::consts::PI / n as f32;
+                    for i in 0..=n {
+                        let theta = below + dt * i as f32;
+                        let n = calc_point(qx + lw * theta.cos(), qy + lw * theta.sin());
+                        if let Some(m) = prev {
+                            triangle(m, n, centre);
+                        }
+                        prev = Some(n);
+                    }
+                }
+                _ => {}
+            }
+        }
 
         // Two triangles form the line, lower half and upper half
         triangle(a, b, c);

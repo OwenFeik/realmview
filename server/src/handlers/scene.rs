@@ -106,7 +106,11 @@ mod save {
         let scene: scene::Scene = match base64::decode(req.encoded) {
             Ok(b) => match bincode::deserialize(&b) {
                 Ok(s) => s,
-                Err(_) => return Binary::result_failure("Deserialisation failure."),
+                Err(_) => {
+                    return Binary::result_failure(
+                        "Deserialisation failure. Possible version mismatch.",
+                    )
+                }
             },
             Err(_) => return Binary::result_failure("Decoding failure."),
         };

@@ -107,6 +107,8 @@ pub struct SpriteDetails {
     pub stroke: Option<f32>,
     pub colour: Option<Colour>,
     pub texture: Option<Id>,
+    pub cap_start: Option<scene::SpriteCap>,
+    pub cap_end: Option<scene::SpriteCap>,
 }
 
 impl SpriteDetails {
@@ -121,7 +123,68 @@ impl SpriteDetails {
             stroke: sprite.visual.stroke(),
             colour: sprite.visual.colour(),
             texture: sprite.visual.texture(),
+            cap_start: sprite.visual.cap_start(),
+            cap_end: sprite.visual.cap_end(),
         }
+    }
+
+    fn update_from(&mut self, other: &Self) {
+        self.id = other.id;
+
+        if other.x.is_some() {
+            self.x = other.x;
+        }
+
+        if other.y.is_some() {
+            self.y = other.y;
+        }
+
+        if other.w.is_some() {
+            self.w = other.w;
+        }
+
+        if other.h.is_some() {
+            self.h = other.h;
+        }
+
+        // Special case for shape because setting to no shape is meaningful
+        self.shape = other.shape;
+
+        if other.stroke.is_some() {
+            self.stroke = other.stroke;
+        }
+
+        if other.colour.is_some() {
+            self.colour = other.colour;
+        }
+
+        if other.texture.is_some() {
+            self.texture = other.texture;
+        }
+
+        if other.cap_start.is_some() {
+            self.cap_start = other.cap_start;
+        }
+
+        if other.cap_end.is_some() {
+            self.cap_end = other.cap_end;
+        }
+    }
+
+    fn colour(&self) -> Colour {
+        self.colour.unwrap_or(Sprite::DEFAULT_COLOUR)
+    }
+
+    fn stroke(&self) -> f32 {
+        self.stroke.unwrap_or(Sprite::DEFAULT_STROKE)
+    }
+
+    fn cap_start(&self) -> scene::SpriteCap {
+        self.cap_start.unwrap_or(scene::SpriteCap::DEFAULT_START)
+    }
+
+    fn cap_end(&self) -> scene::SpriteCap {
+        self.cap_end.unwrap_or(scene::SpriteCap::DEFAULT_END)
     }
 
     fn common(&mut self, sprite: &Sprite) {
@@ -155,6 +218,14 @@ impl SpriteDetails {
 
         if self.texture.is_some() && self.texture != sprite.visual.texture() {
             self.texture = None;
+        }
+
+        if self.cap_start.is_some() && self.cap_start != sprite.visual.cap_start() {
+            self.cap_start = None;
+        }
+
+        if self.cap_end.is_some() && self.cap_end != sprite.visual.cap_end() {
+            self.cap_end = None;
         }
     }
 
@@ -198,6 +269,10 @@ impl SpriteDetails {
             if let Some(event) = sprite.set_texture(id) {
                 events.push(event);
             }
+        }
+
+        if let Some(event) = sprite.set_caps(self.cap_start, self.cap_end) {
+            events.push(event);
         }
 
         if events.is_empty() {
@@ -312,8 +387,7 @@ impl HeldObject {
 pub struct Interactor {
     pub changes: Changes,
     client: Option<Client>,
-    draw_colour: Colour,
-    draw_stroke: f32,
+    draw_details: SpriteDetails,
     holding: HeldObject,
     history: Vec<SceneEvent>,
     redo_history: Vec<Option<SceneEvent>>,
@@ -335,8 +409,7 @@ impl Interactor {
         Interactor {
             changes: Changes::new(),
             client,
-            draw_colour: [1.0, 0.0, 0.0, 1.0], // Solid red
-            draw_stroke: Sprite::DEFAULT_STROKE,
+            draw_details: SpriteDetails::default(),
             holding: HeldObject::None,
             history: vec![],
             redo_history: vec![],
@@ -666,20 +739,21 @@ impl Interactor {
 
     pub fn start_draw(&mut self, at: ScenePoint) {
         self.clear_held_selection();
-        if let Some(id) = self.new_sprite(
+        if let Some(id) = self.new_sprite_at(
             Some(SpriteVisual::Drawing {
-                colour: self.draw_colour,
-                drawing: SpriteDrawing::default(),
-                stroke: self.draw_stroke,
+                colour: self.draw_details.colour(),
+                drawing: SpriteDrawing::new(
+                    Vec::new(),
+                    self.draw_details.cap_start(),
+                    self.draw_details.cap_end(),
+                ),
+                stroke: self.draw_details.stroke(),
             }),
             None,
+            at,
         ) {
             self.start_move_group();
             self.holding = HeldObject::Drawing(id);
-            if let Some(sprite) = self.scene.sprite(id) {
-                let event = sprite.set_pos(at);
-                self.scene_event(event);
-            }
         }
     }
 
@@ -959,7 +1033,7 @@ impl Interactor {
         self.clear_held_selection();
         if let Some(id) = self.new_sprite(
             Some(SpriteVisual::Solid {
-                colour: self.draw_colour,
+                colour: self.draw_details.colour(),
                 shape,
                 stroke: Sprite::SOLID_STROKE,
             }),
@@ -978,10 +1052,18 @@ impl Interactor {
         visual: Option<SpriteVisual>,
         layer: Option<Id>,
         at: ScenePoint,
-    ) {
+    ) -> Option<Id> {
         if let Some(id) = self.new_sprite(visual, layer) {
-            let opt = self.scene.sprite(id).map(|s| s.set_pos(at));
-            self.scene_option(opt);
+            if let Some(event) = self.scene.sprite(id).map(|s| s.set_pos(at)) {
+                if let Some(creation_event) = self.history.pop() {
+                    self.scene_event(SceneEvent::EventSet(vec![creation_event, event]));
+                } else {
+                    self.scene_event(event);
+                }
+            }
+            Some(id)
+        } else {
+            None
         }
     }
 
@@ -1085,11 +1167,7 @@ impl Interactor {
         self.selection_effect(|s| Some(s.move_by(delta)));
     }
 
-    pub fn set_colour(&mut self, colour: Colour) {
-        self.draw_colour = colour;
-    }
-
-    pub fn set_stroke(&mut self, stroke: f32) {
-        self.draw_stroke = stroke;
+    pub fn update_draw_details(&mut self, details: SpriteDetails) {
+        self.draw_details.update_from(&details);
     }
 }

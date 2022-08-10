@@ -128,18 +128,11 @@ var RustFuncs = {
     Sets the active tool.
     */
 
-    select_colour: missing_func,
+    draw_details: missing_func,
     /*
-    function select_colour(r: number, g: number, b: number, a: number)
+    function draw_details(json: string)
 
-    Sets the colour for drawing.
-    */
-
-    select_stroke: missing_func,
-    /*
-    function select_stroke(stroke: number)
-    
-    Sets the stroke width for drawing.
+    Updates the details for a new drawing.
     */
 };
 

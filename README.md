@@ -3,6 +3,9 @@
 * Scene
     * Hide or show UI elements depending on user role
     * Change cursor depending on active tool
+    * Keyboard shortcuts for tools
+    * Combine draw and shape tools into draw menu, single tool
+    * Pan tool
 * Layers
     * Select from selected layer first (possibly)
     * Layer opacity
@@ -12,8 +15,8 @@
     * Change cursor when hovering a sprite or anchor
     * Group sprites
     * Set stroke width for hollow shapes
+    * Hide or show settings depending on sprite type
     * Drawings.
-        * Arrowheads / rounded caps
         * Draw ephemeral arrows (while holding alt?)
         * Redo rendering to render once and then scale with matrix
         * Straight lines

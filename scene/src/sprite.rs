@@ -21,11 +21,17 @@ pub enum Cap {
     Round,
 }
 
+impl Cap {
+    pub const DEFAULT_START: Cap = Cap::Round;
+    pub const DEFAULT_END: Cap = Cap::Arrow;
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Drawing {
     pub points: Vec<f32>,
     pub cap_start: Cap,
     pub cap_end: Cap,
+    prev_point: Option<ScenePoint>,
 }
 
 impl Drawing {
@@ -34,6 +40,7 @@ impl Drawing {
             points,
             cap_start,
             cap_end,
+            ..Default::default()
         }
     }
 
@@ -59,9 +66,19 @@ impl Drawing {
         }
     }
 
-    fn add_point(&mut self, ScenePoint { x, y }: ScenePoint) {
-        self.points.push(x);
-        self.points.push(y);
+    // Adds a new point to the drawing, if it isn't too close to the previous
+    // point.
+    fn add_point(&mut self, point: ScenePoint) {
+        const MINIMUM_DISTANCE: f32 = 0.1;
+
+        if let Some(prev) = self.prev_point {
+            if prev.dist(point) < MINIMUM_DISTANCE {
+                return;
+            }
+        }
+
+        self.points.push(point.x);
+        self.points.push(point.y);
     }
 
     fn rect(&mut self) -> Rect {
@@ -103,8 +120,9 @@ impl Default for Drawing {
     fn default() -> Self {
         Self {
             points: vec![0.0, 0.0],
-            cap_start: Cap::None,
-            cap_end: Cap::None,
+            cap_start: Cap::Round,
+            cap_end: Cap::Round,
+            prev_point: None,
         }
     }
 }
@@ -163,6 +181,22 @@ impl Visual {
             _ => None,
         }
     }
+
+    pub fn cap_start(&self) -> Option<Cap> {
+        if let Self::Drawing { drawing, .. } = self {
+            Some(drawing.cap_start)
+        } else {
+            None
+        }
+    }
+
+    pub fn cap_end(&self) -> Option<Cap> {
+        if let Self::Drawing { drawing, .. } = self {
+            Some(drawing.cap_end)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -177,13 +211,14 @@ impl Sprite {
     // Width of lines for sprites which are drawings
     pub const DEFAULT_STROKE: f32 = 0.2;
     pub const SOLID_STROKE: f32 = 0.0;
+    pub const DEFAULT_COLOUR: Colour = [1.0, 0.0, 1.0, 1.0];
 
     // Minimum size of a sprite dimension; too small and sprites can be lost.
     const MIN_SIZE: f32 = 0.25;
     const DEFAULT_VISUAL: Visual = Visual::Solid {
-        colour: [1.0, 0.0, 1.0, 1.0],
+        colour: Self::DEFAULT_COLOUR,
         shape: Shape::Rectangle,
-        stroke: Sprite::SOLID_STROKE,
+        stroke: Self::SOLID_STROKE,
     };
 
     pub fn new(id: Id, visual: Option<Visual>) -> Sprite {
@@ -350,6 +385,21 @@ impl Sprite {
             let old = self.visual.clone();
             self.visual = Visual::Texture { id: new, shape };
             Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
+        } else {
+            None
+        }
+    }
+
+    pub fn set_caps(&mut self, start: Option<Cap>, end: Option<Cap>) -> Option<SceneEvent> {
+        let before = self.visual.clone();
+        if let Visual::Drawing { drawing, .. } = &mut self.visual {
+            drawing.cap_start = start.unwrap_or(drawing.cap_start);
+            drawing.cap_end = end.unwrap_or(drawing.cap_end);
+            Some(SceneEvent::SpriteVisual(
+                self.id,
+                before,
+                self.visual.clone(),
+            ))
         } else {
             None
         }

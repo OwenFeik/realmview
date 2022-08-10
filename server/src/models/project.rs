@@ -522,9 +522,9 @@ mod sprite {
             sqlx::query(
                 r#"
                 INSERT INTO sprites (
-                    id, scene, layer, x, y, w, h, z, shape, media_key, points, r, g, b, a, cap_start, cap_end
+                    id, scene, layer, x, y, w, h, z, shape, stroke, media_key, points, r, g, b, a, cap_start, cap_end
                 ) VALUES (
-                    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17
+                    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18
                 ) RETURNING id;
                 "#,
             )
@@ -537,6 +537,7 @@ mod sprite {
             .bind(record.h)
             .bind(record.z)
             .bind(record.shape)
+            .bind(record.stroke)
             .bind(record.media_key)
             .bind(record.points)
             .bind(record.r)

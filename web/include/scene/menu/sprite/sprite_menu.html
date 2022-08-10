@@ -65,15 +65,53 @@
             value=20,
             action="v => update_sprite_details('stroke', v / 100)",
             after=|
-              {{ dropdown_button(label="Shape", secondary=1, small=1) }}
+              {{ dropdown_button(label="Start", secondary=1, small=1) }}
               <ul class="dropdown-menu">
-                {{ menu/sprite_shape_option(shape="Rectangle") }}
-                {{ menu/sprite_shape_option(shape="Ellipse") }}
-                {{ menu/sprite_shape_option(shape="Hexagon") }}
+                {{
+                  menu/sprite_dropdown_option(
+                    key="cap_start",
+                    name="Arrow",
+                    label='Arrow {{ bootstrap_icon(arrow-left) }}'
+                  )
+                }}
+                {{
+                  menu/sprite_dropdown_option(
+                    key="cap_start",
+                    name="Round",
+                    label='Round {{ bootstrap_icon(circle) }}'
+                  )
+                }}
+                {{ menu/sprite_dropdown_option(key="cap_start", name="None") }}
+              </ul>
+              {{ dropdown_button(label="End", secondary=1, small=1) }}
+              <ul class="dropdown-menu">
+                {{
+                  menu/sprite_dropdown_option(
+                    key="cap_end",
+                    name="Arrow",
+                    label='Arrow {{ bootstrap_icon(arrow-right) }}'
+                  )
+                }}
+                {{
+                  menu/sprite_dropdown_option(
+                    key="cap_end",
+                    name="Round",
+                    label='Round {{ bootstrap_icon(circle) }}'
+                  )
+                }}
+                {{ menu/sprite_dropdown_option(key="cap_end", name="None") }}
               </ul>
             |
           )
         }}  
+      </div>
+      <div class="input-group mt-1">
+        {{ dropdown_button(label="Shape", secondary=1, small=1) }}
+        <ul class="dropdown-menu">
+          {{ menu/sprite_dropdown_option(key="shape", name="Rectangle") }}
+          {{ menu/sprite_dropdown_option(key="shape", name="Ellipse") }}
+          {{ menu/sprite_dropdown_option(key="shape", name="Hexagon") }}
+        </ul>
       </div>
     |
   )

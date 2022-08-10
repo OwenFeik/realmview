@@ -1,0 +1,9 @@
+PREAMBLE {{
+kwargs['LABEL'] = kwargs.get('LABEL', kwargs['NAME'])
+}}
+{{
+  dropdown_option(
+    label="{{ LABEL }}",
+    action="update_draw_details('{{ KEY }}', '{{ NAME }}');"
+  )
+}}

@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS sprites (
     h REAL NOT NULL,
     z INTEGER NOT NULL,
     shape INTEGER,
+    stroke REAL,
     media_key CHAR(16) REFERENCES media(media_key) ON DELETE SET NULL,
     points BLOB, -- Vec<f32>, big endian encoded
     r REAL,

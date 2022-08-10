@@ -36,6 +36,10 @@ impl ScenePoint {
         ScenePoint { x, y }
     }
 
+    pub fn dist(&self, other: Self) -> f32 {
+        ((self.x - other.x).powi(2) + (self.y - other.y).powi(2)).sqrt()
+    }
+
     // Return the rectangle formed by these two points.
     pub fn rect(&self, ScenePoint { x, y }: ScenePoint) -> Rect {
         Rect {

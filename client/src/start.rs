@@ -9,8 +9,8 @@ use wasm_bindgen::prelude::*;
 
 use crate::bridge::{
     expose_closure, expose_closure_f64, expose_closure_f64_bool, expose_closure_f64_f64,
-    expose_closure_f64_string, expose_closure_f64x4, expose_closure_string_in,
-    expose_closure_string_out, log, request_animation_frame,
+    expose_closure_f64_string, expose_closure_string_in, expose_closure_string_out, log,
+    request_animation_frame,
 };
 use crate::client::Client;
 use crate::viewport::{Tool, Viewport};
@@ -18,6 +18,15 @@ use crate::viewport::{Tool, Viewport};
 fn logged_error<T>(error_message: &str) -> Result<T, JsValue> {
     log(error_message);
     Err(wasm_bindgen::JsValue::from_str(error_message))
+}
+
+fn parse_json<'a, T: serde::Deserialize<'a>>(json: &'a str) -> Option<T> {
+    if let Ok(val) = serde_json::from_str::<T>(json) {
+        Some(val)
+    } else {
+        crate::bridge::flog!("Failed to parse JSON: {json}");
+        None
+    }
 }
 
 #[wasm_bindgen(start)]
@@ -118,7 +127,7 @@ pub fn start() -> Result<(), JsValue> {
     let vp_ref = vp.clone();
     let sprite_details_closure = Closure::wrap(Box::new(move |id: f64, json: String| {
         let id = id as i64;
-        if let Ok(details) = serde_json::from_str::<crate::interactor::SpriteDetails>(&json) {
+        if let Some(details) = parse_json(&json) {
             vp_ref.lock().scene.sprite_details(id, details);
         }
     }) as Box<dyn FnMut(f64, String)>);
@@ -188,21 +197,13 @@ pub fn start() -> Result<(), JsValue> {
     select_tool_closure.forget();
 
     let vp_ref = vp.clone();
-    let select_colour_closure = Closure::wrap(Box::new(move |r: f64, g: f64, b: f64, a: f64| {
-        vp_ref
-            .lock()
-            .scene
-            .set_colour([r as f32, g as f32, b as f32, a as f32]);
-    }) as Box<dyn FnMut(f64, f64, f64, f64)>);
-    expose_closure_f64x4("select_colour", &select_colour_closure);
-    select_colour_closure.forget();
-
-    let vp_ref = vp.clone();
-    let select_stroke_closure = Closure::wrap(Box::new(move |stroke: f64| {
-        vp_ref.lock().scene.set_stroke(stroke as f32);
-    }) as Box<dyn FnMut(f64)>);
-    expose_closure_f64("select_stroke", &select_stroke_closure);
-    select_stroke_closure.forget();
+    let draw_details_closure = Closure::wrap(Box::new(move |json: String| {
+        if let Some(details) = parse_json(&json) {
+            vp_ref.lock().scene.update_draw_details(details);
+        }
+    }) as Box<dyn FnMut(String)>);
+    expose_closure_string_in("draw_details", &draw_details_closure);
+    draw_details_closure.forget();
 
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
