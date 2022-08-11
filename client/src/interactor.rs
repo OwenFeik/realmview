@@ -7,7 +7,7 @@ use bincode::serialize;
 use scene::{
     comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent},
     perms::Perms,
-    Colour, Dimension, Id, Layer, Rect, Scene, ScenePoint, Sprite, SpriteDrawing, SpriteShape,
+    Colour, Dimension, Id, Layer, Point, Rect, Scene, Sprite, SpriteDrawing, SpriteShape,
     SpriteVisual,
 };
 
@@ -321,10 +321,10 @@ impl SceneDetails {
 enum HeldObject {
     Anchor(Id, i32, i32, Rect), // (sprite, dx, dy, starting_rect)
     Drawing(Id),
-    Marquee(ScenePoint),
+    Marquee(Point),
     None,
-    Selection(ScenePoint),
-    Sprite(Id, ScenePoint, Rect), // (sprite, delta, starting_rect)
+    Selection(Point),
+    Sprite(Id, Point, Rect), // (sprite, delta, starting_rect)
 }
 
 impl HeldObject {
@@ -343,7 +343,7 @@ impl HeldObject {
         )
     }
 
-    fn grab_sprite_anchor(sprite: &Sprite, at: ScenePoint) -> Option<Self> {
+    fn grab_sprite_anchor(sprite: &Sprite, at: Point) -> Option<Self> {
         let Rect { x, y, w, h } = sprite.rect;
 
         // Anchor size is 0.2 tiles or one fifth of the smallest dimension of
@@ -378,7 +378,7 @@ impl HeldObject {
         }
     }
 
-    fn grab_sprite(sprite: &Sprite, at: ScenePoint) -> Self {
+    fn grab_sprite(sprite: &Sprite, at: Point) -> Self {
         Self::grab_sprite_anchor(sprite, at)
             .unwrap_or_else(|| Self::Sprite(sprite.id, at - sprite.rect.top_left(), sprite.rect))
     }
@@ -706,7 +706,7 @@ impl Interactor {
         }
     }
 
-    fn grab_selection(&mut self, at: ScenePoint) -> HeldObject {
+    fn grab_selection(&mut self, at: Point) -> HeldObject {
         if self.single_selected() {
             if let Some(s) = self.sprite_ref(self.selected_sprites[0]) {
                 return HeldObject::grab_sprite(s, at);
@@ -715,7 +715,7 @@ impl Interactor {
         HeldObject::Selection(at)
     }
 
-    pub fn grab(&mut self, at: ScenePoint, ctrl: bool) {
+    pub fn grab(&mut self, at: Point, ctrl: bool) {
         self.holding = match self.scene.sprite_at(at) {
             Some(s) => {
                 let id = s.id;
@@ -737,16 +737,16 @@ impl Interactor {
         self.changes.sprite_change();
     }
 
-    pub fn start_draw(&mut self, at: ScenePoint) {
+    pub fn start_draw(&mut self, at: Point) {
         self.clear_held_selection();
         if let Some(id) = self.new_sprite_at(
             Some(SpriteVisual::Drawing {
                 colour: self.draw_details.colour(),
-                drawing: SpriteDrawing::new(
-                    Vec::new(),
-                    self.draw_details.cap_start(),
-                    self.draw_details.cap_end(),
-                ),
+                drawing: SpriteDrawing {
+                    cap_start: self.draw_details.cap_start(),
+                    cap_end: self.draw_details.cap_end(),
+                    ..Default::default()
+                },
                 stroke: self.draw_details.stroke(),
             }),
             None,
@@ -757,7 +757,7 @@ impl Interactor {
         }
     }
 
-    fn update_held_sprite(&mut self, at: ScenePoint) {
+    fn update_held_sprite(&mut self, at: Point) {
         let holding = self.holding;
         let sprite = if let Some(s) = self.held_sprite() {
             s
@@ -768,7 +768,7 @@ impl Interactor {
         let event = match holding {
             HeldObject::Sprite(_, offset, _) => sprite.set_pos(at - offset),
             HeldObject::Anchor(_, dx, dy, _) => {
-                let ScenePoint {
+                let Point {
                     x: delta_x,
                     y: delta_y,
                 } = at - sprite.anchor_point(dx, dy);
@@ -784,7 +784,7 @@ impl Interactor {
         self.scene_event(event);
     }
 
-    fn drag_selection(&mut self, to: ScenePoint) {
+    fn drag_selection(&mut self, to: Point) {
         let delta = if let HeldObject::Selection(from) = self.holding {
             to - from
         } else {
@@ -795,7 +795,7 @@ impl Interactor {
         self.holding = HeldObject::Selection(to);
     }
 
-    pub fn drag(&mut self, at: ScenePoint) {
+    pub fn drag(&mut self, at: Point) {
         match self.holding {
             HeldObject::Drawing(id) => {
                 if let Some(Some(event)) = self.scene.sprite(id).map(|s| s.add_drawing_point(at)) {
@@ -817,7 +817,7 @@ impl Interactor {
         self.scene.sprite_ref(id)
     }
 
-    pub fn sprite_at(&self, at: ScenePoint) -> Option<Id> {
+    pub fn sprite_at(&self, at: Point) -> Option<Id> {
         let id = self.scene.sprite_at_ref(at).map(|s| s.id)?;
         if self.is_selected(id) {
             Some(Self::SELECTION_ID)
@@ -1046,7 +1046,7 @@ impl Interactor {
         ret
     }
 
-    pub fn new_held_shape(&mut self, shape: SpriteShape, at: ScenePoint) {
+    pub fn new_held_shape(&mut self, shape: SpriteShape, at: Point) {
         self.clear_held_selection();
         if let Some(id) = self.new_sprite(
             Some(SpriteVisual::Solid {
@@ -1068,7 +1068,7 @@ impl Interactor {
         &mut self,
         visual: Option<SpriteVisual>,
         layer: Option<Id>,
-        at: ScenePoint,
+        at: Point,
     ) -> Option<Id> {
         if let Some(id) = self.new_sprite(visual, layer) {
             if let Some(event) = self.scene.sprite(id).map(|s| s.set_pos(at)) {
@@ -1177,7 +1177,7 @@ impl Interactor {
         }
     }
 
-    pub fn move_selection(&mut self, delta: ScenePoint) {
+    pub fn move_selection(&mut self, delta: Point) {
         if delta.x == 0.0 && delta.y == 0.0 {
             return;
         }

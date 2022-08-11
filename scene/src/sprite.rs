@@ -1,8 +1,6 @@
 use serde_derive::{Deserialize, Serialize};
 
-use crate::Dimension;
-
-use super::{comms::SceneEvent, Id, Rect, ScenePoint};
+use super::{comms::SceneEvent, Dimension, Id, Point, PointVector, Rect};
 
 pub type Colour = [f32; 4];
 
@@ -28,90 +26,52 @@ impl Cap {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Drawing {
-    pub points: Vec<f32>,
+    pub points: PointVector,
     pub cap_start: Cap,
     pub cap_end: Cap,
-    prev_point: Option<ScenePoint>,
 }
 
 impl Drawing {
-    pub fn new(points: Vec<f32>, cap_start: Cap, cap_end: Cap) -> Self {
+    pub fn new(points: PointVector, cap_start: Cap, cap_end: Cap) -> Self {
         Self {
             points,
             cap_start,
             cap_end,
-            ..Default::default()
         }
     }
 
-    pub fn n_points(&self) -> usize {
-        self.points.len() / 2
+    pub fn n_points(&self) -> u32 {
+        self.points.n() as u32
     }
 
-    fn keep_n_points(&mut self, n: usize) {
-        self.points.truncate(n * 2);
+    fn keep_n_points(&mut self, n: u32) {
+        self.points.keep_n(n as usize);
     }
 
-    fn last_point(&self) -> Option<ScenePoint> {
-        if self.n_points() > 0 {
-            let mut last: Vec<&f32> = self.points.iter().rev().take(2).collect();
-
-            // These unwraps are safe because we checked that there is at
-            // one point in the vec, implying at least two entries.
-            let y = *last.pop().unwrap();
-            let x = *last.pop().unwrap();
-            Some(ScenePoint::new(x, y))
-        } else {
-            None
-        }
+    fn last_point(&self) -> Option<Point> {
+        self.points.last()
     }
 
     // Adds a new point to the drawing, if it isn't too close to the previous
     // point.
-    fn add_point(&mut self, point: ScenePoint) {
+    fn add_point(&mut self, point: Point) {
         const MINIMUM_DISTANCE: f32 = 0.1;
 
-        if let Some(prev) = self.prev_point {
+        if let Some(prev) = self.points.last() {
             if prev.dist(point) < MINIMUM_DISTANCE {
                 return;
             }
         }
 
-        self.points.push(point.x);
-        self.points.push(point.y);
-    }
-
-    fn rect(&mut self) -> Rect {
-        let mut x_min = std::f32::MAX;
-        let mut x_max = std::f32::MIN;
-        let mut y_min = std::f32::MAX;
-        let mut y_max = std::f32::MIN;
-
-        let points = &self.points;
-        for i in (0..points.len()).step_by(2) {
-            let x = points[i];
-            let y = points[i + 1];
-
-            x_min = x.min(x_min);
-            x_max = x.max(x_max);
-            y_min = y.min(y_min);
-            y_max = y.max(y_max);
-        }
-
-        Rect::new(x_min, y_min, x_max - x_min, y_max - y_min)
+        self.points.add(point);
     }
 
     // Simplifies the drawing's points so that the top-left-most point is the
     // origin, returning a ScenePoint indicating the change in position of the
     // top-left-most point.
-    fn simplify(&mut self) -> ScenePoint {
-        let rect = self.rect();
-
-        for i in (0..self.points.len()).step_by(2) {
-            self.points[i] -= rect.x;
-            self.points[i + 1] -= rect.y;
-        }
-
+    fn simplify(&mut self) -> Point {
+        let rect = self.points.rect();
+        self.points.translate(-rect.x, -rect.y);
         rect.top_left()
     }
 }
@@ -119,10 +79,9 @@ impl Drawing {
 impl Default for Drawing {
     fn default() -> Self {
         Self {
-            points: vec![0.0, 0.0],
+            points: PointVector::new(),
             cap_start: Cap::Round,
             cap_end: Cap::Round,
-            prev_point: None,
         }
     }
 }
@@ -230,7 +189,7 @@ impl Sprite {
         }
     }
 
-    pub fn set_pos(&mut self, ScenePoint { x, y }: ScenePoint) -> SceneEvent {
+    pub fn set_pos(&mut self, Point { x, y }: Point) -> SceneEvent {
         let from = self.rect;
         self.rect.x = x;
         self.rect.y = y;
@@ -286,22 +245,22 @@ impl Sprite {
         }
     }
 
-    pub fn move_by(&mut self, delta: ScenePoint) -> SceneEvent {
+    pub fn move_by(&mut self, delta: Point) -> SceneEvent {
         let from = self.rect;
         self.rect.translate(delta);
         SceneEvent::SpriteMove(self.id, from, self.rect)
     }
 
-    pub fn pos(&self) -> ScenePoint {
-        ScenePoint {
+    pub fn pos(&self) -> Point {
+        Point {
             x: self.rect.x,
             y: self.rect.y,
         }
     }
 
-    pub fn anchor_point(&mut self, dx: i32, dy: i32) -> ScenePoint {
+    pub fn anchor_point(&mut self, dx: i32, dy: i32) -> Point {
         let Rect { x, y, w, h } = self.rect;
-        ScenePoint {
+        Point {
             x: x + (w / 2.0) * (dx + 1) as f32,
             y: y + (h / 2.0) * (dy + 1) as f32,
         }
@@ -405,7 +364,7 @@ impl Sprite {
         }
     }
 
-    pub fn n_drawing_points(&self) -> usize {
+    pub fn n_drawing_points(&self) -> u32 {
         if let Visual::Drawing { drawing, .. } = &self.visual {
             drawing.n_points()
         } else {
@@ -413,13 +372,13 @@ impl Sprite {
         }
     }
 
-    pub fn keep_drawing_points(&mut self, n: usize) {
+    pub fn keep_drawing_points(&mut self, n: u32) {
         if let Visual::Drawing { drawing, .. } = &mut self.visual {
-            drawing.keep_n_points(n * 2);
+            drawing.keep_n_points(n);
         }
     }
 
-    pub fn last_drawing_point(&self) -> Option<ScenePoint> {
+    pub fn last_drawing_point(&self) -> Option<Point> {
         if let Visual::Drawing { drawing, .. } = &self.visual {
             drawing.last_point()
         } else {
@@ -427,7 +386,7 @@ impl Sprite {
         }
     }
 
-    pub fn add_drawing_point(&mut self, at: ScenePoint) -> Option<SceneEvent> {
+    pub fn add_drawing_point(&mut self, at: Point) -> Option<SceneEvent> {
         let point = at - self.pos();
         if let Visual::Drawing { drawing, .. } = &mut self.visual {
             drawing.add_point(point);
@@ -448,7 +407,7 @@ impl Sprite {
         {
             let stroke = *stroke;
             let dpos = drawing.simplify();
-            let Rect { x: _, y: _, w, h } = drawing.rect();
+            let Rect { x: _, y: _, w, h } = drawing.points.rect();
             self.rect.translate(dpos);
             self.rect.w = w + 2.0 * stroke;
             self.rect.h = h + 2.0 * stroke;

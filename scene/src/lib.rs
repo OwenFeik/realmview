@@ -2,12 +2,12 @@
 #![feature(drain_filter)]
 
 use serde_derive::{Deserialize, Serialize};
-use std::ops::{Add, Neg, Sub};
 
 pub mod comms;
 pub mod perms;
 
 mod layer;
+mod point;
 mod rect;
 mod sprite;
 
@@ -15,6 +15,7 @@ mod sprite;
 mod tests;
 
 pub use layer::Layer;
+pub use point::{Point, PointVector};
 pub use rect::{Dimension, Rect};
 pub use sprite::{
     Cap as SpriteCap, Colour, Drawing as SpriteDrawing, Shape as SpriteShape, Sprite,
@@ -24,73 +25,6 @@ pub use sprite::{
 use comms::SceneEvent;
 
 pub type Id = i64;
-
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
-pub struct ScenePoint {
-    pub x: f32,
-    pub y: f32,
-}
-
-impl ScenePoint {
-    pub fn new(x: f32, y: f32) -> ScenePoint {
-        ScenePoint { x, y }
-    }
-
-    pub fn dist(&self, other: Self) -> f32 {
-        ((self.x - other.x).powi(2) + (self.y - other.y).powi(2)).sqrt()
-    }
-
-    // Return the rectangle formed by these two points.
-    pub fn rect(&self, ScenePoint { x, y }: ScenePoint) -> Rect {
-        Rect {
-            x: self.x,
-            y: self.y,
-            w: x - self.x,
-            h: y - self.y,
-        }
-    }
-
-    #[must_use]
-    pub fn round(&self) -> Self {
-        ScenePoint {
-            x: self.x.round(),
-            y: self.y.round(),
-        }
-    }
-}
-
-impl Add for ScenePoint {
-    type Output = ScenePoint;
-
-    fn add(self, rhs: ScenePoint) -> ScenePoint {
-        ScenePoint {
-            x: self.x + rhs.x,
-            y: self.y + rhs.y,
-        }
-    }
-}
-
-impl Neg for ScenePoint {
-    type Output = ScenePoint;
-
-    fn neg(self) -> Self::Output {
-        ScenePoint {
-            x: -self.x,
-            y: -self.y,
-        }
-    }
-}
-
-impl Sub for ScenePoint {
-    type Output = ScenePoint;
-
-    fn sub(self, rhs: ScenePoint) -> ScenePoint {
-        ScenePoint {
-            x: self.x - rhs.x,
-            y: self.y - rhs.y,
-        }
-    }
-}
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Scene {
@@ -305,7 +239,7 @@ impl Scene {
         None
     }
 
-    pub fn sprite_at(&mut self, at: ScenePoint) -> Option<&mut Sprite> {
+    pub fn sprite_at(&mut self, at: Point) -> Option<&mut Sprite> {
         for layer in self.layers.iter_mut() {
             // Sprites on locked or invisible layers cannot be grabbed.
             if layer.locked || !layer.visible {
@@ -321,7 +255,7 @@ impl Scene {
         None
     }
 
-    pub fn sprite_at_ref(&self, at: ScenePoint) -> Option<&Sprite> {
+    pub fn sprite_at_ref(&self, at: Point) -> Option<&Sprite> {
         for layer in &self.layers {
             if layer.locked || !layer.visible {
                 continue;

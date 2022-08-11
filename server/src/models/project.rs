@@ -424,7 +424,7 @@ mod sprite {
                 points: sprite
                     .visual
                     .drawing()
-                    .map(|p| p.points.iter().flat_map(|f| f.to_be_bytes()).collect()),
+                    .map(|p| p.points.data.iter().flat_map(|f| f.to_be_bytes()).collect()),
                 r: sprite.visual.colour().map(|c| c[0]),
                 g: sprite.visual.colour().map(|c| c[1]),
                 b: sprite.visual.colour().map(|c| c[2]),
@@ -483,10 +483,12 @@ mod sprite {
                     stroke: self.stroke?,
                     colour: [self.r?, self.g?, self.b?, self.a?],
                     drawing: scene::SpriteDrawing::new(
-                        points
-                            .chunks_exact(32 / 8)
-                            .map(|b| f32::from_be_bytes([b[0], b[1], b[2], b[3]]))
-                            .collect(),
+                        scene::PointVector::from(
+                            points
+                                .chunks_exact(32 / 8)
+                                .map(|b| f32::from_be_bytes([b[0], b[1], b[2], b[3]]))
+                                .collect(),
+                        ),
                         Self::u8_to_cap(self.cap_start?),
                         Self::u8_to_cap(self.cap_end?),
                     ),

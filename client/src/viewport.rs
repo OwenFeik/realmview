@@ -6,7 +6,7 @@ use crate::{
     client::Client,
     interactor::Interactor,
 };
-use scene::{Rect, ScenePoint, SpriteShape};
+use scene::{Point, Rect, SpriteShape};
 
 pub enum Tool {
     Draw,
@@ -28,8 +28,8 @@ impl ViewportPoint {
         }
     }
 
-    fn scene_point(&self, viewport: Rect, grid_zoom: f32) -> ScenePoint {
-        ScenePoint::new(
+    fn scene_point(&self, viewport: Rect, grid_zoom: f32) -> Point {
+        Point::new(
             (self.x / grid_zoom) + viewport.x,
             (self.y / grid_zoom) + viewport.y,
         )
@@ -84,7 +84,7 @@ impl Viewport {
         Ok(vp)
     }
 
-    fn scene_point(&self, at: ViewportPoint) -> ScenePoint {
+    fn scene_point(&self, at: ViewportPoint) -> Point {
         at.scene_point(self.viewport, self.grid_zoom)
     }
 
@@ -199,11 +199,11 @@ impl Viewport {
 
     fn handle_arrow_key_down(&mut self, key: Key, ctrl: bool) {
         let delta = match key {
-            Key::Down => ScenePoint { x: 0.0, y: 1.0 },
-            Key::Left => ScenePoint { x: -1.0, y: 0.0 },
-            Key::Right => ScenePoint { x: 1.0, y: 0.0 },
-            Key::Up => ScenePoint { x: 0.0, y: -1.0 },
-            _ => ScenePoint { x: 0.0, y: 0.0 },
+            Key::Down => Point { x: 0.0, y: 1.0 },
+            Key::Left => Point { x: -1.0, y: 0.0 },
+            Key::Right => Point { x: 1.0, y: 0.0 },
+            Key::Up => Point { x: 0.0, y: -1.0 },
+            _ => Point { x: 0.0, y: 0.0 },
         };
 
         if ctrl || !self.scene.has_selection() {
@@ -315,9 +315,9 @@ impl Viewport {
         self.tool = tool;
     }
 
-    pub fn centre_tile(&self) -> ScenePoint {
+    pub fn centre_tile(&self) -> Point {
         (self.viewport.top_left()
-            + ScenePoint {
+            + Point {
                 x: self.viewport.w / 2.0,
                 y: self.viewport.h / 2.0,
             })

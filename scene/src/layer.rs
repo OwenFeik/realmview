@@ -2,7 +2,7 @@ use serde_derive::{Deserialize, Serialize};
 
 use crate::{comms::SceneEvent, Rect};
 
-use super::{Id, ScenePoint, Sprite};
+use super::{Id, Point, Sprite};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Layer {
@@ -115,7 +115,7 @@ impl Layer {
         }
     }
 
-    pub fn sprite_at(&mut self, at: ScenePoint) -> Option<&mut Sprite> {
+    pub fn sprite_at(&mut self, at: Point) -> Option<&mut Sprite> {
         // Reversing the iterator atm because the sprites are rendered from the
         // front of the Vec to the back, hence the last Sprite in the Vec is
         // rendered on top, and will be clicked first.
@@ -128,7 +128,7 @@ impl Layer {
         None
     }
 
-    pub fn sprite_at_ref(&self, at: ScenePoint) -> Option<&Sprite> {
+    pub fn sprite_at_ref(&self, at: Point) -> Option<&Sprite> {
         for sprite in self.sprites.iter().rev() {
             if sprite.rect.contains_point(at) {
                 return Some(sprite);

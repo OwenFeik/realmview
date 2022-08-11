@@ -2,7 +2,7 @@ use std::ops::{Add, Div, Mul, MulAssign, Sub};
 
 use serde_derive::{Deserialize, Serialize};
 
-use super::ScenePoint;
+use super::Point;
 
 #[derive(Clone, Copy)]
 pub enum Dimension {
@@ -25,7 +25,7 @@ impl Rect {
         Rect { x, y, w, h }
     }
 
-    pub fn from_point(point: ScenePoint, w: f32, h: f32) -> Rect {
+    pub fn from_point(point: Point, w: f32, h: f32) -> Rect {
         Rect {
             x: point.x,
             y: point.y,
@@ -57,7 +57,7 @@ impl Rect {
         };
     }
 
-    pub fn translate(&mut self, ScenePoint { x: dx, y: dy }: ScenePoint) {
+    pub fn translate(&mut self, Point { x: dx, y: dy }: Point) {
         self.x += dx;
         self.y += dy;
     }
@@ -98,7 +98,7 @@ impl Rect {
         }
     }
 
-    pub fn contains_point(&self, point: ScenePoint) -> bool {
+    pub fn contains_point(&self, point: Point) -> bool {
         // A negative dimension causes a texture to be flipped. As this is a useful behaviour, negative dimensions on
         // Rects are supported. To that end a different treatment is required for checking if a point is contained.
         // Hence the special cases for negative width and height.
@@ -129,8 +129,8 @@ impl Rect {
         b.x >= a.x && b.x + b.w <= a.x + a.w && b.y >= a.y && b.y + b.h <= a.y + a.h
     }
 
-    pub fn top_left(&self) -> ScenePoint {
-        ScenePoint {
+    pub fn top_left(&self) -> Point {
+        Point {
             x: self.x,
             y: self.y,
         }

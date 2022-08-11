@@ -59,12 +59,11 @@ impl Renderer {
                 drawing,
                 colour,
             } => {
-                self.line_renderer.load_points(&programs::draw_lines(
+                self.line_renderer.load_points(&shapes::drawing(
+                    &drawing.points,
                     *stroke,
-                    drawing,
-                    grid_size,
-                    viewport,
-                    sprite.rect,
+                    drawing.cap_start,
+                    drawing.cap_end,
                 ));
                 self.line_renderer.render_solid(Some(*colour));
             }
