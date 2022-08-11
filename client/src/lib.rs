@@ -4,6 +4,6 @@
 mod bridge;
 mod client;
 mod interactor;
-mod programs;
+mod render;
 mod start;
 mod viewport;

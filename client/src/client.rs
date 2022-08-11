@@ -9,7 +9,7 @@ use web_sys::{ErrorEvent, MessageEvent, WebSocket};
 
 use scene::comms::{ClientEvent, ClientMessage, ServerEvent};
 
-use crate::bridge::{log, log_js_value, websocket_url, JsError};
+use crate::bridge::{flog, log, log_js_value, websocket_url};
 
 pub struct Client {
     ready: Rc<AtomicBool>,
@@ -18,11 +18,11 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new() -> Result<Option<Client>, JsError> {
+    pub fn new() -> anyhow::Result<Option<Client>> {
         let ws = match websocket_url() {
             Ok(Some(url)) => match WebSocket::new(&url) {
                 Ok(ws) => ws,
-                Err(_) => return JsError::error("Failed to open WebSocket."),
+                Err(_) => return Err(anyhow::anyhow!("Failed to open WebSocket.")),
             },
             _ => return Ok(None),
         };
@@ -40,8 +40,7 @@ impl Client {
             Closure::wrap(
                 Box::new(move |e: MessageEvent| match deserialise_message(e.data()) {
                     Ok(e) => event_queue.lock().push(e),
-                    Err(JsError::ResourceError(s)) => log(&s),
-                    Err(JsError::TypeError(s)) => log(&s),
+                    Err(s) => flog!("{s}"),
                 }) as Box<dyn FnMut(MessageEvent)>,
             );
         ws.set_onmessage(Some(onmessage.as_ref().unchecked_ref()));
@@ -103,12 +102,16 @@ impl Client {
     }
 }
 
-fn deserialise_message(message: JsValue) -> Result<ServerEvent, JsError> {
+fn deserialise_message(message: JsValue) -> anyhow::Result<ServerEvent> {
     match message.dyn_into::<ArrayBuffer>() {
         Ok(b) => match deserialize(&Uint8Array::new(&b).to_vec()) {
             Ok(e) => Ok(e),
-            Err(_) => JsError::error("WebSocket message deserialisation failed."),
+            Err(e) => Err(anyhow::anyhow!(
+                "WebSocket message deserialisation failed: {e}."
+            )),
         },
-        Err(_) => JsError::error("WebSocket message could not be cast to ArrayBuffer."),
+        Err(e) => Err(anyhow::anyhow!(
+            "WebSocket message could not be cast to ArrayBuffer: {e:?}."
+        )),
     }
 }

@@ -9,6 +9,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 scene = { path = "../scene" }
+anyhow = "1"
 base64 = "0.13"
 bincode = "1.3"
 console_error_panic_hook = "0.1.7"

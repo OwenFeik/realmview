@@ -1,7 +1,7 @@
 use crate::{
     bridge::{
         clear_selected_sprite, set_scene_details, set_selected_sprite, sprite_dropdown,
-        update_layers_list, Context, Input, JsError, Key, KeyboardAction, MouseAction, MouseButton,
+        update_layers_list, Context, Input, Key, KeyboardAction, MouseAction, MouseButton,
     },
     client::Client,
     interactor::Interactor,
@@ -61,7 +61,7 @@ pub struct Viewport {
 impl Viewport {
     const BASE_GRID_ZOOM: f32 = 50.0;
 
-    pub fn new(client: Option<Client>) -> Result<Self, JsError> {
+    pub fn new(client: Option<Client>) -> anyhow::Result<Self> {
         let mut vp = Viewport {
             scene: Interactor::new(client),
             context: Context::new()?,

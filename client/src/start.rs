@@ -88,7 +88,7 @@ pub fn start() -> Result<(), JsValue> {
 
     let vp_ref = vp.clone();
     let new_sprite_closure = Closure::wrap(Box::new(move |layer: f64, media_key: String| {
-        let texture = crate::programs::parse_media_key(&media_key);
+        let texture = crate::render::parse_media_key(&media_key);
         let mut lock = vp_ref.lock();
         let at = lock.centre_tile();
         lock.scene.new_sprite_at(
