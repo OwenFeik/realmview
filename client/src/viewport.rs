@@ -8,8 +8,10 @@ use crate::{
 };
 use scene::{Point, Rect, SpriteShape};
 
+#[derive(Clone, Copy, Debug, serde_derive::Deserialize, serde_derive::Serialize)]
 pub enum Tool {
     Draw,
+    Pan,
     Select,
     Shape(SpriteShape),
 }
@@ -84,6 +86,11 @@ impl Viewport {
         Ok(vp)
     }
 
+    pub fn set_tool(&mut self, tool: Tool) {
+        self.tool = tool;
+        crate::bridge::set_active_tool(tool).ok();
+    }
+
     fn scene_point(&self, at: ViewportPoint) -> Point {
         at.scene_point(self.viewport, self.grid_zoom)
     }
@@ -121,6 +128,7 @@ impl Viewport {
         match button {
             MouseButton::Left => match self.tool {
                 Tool::Draw => self.scene.start_draw(self.scene_point(at)),
+                Tool::Pan => self.grab(at),
                 Tool::Select => self.scene.grab(self.scene_point(at), ctrl),
                 Tool::Shape(shape) => self.scene.new_held_shape(shape, self.scene_point(at)),
             },
@@ -141,7 +149,12 @@ impl Viewport {
 
     fn handle_mouse_up(&mut self, button: MouseButton, alt: bool, ctrl: bool) {
         match button {
-            MouseButton::Left => self.scene.release(alt, ctrl),
+            MouseButton::Left => {
+                if let Tool::Pan = self.tool {
+                    self.release_grab();
+                }
+                self.scene.release(alt, ctrl);
+            },
             MouseButton::Right => self.release_grab(),
             MouseButton::Middle => self.centre_viewport(),
             _ => {}
@@ -222,7 +235,11 @@ impl Viewport {
 
         match key {
             Key::Delete => self.scene.remove_sprite(Interactor::SELECTION_ID),
-            Key::Escape => self.scene.clear_selection(),
+            Key::Escape => { self.scene.clear_selection(); self.tool = Tool::Select },
+            Key::D => self.scene.clear_selection(),
+            Key::L => self.set_tool(Tool::Draw),
+            Key::P => self.set_tool(Tool::Pan),
+            Key::Q => self.set_tool(Tool::Select),
             Key::Y => self.scene.redo(),
             Key::Z => self.scene.undo(),
             _ => {}
@@ -309,10 +326,6 @@ impl Viewport {
                 clear_selected_sprite();
             }
         }
-    }
-
-    pub fn set_tool(&mut self, tool: Tool) {
-        self.tool = tool;
     }
 
     pub fn centre_tile(&self) -> Point {

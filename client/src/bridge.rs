@@ -814,3 +814,14 @@ pub fn request_animation_frame(f: &Closure<dyn FnMut()>) -> anyhow::Result<()> {
         Err(_) => Err(anyhow::anyhow!("Failed to get animation frame.")),
     }
 }
+
+pub fn set_active_tool(tool: crate::viewport::Tool) -> anyhow::Result<()> {
+    const ID_PREFIX: &str = "tool_radio_";
+    if let Ok(s) = serde_json::ser::to_string(&tool) {
+        let id = format!("{ID_PREFIX}{}", s.to_lowercase().replace('"', ""));
+        if let Some(element) = get_document()?.get_element_by_id(&id) {
+            element.unchecked_ref::<HtmlInputElement>().set_checked(true);
+        }
+    }
+    Ok(())
+}

@@ -185,11 +185,8 @@ pub fn start() -> Result<(), JsValue> {
 
     let vp_ref = vp.clone();
     let select_tool_closure = Closure::wrap(Box::new(move |tool: String| {
-        vp_ref.lock().set_tool(match tool.as_str() {
-            "Draw" => Tool::Draw,
-            "Select" => Tool::Select,
-            "Rectangle" => Tool::Shape(scene::SpriteShape::Rectangle),
-            "Ellipse" => Tool::Shape(scene::SpriteShape::Ellipse),
+        vp_ref.lock().set_tool(match serde_json::de::from_str(&tool) {
+            Ok(tool) => tool,
             _ => Tool::Select,
         });
     }) as Box<dyn FnMut(String)>);

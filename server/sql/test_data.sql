@@ -1,4 +1,4 @@
--- Create logged in test user
+-- Create test user
 INSERT INTO users VALUES(
     1,
     'test',

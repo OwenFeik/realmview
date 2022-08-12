@@ -6,6 +6,7 @@
       <div class="btn-group" role="group" aria-label="Tool select">
         {{
           radio_check(
+            id="tool_radio_select",
             group="tool_radio",
             active=1,
             label='{{ bootstrap_icon(cursor) }}',
@@ -14,23 +15,18 @@
         }}
         {{
           radio_check(
+            id="tool_radio_pan",
+            group="tool_radio",
+            label='{{ bootstrap_icon(arrows-move) }}',
+            action="RustFuncs.select_tool('Pan'); this.blur();"
+          )
+        }}
+        {{
+          radio_check(
+            id="tool_radio_draw",
             group="tool_radio",
             label='{{ bootstrap_icon(brush) }}',
             action="RustFuncs.select_tool('Draw'); this.blur();"
-          )
-        }}
-        {{
-          radio_check(
-            group="tool_radio",
-            label='{{ bootstrap_icon(square) }}',
-            action="RustFuncs.select_tool('Rectangle'); this.blur();"
-          )
-        }}
-        {{
-          radio_check(
-            group="tool_radio",
-            label='{{ bootstrap_icon(circle) }}',
-            action="RustFuncs.select_tool('Ellipse'); this.blur();"
           )
         }}
       </div>
