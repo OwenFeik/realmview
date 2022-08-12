@@ -187,7 +187,7 @@ pub fn start() -> Result<(), JsValue> {
     let select_tool_closure = Closure::wrap(Box::new(move |tool: String| {
         vp_ref
             .lock()
-            .set_tool(parse_json(&tool).unwrap_or(Tool::Select));
+            .set_tool(parse_json(&format!("\"{tool}\"")).unwrap_or(Tool::Select));
     }) as Box<dyn FnMut(String)>);
     expose_closure_string_in("select_tool", &select_tool_closure);
     select_tool_closure.forget();
