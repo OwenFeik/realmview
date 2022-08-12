@@ -17,6 +17,15 @@ impl Point {
         Point { x, y }
     }
 
+    /// Given an angle, returns a Point with the cos and sin of the angle.
+    pub fn trig(theta: f32) -> Point {
+        Point::new(theta.cos(), theta.sin())
+    }
+
+    pub fn same(value: f32) -> Point {
+        Point { x: value, y: value }
+    }
+
     pub fn dist(&self, other: Self) -> f32 {
         ((self.x - other.x).powi(2) + (self.y - other.y).powi(2)).sqrt()
     }
@@ -130,6 +139,26 @@ impl PointVector {
         }
     }
 
+    pub fn iter<F: FnMut(Point)>(&self, mut func: F) {
+        for i in (0..self.data.len()).step_by(2) {
+            func(Point {
+                x: self.data[i],
+                y: self.data[i + 1],
+            });
+        }
+    }
+
+    pub fn map<F: FnMut(Point) -> Point>(&mut self, mut func: F) {
+        for i in (0..self.data.len()).step_by(2) {
+            let Point { x, y } = func(Point {
+                x: self.data[i],
+                y: self.data[i + 1],
+            });
+            self.data[i] = x;
+            self.data[i + 1] = y;
+        }
+    }
+
     pub fn last(&self) -> Option<Point> {
         self.nth(self.n())
     }
@@ -151,24 +180,18 @@ impl PointVector {
         let mut y_min = std::f32::MAX;
         let mut y_max = std::f32::MIN;
 
-        for i in (0..self.data.len()).step_by(2) {
-            let x = self.data[i];
-            let y = self.data[i + 1];
-
-            x_min = x.min(x_min);
-            x_max = x.max(x_max);
-            y_min = y.min(y_min);
-            y_max = y.max(y_max);
-        }
+        self.iter(|Point { x, y }| {
+            x_min = x_min.min(x);
+            x_max = x_max.max(x);
+            y_min = y_min.min(y);
+            y_max = y_max.max(y);
+        });
 
         Rect::new(x_min, y_min, x_max - x_min, y_max - y_min)
     }
 
-    pub fn translate(&mut self, dx: f32, dy: f32) {
-        for i in (0..self.data.len()).step_by(2) {
-            self.data[i] += dx;
-            self.data[i + 1] += dy;
-        }
+    pub fn translate(&mut self, delta: Point) {
+        self.map(|p| p + delta);
     }
 }
 

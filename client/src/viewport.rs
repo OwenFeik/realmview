@@ -173,11 +173,41 @@ impl Viewport {
         }
     }
 
-    fn handle_scroll(&mut self, at: ViewportPoint, delta: f32, shift: bool, ctrl: bool) {
-        const SCROLL_COEFFICIENT: f32 = 0.5;
+    fn zoom(&mut self, delta: f32, at: Option<ViewportPoint>) {
         const ZOOM_COEFFICIENT: f32 = 3.0 / Viewport::BASE_GRID_ZOOM;
         const ZOOM_MIN: f32 = Viewport::BASE_GRID_ZOOM / 2.0;
         const ZOOM_MAX: f32 = Viewport::BASE_GRID_ZOOM * 5.0;
+
+        let at = at.unwrap_or_else(|| self.centre());
+
+        // Need to calculate these before changing the zoom level
+        let scene_point = at.scene_point(self.viewport, self.grid_zoom);
+        let fraction_x = at.x / (self.viewport.w * self.grid_zoom);
+        let fraction_y = at.y / (self.viewport.h * self.grid_zoom);
+
+        self.grid_zoom = (self.grid_zoom - delta * ZOOM_COEFFICIENT).clamp(ZOOM_MIN, ZOOM_MAX);
+        self.update_viewport();
+
+        // Update viewport such that the mouse is at the same scene
+        // coordinate as before zooming.
+        self.viewport.x = scene_point.x - self.viewport.w * fraction_x;
+        self.viewport.y = scene_point.y - self.viewport.h * fraction_y;
+
+        self.redraw_needed = true;
+    }
+
+    fn zoom_in(&mut self) {
+        const ZOOM_AMT: f32 = -Viewport::BASE_GRID_ZOOM;
+        self.zoom(ZOOM_AMT, None);
+    }
+
+    fn zoom_out(&mut self) {
+        const ZOOM_AMT: f32 = Viewport::BASE_GRID_ZOOM;
+        self.zoom(ZOOM_AMT, None);
+    }
+
+    fn handle_scroll(&mut self, at: ViewportPoint, delta: f32, shift: bool, ctrl: bool) {
+        const SCROLL_COEFFICIENT: f32 = 0.5;
 
         // We want shift + scroll to scroll horizontally but browsers (Firefox
         // anyway) only do this when the page is wider than the viewport, which
@@ -186,19 +216,7 @@ impl Viewport {
         if shift {
             self.viewport.x += SCROLL_COEFFICIENT * delta / self.grid_zoom;
         } else if ctrl {
-            // Need to calculate these before changing the zoom level
-            let scene_point = at.scene_point(self.viewport, self.grid_zoom);
-            let fraction_x = at.x / (self.viewport.w * self.grid_zoom);
-            let fraction_y = at.y / (self.viewport.h * self.grid_zoom);
-
-            // Zoom in
-            self.grid_zoom = (self.grid_zoom - ZOOM_COEFFICIENT * delta).clamp(ZOOM_MIN, ZOOM_MAX);
-            self.update_viewport();
-
-            // Update viewport such that the mouse is at the same scene
-            // coordinate as before zooming.
-            self.viewport.x = scene_point.x - self.viewport.w * fraction_x;
-            self.viewport.y = scene_point.y - self.viewport.h * fraction_y;
+            self.zoom(delta, Some(at));
         } else {
             self.viewport.y += SCROLL_COEFFICIENT * delta / self.grid_zoom;
         }
@@ -221,7 +239,7 @@ impl Viewport {
         };
 
         if ctrl || !self.scene.has_selection() {
-            self.viewport.translate(delta);
+            self.viewport.translate_in_place(delta);
             self.redraw_needed = true;
         } else {
             self.scene.move_selection(delta);
@@ -240,6 +258,8 @@ impl Viewport {
                 self.scene.clear_selection();
                 self.tool = Tool::Select
             }
+            Key::Plus | Key::Equals => self.zoom_in(),
+            Key::Minus => self.zoom_out(),
             Key::D => self.scene.clear_selection(),
             Key::L => self.set_tool_update_ui(Tool::Draw),
             Key::P => self.set_tool_update_ui(Tool::Pan),
@@ -329,6 +349,13 @@ impl Viewport {
             } else {
                 clear_selected_sprite();
             }
+        }
+    }
+
+    fn centre(&self) -> ViewportPoint {
+        ViewportPoint {
+            x: (self.viewport.x + self.viewport.w / 2.0) * self.grid_zoom,
+            y: (self.viewport.y + self.viewport.h / 2.0) * self.grid_zoom,
         }
     }
 

@@ -9,7 +9,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::bridge::{
     expose_closure, expose_closure_f64, expose_closure_f64_bool, expose_closure_f64_f64,
-    expose_closure_f64_string, expose_closure_string_in, expose_closure_string_out, log,
+    expose_closure_f64_string, expose_closure_string_in, expose_closure_string_out, flog, log,
     request_animation_frame,
 };
 use crate::client::Client;
@@ -24,7 +24,7 @@ fn parse_json<'a, T: serde::Deserialize<'a>>(json: &'a str) -> Option<T> {
     if let Ok(val) = serde_json::from_str::<T>(json) {
         Some(val)
     } else {
-        crate::bridge::flog!("Failed to parse JSON: {json}");
+        flog!("Failed to parse JSON: {json}");
         None
     }
 }

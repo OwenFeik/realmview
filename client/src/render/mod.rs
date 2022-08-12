@@ -16,6 +16,9 @@ pub struct Renderer {
     // Draw textures in shapes
     texture_renderer: programs::TextureRenderer,
 
+    // Draw line drawings
+    drawing_renderer: programs::DrawingRenderer,
+
     // To render outlines &c
     line_renderer: programs::LineRenderer,
 
@@ -29,6 +32,7 @@ impl Renderer {
             texture_library: programs::TextureManager::new(gl.clone())?,
             solid_renderer: programs::SolidRenderer::new(gl.clone())?,
             texture_renderer: programs::TextureRenderer::new(gl.clone())?,
+            drawing_renderer: programs::DrawingRenderer::new(gl.clone())?,
             line_renderer: programs::LineRenderer::new(gl.clone())?,
             grid_renderer: programs::GridRenderer::new(gl)?,
         })
@@ -54,19 +58,9 @@ impl Renderer {
                 viewport,
                 position,
             ),
-            SpriteVisual::Drawing {
-                stroke,
-                drawing,
-                colour,
-            } => {
-                self.line_renderer.load_points(&shapes::drawing(
-                    &drawing.points,
-                    *stroke,
-                    drawing.cap_start,
-                    drawing.cap_end,
-                ));
-                self.line_renderer.render_solid(Some(*colour));
-            }
+            SpriteVisual::Drawing(drawing) => self
+                .drawing_renderer
+                .draw(sprite.id, drawing, viewport, position, grid_size),
         }
     }
 

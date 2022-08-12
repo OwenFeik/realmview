@@ -399,15 +399,15 @@ mod sprite {
 
     impl SpriteRecord {
         fn from_sprite(sprite: &scene::Sprite, layer: i64, scene: i64) -> Self {
-            let (cap_start, cap_end) =
-                if let scene::SpriteVisual::Drawing { drawing, .. } = &sprite.visual {
-                    (
-                        Some(Self::cap_to_u8(drawing.cap_start)),
-                        Some(Self::cap_to_u8(drawing.cap_end)),
-                    )
-                } else {
-                    (None, None)
-                };
+            let (cap_start, cap_end) = if let scene::SpriteVisual::Drawing(drawing) = &sprite.visual
+            {
+                (
+                    Some(Self::cap_to_u8(drawing.cap_start)),
+                    Some(Self::cap_to_u8(drawing.cap_end)),
+                )
+            } else {
+                (None, None)
+            };
 
             let mut record = Self {
                 id: sprite.id,
@@ -479,20 +479,18 @@ mod sprite {
 
         fn visual(&self) -> Option<scene::SpriteVisual> {
             if let Some(points) = &self.points {
-                Some(scene::SpriteVisual::Drawing {
+                Some(scene::SpriteVisual::Drawing(scene::SpriteDrawing {
                     stroke: self.stroke?,
                     colour: [self.r?, self.g?, self.b?, self.a?],
-                    drawing: scene::SpriteDrawing::new(
-                        scene::PointVector::from(
-                            points
-                                .chunks_exact(32 / 8)
-                                .map(|b| f32::from_be_bytes([b[0], b[1], b[2], b[3]]))
-                                .collect(),
-                        ),
-                        Self::u8_to_cap(self.cap_start?),
-                        Self::u8_to_cap(self.cap_end?),
+                    points: scene::PointVector::from(
+                        points
+                            .chunks_exact(32 / 8)
+                            .map(|b| f32::from_be_bytes([b[0], b[1], b[2], b[3]]))
+                            .collect(),
                     ),
-                })
+                    cap_start: Self::u8_to_cap(self.cap_start?),
+                    cap_end: Self::u8_to_cap(self.cap_end?),
+                }))
             } else if let Some(key) = &self.media_key {
                 Some(scene::SpriteVisual::Texture {
                     shape: Self::u8_to_shape(self.shape?),

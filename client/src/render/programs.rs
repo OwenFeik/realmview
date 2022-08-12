@@ -218,15 +218,17 @@ impl TextureManager {
     }
 }
 
-struct Shape {
+struct Solid {
     coords: Float32Array,
     position_buffer: WebGlBuffer,
     position_location: u32,
     matrix_location: WebGlUniformLocation,
     vertex_count: i32,
+    scale: bool,
+    translate: bool,
 }
 
-impl Shape {
+impl Solid {
     // Requires that the program use "a_position" and "u_matrix"
     fn new(gl: &Gl, program: &WebGlProgram, points: &[f32]) -> anyhow::Result<Self> {
         let coords = Float32Array::new_with_length(points.len() as u32);
@@ -239,58 +241,20 @@ impl Shape {
 
         let vertex_count = (coords.length() / 2) as i32;
 
-        Ok(Shape {
+        Ok(Solid {
             coords,
             position_buffer,
             position_location,
             matrix_location,
             vertex_count,
+            scale: true,
+            translate: true,
         })
     }
 
-    // Returns points for a hollow regular polygon with n edges and a line
-    // width of lw units.
-    fn hollow_ngon(n: u32, lw: f32) -> Vec<f32> {
-        // n sides, each side is made up of 2 triangles,
-        // which are made up of 3 points, which are 2 floats
-        let mut coords = Vec::with_capacity((n * 2 * 3 * 2) as usize);
-
-        let ra = 0.5;
-
-        let mut add_point = |(x, y)| {
-            coords.push(x + ra);
-            coords.push(y + ra);
-        };
-        let mut add_triangle = |a, b, c| {
-            add_point(a);
-            add_point(b);
-            add_point(c);
-        };
-
-        let rb = ra - lw;
-        let dt = 2.0 * std::f32::consts::PI / n as f32;
-
-        let mut prev_a = None;
-        let mut prev_b = None;
-        for i in 0..=n {
-            let theta = i as f32 * dt;
-
-            let ct = theta.cos();
-            let st = theta.sin();
-
-            let a = (ra * ct, ra * st);
-            let b = (rb * ct, rb * st);
-
-            if let (Some(pa), Some(pb)) = (prev_a, prev_b) {
-                add_triangle(pa, pb, a);
-                add_triangle(a, b, pb);
-            }
-
-            prev_a = Some(a);
-            prev_b = Some(b);
-        }
-
-        coords
+    fn set_transforms(&mut self, scale: bool, translate: bool) {
+        self.scale = scale;
+        self.translate = translate;
     }
 
     fn from_sprite_shape(
@@ -313,8 +277,14 @@ impl Shape {
         gl.vertex_attrib_pointer_with_i32(self.position_location, 2, Gl::FLOAT, false, 0, 0);
 
         let mut m = m4_orthographic(0.0, vp.w as f32, vp.h as f32, 0.0, -1.0, 1.0);
-        m4_translate(&mut m, at.x - vp.x, at.y - vp.y, 0.0);
-        m4_scale(&mut m, at.w, at.h, 1.0);
+
+        if self.translate {
+            m4_translate(&mut m, at.x - vp.x, at.y - vp.y, 0.0);
+        }
+
+        if self.scale {
+            m4_scale(&mut m, at.w, at.h, 1.0);
+        }
 
         gl.uniform_matrix4fv_with_f32_array(Some(&self.matrix_location), false, &m);
         gl.draw_arrays(Gl::TRIANGLES, 0, self.vertex_count);
@@ -322,23 +292,23 @@ impl Shape {
 }
 
 struct Shapes {
-    ellipse: Shape,
-    hexagon: Shape,
-    rectangle: Shape,
-    triangle: Shape,
+    ellipse: Solid,
+    hexagon: Solid,
+    rectangle: Solid,
+    triangle: Solid,
 }
 
 impl Shapes {
     fn new(gl: &Gl, program: &WebGlProgram) -> anyhow::Result<Self> {
         Ok(Shapes {
-            ellipse: Shape::from_sprite_shape(gl, program, SpriteShape::Ellipse)?,
-            hexagon: Shape::from_sprite_shape(gl, program, SpriteShape::Hexagon)?,
-            rectangle: Shape::from_sprite_shape(gl, program, SpriteShape::Rectangle)?,
-            triangle: Shape::from_sprite_shape(gl, program, SpriteShape::Triangle)?,
+            ellipse: Solid::from_sprite_shape(gl, program, SpriteShape::Ellipse)?,
+            hexagon: Solid::from_sprite_shape(gl, program, SpriteShape::Hexagon)?,
+            rectangle: Solid::from_sprite_shape(gl, program, SpriteShape::Rectangle)?,
+            triangle: Solid::from_sprite_shape(gl, program, SpriteShape::Triangle)?,
         })
     }
 
-    fn shape(&self, shape: SpriteShape) -> &Shape {
+    fn shape(&self, shape: SpriteShape) -> &Solid {
         match shape {
             SpriteShape::Ellipse => &self.ellipse,
             SpriteShape::Hexagon => &self.hexagon,
@@ -374,13 +344,85 @@ impl SolidRenderer {
         })
     }
 
-    pub fn draw_shape(&self, shape: SpriteShape, colour: Colour, viewport: Rect, position: Rect) {
+    fn draw(&self, shape: &Solid, colour: Colour, viewport: Rect, position: Rect) {
         let gl = &self.gl;
 
         gl.use_program(Some(&self.program));
         gl.uniform4fv_with_f32_array(Some(&self.colour_location), &colour);
 
-        self.shapes.shape(shape).draw(gl, viewport, position);
+        shape.draw(gl, viewport, position);
+    }
+
+    pub fn draw_shape(&self, shape: SpriteShape, colour: Colour, viewport: Rect, position: Rect) {
+        self.draw(self.shapes.shape(shape), colour, viewport, position);
+    }
+}
+
+pub struct DrawingRenderer {
+    // Maps (grid_size, id) to (n_points, last_point, Shape)
+    gl: Rc<Gl>,
+    grid_size: f32,
+    drawings: HashMap<scene::Id, (u32, Option<scene::Point>, Solid)>,
+    renderer: SolidRenderer,
+}
+
+impl DrawingRenderer {
+    pub fn new(gl: Rc<Gl>) -> anyhow::Result<Self> {
+        Ok(Self {
+            gl: gl.clone(),
+            grid_size: 0.0,
+            drawings: HashMap::new(),
+            renderer: SolidRenderer::new(gl)?,
+        })
+    }
+
+    fn add_drawing(&mut self, id: scene::Id, drawing: &scene::SpriteDrawing) -> anyhow::Result<()> {
+        let mut shape = Solid::new(
+            &self.gl,
+            &self.renderer.program,
+            &super::shapes::scaled_line(
+                &drawing.points,
+                drawing.stroke,
+                drawing.cap_start,
+                drawing.cap_end,
+                self.grid_size,
+            ),
+        )?;
+        shape.set_transforms(false, true);
+        self.drawings
+            .insert(id, (drawing.n_points(), drawing.points.last(), shape));
+        Ok(())
+    }
+
+    fn get_drawing(&self, id: scene::Id, drawing: &scene::SpriteDrawing) -> Option<&Solid> {
+        if let Some((n, last, shape)) = self.drawings.get(&id) {
+            // If n is different, drawing has changed, we don't have it
+            if drawing.n_points() == *n && drawing.points.last() == *last {
+                return Some(shape);
+            }
+        }
+        None
+    }
+
+    pub fn draw(
+        &mut self,
+        id: scene::Id,
+        drawing: &scene::SpriteDrawing,
+        viewport: Rect,
+        position: Rect,
+        grid_size: f32,
+    ) {
+        if self.grid_size != grid_size {
+            self.grid_size = grid_size;
+            self.drawings.clear();
+        }
+
+        if let Some(shape) = self.get_drawing(id, drawing) {
+            self.renderer
+                .draw(shape, drawing.colour, viewport, position);
+        } else if self.add_drawing(id, drawing).is_ok() {
+            self.draw(id, drawing, viewport, position, grid_size);
+        }
     }
 }
 
@@ -390,7 +432,7 @@ struct TextureShapeRenderer {
     texcoord_buffer: WebGlBuffer,
     texcoord_location: u32,
     texture_location: WebGlUniformLocation,
-    shape: Shape,
+    shape: Solid,
 }
 
 impl TextureShapeRenderer {
@@ -401,7 +443,7 @@ impl TextureShapeRenderer {
             include_str!("shaders/image.frag"),
         )?;
 
-        let shape = Shape::from_sprite_shape(&gl, &program, shape)?;
+        let shape = Solid::from_sprite_shape(&gl, &program, shape)?;
 
         let texcoord_location = gl.get_attrib_location(&program, "a_texcoord") as u32;
         let texcoord_buffer = create_buffer(&gl, Some(&shape.coords))?;

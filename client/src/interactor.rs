@@ -742,15 +742,13 @@ impl Interactor {
         if self.draw_details.shape.is_some() {
             self.new_held_shape(self.draw_details.shape.unwrap(), at);
         } else if let Some(id) = self.new_sprite_at(
-            Some(SpriteVisual::Drawing {
+            Some(SpriteVisual::Drawing(SpriteDrawing {
                 colour: self.draw_details.colour(),
-                drawing: SpriteDrawing {
-                    cap_start: self.draw_details.cap_start(),
-                    cap_end: self.draw_details.cap_end(),
-                    ..Default::default()
-                },
+                cap_start: self.draw_details.cap_start(),
+                cap_end: self.draw_details.cap_end(),
                 stroke: self.draw_details.stroke(),
-            }),
+                ..Default::default()
+            })),
             None,
             at,
         ) {

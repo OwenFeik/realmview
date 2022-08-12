@@ -15,11 +15,36 @@ fn add_ngon(dst: &mut PointVector, n: u32, c: Point, r: f32) {
     let mut prev = None;
     for i in 0..=n {
         let theta = i as f32 * dt;
-        let q = Point::new(c.x + r * theta.cos(), c.y + r * theta.sin());
+        let q = c + Point::trig(theta) * r;
         if let Some(p) = prev {
             dst.add_tri(p, q, c);
         }
         prev = Some(q);
+    }
+}
+
+// Returns points for a hollow regular polygon with n edges and a line
+// width of lw units.
+fn add_hollow_ngon(dst: &mut PointVector, n: u32, stroke: f32, c: Point, r: f32) {
+    let ra = r;
+    let rb = ra - stroke;
+    let dt = 2.0 * std::f32::consts::PI / n as f32;
+
+    let mut prev_a = None;
+    let mut prev_b = None;
+    for i in 0..=n {
+        let theta = i as f32 * dt;
+        let delta = Point::trig(theta);
+        let a = c + delta * ra;
+        let b = c + delta * rb;
+
+        if let (Some(pa), Some(pb)) = (prev_a, prev_b) {
+            dst.add_tri(pa, pb, a);
+            dst.add_tri(a, b, pb);
+        }
+
+        prev_a = Some(a);
+        prev_b = Some(b);
     }
 }
 
@@ -31,10 +56,7 @@ fn add_semicircle(dst: &mut PointVector, c: Point, r: f32, start: f32) {
     let dt = PI / n as f32;
     for i in 0..=n {
         let theta = start + dt * i as f32;
-        let a = c + Point {
-            x: r * theta.cos(),
-            y: r * theta.sin(),
-        };
+        let a = c + Point::trig(theta) * r;
         if let Some(b) = prev {
             dst.add_tri(a, b, c);
         }
@@ -47,58 +69,51 @@ fn add_semicircle(dst: &mut PointVector, c: Point, r: f32, start: f32) {
 fn add_cap(dst: &mut PointVector, cap: scene::SpriteCap, at: Point, direction: f32, stroke: f32) {
     const ARROWHEAD_MULTIPLIER: f32 = 4.0;
 
-    let t = direction;
+    let theta = direction;
     match cap {
         scene::SpriteCap::Arrow => {
             let r = ARROWHEAD_MULTIPLIER * stroke / 2.0;
-            let left = t + PI / 2.0;
-            let right = t + PI / 2.0;
+            let left = theta - PI / 2.0;
+            let right = theta + PI / 2.0;
+
             dst.add_tri(
-                at + Point::new(left.cos(), left.sin()) * r,
-                at + Point::new(right.cos(), right.sin()) * r,
-                at + Point::new(t.cos(), t.sin()) * r * 2.0,
+                at + Point::trig(left) * r,
+                at + Point::trig(right) * r,
+                at + Point::trig(theta) * r * 2.0,
             );
         }
-        scene::SpriteCap::Round => add_semicircle(dst, at, stroke / 2.0, direction + PI / 2.0),
+        scene::SpriteCap::Round => add_semicircle(dst, at, stroke / 2.0, direction - PI / 2.0),
         _ => {}
     }
-}
-
-pub fn ngon(n: u32) -> Vec<f32> {
-    const R: f32 = 0.5;
-    let mut coords = PointVector::sized(n * 3);
-    add_ngon(&mut coords, n, Point::new(R, R), R);
-    coords.data
-}
-
-pub fn circle() -> Vec<f32> {
-    ngon(CIRCLE_EDGES)
-}
-
-pub fn rectangle() -> &'static [f32] {
-    RECTANGLE
 }
 
 /// Given a series of (x, y) coordinates, points, and a line width, produces a
 /// series of triangles (x1, y1, x2, y2, x3, y3) to render the drawing defined
 /// by those points. Assumes the input array is in scene units and produces
 /// points pre-scaled to [-1, 1] for drawing.
-pub fn drawing(
+fn add_line(
+    dst: &mut PointVector,
     points: &PointVector,
     stroke: f32,
     cap_start: scene::SpriteCap,
     cap_end: scene::SpriteCap,
-) -> Vec<f32> {
+) {
     const CIRCLE_EDGES: u32 = 32;
 
-    let mut dst = PointVector::new();
+    let n = points.n();
+
+    if n == 0 {
+        return;
+    }
+
+    let r = stroke / 2.0;
 
     // Previous line endponts, used to close up gaps at corners
     let mut prev_c: Option<Point> = None;
     let mut prev_d: Option<Point> = None;
 
-    let last = points.n();
-    for i in 1..points.n() {
+    let last = n - 1;
+    for i in 1..n {
         // Rectangular line segment from p to q
         // Uses four points (a, b, c, d) around the two points to draw the
         // segment, like so:
@@ -124,24 +139,24 @@ pub fn drawing(
         let neg = theta - PI / 2.0;
 
         // Position changes to generate corner points
-        let above = Point::new(stroke * pos.cos(), stroke * pos.sin());
-        let below = Point::new(stroke * neg.cos(), stroke * neg.sin());
+        let above = Point::trig(pos) * r;
+        let below = Point::trig(neg) * r;
 
         // Calculate points
         let a = p + above;
         let b = p + below;
-        let c = q + above;
-        let d = q + below;
+        let c = q + below;
+        let d = q + above;
 
         // Draw line segment
         dst.add_tri(a, b, c);
-        dst.add_tri(a, d, c);
+        dst.add_tri(a, c, d);
 
         // Draw caps for first and last line segment
         if i == 1 {
-            add_cap(&mut dst, cap_start, p, theta + PI, stroke);
+            add_cap(dst, cap_start, p, theta - PI, stroke);
         } else if i == last {
-            add_cap(&mut dst, cap_end, q, theta, stroke);
+            add_cap(dst, cap_end, q, theta, stroke);
         }
 
         // Draw triangles over on the corner to close up the gap
@@ -154,6 +169,50 @@ pub fn drawing(
         prev_c = Some(c);
         prev_d = Some(d);
     }
+}
 
-    dst.data
+pub fn ngon(n: u32) -> Vec<f32> {
+    const R: f32 = 0.5;
+    let mut coords = PointVector::sized(n * 3);
+    add_ngon(&mut coords, n, Point::same(R), R);
+    coords.data
+}
+
+pub fn hollow_ngon(n: u32, stroke: f32) -> Vec<f32> {
+    const R: f32 = 0.5;
+    let mut coords = PointVector::sized(n * 2 * 3);
+    add_hollow_ngon(&mut coords, n, stroke, Point::same(R), R);
+    coords.data
+}
+
+pub fn circle() -> Vec<f32> {
+    ngon(CIRCLE_EDGES)
+}
+
+pub fn rectangle() -> &'static [f32] {
+    RECTANGLE
+}
+
+pub fn line(
+    points: &PointVector,
+    stroke: f32,
+    cap_start: scene::SpriteCap,
+    cap_end: scene::SpriteCap,
+) -> Vec<f32> {
+    let mut coords = PointVector::new();
+    add_line(&mut coords, points, stroke, cap_start, cap_end);
+    coords.data
+}
+
+pub fn scaled_line(
+    points: &PointVector,
+    stroke: f32,
+    cap_start: scene::SpriteCap,
+    cap_end: scene::SpriteCap,
+    scale: f32,
+) -> Vec<f32> {
+    let mut coords = PointVector::new();
+    add_line(&mut coords, points, stroke, cap_start, cap_end);
+    coords.map(|p| p * scale);
+    coords.data
 }

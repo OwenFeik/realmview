@@ -57,9 +57,12 @@ impl Rect {
         };
     }
 
-    pub fn translate(&mut self, Point { x: dx, y: dy }: Point) {
-        self.x += dx;
-        self.y += dy;
+    pub fn translate(&self, Point { x: dx, y: dy }: Point) -> Rect {
+        Rect::new(self.x + dx, self.y + dy, self.w, self.h)
+    }
+
+    pub fn translate_in_place(&mut self, by: Point) {
+        *self = self.translate(by);
     }
 
     #[must_use]

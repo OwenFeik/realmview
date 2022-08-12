@@ -408,11 +408,14 @@ pub enum Key {
     Alt,
     Control,
     Delete,
-    Escape,
-    Shift,
+    Equals,
     Down,
+    Escape,
     Left,
+    Minus,
+    Plus,
     Right,
+    Shift,
     Up,
     A,
     B,
@@ -443,6 +446,8 @@ pub enum Key {
 }
 
 impl Key {
+    const LOG_UNKNOWN: bool = true;
+
     fn from(key: &str) -> Self {
         match key {
             "Alt" => Self::Alt,
@@ -454,6 +459,9 @@ impl Key {
             "ArrowLeft" => Self::Left,
             "ArrowRight" => Self::Right,
             "ArrowUp" => Self::Up,
+            "-" => Self::Minus,
+            "=" => Self::Equals,
+            "+" => Self::Plus,
             "a" => Self::A,
             "b" => Self::B,
             "c" => Self::C,
@@ -479,7 +487,12 @@ impl Key {
             "x" => Self::X,
             "y" => Self::Y,
             "z" => Self::Z,
-            _ => Self::Unknown,
+            _ => {
+                if Self::LOG_UNKNOWN {
+                    flog!("Unknown key: {key}");
+                }
+                Self::Unknown
+            }
         }
     }
 
