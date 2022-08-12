@@ -4,6 +4,10 @@ kwargs['LABEL'] = kwargs.get('LABEL', kwargs['NAME'])
 {{
   dropdown_option(
     label="{{ LABEL }}",
-    action="update_draw_details('{{ KEY }}', '{{ NAME }}');"
+    action="
+      update_draw_details(
+        '{{ KEY }}',
+        IFDEF(VALUE) {{ {{ VALUE }} }} IFNDEF(VALUE) {{ '{{ NAME }}' }}
+      );"
   )
 }}

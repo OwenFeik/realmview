@@ -96,6 +96,32 @@
             {{ menu/draw_dropdown_option(key="cap_end", name="None") }}
           </ul>
         </div>
+        <div class="mt-1">
+          {{ dropdown_button(label="Shape", secondary=1, small=1) }}
+          <ul class="dropdown-menu">
+            {{
+              menu/draw_dropdown_option(
+                key="shape",
+                name="Ellipse",
+                label='Ellipse {{ bootstrap_icon(circle) }}'
+              )
+            }}
+            {{
+              menu/draw_dropdown_option(
+                key="shape",
+                name="Rectangle",
+                label='Rectangle {{ bootstrap_icon(square) }}'
+              )
+            }}
+            {{
+              menu/draw_dropdown_option(
+                key="cap_end",
+                name="None",
+                value=null
+              )
+            }}
+          </ul>
+        </div>
       </div>
     |
   )

@@ -3,7 +3,6 @@
 * Scene
     * Hide or show UI elements depending on user role
     * Change cursor depending on active tool
-    * Combine draw and shape tools into draw menu, single tool
 * Layers
     * Select from selected layer first (possibly)
     * Layer opacity

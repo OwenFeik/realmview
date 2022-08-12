@@ -6,14 +6,13 @@ use crate::{
     client::Client,
     interactor::Interactor,
 };
-use scene::{Point, Rect, SpriteShape};
+use scene::{Point, Rect};
 
 #[derive(Clone, Copy, Debug, serde_derive::Deserialize, serde_derive::Serialize)]
 pub enum Tool {
     Draw,
     Pan,
     Select,
-    Shape(SpriteShape),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -37,7 +36,6 @@ impl ViewportPoint {
         )
     }
 }
-
 pub struct Viewport {
     pub scene: Interactor,
 
@@ -88,6 +86,10 @@ impl Viewport {
 
     pub fn set_tool(&mut self, tool: Tool) {
         self.tool = tool;
+    }
+
+    fn set_tool_update_ui(&mut self, tool: Tool) {
+        self.set_tool(tool);
         crate::bridge::set_active_tool(tool).ok();
     }
 
@@ -130,7 +132,6 @@ impl Viewport {
                 Tool::Draw => self.scene.start_draw(self.scene_point(at)),
                 Tool::Pan => self.grab(at),
                 Tool::Select => self.scene.grab(self.scene_point(at), ctrl),
-                Tool::Shape(shape) => self.scene.new_held_shape(shape, self.scene_point(at)),
             },
             MouseButton::Right => {
                 if let Some(id) = self.scene.sprite_at(self.scene_point(at)) {
@@ -154,7 +155,7 @@ impl Viewport {
                     self.release_grab();
                 }
                 self.scene.release(alt, ctrl);
-            },
+            }
             MouseButton::Right => self.release_grab(),
             MouseButton::Middle => self.centre_viewport(),
             _ => {}
@@ -235,11 +236,14 @@ impl Viewport {
 
         match key {
             Key::Delete => self.scene.remove_sprite(Interactor::SELECTION_ID),
-            Key::Escape => { self.scene.clear_selection(); self.tool = Tool::Select },
+            Key::Escape => {
+                self.scene.clear_selection();
+                self.tool = Tool::Select
+            }
             Key::D => self.scene.clear_selection(),
-            Key::L => self.set_tool(Tool::Draw),
-            Key::P => self.set_tool(Tool::Pan),
-            Key::Q => self.set_tool(Tool::Select),
+            Key::L => self.set_tool_update_ui(Tool::Draw),
+            Key::P => self.set_tool_update_ui(Tool::Pan),
+            Key::Q => self.set_tool_update_ui(Tool::Select),
             Key::Y => self.scene.redo(),
             Key::Z => self.scene.undo(),
             _ => {}

@@ -739,7 +739,9 @@ impl Interactor {
 
     pub fn start_draw(&mut self, at: Point) {
         self.clear_held_selection();
-        if let Some(id) = self.new_sprite_at(
+        if self.draw_details.shape.is_some() {
+            self.new_held_shape(self.draw_details.shape.unwrap(), at);
+        } else if let Some(id) = self.new_sprite_at(
             Some(SpriteVisual::Drawing {
                 colour: self.draw_details.colour(),
                 drawing: SpriteDrawing {
