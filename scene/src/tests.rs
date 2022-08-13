@@ -1,4 +1,4 @@
-use crate::Scene;
+use crate::{Point, Scene, SpriteDrawing, SpriteVisual};
 
 #[test]
 fn test_layer_move() {
@@ -15,4 +15,28 @@ fn test_layer_move() {
 
     scene.unwind_event(event);
     assert_eq!(starting_zs, layer_zs(&scene));
+}
+
+#[test]
+fn test_sprite_drawing() {
+    let mut server = Scene::new();
+    let mut client = server.non_canon();
+
+    let event = client
+        .new_sprite(
+            Some(SpriteVisual::Drawing(SpriteDrawing::new())),
+            client.first_layer(),
+        )
+        .unwrap();
+    assert!(server.apply_event(event));
+
+    let sprite_id = server.layer(server.first_layer()).unwrap().sprites[0].id;
+    let event = client
+        .sprite(sprite_id)
+        .unwrap()
+        .add_drawing_point(Point::same(1.0))
+        .unwrap();
+
+    assert!(server.apply_event(event));
+    assert!(server.sprite(sprite_id).unwrap().n_drawing_points() == 2);
 }

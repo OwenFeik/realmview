@@ -300,6 +300,18 @@ impl Scene {
         self.add_sprite(Sprite::new(id, visual), layer)
     }
 
+    pub fn new_sprite_at(
+        &mut self,
+        visual: Option<SpriteVisual>,
+        layer: Id,
+        at: Point,
+    ) -> Option<SceneEvent> {
+        let id = self.next_id();
+        let mut sprite = Sprite::new(id, visual);
+        sprite.set_pos(at);
+        self.add_sprite(sprite, layer)
+    }
+
     pub fn add_sprites(&mut self, sprites: Vec<Sprite>, layer: Id) -> Option<SceneEvent> {
         self.layer(layer).map(|l| l.add_sprites(sprites))
     }
@@ -383,9 +395,10 @@ impl Scene {
     pub fn apply_event(&mut self, event: SceneEvent) -> bool {
         match event {
             SceneEvent::Dummy => true,
-            SceneEvent::EventSet(events) => {
-                events.into_iter().map(|e| self.apply_event(e)).all(|b| b)
-            }
+            SceneEvent::EventSet(events) => events
+                .into_iter()
+                .map(|e| self.apply_event(e))
+                .all(std::convert::identity),
             SceneEvent::LayerLocked(l, locked) => {
                 self.layer(l).map(|l| l.set_locked(locked));
                 true
@@ -446,13 +459,9 @@ impl Scene {
                     false
                 }
             }
-            SceneEvent::SpriteDrawingPoint(id, n, at) => {
+            SceneEvent::SpriteDrawingPoint(id, _, at) => {
                 if let Some(sprite) = self.sprite(id) {
-                    if sprite.n_drawing_points() == n - 1 {
-                        sprite.add_drawing_point(at).is_some()
-                    } else {
-                        false
-                    }
+                    sprite.add_drawing_point(at).is_some()
                 } else {
                     false
                 }

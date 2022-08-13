@@ -320,7 +320,7 @@ impl SceneDetails {
 #[derive(Clone, Copy, Debug)]
 enum HeldObject {
     Anchor(Id, i32, i32, Rect), // (sprite, dx, dy, starting_rect)
-    Drawing(Id),
+    Drawing(Id, bool),          // (sprite, ephemeral)
     Marquee(Point),
     None,
     Selection(Point),
@@ -737,7 +737,7 @@ impl Interactor {
         self.changes.sprite_change();
     }
 
-    pub fn start_draw(&mut self, at: Point) {
+    pub fn start_draw(&mut self, at: Point, ephemeral: bool) {
         self.clear_held_selection();
         if self.draw_details.shape.is_some() {
             self.new_held_shape(self.draw_details.shape.unwrap(), at);
@@ -753,7 +753,7 @@ impl Interactor {
             at,
         ) {
             self.start_move_group();
-            self.holding = HeldObject::Drawing(id);
+            self.holding = HeldObject::Drawing(id, ephemeral);
         }
     }
 
@@ -797,7 +797,7 @@ impl Interactor {
 
     pub fn drag(&mut self, at: Point) {
         match self.holding {
-            HeldObject::Drawing(id) => {
+            HeldObject::Drawing(id, _) => {
                 if let Some(Some(event)) = self.scene.sprite(id).map(|s| s.add_drawing_point(at)) {
                     self.changes.sprite_change();
                     self.scene_event(event);
@@ -873,10 +873,10 @@ impl Interactor {
         self.changes.sprite_selected_change();
     }
 
-    fn finish_draw(&mut self, id: Id) {
+    fn finish_draw(&mut self, id: Id, ephemeral: bool) {
         if let Some(sprite) = self.scene.sprite(id) {
             // If this was just a single click, no line drawn, just remove it
-            if sprite.n_drawing_points() == 1 {
+            if sprite.n_drawing_points() == 1 || ephemeral {
                 self.remove_sprite(id);
             } else {
                 let opt = sprite.finish_drawing();
@@ -888,7 +888,7 @@ impl Interactor {
 
     pub fn release(&mut self, alt: bool, ctrl: bool) {
         match self.holding {
-            HeldObject::Drawing(id) => self.finish_draw(id),
+            HeldObject::Drawing(id, ephemeral) => self.finish_draw(id, ephemeral),
             HeldObject::None => {}
             HeldObject::Marquee(_) => {
                 if !ctrl {
@@ -1033,17 +1033,41 @@ impl Interactor {
         self.changes.all_change();
     }
 
-    fn new_sprite(&mut self, visual: Option<SpriteVisual>, layer: Option<Id>) -> Option<Id> {
-        let opt = self
-            .scene
-            .new_sprite(visual, layer.unwrap_or(self.selected_layer));
+    fn new_sprite_common(
+        &mut self,
+        visual: Option<SpriteVisual>,
+        layer: Option<Id>,
+        at: Option<Point>,
+    ) -> Option<Id> {
+        let layer = layer.unwrap_or(self.selected_layer);
+
+        let opt = if let Some(at) = at {
+            self.scene.new_sprite_at(visual, layer, at)
+        } else {
+            self.scene.new_sprite(visual, layer)
+        };
+
         let ret = if let Some(SceneEvent::SpriteNew(s, _)) = &opt {
             Some(s.id)
         } else {
             None
         };
+
         self.scene_option(opt);
         ret
+    }
+
+    fn new_sprite(&mut self, visual: Option<SpriteVisual>, layer: Option<Id>) -> Option<Id> {
+        self.new_sprite_common(visual, layer, None)
+    }
+
+    pub fn new_sprite_at(
+        &mut self,
+        visual: Option<SpriteVisual>,
+        layer: Option<Id>,
+        at: Point,
+    ) -> Option<Id> {
+        self.new_sprite_common(visual, layer, Some(at))
     }
 
     pub fn new_held_shape(&mut self, shape: SpriteShape, at: Point) {
@@ -1061,26 +1085,6 @@ impl Interactor {
                 s.set_rect(Rect::new(at.x, at.y, 0.0, 0.0))
             });
             self.scene_option(opt);
-        }
-    }
-
-    pub fn new_sprite_at(
-        &mut self,
-        visual: Option<SpriteVisual>,
-        layer: Option<Id>,
-        at: Point,
-    ) -> Option<Id> {
-        if let Some(id) = self.new_sprite(visual, layer) {
-            if let Some(event) = self.scene.sprite(id).map(|s| s.set_pos(at)) {
-                if let Some(creation_event) = self.history.pop() {
-                    self.scene_event(SceneEvent::EventSet(vec![creation_event, event]));
-                } else {
-                    self.scene_event(event);
-                }
-            }
-            Some(id)
-        } else {
-            None
         }
     }
 

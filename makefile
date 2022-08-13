@@ -34,7 +34,7 @@ database: build-dir
 
 wasm: content-dir
 	CARGO_TARGET_DIR=${target} \
-		wasm-pack build client/ --out-dir ${content}/pkg --target web
+		wasm-pack build client/ --out-dir ${content}/pkg --target web --dev
 
 html: content-dir
 	${py} ${root}/web/build.py ${content}/
