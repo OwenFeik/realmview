@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS sprites (
     g REAL,
     b REAL,
     a REAL,
+    drawing_type INTEGER,
     cap_start INTEGER,
     cap_end INTEGER,
     UNIQUE(id, scene)

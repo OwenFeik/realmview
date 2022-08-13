@@ -18,8 +18,8 @@ pub use layer::Layer;
 pub use point::{Point, PointVector};
 pub use rect::{Dimension, Rect};
 pub use sprite::{
-    Cap as SpriteCap, Colour, Drawing as SpriteDrawing, Shape as SpriteShape, Sprite,
-    Visual as SpriteVisual,
+    Cap as SpriteCap, Colour, Drawing as SpriteDrawing, DrawingType as SpriteDrawingType,
+    Shape as SpriteShape, Sprite, Visual as SpriteVisual,
 };
 
 use comms::SceneEvent;

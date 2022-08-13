@@ -8,7 +8,7 @@ IFNDEF(FORM) {{
     name="{{ GROUP }}"
     id="{{ ID }}"
     autocomplete="off"
-    IFDEF(ACTION) {{ oninput="{{ ACTION }}" }}
+    IFDEF(ACTION) {{ oninput="{{ ACTION }}; this.blur();" }}
     IFDEF(ACTIVE) {{ checked }}
   >
   <label

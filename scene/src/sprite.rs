@@ -13,6 +13,12 @@ pub enum Shape {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub enum DrawingType {
+    Freehand,
+    Line,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub enum Cap {
     Arrow,
     None,
@@ -27,6 +33,7 @@ impl Cap {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Drawing {
     pub points: PointVector,
+    pub drawing_type: DrawingType,
     pub colour: Colour,
     pub stroke: f32,
     pub cap_start: Cap,
@@ -34,10 +41,18 @@ pub struct Drawing {
 }
 
 impl Drawing {
+    pub const DEFAULT_TYPE: DrawingType = DrawingType::Freehand;
+
     pub fn new() -> Self {
         Self {
             ..Default::default()
         }
+    }
+
+    pub fn line(&self) -> (Point, Point) {
+        let p = self.points.nth(1).unwrap();
+        let q = self.points.last().unwrap();
+        (p, q)
     }
 
     pub fn n_points(&self) -> u32 {
@@ -83,9 +98,10 @@ impl Drawing {
 impl Default for Drawing {
     fn default() -> Self {
         Self {
+            points: PointVector::from(vec![0.0, 0.0]),
+            drawing_type: Self::DEFAULT_TYPE,
             colour: Sprite::DEFAULT_COLOUR,
             stroke: Sprite::DEFAULT_STROKE,
-            points: PointVector::from(vec![0.0, 0.0]),
             cap_start: Cap::Round,
             cap_end: Cap::Round,
         }
@@ -327,6 +343,16 @@ impl Sprite {
         if let Visual::Texture { id: _, shape } = self.visual {
             let old = self.visual.clone();
             self.visual = Visual::Texture { id: new, shape };
+            Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
+        } else {
+            None
+        }
+    }
+
+    pub fn set_drawing_type(&mut self, drawing_type: DrawingType) -> Option<SceneEvent> {
+        let old = self.visual.clone();
+        if let Visual::Drawing(drawing) = &mut self.visual {
+            drawing.drawing_type = drawing_type;
             Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
         } else {
             None

@@ -155,7 +155,8 @@ fn add_line(
         // Draw caps for first and last line segment
         if i == 1 {
             add_cap(dst, cap_start, p, theta - PI, stroke);
-        } else if i == last {
+        }
+        if i == last {
             add_cap(dst, cap_end, q, theta, stroke);
         }
 
@@ -194,17 +195,25 @@ pub fn rectangle() -> &'static [f32] {
 }
 
 pub fn line(
-    points: &PointVector,
+    (p, q): (Point, Point),
     stroke: f32,
     cap_start: scene::SpriteCap,
     cap_end: scene::SpriteCap,
+    scale: f32,
 ) -> Vec<f32> {
     let mut coords = PointVector::new();
-    add_line(&mut coords, points, stroke, cap_start, cap_end);
+    add_line(
+        &mut coords,
+        &PointVector::from(vec![p.x, p.y, q.x, q.y]),
+        stroke,
+        cap_start,
+        cap_end,
+    );
+    coords.map(|p| p * scale);
     coords.data
 }
 
-pub fn scaled_line(
+pub fn freehand(
     points: &PointVector,
     stroke: f32,
     cap_start: scene::SpriteCap,

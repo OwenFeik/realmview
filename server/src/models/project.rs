@@ -393,6 +393,7 @@ mod sprite {
         g: Option<f32>,
         b: Option<f32>,
         a: Option<f32>,
+        drawing_type: Option<u8>,
         cap_start: Option<u8>,
         cap_end: Option<u8>,
     }
@@ -429,6 +430,10 @@ mod sprite {
                 g: sprite.visual.colour().map(|c| c[1]),
                 b: sprite.visual.colour().map(|c| c[2]),
                 a: sprite.visual.colour().map(|c| c[3]),
+                drawing_type: sprite
+                    .visual
+                    .drawing()
+                    .map(|d| Self::drawing_type_to_u8(d.drawing_type)),
                 cap_start,
                 cap_end,
             };
@@ -461,6 +466,21 @@ mod sprite {
             }
         }
 
+        fn drawing_type_to_u8(drawing_type: scene::SpriteDrawingType) -> u8 {
+            match drawing_type {
+                scene::SpriteDrawingType::Freehand => 1,
+                scene::SpriteDrawingType::Line => 2,
+            }
+        }
+
+        fn u8_to_drawing_type(int: u8) -> scene::SpriteDrawingType {
+            match int {
+                1 => scene::SpriteDrawingType::Freehand,
+                2 => scene::SpriteDrawingType::Line,
+                _ => scene::SpriteDrawingType::Freehand,
+            }
+        }
+
         fn cap_to_u8(cap: scene::SpriteCap) -> u8 {
             match cap {
                 scene::SpriteCap::Arrow => 1,
@@ -480,14 +500,15 @@ mod sprite {
         fn visual(&self) -> Option<scene::SpriteVisual> {
             if let Some(points) = &self.points {
                 Some(scene::SpriteVisual::Drawing(scene::SpriteDrawing {
-                    stroke: self.stroke?,
-                    colour: [self.r?, self.g?, self.b?, self.a?],
+                    drawing_type: Self::u8_to_drawing_type(self.drawing_type?),
                     points: scene::PointVector::from(
                         points
                             .chunks_exact(32 / 8)
                             .map(|b| f32::from_be_bytes([b[0], b[1], b[2], b[3]]))
                             .collect(),
                     ),
+                    stroke: self.stroke?,
+                    colour: [self.r?, self.g?, self.b?, self.a?],
                     cap_start: Self::u8_to_cap(self.cap_start?),
                     cap_end: Self::u8_to_cap(self.cap_end?),
                 }))
@@ -507,7 +528,7 @@ mod sprite {
 
         pub fn to_sprite(&self) -> scene::Sprite {
             let mut sprite = scene::Sprite::new(self.id, self.visual());
-            sprite.set_rect(scene::Rect::new(self.x, self.y, self.w, self.h));
+            sprite.rect = scene::Rect::new(self.x, self.y, self.w, self.h);
             sprite.z = self.z as i32;
             sprite
         }
@@ -522,9 +543,9 @@ mod sprite {
             sqlx::query(
                 r#"
                 INSERT INTO sprites (
-                    id, scene, layer, x, y, w, h, z, shape, stroke, media_key, points, r, g, b, a, cap_start, cap_end
+                    id, scene, layer, x, y, w, h, z, shape, stroke, media_key, points, r, g, b, a, drawing_type, cap_start, cap_end
                 ) VALUES (
-                    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18
+                    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19
                 ) RETURNING id;
                 "#,
             )
@@ -544,6 +565,7 @@ mod sprite {
             .bind(record.g)
             .bind(record.b)
             .bind(record.a)
+            .bind(record.drawing_type)
             .bind(record.cap_start)
             .bind(record.cap_end)
             .fetch_one(conn)

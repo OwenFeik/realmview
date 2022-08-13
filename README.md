@@ -11,9 +11,6 @@
     * Change cursor when hovering a sprite or anchor
     * Group sprites
     * Set stroke width for hollow shapes
-    * Drawings.
-        * Draw ephemeral arrows (while holding alt?)
-        * Straight lines
 * Media
     * Delete media items
     * Media library

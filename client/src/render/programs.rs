@@ -377,17 +377,24 @@ impl DrawingRenderer {
     }
 
     fn add_drawing(&mut self, id: scene::Id, drawing: &scene::SpriteDrawing) -> anyhow::Result<()> {
-        let mut shape = Solid::new(
-            &self.gl,
-            &self.renderer.program,
-            &super::shapes::scaled_line(
+        let points = match drawing.drawing_type {
+            scene::SpriteDrawingType::Freehand => super::shapes::freehand(
                 &drawing.points,
                 drawing.stroke,
                 drawing.cap_start,
                 drawing.cap_end,
                 self.grid_size,
             ),
-        )?;
+            scene::SpriteDrawingType::Line => super::shapes::line(
+                drawing.line(),
+                drawing.stroke,
+                drawing.cap_start,
+                drawing.cap_end,
+                self.grid_size,
+            ),
+        };
+
+        let mut shape = Solid::new(&self.gl, &self.renderer.program, &points)?;
         shape.set_transforms(false, true);
         self.drawings
             .insert(id, (drawing.n_points(), drawing.points.last(), shape));

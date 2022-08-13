@@ -107,6 +107,7 @@ pub struct SpriteDetails {
     pub stroke: Option<f32>,
     pub colour: Option<Colour>,
     pub texture: Option<Id>,
+    pub drawing_type: Option<scene::SpriteDrawingType>,
     pub cap_start: Option<scene::SpriteCap>,
     pub cap_end: Option<scene::SpriteCap>,
 }
@@ -123,6 +124,7 @@ impl SpriteDetails {
             stroke: sprite.visual.stroke(),
             colour: sprite.visual.colour(),
             texture: sprite.visual.texture(),
+            drawing_type: sprite.visual.drawing().map(|d| d.drawing_type),
             cap_start: sprite.visual.cap_start(),
             cap_end: sprite.visual.cap_end(),
         }
@@ -162,6 +164,10 @@ impl SpriteDetails {
             self.texture = other.texture;
         }
 
+        if other.drawing_type.is_some() {
+            self.drawing_type = other.drawing_type;
+        }
+
         if other.cap_start.is_some() {
             self.cap_start = other.cap_start;
         }
@@ -177,6 +183,11 @@ impl SpriteDetails {
 
     fn stroke(&self) -> f32 {
         self.stroke.unwrap_or(Sprite::DEFAULT_STROKE)
+    }
+
+    fn drawing_type(&self) -> scene::SpriteDrawingType {
+        self.drawing_type
+            .unwrap_or(scene::SpriteDrawing::DEFAULT_TYPE)
     }
 
     fn cap_start(&self) -> scene::SpriteCap {
@@ -218,6 +229,12 @@ impl SpriteDetails {
 
         if self.texture.is_some() && self.texture != sprite.visual.texture() {
             self.texture = None;
+        }
+
+        if self.drawing_type.is_some()
+            && self.drawing_type != sprite.visual.drawing().map(|d| d.drawing_type)
+        {
+            self.drawing_type = None;
         }
 
         if self.cap_start.is_some() && self.cap_start != sprite.visual.cap_start() {
@@ -267,6 +284,12 @@ impl SpriteDetails {
 
         if let Some(id) = self.texture {
             if let Some(event) = sprite.set_texture(id) {
+                events.push(event);
+            }
+        }
+
+        if let Some(drawing_type) = self.drawing_type {
+            if let Some(event) = sprite.set_drawing_type(drawing_type) {
                 events.push(event);
             }
         }
@@ -743,6 +766,7 @@ impl Interactor {
             self.new_held_shape(self.draw_details.shape.unwrap(), at);
         } else if let Some(id) = self.new_sprite_at(
             Some(SpriteVisual::Drawing(SpriteDrawing {
+                drawing_type: self.draw_details.drawing_type(),
                 colour: self.draw_details.colour(),
                 cap_start: self.draw_details.cap_start(),
                 cap_end: self.draw_details.cap_end(),

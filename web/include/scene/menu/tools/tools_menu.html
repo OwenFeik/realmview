@@ -10,7 +10,7 @@
             group="tool_radio",
             active=1,
             label='{{ bootstrap_icon(cursor) }}',
-            action="RustFuncs.select_tool('Select'); this.blur();"
+            action="RustFuncs.select_tool('Select')"
           )
         }}
         {{
@@ -18,7 +18,7 @@
             id="tool_radio_pan",
             group="tool_radio",
             label='{{ bootstrap_icon(arrows-move) }}',
-            action="RustFuncs.select_tool('Pan'); this.blur();"
+            action="RustFuncs.select_tool('Pan')"
           )
         }}
         {{
@@ -26,7 +26,7 @@
             id="tool_radio_draw",
             group="tool_radio",
             label='{{ bootstrap_icon(brush) }}',
-            action="RustFuncs.select_tool('Draw'); this.blur();"
+            action="RustFuncs.select_tool('Draw')"
           )
         }}
       </div>
@@ -97,39 +97,69 @@
           </ul>
         </div>
         <div class="mt-1">
-          {{ dropdown_button(label="Shape", secondary=1, small=1) }}
-          <ul class="dropdown-menu">
+          <div class="btn-group" role="group" aria-label="Tool select">
             {{
-              menu/draw_dropdown_option(
-                key="shape",
-                name="Ellipse",
-                label='Ellipse {{ bootstrap_icon(circle) }}'
+              radio_check(
+                group="draw_radio",
+                active=1,
+                label='{{ bootstrap_icon(brush) }}',
+                action="
+                  update_draw_details(
+                    ['drawing_type', 'shape'], ['Freehand', null]
+                  )
+                "
               )
             }}
             {{
-              menu/draw_dropdown_option(
-                key="shape",
-                name="Rectangle",
-                label='Rectangle {{ bootstrap_icon(square) }}'
+              radio_check(
+                group="draw_radio",
+                label='{{ bootstrap_icon(slash-lg) }}',
+                action="
+                  update_draw_details(
+                    ['drawing_type', 'shape'], ['Line', null]
+                  )
+                "
               )
             }}
             {{
-              menu/draw_dropdown_option(
-                key="cap_end",
-                name="None",
-                value=null
+              radio_check(
+                group="draw_radio",
+                label='{{ bootstrap_icon(square) }}',
+                action="
+                  update_draw_details(
+                    ['shape', 'drawing_type'], ['Rectangle', null]
+                  )
+                "
               )
             }}
-          </ul>
+            {{
+              radio_check(
+                group="draw_radio",
+                label='{{ bootstrap_icon(circle) }}',
+                action="
+                  update_draw_details(
+                    ['shape', 'drawing_type'], ['Ellipse', null]
+                  )
+                "
+              )
+            }}
+          </div>
         </div>
       </div>
     |
   )
 }}
 <script>
-function update_draw_details(property, value) {
+function update_draw_details(properties, values) {
     let obj = {};
-    obj[property] = value;
+    if (Array.isArray(properties)) {
+        properties.forEach((p, i) => {
+            obj[p] = values[i];
+        });
+    } else {
+      obj[properties] = values;
+    }
+
     RustFuncs.draw_details(JSON.stringify(obj));
 }
 </script>
