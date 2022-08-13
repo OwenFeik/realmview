@@ -74,6 +74,10 @@ impl Drawing {
         self.points.translate(Point::same(offset) - delta);
         rect
     }
+
+    fn scale(&mut self, sx: f32, sy: f32) {
+        self.points.map(|p| Point::new(p.x * sx, p.y * sy));
+    }
 }
 
 impl Default for Drawing {
@@ -189,29 +193,23 @@ impl Sprite {
         }
     }
 
-    pub fn set_pos(&mut self, Point { x, y }: Point) -> SceneEvent {
-        let from = self.rect;
-        self.rect.x = x;
-        self.rect.y = y;
-
-        SceneEvent::SpriteMove(self.id, from, self.rect)
-    }
-
-    pub fn set_dimension(&mut self, dimension: Dimension, value: f32) -> SceneEvent {
-        let from = self.rect;
-        self.rect.set_dimension(dimension, value);
-        SceneEvent::SpriteMove(self.id, from, self.rect)
-    }
-
     pub fn set_rect(&mut self, rect: Rect) -> SceneEvent {
         let from = self.rect;
         self.rect = rect;
+
+        if from.w != self.rect.w || from.h != self.rect.h {
+            self.scale_drawing(self.rect.w / from.w, self.rect.h / from.h);
+        }
+
         SceneEvent::SpriteMove(self.id, from, self.rect)
     }
 
-    fn set_size(&mut self, w: f32, h: f32) {
-        self.rect.w = w;
-        self.rect.h = h;
+    pub fn set_pos(&mut self, pos: Point) -> SceneEvent {
+        self.set_rect(self.rect.moved_to(pos))
+    }
+
+    pub fn set_dimension(&mut self, dimension: Dimension, value: f32) -> SceneEvent {
+        self.set_rect(self.rect.dimension(dimension, value))
     }
 
     pub fn set_visual(&mut self, mut new: Visual) -> SceneEvent {
@@ -220,35 +218,35 @@ impl Sprite {
     }
 
     pub fn snap_pos(&mut self) -> SceneEvent {
-        let old = self.rect;
-        self.rect.x = round_to_nearest(old.x, determine_unit_size(old.w));
-        self.rect.y = round_to_nearest(old.y, determine_unit_size(old.h));
-        SceneEvent::SpriteMove(self.id, old, self.rect)
+        self.set_rect(self.rect.moved_to(Point::new(
+            round_to_nearest(self.rect.x, determine_unit_size(self.rect.w)),
+            round_to_nearest(self.rect.y, determine_unit_size(self.rect.h)),
+        )))
     }
 
     pub fn snap_size(&mut self) -> SceneEvent {
         let old = self.rect;
-        self.rect.w = round_dimension(old.w);
-        self.rect.h = round_dimension(old.h);
+        self.set_rect(
+            self.rect
+                .sized_as(round_dimension(self.rect.w), round_dimension(self.rect.h)),
+        );
         self.snap_pos();
         SceneEvent::SpriteMove(self.id, old, self.rect)
     }
 
     pub fn enforce_min_size(&mut self) -> Option<SceneEvent> {
         if self.rect.w < Sprite::MIN_SIZE || self.rect.h < Sprite::MIN_SIZE {
-            let from = self.rect;
-            self.rect.w = self.rect.w.max(Sprite::MIN_SIZE);
-            self.rect.h = self.rect.h.max(Sprite::MIN_SIZE);
-            Some(SceneEvent::SpriteMove(self.id, from, self.rect))
+            Some(self.set_rect(self.rect.sized_as(
+                self.rect.w.max(Sprite::MIN_SIZE),
+                self.rect.h.max(Sprite::MIN_SIZE),
+            )))
         } else {
             None
         }
     }
 
     pub fn move_by(&mut self, delta: Point) -> SceneEvent {
-        let from = self.rect;
-        self.rect = from.translate(delta);
-        SceneEvent::SpriteMove(self.id, from, self.rect)
+        self.set_rect(self.rect.translate(delta))
     }
 
     pub fn pos(&self) -> Point {
@@ -396,6 +394,12 @@ impl Sprite {
             Some(SceneEvent::SpriteDrawingFinish(self.id))
         } else {
             None
+        }
+    }
+
+    fn scale_drawing(&mut self, scale_x: f32, scale_y: f32) {
+        if let Visual::Drawing(drawing) = &mut self.visual {
+            drawing.scale(scale_x, scale_y);
         }
     }
 }

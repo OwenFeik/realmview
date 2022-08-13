@@ -40,21 +40,23 @@ impl Rect {
         rect
     }
 
-    pub fn set_dimension(&mut self, dimension: Dimension, value: f32) {
+    pub fn dimension(&self, dimension: Dimension, value: f32) -> Rect {
+        let mut rect = *self;
         match dimension {
             Dimension::X => {
-                self.x = value;
+                rect.x = value;
             }
             Dimension::Y => {
-                self.y = value;
+                rect.y = value;
             }
             Dimension::W => {
-                self.w = value;
+                rect.w = value;
             }
             Dimension::H => {
-                self.h = value;
+                rect.h = value;
             }
         };
+        rect
     }
 
     pub fn translate(&self, Point { x: dx, y: dy }: Point) -> Rect {
@@ -141,7 +143,20 @@ impl Rect {
 
     pub fn delta(&self, other: Rect) -> f32 {
         let rect = other - *self;
-        (rect.x + rect.y + rect.w + rect.h).abs()
+        rect.x.abs() + rect.y.abs() + rect.w.abs() + rect.h.abs()
+    }
+
+    pub fn moved_to(&self, point: Point) -> Rect {
+        Rect {
+            x: point.x,
+            y: point.y,
+            w: self.w,
+            h: self.h,
+        }
+    }
+
+    pub fn sized_as(&self, w: f32, h: f32) -> Rect {
+        Rect::new(self.x, self.y, w, h)
     }
 }
 
@@ -203,5 +218,20 @@ impl Div<f32> for Rect {
             w: self.w / rhs,
             h: self.h / rhs,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::Rect;
+
+    #[test]
+    fn test_delta() {
+        let origin = Rect::new(0.0, 0.0, 0.0, 0.0);
+        let ones = Rect::new(1.0, 1.0, 1.0, 1.0);
+        let halfneg = Rect::new(-1.0, -1.0, 1.0, 1.0);
+        assert_eq!(origin.delta(ones), 4.0);
+        assert_eq!(origin.delta(halfneg), 4.0);
+        assert_eq!(ones.delta(halfneg), 4.0);
     }
 }
