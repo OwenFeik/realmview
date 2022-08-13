@@ -2,22 +2,12 @@ use std::rc::Rc;
 
 use web_sys::{HtmlImageElement, WebGl2RenderingContext};
 
-use scene::{Rect, Sprite, SpriteVisual};
+use scene::{Rect, Sprite};
 
 mod programs;
 mod shapes;
 pub struct Renderer {
-    // Loads and stores references to textures
-    texture_library: programs::TextureManager,
-
-    // Draw solid shapes
-    solid_renderer: programs::SolidRenderer,
-
-    // Draw textures in shapes
-    texture_renderer: programs::TextureRenderer,
-
-    // Draw line drawings
-    drawing_renderer: programs::DrawingRenderer,
+    sprite_renderer: programs::SpriteRenderer,
 
     // To render outlines &c
     line_renderer: programs::LineRenderer,
@@ -29,10 +19,7 @@ pub struct Renderer {
 impl Renderer {
     pub fn new(gl: Rc<WebGl2RenderingContext>) -> anyhow::Result<Self> {
         Ok(Renderer {
-            texture_library: programs::TextureManager::new(gl.clone())?,
-            solid_renderer: programs::SolidRenderer::new(gl.clone())?,
-            texture_renderer: programs::TextureRenderer::new(gl.clone())?,
-            drawing_renderer: programs::DrawingRenderer::new(gl.clone())?,
+            sprite_renderer: programs::SpriteRenderer::new(gl.clone())?,
             line_renderer: programs::LineRenderer::new(gl.clone())?,
             grid_renderer: programs::GridRenderer::new(gl)?,
         })
@@ -43,25 +30,12 @@ impl Renderer {
     }
 
     pub fn load_image(&mut self, image: &HtmlImageElement) -> scene::Id {
-        self.texture_library.load_image(image)
+        self.sprite_renderer.load_image(image)
     }
 
     pub fn draw_sprite(&mut self, sprite: &Sprite, viewport: Rect, grid_size: f32) {
-        let position = sprite.rect * grid_size;
-        match &sprite.visual {
-            SpriteVisual::Solid { colour, shape, .. } => self
-                .solid_renderer
-                .draw_shape(*shape, *colour, viewport, position),
-            SpriteVisual::Texture { id, shape } => self.texture_renderer.draw_texture(
-                *shape,
-                self.texture_library.get_texture(*id),
-                viewport,
-                position,
-            ),
-            SpriteVisual::Drawing(drawing) => self
-                .drawing_renderer
-                .draw(sprite.id, drawing, viewport, position, grid_size),
-        }
+        self.sprite_renderer
+            .draw_sprite(sprite, viewport, grid_size);
     }
 
     pub fn draw_outline(

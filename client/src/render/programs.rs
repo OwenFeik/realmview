@@ -700,6 +700,46 @@ impl GridRenderer {
     }
 }
 
+pub struct SpriteRenderer {
+    texture_library: TextureManager,
+    solid_renderer: SolidRenderer,
+    texture_renderer: TextureRenderer,
+    drawing_renderer: DrawingRenderer,
+}
+
+impl SpriteRenderer {
+    pub fn new(gl: Rc<Gl>) -> anyhow::Result<Self> {
+        Ok(Self {
+            texture_library: TextureManager::new(gl.clone())?,
+            solid_renderer: SolidRenderer::new(gl.clone())?,
+            texture_renderer: TextureRenderer::new(gl.clone())?,
+            drawing_renderer: DrawingRenderer::new(gl)?,
+        })
+    }
+
+    pub fn load_image(&mut self, image: &HtmlImageElement) -> scene::Id {
+        self.texture_library.load_image(image)
+    }
+
+    pub fn draw_sprite(&mut self, sprite: &scene::Sprite, viewport: Rect, grid_size: f32) {
+        let position = sprite.rect * grid_size;
+        match &sprite.visual {
+            scene::SpriteVisual::Solid { colour, shape, .. } => self
+                .solid_renderer
+                .draw_shape(*shape, *colour, viewport, position),
+            scene::SpriteVisual::Texture { id, shape } => self.texture_renderer.draw_texture(
+                *shape,
+                self.texture_library.get_texture(*id),
+                viewport,
+                position,
+            ),
+            scene::SpriteVisual::Drawing(drawing) => self
+                .drawing_renderer
+                .draw(sprite.id, drawing, viewport, position, grid_size),
+        }
+    }
+}
+
 fn create_shader(gl: &Gl, src: &str, stype: u32) -> anyhow::Result<WebGlShader> {
     let shader = match gl.create_shader(stype) {
         Some(s) => s,

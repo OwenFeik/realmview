@@ -13,7 +13,6 @@
     * Set stroke width for hollow shapes
     * Drawings.
         * Draw ephemeral arrows (while holding alt?)
-        * Redo rendering to render once and then scale with matrix
         * Straight lines
 * Media
     * Delete media items
