@@ -10,7 +10,7 @@
             group="tool_radio",
             active=1,
             label='{{ bootstrap_icon(cursor) }}',
-            action="RustFuncs.select_tool('Select')"
+            action="select_tool('Select')"
           )
         }}
         {{
@@ -18,7 +18,7 @@
             id="tool_radio_pan",
             group="tool_radio",
             label='{{ bootstrap_icon(arrows-move) }}',
-            action="RustFuncs.select_tool('Pan')"
+            action="select_tool('Pan')"
           )
         }}
         {{
@@ -26,7 +26,7 @@
             id="tool_radio_draw",
             group="tool_radio",
             label='{{ bootstrap_icon(brush) }}',
-            action="RustFuncs.select_tool('Draw')"
+            action="select_tool('Draw')"
           )
         }}
       </div>
@@ -37,6 +37,7 @@
   accordion_item(
     id="draw_menu",
     label="Draw",
+    style="display: none;",
     body=|
       {{
         colour_input(
@@ -150,6 +151,13 @@
   )
 }}
 <script>
+function select_tool(tool) {
+    document.getElementById("draw_menu").style.display = (
+      tool === "Draw" ? "" : "none"
+    );
+    RustFuncs.select_tool(tool);
+}
+
 function update_draw_details(properties, values) {
     let obj = {};
     if (Array.isArray(properties)) {
@@ -162,4 +170,21 @@ function update_draw_details(properties, values) {
 
     RustFuncs.draw_details(JSON.stringify(obj));
 }
+
+// Generate a random colour and set as active on page load.
+window.addEventListener("load", () => {
+    const is_bright = c => c[0] + c[1] + c[2] >= 2.0;
+    const gen_colour = () => [Math.random(), Math.random(), Math.random(), 1.0];
+    const to_hex = v => Math.ceil(v * 255).toString(16).padStart(2, "0");
+
+    let colour;
+    while (!is_bright(colour = gen_colour())) {};
+    
+    document.getElementById("draw_menu_colour").value = (
+        colour.reduce((acc, v) => acc + to_hex(v), "#").substr(0, 7)
+    );
+    call_when_ready(
+        "draw_details", () => update_draw_details("colour", colour)
+    );
+});
 </script>

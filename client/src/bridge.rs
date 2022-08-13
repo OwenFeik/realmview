@@ -828,6 +828,17 @@ pub fn request_animation_frame(f: &Closure<dyn FnMut()>) -> anyhow::Result<()> {
     }
 }
 
+fn set_visible(id: &str, visible: bool) -> anyhow::Result<()> {
+    if let Some(element) = get_document()?.get_element_by_id(id) {
+        element
+            .unchecked_ref::<HtmlElement>()
+            .style()
+            .set_property("display", if visible { "" } else { "none" })
+            .ok();
+    }
+    Ok(())
+}
+
 pub fn set_active_tool(tool: crate::viewport::Tool) -> anyhow::Result<()> {
     // Note: this needs to match web/include/scene/menu/tools/tools_menu.html
     const ID_PREFIX: &str = "tool_radio_";
@@ -839,5 +850,7 @@ pub fn set_active_tool(tool: crate::viewport::Tool) -> anyhow::Result<()> {
                 .set_checked(true);
         }
     }
+
+    set_visible("draw_menu", matches!(tool, crate::viewport::Tool::Draw))?;
     Ok(())
 }

@@ -1,4 +1,8 @@
-<div id="{{ ID }}" class="accordion-item">
+<div
+  id="{{ ID }}"
+  class="accordion-item"
+  IFDEF(STYLE) {{ style="{{ STYLE }}" }}
+>
   <h2 id="{{ ID }}_heading" class="accordion-header">
     <button
       class="accordion-button collapsed shadow-none"
