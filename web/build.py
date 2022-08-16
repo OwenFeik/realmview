@@ -24,6 +24,8 @@ def output_directory() -> str:
     return output_dir
 
 
+ANY = r"[\s\S]*?"
+
 IDENTIFIER_CHARACTERS = r"[a-zA-Z0-9_]"
 
 # Anything that could appear in a used
@@ -229,7 +231,7 @@ def read_identifier_block(identifier: str, html: str) -> str:
 
 
 def block_contents(block: str) -> str:
-    return re.sub(rf"^.*?{OPEN}", "", block)[:-2]
+    return re.sub(rf"^{ANY}{OPEN}", "", block)[:-2]
 
 
 # Look away. This parses a file to check for a preprocessor block preceded by
@@ -257,7 +259,7 @@ def read_ifdef_block(start: int, html: str) -> typing.Tuple[str, str, str]:
     return (if_block, else_block, if_block + else_block)
 
 
-BLOCK_REGEX = rf"{OPEN}[\s\S]*?{CLOSE}"
+BLOCK_REGEX = rf"{OPEN}{ANY}{CLOSE}"
 _IFDEF_REGEX = (
     rf"(?P<ident>(?P<cond>IFN?DEF)\((?P<arg>[A-Z_]+)\))\s*{BLOCK_REGEX}"
 )
