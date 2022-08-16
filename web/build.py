@@ -9,17 +9,17 @@ import uuid
 import urllib3  # type: ignore
 
 
-SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
-INCLUDE_DIR = os.path.join(SCRIPT_DIR, "include")
+WEB_DIR = os.path.abspath(os.path.dirname(__file__))
+INCLUDE_DIR = os.path.join(WEB_DIR, "include")
 INCLUDE_CACHE_DIR = os.path.join(INCLUDE_DIR, ".cache")
-PAGES_DIR = os.path.join(SCRIPT_DIR, "pages")
+PAGES_DIR = os.path.join(WEB_DIR, "pages")
 
 
 def output_directory() -> str:
     if len(sys.argv) > 1:
         output_dir = sys.argv[1]
     else:
-        output_dir = os.path.join(SCRIPT_DIR, "output")
+        output_dir = os.path.join(WEB_DIR, "output")
 
     return output_dir
 
@@ -34,6 +34,9 @@ KWARG_ARG_REGEX = (
     rf"({IDENTIFIER_CHARACTERS}+\s*=\s*"
     rf"({FULL_CHARACTERS}+|\"[^\"]*\"|'[^']*'|\|[^\|]*\|))"
 )
+
+OPEN = r"{{"
+CLOSE = r"}}"
 
 
 def substitution_regex() -> re.Pattern:
@@ -63,7 +66,9 @@ def substitution_regex() -> re.Pattern:
         fallback_regex,
     ]
 
-    overall_regex = r"{{\s*(" + r"|".join(substitution_types) + r")\s*}}"
+    overall_regex = (
+        rf"{OPEN}\s*(" + r"|".join(substitution_types) + rf")\s*{CLOSE}"
+    )
 
     return re.compile(overall_regex)
 
@@ -163,7 +168,7 @@ def constant(
             print(f"Missing constant: {name}. Aborting.")
             exit(os.EX_NOINPUT)
     else:
-        with open(os.path.join(SCRIPT_DIR, "constants.json"), "r") as f:
+        with open(os.path.join(WEB_DIR, "constants.json"), "r") as f:
             constants.update(json.load(f))
         return constant(name)
 
@@ -196,27 +201,35 @@ def function_substitution(func: str, arg: str) -> str:
     return function_from_name(functions, func)(*args)  # type: ignore
 
 
-def read_block(identifier: str, html: str) -> str:
-    if not (match := re.search(re.escape(identifier) + r"\s*{{", html)):
-        raise ValueError(f"Missing indentifier: {identifier}")
-
-    n_braces = 2
-    i = match.end() + 1
-    while i < len(html) and n_braces:
+def read_block(start: int, html: str) -> str:
+    started = False
+    n_braces = 0
+    i = start
+    while i < len(html) and (n_braces or not started):
         if html[i] == "{":
             n_braces += 1
         elif html[i] == "}":
             n_braces -= 1
+
+        if n_braces == 2:
+            started = True
+
         i += 1
 
     if n_braces:
         raise ValueError("Unterminated block.")
 
-    return html[match.start() : i]
+    return html[start:i]
+
+
+def read_identifier_block(identifier: str, html: str) -> str:
+    if not (match := re.search(re.escape(identifier) + rf"\s*{OPEN}", html)):
+        raise ValueError(f"Missing indentifier: {identifier}")
+    return read_block(match.start(), html)
 
 
 def block_contents(block: str) -> str:
-    return re.sub(r"^.*?{{", "", block)[:-2]
+    return re.sub(rf"^.*?{OPEN}", "", block)[:-2]
 
 
 # Look away. This parses a file to check for a preprocessor block preceded by
@@ -225,7 +238,7 @@ def block_contents(block: str) -> str:
 # it to mutate the kwargs dict.
 def process_preamble(html: str, kwargs: typing.Dict[str, str]) -> str:
     try:
-        block = read_block("PREAMBLE", html)
+        block = read_identifier_block("PREAMBLE", html)
     except ValueError:
         return html
     preamble = block_contents(block)
@@ -233,24 +246,61 @@ def process_preamble(html: str, kwargs: typing.Dict[str, str]) -> str:
     return html.replace(block, "").strip()
 
 
-IFDEF_REGEX = re.compile(
-    r"(?P<ident>(?P<cond>IFN?DEF)\((?P<arg>[A-Z_]+)\))\s*{{"
+def read_ifdef_block(start: int, html: str) -> typing.Tuple[str, str, str]:
+    if_block = read_block(start, html)
+    i = start + len(if_block)
+    if re.match(rf"\s*ELSE\s*{OPEN}", html[i:]):
+        else_block = read_block(i, html)
+    else:
+        else_block = ""
+
+    return (if_block, else_block, if_block + else_block)
+
+
+_IFDEF_REGEX = (
+    r"(?P<ident>(?P<cond>IFN?DEF)\((?P<arg>[A-Z_]+)\))\s*"
+    + rf"{OPEN}.*?{CLOSE}"
 )
+IFDEF_ELSE_REGEX = re.compile(_IFDEF_REGEX + rf"\s*ELSE\s*{OPEN}.*?{CLOSE}")
+IFDEF_REGEX = re.compile(_IFDEF_REGEX)
 
 
-def process_ifdefs(html: str, kwargs: typing.Dict[str, str]) -> str:
-    while match := re.search(IFDEF_REGEX, html):
+def _process_ifdefs(
+    regex: re.Pattern, html: str, kwargs: typing.Dict[str, str]
+) -> str:
+    while match := re.search(regex, html):
         cond = match.group("cond")
         kwarg = match.group("arg")
-        block = read_block(match.group("ident"), html)
 
-        repl = ""
+        if_block, else_block, full = read_ifdef_block(match.start(), html)
+
         if (cond == "IFDEF" and kwarg in kwargs) or (
             cond == "IFNDEF" and kwarg not in kwargs
         ):
-            repl = block_contents(block).strip()
-        html = html.replace(block, repl, 1)
+            repl = block_contents(if_block).strip()
+        else:
+            repl = block_contents(else_block).strip()
+
+        html = html.replace(full, repl, 1)
     return html
+
+
+def process_ifdefs(html: str, kwargs: typing.Dict[str, str]) -> str:
+    html = _process_ifdefs(IFDEF_ELSE_REGEX, html, kwargs)
+    html = _process_ifdefs(IFDEF_REGEX, html, kwargs)
+    return html
+
+
+KWARG_REGEX = re.compile(rf"{OPEN}\s*(?P<k>[A-Z_]+)\s*{CLOSE}")
+
+
+def process_kwarg_html(html: str, kwargs: typing.Dict[str, str]) -> str:
+    html = process_preamble(html, kwargs)
+    html = process_ifdefs(html, kwargs)
+    for kwarg in re.finditer(KWARG_REGEX, html):
+        html = html.replace(kwarg.group(0), kwargs.get(kwarg.group("k"), ""))
+
+    return process_html(html)
 
 
 QUOTE_CHARS = "\"'|"
@@ -279,18 +329,12 @@ def kwarg_file_subsitution(file: str, args: str) -> str:
     html = include_file(file_path, False)
 
     try:
-        html = process_preamble(html, kwargs)
-        html = process_ifdefs(html, kwargs)
+        return process_kwarg_html(html, kwargs)
     except ValueError as e:
         print(
             f"Substitution failed for {file_path}.\nReason: {e}\nArgs: {kwargs}"
         )
         exit(os.EX_DATAERR)
-
-    for kwarg in re.finditer(r"{{\s*(?P<k>[A-Z_]+)\s*}}", html):
-        html = html.replace(kwarg.group(0), kwargs.get(kwarg.group("k"), ""))
-
-    return process_html(html)
 
 
 def include_file(file: str, process: bool = True) -> str:
@@ -344,7 +388,7 @@ def process_page(page) -> None:
         html = f.read()
 
     html = process_html(html)
-    if "{{" in html:
+    if OPEN in html or CLOSE in html:
         print(f"Substitution may have failed for {page}.")
 
     with open(os.path.join(output_dir, page), "w") as f:

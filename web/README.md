@@ -40,3 +40,6 @@ possible substitution styles are possible.
         `substitution` if `KEY` is defined in `kwargs`.
     * `IFNDEF(KEY) {{ substitution }}` will perform the same substitution as
         above if `KEY` isn't in `kwargs`.
+    * Both `IFDEF` and `IFNDEF` may optionally be followed by
+        `ELSE {{ substitution }}` and if they are, `substitution` will be used
+        if the condition fails.

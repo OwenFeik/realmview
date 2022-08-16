@@ -45,14 +45,25 @@ content-dir: build-dir
 build-dir:
 	mkdir -p ${build}
 
-lint: test
-	python3 -m black ${root}/web/build.py
-	MYPY_CACHE_DIR=${build}/.mypy_cache ${py} -m mypy ${root}/web/build.py
+approve: lint test
+
+lint: lint-rust lint-py
+
+lint-rust:
 	${cargo} fmt
 	${cargo} clippy
 
-test:
+lint-py:
+	${py} -m black ${root}/web/build.py
+	MYPY_CACHE_DIR=${build}/.mypy_cache ${py} -m mypy ${root}/web/build.py
+
+test: test-rust test-py
+
+test-rust:
 	${cargo} test
+
+test-py:
+	cd ${root}/web && ${py} test.py
 
 install:
 	${cargo} install wasm-pack
