@@ -54,8 +54,8 @@ lint-rust:
 	${cargo} clippy
 
 lint-py:
-	${py} -m black ${root}/web/build.py
-	MYPY_CACHE_DIR=${build}/.mypy_cache ${py} -m mypy ${root}/web/build.py
+	${py} -m black ${root}/web/
+	MYPY_CACHE_DIR=${build}/.mypy_cache ${py} -m mypy ${root}/web/
 
 test: test-rust test-py
 
