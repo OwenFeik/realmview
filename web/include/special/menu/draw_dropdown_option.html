@@ -7,7 +7,7 @@ kwargs['LABEL'] = kwargs.get('LABEL', kwargs['NAME'])
     action="
       update_draw_details(
         '{{ KEY }}',
-        IFDEF(VALUE) {{ {{ VALUE }} }} IFNDEF(VALUE) {{ '{{ NAME }}' }}
+        IFDEF(VALUE) {{ {{ VALUE }} }} ELSE {{ '{{ NAME }}' }}
       );"
   )
 }}

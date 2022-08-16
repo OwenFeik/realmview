@@ -257,11 +257,11 @@ def read_ifdef_block(start: int, html: str) -> typing.Tuple[str, str, str]:
     return (if_block, else_block, if_block + else_block)
 
 
+BLOCK_REGEX = rf"{OPEN}[\s\S]*?{CLOSE}"
 _IFDEF_REGEX = (
-    r"(?P<ident>(?P<cond>IFN?DEF)\((?P<arg>[A-Z_]+)\))\s*"
-    + rf"{OPEN}.*?{CLOSE}"
+    rf"(?P<ident>(?P<cond>IFN?DEF)\((?P<arg>[A-Z_]+)\))\s*{BLOCK_REGEX}"
 )
-IFDEF_ELSE_REGEX = re.compile(_IFDEF_REGEX + rf"\s*ELSE\s*{OPEN}.*?{CLOSE}")
+IFDEF_ELSE_REGEX = re.compile(_IFDEF_REGEX + rf"\s*ELSE\s*{BLOCK_REGEX}")
 IFDEF_REGEX = re.compile(_IFDEF_REGEX)
 
 
@@ -388,7 +388,7 @@ def process_page(page) -> None:
         html = f.read()
 
     html = process_html(html)
-    if OPEN in html or CLOSE in html:
+    if OPEN in html:
         print(f"Substitution may have failed for {page}.")
 
     with open(os.path.join(output_dir, page), "w") as f:

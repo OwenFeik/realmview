@@ -1,8 +1,7 @@
 <button
     class="
       btn
-      IFNDEF(OUTLINE) {{ btn-primary }}
-      IFDEF(OUTLINE) {{ btn-outline-primary }} 
+      IFDEF(OUTLINE) {{ btn-outline-primary }} ELSE {{ btn-primary }}
       IFDEF(SMALL) {{ btn-sm }}
       IFDEF(CLASSES) {{ {{ CLASSES }} }}
     "

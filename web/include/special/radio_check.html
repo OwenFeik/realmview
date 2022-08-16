@@ -1,7 +1,19 @@
 PREAMBLE {{
 kwargs["ID"] = kwargs.get("ID", kwargs["GROUP"] + unique_string()) 
 }}
-IFNDEF(FORM) {{
+IFDEF(FORM) {{
+  <div class="form-check">
+    <input
+      class="form-check-input"
+      type="radio"
+      name="{{ GROUP }}"
+      id="{{ ID }}"
+      IFDEF(ACTION) {{ oninput="{{ ACTION }}" }}
+      IFDEF(ACTIVE) {{ checked }}
+    >
+    <label class="form-check-label" for="{{ ID }}">{{ LABEL }}</label>
+  </div>  
+}} ELSE {{
   <input
     type="radio"
     class="btn-check"
@@ -15,17 +27,4 @@ IFNDEF(FORM) {{
     class="btn btn-sm btn-outline-primary"
     for="{{ ID }}"
   >{{ LABEL }}</label>
-}}
-IFDEF(FORM) {{
-  <div class="form-check">
-    <input
-      class="form-check-input"
-      type="radio"
-      name="{{ GROUP }}"
-      id="{{ ID }}"
-      IFDEF(ACTION) {{ oninput="{{ ACTION }}" }}
-      IFDEF(ACTIVE) {{ checked }}
-    >
-    <label class="form-check-label" for="{{ ID }}">{{ LABEL }}</label>
-  </div>  
 }}

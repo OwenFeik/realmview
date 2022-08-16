@@ -64,6 +64,6 @@ IFNDEF(NOSTART) {{
 IFNDEF(NOEND) {{ </div> }}
 IFDEF(FEEDBACK) {{
 <div class="invalid-feedback" data-feedback-for="{{ ID }}">
-  IFDEF(HELP) {{ HELP }} IFNDEF(HELP) {{ Please enter a valid value. }}
+  IFDEF(HELP) {{ HELP }} ELSE {{ Please enter a valid value. }}
 </div>  
 }}

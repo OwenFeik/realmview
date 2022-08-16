@@ -3,8 +3,7 @@
   class="
     btn
     IFDEF(SMALL) {{ btn-sm }}
-    IFDEF(SECONDARY) {{ btn-outline-secondary }}
-    IFNDEF(SECONDARY) {{ btn-outline-primary }}
+    IFDEF(SECONDARY) {{ btn-outline-secondary }} ELSE {{ btn-outline-primary }}
     dropdown-toggle
   "
   type="button"

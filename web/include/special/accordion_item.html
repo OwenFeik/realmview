@@ -9,7 +9,7 @@
       type="button"
       data-bs-toggle="collapse"
       data-bs-target="#{{ ID }}_collapse"
-      aria-expanded="IFDEF(EXPANDED) {{ true }}IFNDEF(EXPANDED) {{ false }}"
+      aria-expanded="IFDEF(EXPANDED) {{ true }} ELSE {{ false }}"
       aria-controls="{{ ID }}_collapse"
     >{{ LABEL }}</button> 
   </h2>

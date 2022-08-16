@@ -12,6 +12,6 @@ if kwargs.get("LABEL") is None:
     type="button"
     role="tab"
     aria-controls="{{ TAB }}"
-    aria-selected=IFDEF(SELECTED) {{ "true" }} IFNDEF(SELECTED) {{ "false" }}
+    aria-selected="IFDEF(SELECTED) {{ true }} ELSE {{ false }}"
   >{{ LABEL }}</button>
 </li>
