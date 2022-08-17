@@ -358,20 +358,20 @@ impl SolidRenderer {
     }
 }
 
-pub struct DrawingRenderer {
+pub struct MeshRenderer {
     // Maps (grid_size, id) to (n_points, last_point, Shape)
     gl: Rc<Gl>,
     grid_size: f32,
-    drawings: HashMap<scene::Id, (u32, Option<scene::Point>, Solid)>,
+    meshes: HashMap<scene::Id, (scene::Rect, Solid)>,
     renderer: SolidRenderer,
 }
 
-impl DrawingRenderer {
+impl MeshRenderer {
     pub fn new(gl: Rc<Gl>) -> anyhow::Result<Self> {
         Ok(Self {
             gl: gl.clone(),
             grid_size: 0.0,
-            drawings: HashMap::new(),
+            meshes: HashMap::new(),
             renderer: SolidRenderer::new(gl)?,
         })
     }
@@ -394,24 +394,62 @@ impl DrawingRenderer {
             ),
         };
 
-        let mut shape = Solid::new(&self.gl, &self.renderer.program, &points)?;
-        shape.set_transforms(false, true);
-        self.drawings
-            .insert(id, (drawing.n_points(), drawing.points.last(), shape));
+        let mut mesh = Solid::new(&self.gl, &self.renderer.program, &points)?;
+        mesh.set_transforms(false, true);
+        self.meshes.insert(id, (drawing.points.rect(), mesh));
         Ok(())
     }
 
-    fn get_drawing(&self, id: scene::Id, drawing: &scene::SpriteDrawing) -> Option<&Solid> {
-        if let Some((n, last, shape)) = self.drawings.get(&id) {
+    fn add_shape(
+        &mut self,
+        id: scene::Id,
+        rect: Rect,
+        shape: scene::SpriteShape,
+        stroke: f32,
+    ) -> anyhow::Result<()> {
+        let points = super::shapes::hollow_shape(shape, stroke);
+        let mut mesh = Solid::new(&self.gl, &self.renderer.program, &points)?;
+        mesh.set_transforms(false, true);
+        self.meshes.insert(id, (rect, mesh));
+        Ok(())
+    }
+
+    fn get_mesh(&self, id: scene::Id, rect: Rect) -> Option<&Solid> {
+        if let Some((r, mesh)) = self.meshes.get(&id) {
             // If n is different, drawing has changed, we don't have it
-            if drawing.n_points() == *n && drawing.points.last() == *last {
-                return Some(shape);
+            if rect == *r {
+                return Some(mesh);
             }
         }
         None
     }
 
-    pub fn draw(
+    fn update_grid_size(&mut self, grid_size: f32) {
+        if self.grid_size != grid_size {
+            self.grid_size = grid_size;
+            self.meshes.clear();
+        }
+    }
+
+    pub fn draw_shape(
+        &mut self,
+        id: scene::Id,
+        shape: scene::SpriteShape,
+        colour: Colour,
+        stroke: f32,
+        viewport: Rect,
+        position: Rect,
+        grid_size: f32,
+    ) {
+        self.update_grid_size(grid_size);
+        if let Some(shape) = self.get_mesh(id, position) {
+            self.renderer.draw(shape, colour, viewport, position);
+        } else if self.add_shape(id, position, shape, stroke).is_ok() {
+            self.draw_shape(id, shape, colour, stroke, viewport, position, grid_size);
+        }
+    }
+
+    pub fn draw_drawing(
         &mut self,
         id: scene::Id,
         drawing: &scene::SpriteDrawing,
@@ -419,16 +457,12 @@ impl DrawingRenderer {
         position: Rect,
         grid_size: f32,
     ) {
-        if self.grid_size != grid_size {
-            self.grid_size = grid_size;
-            self.drawings.clear();
-        }
-
-        if let Some(shape) = self.get_drawing(id, drawing) {
+        self.update_grid_size(grid_size);
+        if let Some(shape) = self.get_mesh(id, drawing.points.rect()) {
             self.renderer
                 .draw(shape, drawing.colour, viewport, position);
         } else if self.add_drawing(id, drawing).is_ok() {
-            self.draw(id, drawing, viewport, position, grid_size);
+            self.draw_drawing(id, drawing, viewport, position, grid_size);
         }
     }
 }
@@ -711,7 +745,7 @@ pub struct SpriteRenderer {
     texture_library: TextureManager,
     solid_renderer: SolidRenderer,
     texture_renderer: TextureRenderer,
-    drawing_renderer: DrawingRenderer,
+    drawing_renderer: MeshRenderer,
 }
 
 impl SpriteRenderer {
@@ -720,7 +754,7 @@ impl SpriteRenderer {
             texture_library: TextureManager::new(gl.clone())?,
             solid_renderer: SolidRenderer::new(gl.clone())?,
             texture_renderer: TextureRenderer::new(gl.clone())?,
-            drawing_renderer: DrawingRenderer::new(gl)?,
+            drawing_renderer: MeshRenderer::new(gl)?,
         })
     }
 
@@ -731,9 +765,21 @@ impl SpriteRenderer {
     pub fn draw_sprite(&mut self, sprite: &scene::Sprite, viewport: Rect, grid_size: f32) {
         let position = sprite.rect * grid_size;
         match &sprite.visual {
-            scene::SpriteVisual::Solid { colour, shape, .. } => self
-                .solid_renderer
-                .draw_shape(*shape, *colour, viewport, position),
+            scene::SpriteVisual::Solid {
+                colour,
+                shape,
+                stroke,
+                ..
+            } => {
+                if *stroke == 0.0 {
+                    self.solid_renderer
+                        .draw_shape(*shape, *colour, viewport, position)
+                } else {
+                    self.drawing_renderer.draw_shape(
+                        sprite.id, *shape, *colour, *stroke, viewport, position, grid_size,
+                    );
+                }
+            }
             scene::SpriteVisual::Texture { id, shape } => self.texture_renderer.draw_texture(
                 *shape,
                 self.texture_library.get_texture(*id),
@@ -742,7 +788,7 @@ impl SpriteRenderer {
             ),
             scene::SpriteVisual::Drawing(drawing) => self
                 .drawing_renderer
-                .draw(sprite.id, drawing, viewport, position, grid_size),
+                .draw_drawing(sprite.id, drawing, viewport, position, grid_size),
         }
     }
 }

@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use std::f32::consts::{PI, TAU};
 
 use scene::{Point, PointVector};
 
@@ -10,7 +10,7 @@ const RECTANGLE: &[f32] = &[0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.
 // Note the resultant shape will be oriented with the first vertex at the
 // top center of the tile, i.e. a 4gon is a diamond and not a square.
 fn add_ngon(dst: &mut PointVector, n: u32, c: Point, r: f32) {
-    let dt = 2.0 * PI / n as f32;
+    let dt = TAU / n as f32;
 
     let mut prev = None;
     for i in 0..=n {
@@ -28,7 +28,7 @@ fn add_ngon(dst: &mut PointVector, n: u32, c: Point, r: f32) {
 fn add_hollow_ngon(dst: &mut PointVector, n: u32, stroke: f32, c: Point, r: f32) {
     let ra = r;
     let rb = ra - stroke;
-    let dt = 2.0 * std::f32::consts::PI / n as f32;
+    let dt = TAU / n as f32;
 
     let mut prev_a = None;
     let mut prev_b = None;
@@ -192,6 +192,24 @@ pub fn circle() -> Vec<f32> {
 
 pub fn rectangle() -> &'static [f32] {
     RECTANGLE
+}
+
+pub fn shape(shape: scene::SpriteShape) -> Vec<f32> {
+    match shape {
+        scene::SpriteShape::Ellipse => circle(),
+        scene::SpriteShape::Hexagon => ngon(6),
+        scene::SpriteShape::Rectangle => rectangle().to_owned(),
+        scene::SpriteShape::Triangle => ngon(3),
+    }
+}
+
+pub fn hollow_shape(shape: scene::SpriteShape, stroke: f32) -> Vec<f32> {
+    match shape {
+        scene::SpriteShape::Ellipse => hollow_ngon(CIRCLE_EDGES, stroke),
+        scene::SpriteShape::Hexagon => hollow_ngon(6, stroke),
+        scene::SpriteShape::Rectangle => rectangle().to_owned(),
+        scene::SpriteShape::Triangle => hollow_ngon(3, stroke),
+    }
 }
 
 pub fn line(

@@ -199,8 +199,8 @@ function set_selected_sprite(sprite_json) {
     );
 
     set_visible("sprite_menu_shape", sprite.shape);
-    set_visible("sprite_menu_stroke", sprite.stroke);
-    set_visible("sprite_menu_stroke_label", sprite.stroke);
+    set_visible("sprite_menu_stroke", sprite.stroke !== null);
+    set_visible("sprite_menu_stroke_label", sprite.stroke !== null);
     set_visible("sprite_menu_cap_start", sprite.cap_start);
     set_visible("sprite_menu_cap_end", sprite.cap_end);
 }

@@ -40,6 +40,7 @@ impl Rect {
         rect
     }
 
+    #[must_use]
     pub fn dimension(&self, dimension: Dimension, value: f32) -> Rect {
         let mut rect = *self;
         match dimension {
@@ -59,7 +60,8 @@ impl Rect {
         rect
     }
 
-    pub fn translate(&self, Point { x: dx, y: dy }: Point) -> Rect {
+    #[must_use]
+    pub fn translate(&self, Point { x: dx, y: dy }: Point) -> Self {
         Rect::new(self.x + dx, self.y + dy, self.w, self.h)
     }
 
@@ -146,7 +148,8 @@ impl Rect {
         rect.x.abs() + rect.y.abs() + rect.w.abs() + rect.h.abs()
     }
 
-    pub fn moved_to(&self, point: Point) -> Rect {
+    #[must_use]
+    pub fn moved_to(&self, point: Point) -> Self {
         Rect {
             x: point.x,
             y: point.y,
@@ -155,7 +158,8 @@ impl Rect {
         }
     }
 
-    pub fn sized_as(&self, w: f32, h: f32) -> Rect {
+    #[must_use]
+    pub fn sized_as(&self, w: f32, h: f32) -> Self {
         Rect::new(self.x, self.y, w, h)
     }
 }
