@@ -1,6 +1,6 @@
 use std::f32::consts::{PI, TAU};
 
-use scene::{Point, PointVector};
+use scene::{Point, PointVector, Rect};
 
 const CIRCLE_EDGES: u32 = 32;
 const RECTANGLE: &[f32] = &[0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0];
@@ -25,9 +25,10 @@ fn add_ngon(dst: &mut PointVector, n: u32, c: Point, r: f32) {
 
 // Returns points for a hollow regular polygon with n edges and a line
 // width of lw units.
-fn add_hollow_ngon(dst: &mut PointVector, n: u32, stroke: f32, c: Point, r: f32) {
-    let ra = r;
-    let rb = ra - stroke;
+fn add_hollow_ngon(dst: &mut PointVector, n: u32, stroke: f32, rect: Rect) {
+    let c = rect.centre();
+    let ra = Point::new(rect.w / 2.0, rect.h / 2.0);
+    let rb = ra - Point::same(stroke);
     let dt = TAU / n as f32;
 
     let mut prev_a = None;
@@ -179,10 +180,11 @@ pub fn ngon(n: u32) -> Vec<f32> {
     coords.data
 }
 
-pub fn hollow_ngon(n: u32, stroke: f32) -> Vec<f32> {
-    const R: f32 = 0.5;
+pub fn hollow_ngon(n: u32, stroke: f32, w: f32, h: f32, scale: f32) -> Vec<f32> {
     let mut coords = PointVector::sized(n * 2 * 3);
-    add_hollow_ngon(&mut coords, n, stroke, Point::same(R), R);
+    add_hollow_ngon(&mut coords, n, stroke, Rect::new(w / 2.0, h / 2.0, w, h));
+    coords.scale(scale);
+    crate::bridge::flog!("{coords:?}");
     coords.data
 }
 
@@ -203,12 +205,12 @@ pub fn shape(shape: scene::SpriteShape) -> Vec<f32> {
     }
 }
 
-pub fn hollow_shape(shape: scene::SpriteShape, stroke: f32) -> Vec<f32> {
+pub fn hollow_shape(shape: scene::SpriteShape, stroke: f32, w: f32, h: f32, scale: f32) -> Vec<f32> {
     match shape {
-        scene::SpriteShape::Ellipse => hollow_ngon(CIRCLE_EDGES, stroke),
-        scene::SpriteShape::Hexagon => hollow_ngon(6, stroke),
+        scene::SpriteShape::Ellipse => hollow_ngon(CIRCLE_EDGES, stroke, w, h, scale),
+        scene::SpriteShape::Hexagon => hollow_ngon(6, stroke, w, h, scale),
         scene::SpriteShape::Rectangle => rectangle().to_owned(),
-        scene::SpriteShape::Triangle => hollow_ngon(3, stroke),
+        scene::SpriteShape::Triangle => hollow_ngon(3, stroke, w, h, scale),
     }
 }
 
@@ -227,7 +229,7 @@ pub fn line(
         cap_start,
         cap_end,
     );
-    coords.map(|p| p * scale);
+    coords.scale(scale);
     coords.data
 }
 
@@ -240,6 +242,6 @@ pub fn freehand(
 ) -> Vec<f32> {
     let mut coords = PointVector::new();
     add_line(&mut coords, points, stroke, cap_start, cap_end);
-    coords.map(|p| p * scale);
+    coords.scale(scale);
     coords.data
 }

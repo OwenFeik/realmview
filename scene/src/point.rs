@@ -76,6 +76,17 @@ impl Mul<f32> for Point {
     }
 }
 
+impl Mul<Point> for Point {
+    type Output = Point;
+
+    fn mul(self, rhs: Point) -> Self::Output {
+        Point {
+            x: rhs.x * self.x,
+            y: rhs.y * self.y,
+        }
+    }
+}
+
 impl Neg for Point {
     type Output = Point;
 
@@ -188,6 +199,10 @@ impl PointVector {
         });
 
         Rect::new(x_min, y_min, x_max - x_min, y_max - y_min)
+    }
+
+    pub fn scale(&mut self, scale: f32) {
+        self.map(|p| p * scale);
     }
 
     pub fn translate(&mut self, delta: Point) {

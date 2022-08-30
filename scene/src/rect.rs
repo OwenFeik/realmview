@@ -136,6 +136,13 @@ impl Rect {
         b.x >= a.x && b.x + b.w <= a.x + a.w && b.y >= a.y && b.y + b.h <= a.y + a.h
     }
 
+    pub fn centre(&self) -> Point {
+        Point {
+            x: self.x + self.w / 2.0,
+            y: self.y + self.h / 2.0,
+        }
+    }
+
     pub fn top_left(&self) -> Point {
         Point {
             x: self.x,

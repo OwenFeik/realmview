@@ -218,7 +218,7 @@ impl TextureManager {
     }
 }
 
-struct Solid {
+struct Mesh {
     coords: Float32Array,
     position_buffer: WebGlBuffer,
     position_location: u32,
@@ -228,7 +228,7 @@ struct Solid {
     translate: bool,
 }
 
-impl Solid {
+impl Mesh {
     // Requires that the program use "a_position" and "u_matrix"
     fn new(gl: &Gl, program: &WebGlProgram, points: &[f32]) -> anyhow::Result<Self> {
         let coords = Float32Array::new_with_length(points.len() as u32);
@@ -241,7 +241,7 @@ impl Solid {
 
         let vertex_count = (coords.length() / 2) as i32;
 
-        Ok(Solid {
+        Ok(Mesh {
             coords,
             position_buffer,
             position_location,
@@ -292,23 +292,23 @@ impl Solid {
 }
 
 struct Shapes {
-    ellipse: Solid,
-    hexagon: Solid,
-    rectangle: Solid,
-    triangle: Solid,
+    ellipse: Mesh,
+    hexagon: Mesh,
+    rectangle: Mesh,
+    triangle: Mesh,
 }
 
 impl Shapes {
     fn new(gl: &Gl, program: &WebGlProgram) -> anyhow::Result<Self> {
         Ok(Shapes {
-            ellipse: Solid::from_sprite_shape(gl, program, SpriteShape::Ellipse)?,
-            hexagon: Solid::from_sprite_shape(gl, program, SpriteShape::Hexagon)?,
-            rectangle: Solid::from_sprite_shape(gl, program, SpriteShape::Rectangle)?,
-            triangle: Solid::from_sprite_shape(gl, program, SpriteShape::Triangle)?,
+            ellipse: Mesh::from_sprite_shape(gl, program, SpriteShape::Ellipse)?,
+            hexagon: Mesh::from_sprite_shape(gl, program, SpriteShape::Hexagon)?,
+            rectangle: Mesh::from_sprite_shape(gl, program, SpriteShape::Rectangle)?,
+            triangle: Mesh::from_sprite_shape(gl, program, SpriteShape::Triangle)?,
         })
     }
 
-    fn shape(&self, shape: SpriteShape) -> &Solid {
+    fn shape(&self, shape: SpriteShape) -> &Mesh {
         match shape {
             SpriteShape::Ellipse => &self.ellipse,
             SpriteShape::Hexagon => &self.hexagon,
@@ -344,7 +344,7 @@ impl SolidRenderer {
         })
     }
 
-    fn draw(&self, shape: &Solid, colour: Colour, viewport: Rect, position: Rect) {
+    fn draw(&self, shape: &Mesh, colour: Colour, viewport: Rect, position: Rect) {
         let gl = &self.gl;
 
         gl.use_program(Some(&self.program));
@@ -362,7 +362,7 @@ pub struct MeshRenderer {
     // Maps (grid_size, id) to (n_points, last_point, Shape)
     gl: Rc<Gl>,
     grid_size: f32,
-    meshes: HashMap<scene::Id, (scene::Rect, Solid)>,
+    meshes: HashMap<scene::Id, (scene::Rect, Mesh)>,
     renderer: SolidRenderer,
 }
 
@@ -394,7 +394,7 @@ impl MeshRenderer {
             ),
         };
 
-        let mut mesh = Solid::new(&self.gl, &self.renderer.program, &points)?;
+        let mut mesh = Mesh::new(&self.gl, &self.renderer.program, &points)?;
         mesh.set_transforms(false, true);
         self.meshes.insert(id, (drawing.points.rect(), mesh));
         Ok(())
@@ -407,14 +407,14 @@ impl MeshRenderer {
         shape: scene::SpriteShape,
         stroke: f32,
     ) -> anyhow::Result<()> {
-        let points = super::shapes::hollow_shape(shape, stroke);
-        let mut mesh = Solid::new(&self.gl, &self.renderer.program, &points)?;
+        let points = super::shapes::hollow_shape(shape, stroke, rect.w, rect.h, 1.0);
+        let mut mesh = Mesh::new(&self.gl, &self.renderer.program, &points)?;
         mesh.set_transforms(false, true);
         self.meshes.insert(id, (rect, mesh));
         Ok(())
     }
 
-    fn get_mesh(&self, id: scene::Id, rect: Rect) -> Option<&Solid> {
+    fn get_mesh(&self, id: scene::Id, rect: Rect) -> Option<&Mesh> {
         if let Some((r, mesh)) = self.meshes.get(&id) {
             // If n is different, drawing has changed, we don't have it
             if rect == *r {
@@ -444,7 +444,7 @@ impl MeshRenderer {
         self.update_grid_size(grid_size);
         if let Some(shape) = self.get_mesh(id, position) {
             self.renderer.draw(shape, colour, viewport, position);
-        } else if self.add_shape(id, position, shape, stroke).is_ok() {
+        } else if self.add_shape(id, position / grid_size, shape, stroke).is_ok() {
             self.draw_shape(id, shape, colour, stroke, viewport, position, grid_size);
         }
     }
@@ -473,7 +473,7 @@ struct TextureShapeRenderer {
     texcoord_buffer: WebGlBuffer,
     texcoord_location: u32,
     texture_location: WebGlUniformLocation,
-    shape: Solid,
+    shape: Mesh,
 }
 
 impl TextureShapeRenderer {
@@ -484,7 +484,7 @@ impl TextureShapeRenderer {
             include_str!("shaders/image.frag"),
         )?;
 
-        let shape = Solid::from_sprite_shape(&gl, &program, shape)?;
+        let shape = Mesh::from_sprite_shape(&gl, &program, shape)?;
 
         let texcoord_location = gl.get_attrib_location(&program, "a_texcoord") as u32;
         let texcoord_buffer = create_buffer(&gl, Some(&shape.coords))?;
