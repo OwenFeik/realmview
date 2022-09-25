@@ -1,4 +1,4 @@
-use std::ops::{Add, Mul, Neg, Sub};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use serde_derive::{Deserialize, Serialize};
 
@@ -65,17 +65,6 @@ impl Add for Point {
     }
 }
 
-impl Mul<f32> for Point {
-    type Output = Point;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        Point {
-            x: rhs * self.x,
-            y: rhs * self.y,
-        }
-    }
-}
-
 impl Mul<Point> for Point {
     type Output = Point;
 
@@ -83,6 +72,37 @@ impl Mul<Point> for Point {
         Point {
             x: rhs.x * self.x,
             y: rhs.y * self.y,
+        }
+    }
+}
+
+impl Mul<f32> for Point {
+    type Output = Point;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Point {
+            x: self.x * rhs,
+            y: self.y * rhs,
+        }
+    }
+}
+
+impl Div<Point> for Point {
+    type Output = Point;
+    fn div(self, rhs: Point) -> Self::Output {
+        Point {
+            x: self.x / rhs.x,
+            y: self.y / rhs.y,
+        }
+    }
+}
+
+impl Div<f32> for Point {
+    type Output = Point;
+    fn div(self, rhs: f32) -> Self::Output {
+        Point {
+            x: self.x / rhs,
+            y: self.y / rhs,
         }
     }
 }

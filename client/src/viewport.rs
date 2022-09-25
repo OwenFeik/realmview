@@ -260,6 +260,15 @@ impl Viewport {
             }
             Key::Plus | Key::Equals => self.zoom_in(),
             Key::Minus => self.zoom_out(),
+            Key::C => {
+                self.set_tool_update_ui(Tool::Draw);
+
+                let deets = crate::interactor::SpriteDetails {
+                    shape: Some(scene::SpriteShape::Ellipse),
+                    ..Default::default()
+                };
+                self.scene.update_draw_details(deets);
+            }
             Key::D => self.scene.clear_selection(),
             Key::L => self.set_tool_update_ui(Tool::Draw),
             Key::P => self.set_tool_update_ui(Tool::Pan),

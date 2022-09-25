@@ -180,11 +180,11 @@ pub fn ngon(n: u32) -> Vec<f32> {
     coords.data
 }
 
-pub fn hollow_ngon(n: u32, stroke: f32, w: f32, h: f32, scale: f32) -> Vec<f32> {
+pub fn hollow_ngon(n: u32, stroke: f32, w: f32, h: f32) -> Vec<f32> {
+    crate::bridge::flog!("{w:?} {h:?}");
+
     let mut coords = PointVector::sized(n * 2 * 3);
     add_hollow_ngon(&mut coords, n, stroke, Rect::new(w / 2.0, h / 2.0, w, h));
-    coords.scale(scale);
-    crate::bridge::flog!("{coords:?}");
     coords.data
 }
 
@@ -205,12 +205,12 @@ pub fn shape(shape: scene::SpriteShape) -> Vec<f32> {
     }
 }
 
-pub fn hollow_shape(shape: scene::SpriteShape, stroke: f32, w: f32, h: f32, scale: f32) -> Vec<f32> {
+pub fn hollow_shape(shape: scene::SpriteShape, stroke: f32, w: f32, h: f32) -> Vec<f32> {
     match shape {
-        scene::SpriteShape::Ellipse => hollow_ngon(CIRCLE_EDGES, stroke, w, h, scale),
-        scene::SpriteShape::Hexagon => hollow_ngon(6, stroke, w, h, scale),
+        scene::SpriteShape::Ellipse => hollow_ngon(CIRCLE_EDGES, stroke, w, h),
+        scene::SpriteShape::Hexagon => hollow_ngon(6, stroke, w, h),
         scene::SpriteShape::Rectangle => rectangle().to_owned(),
-        scene::SpriteShape::Triangle => hollow_ngon(3, stroke, w, h, scale),
+        scene::SpriteShape::Triangle => hollow_ngon(3, stroke, w, h),
     }
 }
 

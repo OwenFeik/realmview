@@ -50,8 +50,8 @@ impl Drawing {
     }
 
     pub fn line(&self) -> (Point, Point) {
-        let p = self.points.nth(1).unwrap();
-        let q = self.points.last().unwrap();
+        let p = self.points.nth(1).unwrap_or(Point::ORIGIN);
+        let q = self.points.last().unwrap_or(Point::ORIGIN);
         (p, q)
     }
 

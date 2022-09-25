@@ -7,7 +7,7 @@ use web_sys::{
     HtmlImageElement, WebGlBuffer, WebGlProgram, WebGlShader, WebGlTexture, WebGlUniformLocation,
 };
 
-use scene::{Rect, SpriteShape};
+use scene::{Point, Rect, SpriteShape};
 
 use crate::bridge::{log, Gl};
 
@@ -276,7 +276,7 @@ impl Mesh {
         gl.enable_vertex_attrib_array(self.position_location);
         gl.vertex_attrib_pointer_with_i32(self.position_location, 2, Gl::FLOAT, false, 0, 0);
 
-        let mut m = m4_orthographic(0.0, vp.w as f32, vp.h as f32, 0.0, -1.0, 1.0);
+        let mut m = m4_orthographic(0.0, vp.w, vp.h, 0.0, -1.0, 1.0);
 
         if self.translate {
             m4_translate(&mut m, at.x - vp.x, at.y - vp.y, 0.0);
@@ -285,6 +285,19 @@ impl Mesh {
         if self.scale {
             m4_scale(&mut m, at.w, at.h, 1.0);
         }
+
+        gl.uniform_matrix4fv_with_f32_array(Some(&self.matrix_location), false, &m);
+        gl.draw_arrays(Gl::TRIANGLES, 0, self.vertex_count);
+    }
+
+    fn draw_unscaled(&self, gl: &Gl, at: Point) {
+        gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.position_buffer));
+        gl.enable_vertex_attrib_array(self.position_location);
+        gl.vertex_attrib_pointer_with_i32(self.position_location, 2, Gl::FLOAT, false, 0, 0);
+
+        let mut m = m4_orthographic(0.0, 1.0, 1.0, 0.0, -1.0, 1.0);
+
+        m4_translate(&mut m, at.x, at.y, 0.0);
 
         gl.uniform_matrix4fv_with_f32_array(Some(&self.matrix_location), false, &m);
         gl.draw_arrays(Gl::TRIANGLES, 0, self.vertex_count);
@@ -344,13 +357,23 @@ impl SolidRenderer {
         })
     }
 
+    fn prepare_draw(&self, colour: Colour) {
+        self.gl.use_program(Some(&self.program));
+        self.gl
+            .uniform4fv_with_f32_array(Some(&self.colour_location), &colour);
+    }
+
     fn draw(&self, shape: &Mesh, colour: Colour, viewport: Rect, position: Rect) {
-        let gl = &self.gl;
+        self.prepare_draw(colour);
+        shape.draw(&self.gl, viewport, position);
+    }
 
-        gl.use_program(Some(&self.program));
-        gl.uniform4fv_with_f32_array(Some(&self.colour_location), &colour);
-
-        shape.draw(gl, viewport, position);
+    fn draw_unscaled(&self, shape: &Mesh, colour: Colour, vp: Rect, position: Rect) {
+        self.prepare_draw(colour);
+        shape.draw_unscaled(
+            &self.gl,
+            (position.top_left() - vp.top_left()) / Point::new(vp.w, vp.h),
+        );
     }
 
     pub fn draw_shape(&self, shape: SpriteShape, colour: Colour, viewport: Rect, position: Rect) {
@@ -359,7 +382,6 @@ impl SolidRenderer {
 }
 
 pub struct MeshRenderer {
-    // Maps (grid_size, id) to (n_points, last_point, Shape)
     gl: Rc<Gl>,
     grid_size: f32,
     meshes: HashMap<scene::Id, (scene::Rect, Mesh)>,
@@ -407,7 +429,12 @@ impl MeshRenderer {
         shape: scene::SpriteShape,
         stroke: f32,
     ) -> anyhow::Result<()> {
-        let points = super::shapes::hollow_shape(shape, stroke, rect.w, rect.h, 1.0);
+        let points = super::shapes::hollow_shape(
+            shape,
+            stroke / self.grid_size,
+            rect.w / self.grid_size,
+            rect.h / self.grid_size,
+        );
         let mut mesh = Mesh::new(&self.gl, &self.renderer.program, &points)?;
         mesh.set_transforms(false, true);
         self.meshes.insert(id, (rect, mesh));
@@ -442,9 +469,11 @@ impl MeshRenderer {
         grid_size: f32,
     ) {
         self.update_grid_size(grid_size);
-        if let Some(shape) = self.get_mesh(id, position) {
-            self.renderer.draw(shape, colour, viewport, position);
-        } else if self.add_shape(id, position / grid_size, shape, stroke).is_ok() {
+        let rect = position / grid_size;
+        if let Some(shape) = self.get_mesh(id, rect) {
+            self.renderer
+                .draw_unscaled(shape, colour, viewport, position);
+        } else if self.add_shape(id, rect, shape, stroke).is_ok() {
             self.draw_shape(id, shape, colour, stroke, viewport, position, grid_size);
         }
     }

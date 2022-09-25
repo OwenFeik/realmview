@@ -31,7 +31,7 @@ fn parse_json<'a, T: serde::Deserialize<'a>>(json: &'a str) -> Option<T> {
 
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
-    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+    console_error_panic_hook::set_once();
 
     let client = match Client::new() {
         Ok(c) => c,
