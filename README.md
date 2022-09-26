@@ -10,7 +10,6 @@
     * Use sprite menu to change texture
     * Change cursor when hovering a sprite or anchor
     * Group sprites
-    * Set stroke width for hollow shapes
 * Media
     * Delete media items
     * Media library

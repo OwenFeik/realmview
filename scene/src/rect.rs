@@ -70,7 +70,7 @@ impl Rect {
     }
 
     #[must_use]
-    fn positive_dimensions(&self) -> Self {
+    pub fn positive_dimensions(&self) -> Self {
         let mut new = *self;
 
         if self.w < 0.0 {

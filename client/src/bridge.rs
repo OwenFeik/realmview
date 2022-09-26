@@ -254,6 +254,10 @@ impl Canvas {
             let events = self.events.clone();
             let listener = Closure::wrap(Box::new(move |event: web_sys::UiEvent| {
                 events.push(&event);
+
+                if event_name == "wheel" {
+                    event.prevent_default();
+                }
             }) as Box<dyn FnMut(web_sys::UiEvent)>);
 
             if self

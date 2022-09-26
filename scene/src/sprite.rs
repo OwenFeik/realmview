@@ -44,9 +44,7 @@ impl Drawing {
     pub const DEFAULT_TYPE: DrawingType = DrawingType::Freehand;
 
     pub fn new() -> Self {
-        Self {
-            ..Default::default()
-        }
+        Default::default()
     }
 
     pub fn line(&self) -> (Point, Point) {
@@ -81,8 +79,8 @@ impl Drawing {
         self.points.add(point);
     }
 
-    // Simplifies the drawing to fit in a single tile, returning the original
-    // rect.
+    /// Simplifies the drawing such that it's top-left-most point is the
+    /// origin, returning it's from rect before the transformation.
     fn simplify(&mut self, offset: f32) -> Rect {
         let rect = self.points.rect();
         let delta = rect.top_left();
