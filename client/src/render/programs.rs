@@ -379,7 +379,7 @@ impl SolidRenderer {
 pub struct MeshRenderer {
     gl: Rc<Gl>,
     grid_size: f32,
-    meshes: HashMap<scene::Id, (f32, scene::Rect, Mesh)>, // { id: (stroke, rect, mesh) }
+    meshes: HashMap<scene::Id, (u32, f32, scene::Rect, Mesh)>, // { id: (n, stroke, rect, mesh) }
     renderer: SolidRenderer,
 }
 
@@ -413,8 +413,15 @@ impl MeshRenderer {
 
         let mut mesh = Mesh::new(&self.gl, &self.renderer.program, &points)?;
         mesh.set_transforms(false, true);
-        self.meshes
-            .insert(id, (drawing.stroke, drawing.points.rect(), mesh));
+        self.meshes.insert(
+            id,
+            (
+                drawing.n_points(),
+                drawing.stroke,
+                drawing.points.rect(),
+                mesh,
+            ),
+        );
         Ok(())
     }
 
@@ -437,14 +444,14 @@ impl MeshRenderer {
         );
         let mut mesh = Mesh::new(&self.gl, &self.renderer.program, &points)?;
         mesh.set_transforms(false, true);
-        self.meshes.insert(id, (stroke, position, mesh));
+        self.meshes.insert(id, (1, stroke, position, mesh));
         Ok(())
     }
 
-    fn get_mesh(&self, id: scene::Id, stroke: f32, rect: Rect) -> Option<&Mesh> {
-        if let Some((s, r, mesh)) = self.meshes.get(&id) {
+    fn get_mesh(&self, id: scene::Id, points: u32, stroke: f32, rect: Rect) -> Option<&Mesh> {
+        if let Some((n, s, r, mesh)) = self.meshes.get(&id) {
             // If n is different, drawing has changed, we don't have it
-            if stroke == *s && rect == *r {
+            if points == *n && stroke == *s && rect == *r {
                 return Some(mesh);
             }
         }
@@ -470,7 +477,7 @@ impl MeshRenderer {
     ) {
         let pos = position.positive_dimensions();
         self.update_grid_size(grid_size);
-        if let Some(shape) = self.get_mesh(id, stroke, pos) {
+        if let Some(shape) = self.get_mesh(id, 1, stroke, pos) {
             self.renderer.draw_unscaled(shape, colour, viewport, pos);
         } else if self.add_shape(id, shape, stroke, viewport, pos).is_ok() {
             self.draw_shape(id, shape, colour, stroke, viewport, pos, grid_size);
@@ -486,7 +493,12 @@ impl MeshRenderer {
         grid_size: f32,
     ) {
         self.update_grid_size(grid_size);
-        if let Some(shape) = self.get_mesh(id, drawing.stroke, drawing.points.rect()) {
+        if let Some(shape) = self.get_mesh(
+            id,
+            drawing.n_points(),
+            drawing.stroke,
+            drawing.points.rect(),
+        ) {
             self.renderer
                 .draw(shape, drawing.colour, viewport, position);
         } else if self.add_drawing(id, drawing).is_ok() {
