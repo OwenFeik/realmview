@@ -15,6 +15,14 @@ pub enum Tool {
     Select,
 }
 
+#[derive(serde_derive::Serialize)]
+enum DrawTool {
+    Ellipse,
+    Freehand,
+    Line,
+    Rectangle,
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct ViewportPoint {
     x: f32,
@@ -91,6 +99,21 @@ impl Viewport {
     fn set_tool_update_ui(&mut self, tool: Tool) {
         self.set_tool(tool);
         crate::bridge::set_active_tool(tool).ok();
+    }
+
+    fn set_draw_tool_update_ui(&mut self, draw_tool: DrawTool) {
+        self.set_tool_update_ui(Tool::Draw);
+
+        let mut deets: crate::interactor::SpriteDetails = Default::default();
+        match draw_tool {
+            DrawTool::Ellipse => deets.shape = Some(scene::SpriteShape::Ellipse),
+            DrawTool::Freehand => deets.drawing_type = Some(scene::SpriteDrawingType::Freehand),
+            DrawTool::Line => deets.drawing_type = Some(scene::SpriteDrawingType::Line),
+            DrawTool::Rectangle => deets.shape = Some(scene::SpriteShape::Rectangle),
+        }
+
+        self.scene.update_draw_details(deets);
+        crate::bridge::set_active_draw_tool(draw_tool).ok();
     }
 
     fn scene_point(&self, at: ViewportPoint) -> Point {
@@ -256,23 +279,17 @@ impl Viewport {
             Key::Delete => self.scene.remove_sprite(Interactor::SELECTION_ID),
             Key::Escape => {
                 self.scene.clear_selection();
-                self.tool = Tool::Select
+                self.tool = Tool::Select;
             }
             Key::Plus | Key::Equals => self.zoom_in(),
             Key::Minus => self.zoom_out(),
-            Key::C => {
-                self.set_tool_update_ui(Tool::Draw);
-
-                let deets = crate::interactor::SpriteDetails {
-                    shape: Some(scene::SpriteShape::Ellipse),
-                    ..Default::default()
-                };
-                self.scene.update_draw_details(deets);
-            }
+            Key::C => self.set_draw_tool_update_ui(DrawTool::Ellipse),
             Key::D => self.scene.clear_selection(),
-            Key::L => self.set_tool_update_ui(Tool::Draw),
+            Key::F => self.set_draw_tool_update_ui(DrawTool::Freehand),
+            Key::L => self.set_draw_tool_update_ui(DrawTool::Line),
             Key::P => self.set_tool_update_ui(Tool::Pan),
             Key::Q => self.set_tool_update_ui(Tool::Select),
+            Key::R => self.set_draw_tool_update_ui(DrawTool::Rectangle),
             Key::Y => self.scene.redo(),
             Key::Z => self.scene.undo(),
             _ => {}

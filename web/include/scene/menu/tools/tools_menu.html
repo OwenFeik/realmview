@@ -102,6 +102,7 @@
             {{
               radio_check(
                 group="draw_radio",
+                id="draw_radio_freehand",
                 active=1,
                 label='{{ bootstrap_icon(brush) }}',
                 action="
@@ -114,6 +115,7 @@
             {{
               radio_check(
                 group="draw_radio",
+                id="draw_radio_line",
                 label='{{ bootstrap_icon(slash-lg) }}',
                 action="
                   update_draw_details(
@@ -125,6 +127,7 @@
             {{
               radio_check(
                 group="draw_radio",
+                id="draw_radio_rectangle",
                 label='{{ bootstrap_icon(square) }}',
                 action="
                   update_draw_details(
@@ -136,6 +139,7 @@
             {{
               radio_check(
                 group="draw_radio",
+                id="draw_radio_ellipse",
                 label='{{ bootstrap_icon(circle) }}',
                 action="
                   update_draw_details(

@@ -868,18 +868,33 @@ fn set_visible(id: &str, visible: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn set_checked(id: &str) -> anyhow::Result<()> {
+    if let Some(element) = get_document()?.get_element_by_id(id) {
+        element
+            .unchecked_ref::<HtmlInputElement>()
+            .set_checked(true);
+    }
+
+    Ok(())
+}
+
+fn enum_to_id(tool: impl serde::Serialize, pref: &str) -> anyhow::Result<String> {
+    if let Ok(s) = serde_json::ser::to_string(&tool) {
+        Ok(format!("{pref}{}", s.to_lowercase().replace('"', "")))
+    } else {
+        Err(anyhow::anyhow!("Serialisation error."))
+    }
+}
+
+pub fn set_active_draw_tool(tool: impl serde::Serialize) -> anyhow::Result<()> {
+    const ID_PREFIX: &str = "draw_radio_";
+    set_checked(&enum_to_id(tool, ID_PREFIX)?)
+}
+
 pub fn set_active_tool(tool: crate::viewport::Tool) -> anyhow::Result<()> {
     // Note: this needs to match web/include/scene/menu/tools/tools_menu.html
     const ID_PREFIX: &str = "tool_radio_";
-    if let Ok(s) = serde_json::ser::to_string(&tool) {
-        let id = format!("{ID_PREFIX}{}", s.to_lowercase().replace('"', ""));
-        if let Some(element) = get_document()?.get_element_by_id(&id) {
-            element
-                .unchecked_ref::<HtmlInputElement>()
-                .set_checked(true);
-        }
-    }
-
+    set_checked(&enum_to_id(tool, ID_PREFIX)?)?;
     set_visible("draw_menu", matches!(tool, crate::viewport::Tool::Draw))?;
     Ok(())
 }
