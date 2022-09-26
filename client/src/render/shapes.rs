@@ -102,7 +102,7 @@ fn add_line(
 
     let n = points.n();
 
-    if n == 0 {
+    if n < 2 {
         return;
     }
 
