@@ -1,4 +1,4 @@
-<div class="col pt-2">
+<div class="col pt-2" id="media_${key}">
   <div class="card">
     <img
       class="card-img-top"
@@ -10,15 +10,21 @@
     <div class="card-body">
       <p class="card-text text-truncate">${title}</p>
       <button
-        class="btn btn-primary"
+        class="btn btn-sm btn-primary"
         aria-roledescription="Add to scene"
       >Add {{ bootstrap_icon(plus-square) }}</button>
       <button
-        class="btn btn-primary"
+        class="btn btn-sm btn-primary"
         data-bs-toggle="modal"
         data-bs-target="#media_details_modal"
         aria-roledescription="Edit details"
       >Edit {{ bootstrap_icon(pencil-square) }}</button>
+      <button
+        class="btn btn-sm btn-danger"
+        type="button"
+        aria-roledescription="Delete media"
+        onclick="delete_media_item('${key}')"
+      >Delete {{ bootstrap_icon(trash3) }}</button>
     </div>
   </div>
 </div>

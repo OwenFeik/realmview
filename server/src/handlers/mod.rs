@@ -25,8 +25,8 @@ pub fn routes(
         .or(login::filter(pool.clone()))
         .or(register::filter(pool.clone()))
         .or(logout::filter(pool.clone()))
-        .or(upload::filter(pool.clone(), content_dir))
-        .or(media::filter(pool.clone()))
+        .or(upload::filter(pool.clone(), content_dir.clone()))
+        .or(media::filter(pool.clone(), content_dir))
         .or(project::filter(pool.clone()))
         .or(game::routes(pool.clone(), games, &content_path))
         .or(scene::routes(pool, &content_path))
@@ -106,6 +106,10 @@ pub async fn with_user(
     warp::header::header("Cookie")
         .map(move |s| (pool.clone(), s))
         .and_then(user_from_cookie)
+}
+
+pub fn with_string(string: String) -> impl Filter<Extract = (String,), Error = Infallible> + Clone {
+    warp::any().map(move || string.clone())
 }
 
 pub mod response {

@@ -11,7 +11,6 @@
     * Change cursor when hovering a sprite or anchor
     * Group sprites
 * Media
-    * Delete media items
     * Media library
         * Place media in directories
         * Multiselect media, apply action to all items

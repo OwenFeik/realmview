@@ -13,7 +13,7 @@ use crate::crypto::to_hex_string_unsized;
 use crate::models::{Media, User};
 
 use super::response::{as_result, Binary};
-use super::{with_db, with_session};
+use super::{with_db, with_session, with_string};
 
 #[derive(serde_derive::Serialize)]
 struct UploadResponse {
@@ -165,10 +165,6 @@ async fn upload(
     }
 
     Binary::result_failure("No image provided.")
-}
-
-fn with_string(string: String) -> impl Filter<Extract = (String,), Error = Infallible> + Clone {
-    warp::any().map(move || string.clone())
 }
 
 pub fn filter(

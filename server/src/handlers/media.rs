@@ -17,7 +17,7 @@ mod details {
     use sqlx::SqlitePool;
 
     use crate::handlers::response::{as_result, Binary, ResultReply};
-    use crate::handlers::{json_body, with_db, with_session};
+    use crate::handlers::{json_body, with_db, with_session, with_string};
     use crate::models::{Media, User};
 
     #[derive(serde_derive::Serialize)]
@@ -99,16 +99,60 @@ mod details {
     fn retrieve_filter(
         pool: SqlitePool,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        warp::path!("media" / "details" / String)
+        warp::path!("media" / String)
             .and(warp::get())
             .and(with_db(pool))
             .and_then(media_details)
     }
 
+    async fn media_delete(
+        key: String,
+        skey: String,
+        pool: SqlitePool,
+        content_dir: String,
+    ) -> ResultReply {
+        let user = match User::get_by_session(&pool, &skey).await {
+            Ok(Some(user)) => user,
+            _ => return Binary::result_failure("Invalid session."),
+        };
+
+        let media = match Media::load(&pool, &key).await {
+            Ok(record) => record,
+            _ => return Binary::result_failure("Media not found."),
+        };
+
+        if user.id == media.user {
+            if Media::delete(&pool, &key).await.is_ok() {
+                tokio::fs::remove_file(format!("{}/{}", content_dir, media.relative_path))
+                    .await
+                    .ok();
+            } else {
+                return Binary::result_failure("Media not found.");
+            }
+        }
+
+        Binary::result_success("Media deleted successfully.")
+    }
+
+    fn delete_filter(
+        pool: SqlitePool,
+        content_dir: String,
+    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+        warp::path!("media" / String)
+            .and(warp::delete())
+            .and(with_session())
+            .and(with_db(pool))
+            .and(with_string(content_dir))
+            .and_then(media_delete)
+    }
+
     pub fn filter(
         pool: SqlitePool,
+        content_dir: String,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        update_filter(pool.clone()).or(retrieve_filter(pool))
+        update_filter(pool.clone())
+            .or(retrieve_filter(pool.clone()))
+            .or(delete_filter(pool, content_dir))
     }
 }
 
@@ -174,6 +218,7 @@ mod list {
 
 pub fn filter(
     pool: SqlitePool,
+    content_dir: String,
 ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    list::filter(pool.clone()).or(details::filter(pool))
+    list::filter(pool.clone()).or(details::filter(pool, content_dir))
 }

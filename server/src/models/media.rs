@@ -42,6 +42,15 @@ impl Media {
             .map_err(|e| anyhow::anyhow!("Media item not found: {e}"))
     }
 
+    pub async fn delete(pool: &sqlx::SqlitePool, key: &str) -> anyhow::Result<()> {
+        sqlx::query("DELETE FROM media WHERE media_key = ?1;")
+            .bind(key)
+            .execute(pool)
+            .await
+            .map_err(|_| anyhow::anyhow!("Media item not found."))?;
+        Ok(())
+    }
+
     pub fn generate_key() -> anyhow::Result<String> {
         let key = random_hex_string(Media::KEY_LENGTH)?;
 

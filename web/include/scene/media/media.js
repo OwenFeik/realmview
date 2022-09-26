@@ -10,6 +10,10 @@ class MediaManager {
         this.media = {};
     }
 
+    remove_media(media_key) {
+        this.media[media_key] = null;
+    }
+
     load_media_with_key(media_key, callback) {
         let image = this.media[media_key];
         if (image) {
@@ -22,7 +26,7 @@ class MediaManager {
         }
         else {
             get(
-                "/media/details/" + media_key,
+                "/media/" + media_key,
                 resp => {
                     if (!resp.success) {
                         return;
@@ -161,4 +165,16 @@ function view_media() {
     req.responseType = "json";
     req.open("GET", "/media/list");
     req.send();
+}
+
+function delete_media_item(key) {
+    modal_confirm(() => fetch(
+        "/media/" + key,
+        { method: "DELETE" }
+    ).then(resp => {
+        if (resp.ok) {
+            document.getElementById("media_" + key)?.remove();
+            media_manager.remove_media(key);
+        }
+    }));
 }
