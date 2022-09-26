@@ -279,7 +279,7 @@ impl Viewport {
             Key::Delete => self.scene.remove_sprite(Interactor::SELECTION_ID),
             Key::Escape => {
                 self.scene.clear_selection();
-                self.tool = Tool::Select;
+                self.set_tool_update_ui(Tool::Select);
             }
             Key::Plus | Key::Equals => self.zoom_in(),
             Key::Minus => self.zoom_out(),
@@ -380,8 +380,8 @@ impl Viewport {
 
     fn centre(&self) -> ViewportPoint {
         ViewportPoint {
-            x: (self.viewport.x + self.viewport.w / 2.0) * self.grid_zoom,
-            y: (self.viewport.y + self.viewport.h / 2.0) * self.grid_zoom,
+            x: (self.viewport.w / 2.0) * self.grid_zoom,
+            y: (self.viewport.h / 2.0) * self.grid_zoom,
         }
     }
 
