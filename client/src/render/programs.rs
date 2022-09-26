@@ -262,12 +262,7 @@ impl Mesh {
         program: &WebGlProgram,
         shape: SpriteShape,
     ) -> anyhow::Result<Self> {
-        match shape {
-            SpriteShape::Ellipse => Self::new(gl, program, &super::shapes::circle()),
-            SpriteShape::Hexagon => Self::new(gl, program, &super::shapes::ngon(6)),
-            SpriteShape::Rectangle => Self::new(gl, program, super::shapes::rectangle()),
-            SpriteShape::Triangle => Self::new(gl, program, &super::shapes::ngon(3)),
-        }
+        Self::new(gl, program, &super::shapes::shape(shape))
     }
 
     // Should be called after using a program.

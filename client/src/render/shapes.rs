@@ -2,8 +2,7 @@ use std::f32::consts::{PI, TAU};
 
 use scene::{Point, PointVector, Rect};
 
-const CIRCLE_EDGES: u32 = 32;
-const RECTANGLE: &[f32] = &[0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0];
+const CIRCLE_EDGES: u32 = 64;
 
 // Returns points for a regular polygon with n edges.
 //
@@ -190,15 +189,40 @@ pub fn circle() -> Vec<f32> {
     ngon(CIRCLE_EDGES)
 }
 
-pub fn rectangle() -> &'static [f32] {
-    RECTANGLE
+pub fn rectangle() -> Vec<f32> {
+    const RECTANGLE: &[f32] = &[0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0];
+    RECTANGLE.to_owned()
+}
+
+fn hollow_rectangle(rect: Rect) -> Vec<f32> {
+    let mut dst = PointVector::new();
+
+    let tl = Point::ORIGIN;
+    let tls = tl + rect.top_left();
+    let tr = Point::new(rect.w, 0.0);
+    let trs = tr + Point::new(-rect.x, rect.y);
+    let bl = Point::new(0.0, rect.h);
+    let bls = bl + Point::new(rect.x, -rect.y);
+    let br = Point::new(rect.w, rect.h);
+    let brs = br - rect.top_left();
+
+    dst.add_tri(tl, tr, tls);
+    dst.add_tri(tls, tr, trs);
+    dst.add_tri(trs, br, tr);
+    dst.add_tri(trs, brs, br);
+    dst.add_tri(brs, br, bl);
+    dst.add_tri(bls, brs, bl);
+    dst.add_tri(bls, tls, bl);
+    dst.add_tri(bl, tls, tl);
+
+    dst.data
 }
 
 pub fn shape(shape: scene::SpriteShape) -> Vec<f32> {
     match shape {
         scene::SpriteShape::Ellipse => circle(),
         scene::SpriteShape::Hexagon => ngon(6),
-        scene::SpriteShape::Rectangle => rectangle().to_owned(),
+        scene::SpriteShape::Rectangle => rectangle(),
         scene::SpriteShape::Triangle => ngon(3),
     }
 }
@@ -207,7 +231,7 @@ pub fn hollow_shape(shape: scene::SpriteShape, rect: Rect) -> Vec<f32> {
     match shape {
         scene::SpriteShape::Ellipse => hollow_ngon(CIRCLE_EDGES, rect),
         scene::SpriteShape::Hexagon => hollow_ngon(6, rect),
-        scene::SpriteShape::Rectangle => rectangle().to_owned(),
+        scene::SpriteShape::Rectangle => hollow_rectangle(rect),
         scene::SpriteShape::Triangle => hollow_ngon(3, rect),
     }
 }
