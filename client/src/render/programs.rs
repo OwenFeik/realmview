@@ -376,13 +376,10 @@ impl SolidRenderer {
     }
 }
 
-/// Maps ID to (n_points, stroke, width, height, cap_start, cap_end)
-type DrawingKey = (u32, f32, f32, f32, u8, u8);
-
 struct DrawingRenderer {
     gl: Rc<Gl>,
     grid_size: f32,
-    drawings: HashMap<scene::Id, (DrawingKey, Mesh)>,
+    drawings: HashMap<scene::Id, (u128, Mesh)>,
     renderer: SolidRenderer,
 }
 
@@ -396,16 +393,45 @@ impl DrawingRenderer {
         })
     }
 
-    fn create_key(drawing: &scene::SpriteDrawing) -> DrawingKey {
+    fn create_key(drawing: &scene::SpriteDrawing) -> u128 {
+        // Key format is a u128 with the following structure:
+        //
+        // 32 bits for the rect width
+        // 32 bits for the rect height
+        // 32 bits for the stroke width
+        // 16 bits counting the number of points in the drawing (max 65536)
+        // 8 bits for the starting cap
+        // 8 bits for the ending cap
+        //
+        // Like so:
+        // 000000000000000000000000000WIDTH00000000000000000000000000HEIGHT
+        // 00000000000000000000000000STROKE00000000N_POINTS000START00000END
+        //
+        // Is this grotesquely overcomplicated? Yes.
+        let mut key = 0u128;
+
+        // First 96 bits are the literal bits of the three floats.
         let rect = drawing.points.rect();
-        (
-            drawing.n_points(),
-            drawing.stroke,
-            rect.w,
-            rect.h,
-            drawing.cap_start as u8,
-            drawing.cap_end as u8,
-        )
+        let mut keyf32 = unsafe {
+            |v: f32| {
+                key |= std::mem::transmute::<f32, u32>(v) as u128;
+                key <<= 32;
+            }
+        };
+        keyf32(rect.w); // 32
+        keyf32(rect.h); // 64
+        keyf32(drawing.stroke); // 96
+
+        // Last 32 bits. We've already shifted the first 96 across by 96.
+        let mut low = 0u32;
+        low |= drawing.n_points();
+        low <<= 24; // Assume n_points is smaller than 24 bits.
+        low |= drawing.cap_start as u32; // allow 4 bits
+        low <<= 4;
+        low |= drawing.cap_end as u32; // last 4 bits
+        key |= low as u128;
+
+        key
     }
 
     fn add_drawing(&mut self, id: scene::Id, drawing: &scene::SpriteDrawing) -> anyhow::Result<()> {
@@ -469,7 +495,7 @@ impl DrawingRenderer {
 pub struct HollowRenderer {
     gl: Rc<Gl>,
     grid_size: f32,
-    meshes: HashMap<scene::Id, (u32, f32, scene::Rect, Mesh)>, // { id: (n, stroke, rect, mesh) }
+    meshes: HashMap<scene::Id, (u32, f32, f32, f32, Mesh)>, // { id: (n, stroke, rect, mesh) }
     renderer: SolidRenderer,
 }
 
@@ -502,14 +528,14 @@ impl HollowRenderer {
         );
         let mut mesh = Mesh::new(&self.gl, &self.renderer.program, &points)?;
         mesh.set_transforms(false, true);
-        self.meshes.insert(id, (1, stroke, position, mesh));
+        self.meshes.insert(id, (1, stroke, position.w, position.h, mesh));
         Ok(())
     }
 
     fn get_mesh(&self, id: scene::Id, points: u32, stroke: f32, rect: Rect) -> Option<&Mesh> {
-        if let Some((n, s, r, mesh)) = self.meshes.get(&id) {
+        if let Some((n, s, w, h, mesh)) = self.meshes.get(&id) {
             // If n is different, drawing has changed, we don't have it
-            if points == *n && stroke == *s && rect == *r {
+            if points == *n && stroke == *s && rect.w == *w && rect.h == *h {
                 return Some(mesh);
             }
         }
