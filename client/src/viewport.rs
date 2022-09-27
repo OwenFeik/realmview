@@ -102,18 +102,22 @@ impl Viewport {
         Ok(vp)
     }
 
-    fn set_cursor(&self, cursor: Cursor) {
-        self.context.set_cursor(cursor);
-    }
+    fn update_cursor(&self) {
+        let cursor = if self.grabbed_at.is_some() {
+            Cursor::Grabbing
+        } else {
+            self.scene.cursor().override_default(self.tool.cursor())
+        };
 
-    fn clear_cursor(&self) {
-        self.context.set_cursor(self.tool.cursor());
+        crate::bridge::flog!("{cursor:?}");
+
+        self.context.set_cursor(cursor);
     }
 
     pub fn set_tool(&mut self, tool: Tool) {
         crate::bridge::set_active_tool(tool).ok();
         self.tool = tool;
-        self.clear_cursor();
+        self.update_cursor();
     }
 
     fn set_draw_tool(&mut self, draw_tool: DrawTool) {
@@ -159,10 +163,10 @@ impl Viewport {
     }
 
     fn grab(&mut self, at: ViewportPoint) {
-        self.set_cursor(Cursor::Grabbing);
         if self.grabbed_at.is_none() {
             self.grabbed_at = Some(at);
         }
+        self.update_cursor();
     }
 
     fn handle_mouse_down(&mut self, at: ViewportPoint, button: MouseButton, ctrl: bool) {
@@ -184,8 +188,8 @@ impl Viewport {
     }
 
     fn release_grab(&mut self) {
-        self.clear_cursor();
         self.grabbed_at = None;
+        self.update_cursor();
     }
 
     fn handle_mouse_up(&mut self, button: MouseButton, alt: bool, ctrl: bool) {
@@ -368,6 +372,8 @@ impl Viewport {
             self.context
                 .draw_outline(vp, Rect::scaled_from(rect, self.grid_zoom));
         }
+
+        self.update_cursor();
     }
 
     pub fn animation_frame(&mut self) {

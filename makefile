@@ -3,7 +3,7 @@ build := ${root}/build
 target := ${build}/target
 content := ${build}/content
 cargo := CARGO_TARGET_DIR=${target} RUST_BACKTRACE=1 cargo
-py := python3
+py := python3.9
 
 serve: server content
 	echo "Serving at http://localhost:3030/"

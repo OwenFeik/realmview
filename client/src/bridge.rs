@@ -823,6 +823,15 @@ impl Cursor {
             .set_property("cursor", &self.css())
             .map_err(|e| anyhow::anyhow!("Error: {e:?}"))
     }
+
+    #[must_use]
+    pub fn override_default(self, other: Self) -> Self {
+        if matches!(self, Self::Default) {
+            other
+        } else {
+            self
+        }
+    }
 }
 
 fn create_context(element: &HtmlCanvasElement) -> anyhow::Result<Gl> {

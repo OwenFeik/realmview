@@ -11,7 +11,7 @@ use scene::{
     SpriteVisual,
 };
 
-use crate::client::Client;
+use crate::{bridge::Cursor, client::Client};
 
 pub struct Changes {
     // A change to a layer locked status, title, visibility, etc that will
@@ -405,6 +405,21 @@ impl HeldObject {
         Self::grab_sprite_anchor(sprite, at)
             .unwrap_or_else(|| Self::Sprite(sprite.id, at - sprite.rect.top_left(), sprite.rect))
     }
+
+    fn cursor(&self) -> Cursor {
+        match self {
+            Self::Anchor(_, dx, dy, _) => match (dx, dy) {
+                (-1, -1) | (1, 1) => Cursor::NwseResize,
+                (-1, 1) | (1, -1) => Cursor::NeswResize,
+                (0, -1) | (0, 1) => Cursor::NsResize,
+                (-1, 0) | (1, 0) => Cursor::EwResize,
+                _ => Cursor::Move,
+            },
+            Self::Drawing(..) => Cursor::Crosshair,
+            Self::Marquee(..) | Self::None => Cursor::Default,
+            Self::Selection(..) | Self::Sprite(..) => Cursor::Move,
+        }
+    }
 }
 
 pub struct Interactor {
@@ -453,6 +468,10 @@ impl Interactor {
                 self.changes.sprite_change();
             }
         }
+    }
+
+    pub fn cursor(&self) -> Cursor {
+        self.holding.cursor()
     }
 
     fn approve_event(&mut self, id: Id) {
