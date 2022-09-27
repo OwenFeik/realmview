@@ -127,11 +127,11 @@ impl Viewport {
             DrawTool::Freehand => {
                 deets.drawing_type = Some(scene::SpriteDrawingType::Freehand);
                 deets.cap_end = Some(scene::SpriteCap::Round);
-            },
+            }
             DrawTool::Line => {
                 deets.drawing_type = Some(scene::SpriteDrawingType::Line);
                 deets.cap_end = Some(scene::SpriteCap::Arrow);
-            },
+            }
             DrawTool::Rectangle => deets.shape = Some(scene::SpriteShape::Rectangle),
         }
 
@@ -312,7 +312,7 @@ impl Viewport {
             Key::A => {
                 self.scene.select_all();
                 self.set_tool(Tool::Select);
-            },
+            }
             Key::C => self.set_draw_tool(DrawTool::Ellipse),
             Key::D => self.scene.clear_selection(),
             Key::F => self.set_draw_tool(DrawTool::Freehand),

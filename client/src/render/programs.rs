@@ -376,21 +376,36 @@ impl SolidRenderer {
     }
 }
 
-pub struct MeshRenderer {
+/// Maps ID to (n_points, stroke, width, height, cap_start, cap_end)
+type DrawingKey = (u32, f32, f32, f32, u8, u8);
+
+struct DrawingRenderer {
     gl: Rc<Gl>,
     grid_size: f32,
-    meshes: HashMap<scene::Id, (u32, f32, scene::Rect, Mesh)>, // { id: (n, stroke, rect, mesh) }
+    drawings: HashMap<scene::Id, (DrawingKey, Mesh)>,
     renderer: SolidRenderer,
 }
 
-impl MeshRenderer {
+impl DrawingRenderer {
     pub fn new(gl: Rc<Gl>) -> anyhow::Result<Self> {
         Ok(Self {
             gl: gl.clone(),
             grid_size: 0.0,
-            meshes: HashMap::new(),
+            drawings: HashMap::new(),
             renderer: SolidRenderer::new(gl)?,
         })
+    }
+
+    fn create_key(drawing: &scene::SpriteDrawing) -> DrawingKey {
+        let rect = drawing.points.rect();
+        (
+            drawing.n_points(),
+            drawing.stroke,
+            rect.w,
+            rect.h,
+            drawing.cap_start as u8,
+            drawing.cap_end as u8,
+        )
     }
 
     fn add_drawing(&mut self, id: scene::Id, drawing: &scene::SpriteDrawing) -> anyhow::Result<()> {
@@ -413,16 +428,59 @@ impl MeshRenderer {
 
         let mut mesh = Mesh::new(&self.gl, &self.renderer.program, &points)?;
         mesh.set_transforms(false, true);
-        self.meshes.insert(
-            id,
-            (
-                drawing.n_points(),
-                drawing.stroke,
-                drawing.points.rect(),
-                mesh,
-            ),
-        );
+        self.drawings.insert(id, (Self::create_key(drawing), mesh));
         Ok(())
+    }
+
+    fn get_drawing(&self, id: scene::Id, drawing: &scene::SpriteDrawing) -> Option<&Mesh> {
+        if let Some((key, mesh)) = self.drawings.get(&id) {
+            if Self::create_key(drawing) == *key {
+                return Some(mesh);
+            }
+        }
+        None
+    }
+
+    fn update_grid_size(&mut self, grid_size: f32) {
+        if self.grid_size != grid_size {
+            self.grid_size = grid_size;
+            self.drawings.clear();
+        }
+    }
+
+    pub fn draw_drawing(
+        &mut self,
+        id: scene::Id,
+        drawing: &scene::SpriteDrawing,
+        viewport: Rect,
+        position: Rect,
+        grid_size: f32,
+    ) {
+        self.update_grid_size(grid_size);
+        if let Some(shape) = self.get_drawing(id, drawing) {
+            self.renderer
+                .draw(shape, drawing.colour, viewport, position);
+        } else if self.add_drawing(id, drawing).is_ok() {
+            self.draw_drawing(id, drawing, viewport, position, grid_size);
+        }
+    }
+}
+
+pub struct HollowRenderer {
+    gl: Rc<Gl>,
+    grid_size: f32,
+    meshes: HashMap<scene::Id, (u32, f32, scene::Rect, Mesh)>, // { id: (n, stroke, rect, mesh) }
+    renderer: SolidRenderer,
+}
+
+impl HollowRenderer {
+    pub fn new(gl: Rc<Gl>) -> anyhow::Result<Self> {
+        Ok(Self {
+            gl: gl.clone(),
+            grid_size: 0.0,
+            meshes: HashMap::new(),
+            renderer: SolidRenderer::new(gl)?,
+        })
     }
 
     fn add_shape(
@@ -481,28 +539,6 @@ impl MeshRenderer {
             self.renderer.draw_unscaled(shape, colour, viewport, pos);
         } else if self.add_shape(id, shape, stroke, viewport, pos).is_ok() {
             self.draw_shape(id, shape, colour, stroke, viewport, pos, grid_size);
-        }
-    }
-
-    pub fn draw_drawing(
-        &mut self,
-        id: scene::Id,
-        drawing: &scene::SpriteDrawing,
-        viewport: Rect,
-        position: Rect,
-        grid_size: f32,
-    ) {
-        self.update_grid_size(grid_size);
-        if let Some(shape) = self.get_mesh(
-            id,
-            drawing.n_points(),
-            drawing.stroke,
-            drawing.points.rect(),
-        ) {
-            self.renderer
-                .draw(shape, drawing.colour, viewport, position);
-        } else if self.add_drawing(id, drawing).is_ok() {
-            self.draw_drawing(id, drawing, viewport, position, grid_size);
         }
     }
 }
@@ -785,7 +821,8 @@ pub struct SpriteRenderer {
     texture_library: TextureManager,
     solid_renderer: SolidRenderer,
     texture_renderer: TextureRenderer,
-    drawing_renderer: MeshRenderer,
+    hollow_renderer: HollowRenderer,
+    drawing_renderer: DrawingRenderer,
 }
 
 impl SpriteRenderer {
@@ -794,7 +831,8 @@ impl SpriteRenderer {
             texture_library: TextureManager::new(gl.clone())?,
             solid_renderer: SolidRenderer::new(gl.clone())?,
             texture_renderer: TextureRenderer::new(gl.clone())?,
-            drawing_renderer: MeshRenderer::new(gl)?,
+            hollow_renderer: HollowRenderer::new(gl.clone())?,
+            drawing_renderer: DrawingRenderer::new(gl)?,
         })
     }
 
@@ -815,7 +853,7 @@ impl SpriteRenderer {
                     self.solid_renderer
                         .draw_shape(*shape, *colour, viewport, position)
                 } else {
-                    self.drawing_renderer.draw_shape(
+                    self.hollow_renderer.draw_shape(
                         sprite.id, *shape, *colour, *stroke, viewport, position, grid_size,
                     );
                 }
