@@ -439,7 +439,9 @@ pub struct Interactor {
 }
 
 impl Interactor {
-    pub const SELECTION_ID: Id = -1;
+    /// This special ID will not belong to any sprite, and will instead be used
+    /// to refer to all currently selected sprites.
+    const SELECTION_ID: Id = -1;
 
     pub fn new(client: Option<Client>) -> Self {
         let scene = Scene::new();
@@ -731,6 +733,13 @@ impl Interactor {
     fn select_multiple(&mut self, ids: &mut Vec<Id>) {
         let mut ids = ids.drain_filter(|&mut id| !self.is_selected(id)).collect();
         self.selected_sprites.append(&mut ids);
+    }
+
+    pub fn select_all(&mut self) {
+        if let Some(l) = self.scene.layer(self.selected_layer) {
+            self.selected_sprites = l.sprites.iter().map(|s| s.id).collect();
+            self.changes.sprite_selected_change();
+        }
     }
 
     /// Apply a closure to each selected sprite, issuing the resulting vector
@@ -1158,6 +1167,10 @@ impl Interactor {
             let opt = self.scene.remove_sprite(sprite);
             self.scene_option(opt);
         }
+    }
+
+    pub fn remove_selection(&mut self) {
+        self.remove_sprite(Self::SELECTION_ID);
     }
 
     pub fn sprite_layer(&mut self, sprite: Id, layer: Id) {

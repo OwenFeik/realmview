@@ -109,8 +109,6 @@ impl Viewport {
             self.scene.cursor().override_default(self.tool.cursor())
         };
 
-        crate::bridge::flog!("{cursor:?}");
-
         self.context.set_cursor(cursor);
     }
 
@@ -126,8 +124,14 @@ impl Viewport {
         let mut deets: crate::interactor::SpriteDetails = Default::default();
         match draw_tool {
             DrawTool::Ellipse => deets.shape = Some(scene::SpriteShape::Ellipse),
-            DrawTool::Freehand => deets.drawing_type = Some(scene::SpriteDrawingType::Freehand),
-            DrawTool::Line => deets.drawing_type = Some(scene::SpriteDrawingType::Line),
+            DrawTool::Freehand => {
+                deets.drawing_type = Some(scene::SpriteDrawingType::Freehand);
+                deets.cap_end = Some(scene::SpriteCap::Round);
+            },
+            DrawTool::Line => {
+                deets.drawing_type = Some(scene::SpriteDrawingType::Line);
+                deets.cap_end = Some(scene::SpriteCap::Arrow);
+            },
             DrawTool::Rectangle => deets.shape = Some(scene::SpriteShape::Rectangle),
         }
 
@@ -297,14 +301,18 @@ impl Viewport {
         }
 
         match key {
-            Key::Delete => self.scene.remove_sprite(Interactor::SELECTION_ID),
+            Key::Delete => self.scene.remove_selection(),
             Key::Escape => {
                 self.scene.clear_selection();
                 self.set_tool(Tool::Select);
             }
             Key::Plus | Key::Equals => self.zoom_in(),
-            Key::Minus => self.zoom_out(),
+            Key::Minus | Key::Underscore => self.zoom_out(),
             Key::Space => self.set_tool(Tool::Pan),
+            Key::A => {
+                self.scene.select_all();
+                self.set_tool(Tool::Select);
+            },
             Key::C => self.set_draw_tool(DrawTool::Ellipse),
             Key::D => self.scene.clear_selection(),
             Key::F => self.set_draw_tool(DrawTool::Freehand),
