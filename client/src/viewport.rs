@@ -1,7 +1,7 @@
 use crate::{
     bridge::{
         clear_selected_sprite, set_scene_details, set_selected_sprite, sprite_dropdown,
-        update_layers_list, Context, Input, Key, KeyboardAction, MouseAction, MouseButton,
+        update_layers_list, Context, Cursor, Input, Key, KeyboardAction, MouseAction, MouseButton,
     },
     client::Client,
     interactor::Interactor,
@@ -13,6 +13,16 @@ pub enum Tool {
     Draw,
     Pan,
     Select,
+}
+
+impl Tool {
+    fn cursor(&self) -> Cursor {
+        match self {
+            Tool::Draw => Cursor::Crosshair,
+            Tool::Pan => Cursor::Grab,
+            Tool::Select => Cursor::Default,
+        }
+    }
 }
 
 #[derive(serde_derive::Serialize)]
@@ -92,17 +102,22 @@ impl Viewport {
         Ok(vp)
     }
 
+    fn set_cursor(&self, cursor: Cursor) {
+        self.context.set_cursor(cursor);
+    }
+
+    fn clear_cursor(&self) {
+        self.context.set_cursor(self.tool.cursor());
+    }
+
     pub fn set_tool(&mut self, tool: Tool) {
-        self.tool = tool;
-    }
-
-    fn set_tool_update_ui(&mut self, tool: Tool) {
-        self.set_tool(tool);
         crate::bridge::set_active_tool(tool).ok();
+        self.tool = tool;
+        self.clear_cursor();
     }
 
-    fn set_draw_tool_update_ui(&mut self, draw_tool: DrawTool) {
-        self.set_tool_update_ui(Tool::Draw);
+    fn set_draw_tool(&mut self, draw_tool: DrawTool) {
+        self.set_tool(Tool::Draw);
 
         let mut deets: crate::interactor::SpriteDetails = Default::default();
         match draw_tool {
@@ -144,6 +159,7 @@ impl Viewport {
     }
 
     fn grab(&mut self, at: ViewportPoint) {
+        self.set_cursor(Cursor::Grabbing);
         if self.grabbed_at.is_none() {
             self.grabbed_at = Some(at);
         }
@@ -168,6 +184,7 @@ impl Viewport {
     }
 
     fn release_grab(&mut self) {
+        self.clear_cursor();
         self.grabbed_at = None;
     }
 
@@ -279,17 +296,17 @@ impl Viewport {
             Key::Delete => self.scene.remove_sprite(Interactor::SELECTION_ID),
             Key::Escape => {
                 self.scene.clear_selection();
-                self.set_tool_update_ui(Tool::Select);
+                self.set_tool(Tool::Select);
             }
             Key::Plus | Key::Equals => self.zoom_in(),
             Key::Minus => self.zoom_out(),
-            Key::C => self.set_draw_tool_update_ui(DrawTool::Ellipse),
+            Key::Space => self.set_tool(Tool::Pan),
+            Key::C => self.set_draw_tool(DrawTool::Ellipse),
             Key::D => self.scene.clear_selection(),
-            Key::F => self.set_draw_tool_update_ui(DrawTool::Freehand),
-            Key::L => self.set_draw_tool_update_ui(DrawTool::Line),
-            Key::P => self.set_tool_update_ui(Tool::Pan),
-            Key::Q => self.set_tool_update_ui(Tool::Select),
-            Key::R => self.set_draw_tool_update_ui(DrawTool::Rectangle),
+            Key::F => self.set_draw_tool(DrawTool::Freehand),
+            Key::L => self.set_draw_tool(DrawTool::Line),
+            Key::Q => self.set_tool(Tool::Select),
+            Key::R => self.set_draw_tool(DrawTool::Rectangle),
             Key::Y => self.scene.redo(),
             Key::Z => self.scene.undo(),
             _ => {}

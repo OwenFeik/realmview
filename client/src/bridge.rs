@@ -420,6 +420,7 @@ pub enum Key {
     Plus,
     Right,
     Shift,
+    Space,
     Up,
     A,
     B,
@@ -466,6 +467,7 @@ impl Key {
             "-" => Self::Minus,
             "=" => Self::Equals,
             "+" => Self::Plus,
+            " " => Self::Space,
             "a" => Self::A,
             "b" => Self::B,
             "c" => Self::C,
@@ -698,6 +700,10 @@ impl Context {
     pub fn draw_outline(&mut self, vp: Rect, outline: Rect) {
         self.renderer.draw_outline(vp, outline);
     }
+
+    pub fn set_cursor(&self, cursor: Cursor) {
+        cursor.set_for(&self.canvas.element).ok();
+    }
 }
 
 pub fn set_selected_sprite(sprite: SpriteDetails) {
@@ -746,6 +752,77 @@ fn layer_info(layers: &[Layer]) -> Array {
 
 pub fn update_layers_list(layers: &[Layer]) {
     _update_layers_list(layer_info(layers), layers.get(0).map(|l| l.id).unwrap_or(0));
+}
+
+#[derive(Debug)]
+pub enum Cursor {
+    // General
+    Auto,
+    Default,
+    None,
+    // Links and status
+    ContextMenu,
+    Help,
+    Pointer,
+    Progress,
+    Wait,
+    // Selection
+    Cell,
+    Crosshair,
+    Text,
+    VerticalText,
+    // Drag and drop
+    Alias,
+    Copy,
+    Move,
+    NoDrop,
+    NotAllowed,
+    Grab,
+    Grabbing,
+    // Resizing and scrolling
+    AltScroll,
+    ColResize,
+    RowResize,
+    NResize,
+    EResize,
+    SResize,
+    WResize,
+    NeResize,
+    NwResize,
+    SeResize,
+    SwResize,
+    EwResize,
+    NsResize,
+    NeswResize,
+    NwseResize,
+    // Zooming
+    ZoomIn,
+    ZoomOut,
+}
+
+impl Cursor {
+    /// Returns the css string for this cursor.
+    fn css(&self) -> String {
+        let mut css = String::new();
+        for c in format!("{self:?}").chars() {
+            if c.is_uppercase() {
+                if !css.is_empty() {
+                    css.push('-');
+                }
+                css.push(c.to_ascii_lowercase());
+            } else {
+                css.push(c);
+            }
+        }
+        css
+    }
+
+    fn set_for(&self, element: &HtmlElement) -> anyhow::Result<()> {
+        element
+            .style()
+            .set_property("cursor", &self.css())
+            .map_err(|e| anyhow::anyhow!("Error: {e:?}"))
+    }
 }
 
 fn create_context(element: &HtmlCanvasElement) -> anyhow::Result<Gl> {
