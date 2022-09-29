@@ -412,11 +412,9 @@ impl DrawingRenderer {
 
         // First 96 bits are the literal bits of the three floats.
         let rect = drawing.points.rect();
-        let mut keyf32 = unsafe {
-            |v: f32| {
-                key |= std::mem::transmute::<f32, u32>(v) as u128;
-                key <<= 32;
-            }
+        let mut keyf32 = |v: f32| {
+            key |= v.to_bits() as u128;
+            key <<= 32;
         };
         keyf32(rect.w); // 32
         keyf32(rect.h); // 64
@@ -528,7 +526,8 @@ impl HollowRenderer {
         );
         let mut mesh = Mesh::new(&self.gl, &self.renderer.program, &points)?;
         mesh.set_transforms(false, true);
-        self.meshes.insert(id, (1, stroke, position.w, position.h, mesh));
+        self.meshes
+            .insert(id, (1, stroke, position.w, position.h, mesh));
         Ok(())
     }
 

@@ -102,11 +102,15 @@ impl Viewport {
         Ok(vp)
     }
 
-    fn update_cursor(&self) {
+    fn update_cursor(&self, new: Option<Cursor>) {
         let cursor = if self.grabbed_at.is_some() {
             Cursor::Grabbing
         } else {
-            self.scene.cursor().override_default(self.tool.cursor())
+            self.scene.cursor().override_default(
+                self.tool
+                    .cursor()
+                    .override_default(new.unwrap_or(Cursor::Default)),
+            )
         };
 
         self.context.set_cursor(cursor);
@@ -115,7 +119,7 @@ impl Viewport {
     pub fn set_tool(&mut self, tool: Tool) {
         crate::bridge::set_active_tool(tool).ok();
         self.tool = tool;
-        self.update_cursor();
+        self.update_cursor(None);
     }
 
     fn set_draw_tool(&mut self, draw_tool: DrawTool) {
@@ -170,7 +174,7 @@ impl Viewport {
         if self.grabbed_at.is_none() {
             self.grabbed_at = Some(at);
         }
-        self.update_cursor();
+        self.update_cursor(Some(Cursor::Grabbing));
     }
 
     fn handle_mouse_down(&mut self, at: ViewportPoint, button: MouseButton, ctrl: bool) {
@@ -193,7 +197,7 @@ impl Viewport {
 
     fn release_grab(&mut self) {
         self.grabbed_at = None;
-        self.update_cursor();
+        self.update_cursor(None);
     }
 
     fn handle_mouse_up(&mut self, button: MouseButton, alt: bool, ctrl: bool) {
@@ -210,15 +214,17 @@ impl Viewport {
         };
     }
 
-    fn handle_mouse_move(&mut self, at: ViewportPoint) {
-        self.scene
-            .drag(at.scene_point(self.viewport, self.grid_zoom));
+    fn handle_mouse_move(&mut self, at: ViewportPoint, ctrl: bool) {
+        let scene_point = self.scene_point(at);
+        self.scene.drag(scene_point);
         if let Some(from) = self.grabbed_at {
             self.viewport.x += (from.x - at.x) / self.grid_zoom;
             self.viewport.y += (from.y - at.y) / self.grid_zoom;
             self.grabbed_at = Some(at);
             self.redraw_needed = true;
         }
+
+        self.update_cursor(Some(self.scene.cursor_at(scene_point, ctrl)));
     }
 
     fn zoom(&mut self, delta: f32, at: Option<ViewportPoint>) {
@@ -339,7 +345,7 @@ impl Viewport {
                 Input::Mouse(_, MouseAction::Leave, button) => {
                     self.handle_mouse_up(button, event.alt, event.ctrl)
                 }
-                Input::Mouse(at, MouseAction::Move, _) => self.handle_mouse_move(at),
+                Input::Mouse(at, MouseAction::Move, _) => self.handle_mouse_move(at, event.ctrl),
                 Input::Mouse(_, MouseAction::Up, button) => {
                     self.handle_mouse_up(button, event.alt, event.ctrl)
                 }
@@ -380,8 +386,6 @@ impl Viewport {
             self.context
                 .draw_outline(vp, Rect::scaled_from(rect, self.grid_zoom));
         }
-
-        self.update_cursor();
     }
 
     pub fn animation_frame(&mut self) {

@@ -355,6 +355,13 @@ impl HeldObject {
     // sprite can be dragged.
     const ANCHOR_RADIUS: f32 = 0.2;
 
+    fn held_id(&self) -> Option<Id> {
+        match self {
+            Self::Anchor(id, ..) | Self::Drawing(id, ..) | Self::Sprite(id, ..) => Some(*id),
+            _ => None,
+        }
+    }
+
     fn is_none(&self) -> bool {
         matches!(self, HeldObject::None)
     }
@@ -474,6 +481,17 @@ impl Interactor {
 
     pub fn cursor(&self) -> Cursor {
         self.holding.cursor()
+    }
+
+    pub fn cursor_at(&self, at: Point, ctrl: bool) -> Cursor {
+        if matches!(self.holding, HeldObject::None) {
+            match self.grab_at(at, ctrl).0 {
+                HeldObject::Sprite(..) => Cursor::Pointer,
+                h => h.cursor(),
+            }
+        } else {
+            self.cursor()
+        }
     }
 
     fn approve_event(&mut self, id: Id) {
@@ -757,7 +775,7 @@ impl Interactor {
         }
     }
 
-    fn grab_selection(&mut self, at: Point) -> HeldObject {
+    fn grab_selection(&self, at: Point) -> HeldObject {
         if self.single_selected() {
             if let Some(s) = self.sprite_ref(self.selected_sprites[0]) {
                 return HeldObject::grab_sprite(s, at);
@@ -766,20 +784,34 @@ impl Interactor {
         HeldObject::Selection(at)
     }
 
-    pub fn grab(&mut self, at: Point, ctrl: bool) {
-        self.holding = match self.scene.sprite_at(at) {
-            Some(s) => {
-                let id = s.id;
-                if !self.is_selected(id) {
-                    if !ctrl {
-                        self.clear_selection();
-                    }
-                    self.select(id);
-                }
-                self.grab_selection(at)
+    /// Attempt to grab whatever lies at the cursor (`at`), if `add` is `true`
+    /// adding to selection, else clearing selection and adding newly selected
+    /// sprite. Returns a `HeldObject` which should be held after this click
+    /// and an ID option which contains the newly selected sprite, if any.
+    fn grab_at(&self, at: Point, add: bool) -> (HeldObject, Option<Id>) {
+        if let Some(s) = self.scene.sprite_at_ref(at) {
+            if self.has_selection() && add {
+                (HeldObject::Selection(at), Some(s.id))
+            } else {
+                (HeldObject::grab_sprite(s, at), Some(s.id))
             }
-            None => HeldObject::Marquee(at),
-        };
+        } else {
+            (HeldObject::Marquee(at), None)
+        }
+    }
+
+    pub fn grab(&mut self, at: Point, ctrl: bool) {
+        let (held, new) = self.grab_at(at, ctrl);
+        self.holding = held;
+
+        if let Some(id) = new {
+            if !self.is_selected(id) {
+                if !ctrl {
+                    self.clear_selection();
+                }
+                self.select(id);
+            }
+        }
 
         if self.holding.is_sprite() {
             self.start_move_group();
