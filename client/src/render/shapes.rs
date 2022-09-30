@@ -1,6 +1,6 @@
 use std::f32::consts::{PI, TAU};
 
-use scene::{Point, PointVector, Rect};
+use crate::scene::{Point, PointVector, Rect};
 
 const CIRCLE_EDGES: u32 = 64;
 

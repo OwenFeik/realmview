@@ -1,6 +1,5 @@
-use warp::Filter;
-
 use sqlx::SqlitePool;
+use warp::Filter;
 
 #[derive(serde_derive::Serialize, sqlx::FromRow)]
 struct MediaItem {
@@ -12,9 +11,8 @@ struct MediaItem {
 }
 
 mod details {
-    use warp::Filter;
-
     use sqlx::SqlitePool;
+    use warp::Filter;
 
     use crate::handlers::response::{as_result, Binary, ResultReply};
     use crate::handlers::{json_body, with_db, with_session, with_string};
@@ -158,16 +156,16 @@ mod details {
 
 mod list {
     use core::convert::Infallible;
+
     use sqlx::SqlitePool;
     use warp::Filter;
 
+    use super::MediaItem;
     use crate::handlers::{
         response::{as_result, Binary},
         with_db, with_session,
     };
     use crate::models::User;
-
-    use super::MediaItem;
 
     #[derive(serde_derive::Serialize)]
     struct MediaListResponse {

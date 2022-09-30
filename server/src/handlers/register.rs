@@ -4,10 +4,9 @@ use serde_derive::{Deserialize, Serialize};
 use sqlx::{sqlite::SqlitePool, Sqlite};
 use warp::{http::StatusCode, Filter};
 
-use crate::crypto::{generate_salt, hash_password, to_hex_string, Key};
-
 use super::response::{as_result, Binary};
 use super::{current_time, json_body, with_db};
+use crate::crypto::{generate_salt, hash_password, to_hex_string, Key};
 
 #[derive(Deserialize)]
 struct RegistrationRequest {

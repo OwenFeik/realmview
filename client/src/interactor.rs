@@ -4,13 +4,13 @@ use std::{
 };
 
 use bincode::serialize;
-use scene::{
+
+use crate::scene::{
     comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent},
     perms::Perms,
     Colour, Dimension, Id, Layer, Point, Rect, Scene, Sprite, SpriteDrawing, SpriteShape,
     SpriteVisual,
 };
-
 use crate::{bridge::Cursor, client::Client};
 
 pub struct Changes {

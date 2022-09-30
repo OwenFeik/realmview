@@ -4,6 +4,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+pub use scene;
 use sqlx::sqlite::SqlitePool;
 use tokio::sync::RwLock;
 

@@ -1,4 +1,4 @@
-use scene::{
+use crate::scene::{
     comms::{PermsEvent, SceneEvent},
     perms::{self, Perms},
     Scene,

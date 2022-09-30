@@ -1,14 +1,15 @@
 use std::collections::HashMap;
 
 use bincode::serialize;
-use scene::Scene;
 use tokio::sync::{mpsc::UnboundedSender, RwLock};
 use warp::ws::Message;
 
-use scene::comms::{ClientEvent, ClientMessage, ServerEvent};
-
 use super::client::Client;
 use super::game::Game;
+use crate::scene::{
+    comms::{ClientEvent, ClientMessage, ServerEvent},
+    Scene,
+};
 
 pub struct Server {
     clients: HashMap<String, Client>,

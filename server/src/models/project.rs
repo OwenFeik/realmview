@@ -1,10 +1,9 @@
 use sqlx::SqliteConnection;
 
-use crate::crypto;
-
 use self::layer::LayerRecord;
 pub use self::scene_record::SceneRecord;
 use self::sprite::SpriteRecord;
+use crate::crypto;
 
 const RECORD_KEY_LENGTH: usize = 16;
 
@@ -131,9 +130,8 @@ mod scene_record {
     use anyhow::anyhow;
     use sqlx::{Row, SqliteConnection};
 
-    use crate::crypto;
-
     use super::{layer::LayerRecord, sprite::SpriteRecord, RECORD_KEY_LENGTH};
+    use crate::crypto;
 
     #[derive(sqlx::FromRow)]
     pub struct SceneRecord {

@@ -2,12 +2,11 @@ use serde_derive::Serialize;
 use sqlx::SqlitePool;
 use warp::{hyper::StatusCode, Filter};
 
-use crate::models::{Project, User};
-
 use super::{
     response::{as_result, Binary, ResultReply},
     with_db, with_session,
 };
+use crate::models::{Project, User};
 
 #[derive(Serialize)]
 struct SceneListEntry {

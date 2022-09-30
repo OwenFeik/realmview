@@ -7,9 +7,8 @@ use web_sys::{
     HtmlImageElement, WebGlBuffer, WebGlProgram, WebGlShader, WebGlTexture, WebGlUniformLocation,
 };
 
-use scene::{Point, Rect, SpriteShape};
-
 use crate::bridge::{log, Gl};
+use crate::scene::{Point, Rect, SpriteShape};
 
 type Colour = [f32; 4];
 

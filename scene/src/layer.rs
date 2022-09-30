@@ -1,8 +1,7 @@
 use serde_derive::{Deserialize, Serialize};
 
-use crate::{comms::SceneEvent, Rect};
-
 use super::{Id, Point, Sprite};
+use crate::{comms::SceneEvent, Rect};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Layer {

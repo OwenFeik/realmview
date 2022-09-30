@@ -2,10 +2,11 @@ use std::rc::Rc;
 
 use web_sys::{HtmlImageElement, WebGl2RenderingContext};
 
-use scene::{Rect, Sprite};
+use crate::scene::{Rect, Sprite};
 
 mod programs;
 mod shapes;
+
 pub struct Renderer {
     sprite_renderer: programs::SpriteRenderer,
 

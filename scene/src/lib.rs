@@ -1,7 +1,14 @@
 #![allow(dead_code)]
 #![feature(drain_filter)]
 
-use serde_derive::{Deserialize, Serialize};
+use comms::SceneEvent;
+pub use layer::Layer;
+pub use point::{Point, PointVector};
+pub use rect::{Dimension, Rect};
+pub use sprite::{
+    Cap as SpriteCap, Colour, Drawing as SpriteDrawing, DrawingType as SpriteDrawingType,
+    Shape as SpriteShape, Sprite, Visual as SpriteVisual,
+};
 
 pub mod comms;
 pub mod perms;
@@ -14,19 +21,9 @@ mod sprite;
 #[cfg(test)]
 mod tests;
 
-pub use layer::Layer;
-pub use point::{Point, PointVector};
-pub use rect::{Dimension, Rect};
-pub use sprite::{
-    Cap as SpriteCap, Colour, Drawing as SpriteDrawing, DrawingType as SpriteDrawingType,
-    Shape as SpriteShape, Sprite, Visual as SpriteVisual,
-};
-
-use comms::SceneEvent;
-
 pub type Id = i64;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, serde_derive::Serialize, serde_derive::Deserialize)]
 pub struct Scene {
     canon: bool,
     next_id: Id,

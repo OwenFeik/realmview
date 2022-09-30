@@ -1,3 +1,4 @@
+use crate::scene::{Point, Rect};
 use crate::{
     bridge::{
         clear_selected_sprite, set_scene_details, set_selected_sprite, sprite_dropdown,
@@ -6,7 +7,6 @@ use crate::{
     client::Client,
     interactor::Interactor,
 };
-use scene::{Point, Rect};
 
 #[derive(Clone, Copy, Debug, serde_derive::Deserialize, serde_derive::Serialize)]
 pub enum Tool {

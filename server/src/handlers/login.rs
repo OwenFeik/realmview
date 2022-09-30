@@ -5,11 +5,10 @@ use sqlx::sqlite::SqlitePool;
 use warp::hyper::StatusCode;
 use warp::Filter;
 
-use crate::crypto::{check_password, from_hex_string, generate_salt, to_hex_string};
-use crate::models::User;
-
 use super::response::{cookie_result, Binary};
 use super::{current_time, json_body, with_db};
+use crate::crypto::{check_password, from_hex_string, generate_salt, to_hex_string};
+use crate::models::User;
 
 #[derive(Deserialize)]
 struct LoginRequest {

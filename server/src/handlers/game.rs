@@ -165,12 +165,11 @@ mod new {
     use tokio::sync::RwLock;
     use warp::Filter;
 
+    use super::with_games;
     use crate::crypto::random_hex_string;
     use crate::games;
     use crate::handlers::{json_body, response::Binary, with_db, with_session};
     use crate::models::{SceneRecord, User};
-
-    use super::with_games;
 
     #[derive(Deserialize)]
     struct NewGameRequest {

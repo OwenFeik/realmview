@@ -7,9 +7,8 @@ use parking_lot::Mutex;
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{ErrorEvent, MessageEvent, WebSocket};
 
-use scene::comms::{ClientEvent, ClientMessage, ServerEvent};
-
 use crate::bridge::{flog, log, log_js_value, websocket_url};
+use crate::scene::comms::{ClientEvent, ClientMessage, ServerEvent};
 
 pub struct Client {
     ready: Rc<AtomicBool>,
