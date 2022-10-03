@@ -415,9 +415,21 @@ impl HeldObject {
 
     fn cursor(&self) -> Cursor {
         match self {
-            Self::Anchor(_, dx, dy, _) => match (dx, dy) {
-                (-1, -1) | (1, 1) => Cursor::NwseResize,
-                (-1, 1) | (1, -1) => Cursor::NeswResize,
+            Self::Anchor(_, dx, dy, Rect { w, h, .. }) => match (dx, dy) {
+                (-1, -1) | (1, 1) => {
+                    if w.signum() == h.signum() {
+                        Cursor::NwseResize
+                    } else {
+                        Cursor::NeswResize
+                    }
+                }
+                (-1, 1) | (1, -1) => {
+                    if w.signum() == h.signum() {
+                        Cursor::NeswResize
+                    } else {
+                        Cursor::NwseResize
+                    }
+                }
                 (0, -1) | (0, 1) => Cursor::NsResize,
                 (-1, 0) | (1, 0) => Cursor::EwResize,
                 _ => Cursor::Move,

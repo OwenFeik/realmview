@@ -6,7 +6,6 @@
     * Select from selected layer first (possibly)
     * Layer opacity
 * Sprites
-    * Resize cursors are in wrong direction for flipped sprites
     * When finishing a drawing, sprites sometimes jump a little
     * Use sprite menu to change texture
     * Group sprites
