@@ -802,11 +802,14 @@ impl Interactor {
     /// and an ID option which contains the newly selected sprite, if any.
     fn grab_at(&self, at: Point, add: bool) -> (HeldObject, Option<Id>) {
         if let Some(s) = self.scene.sprite_at_ref(at) {
-            if self.has_selection() && add {
-                (HeldObject::Selection(at), Some(s.id))
-            } else {
-                (HeldObject::grab_sprite(s, at), Some(s.id))
+            if self.has_selection() {
+                if self.selected_sprites.contains(&s.id) {
+                    return (HeldObject::Selection(at), None);
+                } else if add {
+                    return (HeldObject::Selection(at), Some(s.id));
+                }
             }
+            (HeldObject::grab_sprite(s, at), Some(s.id))
         } else {
             (HeldObject::Marquee(at), None)
         }
