@@ -398,13 +398,14 @@ impl DrawingRenderer {
         // 32 bits for the rect width
         // 32 bits for the rect height
         // 32 bits for the stroke width
-        // 16 bits counting the number of points in the drawing (max 65536)
-        // 8 bits for the starting cap
-        // 8 bits for the ending cap
+        // 23 bits counting the number of points in the drawing (max 65536)
+        // 4 bits for the starting cap
+        // 4 bits for the ending cap
+        // 1 bit for whether the drawing is finished
         //
         // Like so:
         // 000000000000000000000000000WIDTH00000000000000000000000000HEIGHT
-        // 00000000000000000000000000STROKE00000000N_POINTS000START00000END
+        // 00000000000000000000000000STROKE000000000000000N_POINTSSTRT0ENDF
         //
         // Is this grotesquely overcomplicated? Yes.
         let mut key = 0u128;
@@ -422,11 +423,12 @@ impl DrawingRenderer {
         // Last 32 bits. We've already shifted the first 96 across by 96.
         let mut low = 0u32;
         low |= drawing.n_points();
-        low <<= 24; // Assume n_points is smaller than 24 bits.
+        low <<= 23; // Assume n_points is smaller than 23 bits.
         low |= drawing.cap_start as u32; // allow 4 bits
         low <<= 4;
-        low |= drawing.cap_end as u32; // last 4 bits
+        low |= drawing.cap_end as u32; // 4 bits
         key |= low as u128;
+        key |= drawing.finished as u128; // final single bit
 
         key
     }
@@ -480,9 +482,8 @@ impl DrawingRenderer {
         grid_size: f32,
     ) {
         self.update_grid_size(grid_size);
-        if let Some(shape) = self.get_drawing(id, drawing) {
-            self.renderer
-                .draw(shape, drawing.colour, viewport, position);
+        if let Some(mesh) = self.get_drawing(id, drawing) {
+            self.renderer.draw(mesh, drawing.colour, viewport, position);
         } else if self.add_drawing(id, drawing).is_ok() {
             self.draw_drawing(id, drawing, viewport, position, grid_size);
         }

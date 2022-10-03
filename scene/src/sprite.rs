@@ -38,6 +38,7 @@ pub struct Drawing {
     pub stroke: f32,
     pub cap_start: Cap,
     pub cap_end: Cap,
+    pub finished: bool,
 }
 
 impl Drawing {
@@ -81,11 +82,17 @@ impl Drawing {
 
     /// Simplifies the drawing such that it's top-left-most point is the
     /// origin, returning it's from rect before the transformation.
-    fn simplify(&mut self, offset: f32) -> Rect {
+    fn simplify(&mut self) -> Rect {
         let rect = self.points.rect();
         let delta = rect.top_left();
-        self.points.translate(Point::same(offset) - delta);
+        if delta.non_zero() {
+            self.points.translate(-delta);
+        }
         rect
+    }
+
+    fn translate(&mut self, offset: f32) {
+        self.points.translate(Point::same(offset));
     }
 
     fn scale(&mut self, sx: f32, sy: f32) {
@@ -102,6 +109,7 @@ impl Default for Drawing {
             stroke: Sprite::DEFAULT_STROKE,
             cap_start: Cap::Round,
             cap_end: Cap::Round,
+            finished: false,
         }
     }
 }
@@ -410,11 +418,24 @@ impl Sprite {
 
     pub fn finish_drawing(&mut self) -> Option<SceneEvent> {
         if let Visual::Drawing(drawing) = &mut self.visual {
-            let pos = self.rect.top_left();
             let d = drawing.stroke;
-            self.rect = drawing.simplify(d).translate(pos - Point::same(d));
-            self.rect.w += 2.0 * d;
-            self.rect.h += 2.0 * d;
+
+            // Simplify dimensions so the top left is at (0, 0)
+            let r = drawing.simplify();
+
+            // Translate by stroke width to allow a border around drawing
+            drawing.points.translate(Point::same(d));
+
+            // Move the sprite to allow for the new position and border
+            self.rect.x += r.x - d;
+            self.rect.y += r.y - d;
+            self.rect.w = r.w + 2.0 * d;
+            self.rect.h = r.h + 2.0 * d;
+
+            // Mark the drawing as finished
+            drawing.finished = true;
+
+            // Emit event
             Some(SceneEvent::SpriteDrawingFinish(self.id))
         } else {
             None
@@ -467,7 +488,8 @@ mod test {
         drawing.add_point(Point::same(-1.0));
         drawing.add_point(Point::same(0.0));
         drawing.add_point(Point::same(2.0));
-        drawing.simplify(0.5);
+        drawing.simplify();
+        drawing.translate(0.5);
         assert_eq!(
             drawing.points,
             PointVector::from(vec![1.5, 1.5, 0.5, 0.5, 1.5, 1.5, 3.5, 3.5])

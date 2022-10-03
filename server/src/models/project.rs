@@ -509,6 +509,7 @@ mod sprite {
                     colour: [self.r?, self.g?, self.b?, self.a?],
                     cap_start: Self::u8_to_cap(self.cap_start?),
                     cap_end: Self::u8_to_cap(self.cap_end?),
+                    finished: true,
                 }))
             } else if let Some(key) = &self.media_key {
                 Some(scene::SpriteVisual::Texture {

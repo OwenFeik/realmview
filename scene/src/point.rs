@@ -45,6 +45,10 @@ impl Point {
         }
     }
 
+    pub fn non_zero(&self) -> bool {
+        self.x != 0.0 || self.y != 0.0
+    }
+
     #[must_use]
     pub fn round(&self) -> Self {
         Point {
@@ -199,6 +203,11 @@ impl PointVector {
         self.data.push(point.y);
     }
 
+    pub fn add_point(&mut self, x: f32, y: f32) {
+        self.data.push(x);
+        self.data.push(y);
+    }
+
     pub fn add_tri(&mut self, a: Point, b: Point, c: Point) {
         self.add(a);
         self.add(b);
@@ -233,5 +242,49 @@ impl PointVector {
 impl Default for PointVector {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::{Point, PointVector};
+    use crate::Rect;
+
+    #[test]
+    fn test_rect() {
+        let mut pv = PointVector::new();
+
+        //             / /\
+        //    /\      /  |
+        //  /   \    /   | Height: [1.0, -1.5] = 2.5
+        // -     \  /    |
+        //        \/    \/
+        //  <----------> Width: [-0.5, 5.5] = 6.0
+
+        pv.add_point(-0.5, 0.0);
+        pv.add(Point::ORIGIN);
+        pv.add_point(0.5, -0.5);
+        pv.add_point(1.0, -1.0);
+        pv.add_point(1.5, -0.5);
+        pv.add_point(2.0, 0.0);
+        pv.add_point(2.5, 0.5);
+        pv.add_point(3.0, 1.0);
+        pv.add_point(3.5, 0.5);
+        pv.add_point(4.0, 0.0);
+        pv.add_point(4.5, -0.5);
+        pv.add_point(5.0, -1.0);
+        pv.add_point(5.5, -1.5);
+
+        assert_eq!(pv.rect(), Rect::new(-0.5, -1.5, 6.0, 2.5));
+    }
+
+    #[test]
+    fn test_rect_negative() {
+        let mut pv = PointVector::new();
+
+        pv.add_point(-0.5, -0.5);
+        pv.add_point(-1.0, -1.0);
+
+        assert_eq!(pv.rect(), Rect::new(-1.0, -1.0, 0.5, 0.5));
     }
 }

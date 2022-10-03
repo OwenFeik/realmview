@@ -804,7 +804,11 @@ impl Interactor {
         if let Some(s) = self.scene.sprite_at_ref(at) {
             if self.has_selection() {
                 if self.selected_sprites.contains(&s.id) {
-                    return (HeldObject::Selection(at), None);
+                    return if self.single_selected() {
+                        (HeldObject::grab_sprite(s, at), None)
+                    } else {
+                        (HeldObject::Selection(at), None)
+                    };
                 } else if add {
                     return (HeldObject::Selection(at), Some(s.id));
                 }

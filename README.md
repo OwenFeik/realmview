@@ -8,7 +8,6 @@
 * Sprites
     * When dragging a sprite, if it isn't locked to the grid at the start, it
         shouldn't snap at the end
-    * When finishing a drawing, sprites sometimes jump a little
     * Use sprite menu to change texture
     * Group sprites
 * Media
