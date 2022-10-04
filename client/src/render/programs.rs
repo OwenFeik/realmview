@@ -411,7 +411,8 @@ impl DrawingRenderer {
         let mut key = 0u128;
 
         // First 96 bits are the literal bits of the three floats.
-        let rect = drawing.points.rect();
+        let rect = drawing.rect();
+        crate::bridge::flog!("{rect:?}");
         let mut keyf32 = |v: f32| {
             key |= v.to_bits() as u128;
             key <<= 32;
@@ -421,22 +422,18 @@ impl DrawingRenderer {
         keyf32(drawing.stroke); // 96
 
         // Last 32 bits. We've already shifted the first 96 across by 96.
-        let mut low = 0u32;
-        low |= drawing.n_points();
-        low <<= 23; // Assume n_points is smaller than 23 bits.
-        low |= drawing.cap_start as u32; // allow 4 bits
-        low <<= 4;
-        low |= drawing.cap_end as u32; // 4 bits
-        key |= low as u128;
-        key |= drawing.finished as u128; // final single bit
-
-        key
+        let mut low = drawing.n_points() << 9; // Bits 10 through 32.
+        low |= (drawing.cap_start as u32) << 5; // Bits 6 through 9.
+        low |= (drawing.cap_end as u32) << 1; // Bits 2 through 5.
+        low |= drawing.finished as u32; // final single bit
+        
+        key | low as u128
     }
 
     fn add_drawing(&mut self, id: scene::Id, drawing: &scene::SpriteDrawing) -> anyhow::Result<()> {
         let points = match drawing.drawing_type {
             scene::SpriteDrawingType::Freehand => super::shapes::freehand(
-                &drawing.points,
+                &drawing.points(),
                 drawing.stroke,
                 drawing.cap_start,
                 drawing.cap_end,

@@ -32,7 +32,8 @@ impl Cap {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Drawing {
-    pub points: PointVector,
+    points: PointVector,
+    scale: Point,
     pub drawing_type: DrawingType,
     pub colour: Colour,
     pub stroke: f32,
@@ -48,6 +49,12 @@ impl Drawing {
         Default::default()
     }
 
+    pub fn points(&self) -> PointVector {
+        let mut points = self.points.clone();
+        points.map(|p| p * self.scale);
+        points
+    }
+
     pub fn line(&self) -> (Point, Point) {
         let p = self.points.nth(1).unwrap_or(Point::ORIGIN);
         let q = self.points.last().unwrap_or(Point::ORIGIN);
@@ -56,6 +63,15 @@ impl Drawing {
 
     pub fn n_points(&self) -> u32 {
         self.points.n() as u32
+    }
+
+    pub fn rect(&self) -> Rect {
+        let mut rect = self.points.rect();
+        rect.x *= self.scale.x;
+        rect.y *= self.scale.y;
+        rect.w *= self.scale.x;
+        rect.h *= self.scale.y;
+        rect
     }
 
     fn keep_n_points(&mut self, n: u32) {
@@ -94,10 +110,6 @@ impl Drawing {
     fn translate(&mut self, offset: f32) {
         self.points.translate(Point::same(offset));
     }
-
-    fn scale(&mut self, sx: f32, sy: f32) {
-        self.points.map(|p| Point::new(p.x * sx, p.y * sy));
-    }
 }
 
 impl Default for Drawing {
@@ -110,6 +122,7 @@ impl Default for Drawing {
             cap_start: Cap::Round,
             cap_end: Cap::Round,
             finished: false,
+            scale: Point::same(1.0),
         }
     }
 }
@@ -218,10 +231,7 @@ impl Sprite {
     pub fn set_rect(&mut self, rect: Rect) -> SceneEvent {
         let from = self.rect;
         self.rect = rect;
-
-        if from.w != self.rect.w || from.h != self.rect.h {
-            self.scale_drawing(self.rect.w / from.w, self.rect.h / from.h);
-        }
+        self.scale_drawing();
 
         SceneEvent::SpriteMove(self.id, from, self.rect)
     }
@@ -416,6 +426,13 @@ impl Sprite {
         }
     }
 
+    fn scale_drawing(&mut self) {
+        if let Visual::Drawing(drawing) = &mut self.visual {
+            drawing.scale.x = self.rect.w - 2.0 * drawing.stroke;
+            drawing.scale.y = self.rect.h - 2.0 * drawing.stroke;
+        }
+    }
+
     pub fn finish_drawing(&mut self) -> Option<SceneEvent> {
         if let Visual::Drawing(drawing) = &mut self.visual {
             let d = drawing.stroke;
@@ -424,7 +441,7 @@ impl Sprite {
             let r = drawing.simplify();
 
             // Translate by stroke width to allow a border around drawing
-            drawing.points.translate(Point::same(d));
+            drawing.points.map(|p| p / Point::new(r.w, r.h) + Point::same(d));
 
             // Move the sprite to allow for the new position and border
             self.rect.x += r.x - d;
@@ -435,16 +452,12 @@ impl Sprite {
             // Mark the drawing as finished
             drawing.finished = true;
 
+            self.scale_drawing();
+
             // Emit event
             Some(SceneEvent::SpriteDrawingFinish(self.id))
         } else {
             None
-        }
-    }
-
-    fn scale_drawing(&mut self, scale_x: f32, scale_y: f32) {
-        if let Visual::Drawing(drawing) = &mut self.visual {
-            drawing.scale(scale_x, scale_y);
         }
     }
 }

@@ -304,6 +304,16 @@ impl SpriteDetails {
             Some(SceneEvent::EventSet(events))
         }
     }
+
+    fn drawing(&self) -> SpriteDrawing {
+        let mut drawing = SpriteDrawing::new();
+        drawing.drawing_type = self.drawing_type();
+        drawing.colour = self.colour();
+        drawing.cap_start = self.cap_start();
+        drawing.cap_end = self.cap_end();
+        drawing.stroke = self.stroke();
+        drawing
+    }
 }
 
 #[derive(Debug, Default, serde_derive::Deserialize, serde_derive::Serialize)]
@@ -844,14 +854,7 @@ impl Interactor {
         if self.draw_details.shape.is_some() {
             self.new_held_shape(self.draw_details.shape.unwrap(), at);
         } else if let Some(id) = self.new_sprite_at(
-            Some(SpriteVisual::Drawing(SpriteDrawing {
-                drawing_type: self.draw_details.drawing_type(),
-                colour: self.draw_details.colour(),
-                cap_start: self.draw_details.cap_start(),
-                cap_end: self.draw_details.cap_end(),
-                stroke: self.draw_details.stroke(),
-                ..Default::default()
-            })),
+            Some(SpriteVisual::Drawing(self.draw_details.drawing())),
             None,
             at,
         ) {
