@@ -63,8 +63,8 @@ impl Role {
 
         match perm {
             Perm::Special => false,
-            Perm::SpriteUpdate => !matches!(self, Self::Spectator),
-            _ => matches!(self, Self::Editor),
+            Perm::SpriteUpdate | Perm::SpriteNew => !self.spectator(),
+            _ => self.editor(),
         }
     }
 
@@ -213,12 +213,16 @@ impl Perms {
         }
     }
 
+    fn add_override(&mut self, new: Override) -> PermsEvent {
+        if !self.overrides.contains(&new) {
+            self.overrides.push(new.clone());
+        }
+        PermsEvent::NewOverride(new)
+    }
+
     pub fn new_override(&mut self, updater: Id, new: Override) -> Option<PermsEvent> {
         if self.get_role(updater) >= Role::Editor {
-            if !self.overrides.contains(&new) {
-                self.overrides.push(new.clone());
-            }
-            Some(PermsEvent::NewOverride(new))
+            Some(self.add_override(new))
         } else {
             None
         }
@@ -234,7 +238,42 @@ impl Perms {
     }
 
     pub fn permitted(&self, user: Id, event: &SceneEvent, layer: Option<Id>) -> bool {
-        self.allowed_by_role(user, event, layer) || self.allowed_by_override(user, event)
+        let pd = self.allowed_by_role(user, event, layer) || self.allowed_by_override(user, event);
+        if !pd {
+            println!("{event:?}");
+        }
+        pd
+    }
+
+    /// Allow the creators of sprites or layers to update or delete them.
+    pub fn ownership_overrides(&mut self, user: Id, event: &SceneEvent) -> Option<Vec<PermsEvent>> {
+        match event {
+            SceneEvent::LayerNew(id, ..) => Some(vec![
+                self.add_override(Override {
+                    user,
+                    perm: Perm::LayerUpdate,
+                    item: Some(*id),
+                }),
+                self.add_override(Override {
+                    user,
+                    perm: Perm::LayerRemove,
+                    item: Some(*id),
+                }),
+            ]),
+            SceneEvent::SpriteNew(s, ..) => Some(vec![
+                self.add_override(Override {
+                    user,
+                    perm: Perm::SpriteUpdate,
+                    item: Some(s.id),
+                }),
+                self.add_override(Override {
+                    user,
+                    perm: Perm::SpriteRemove,
+                    item: Some(s.id),
+                }),
+            ]),
+            _ => None,
+        }
     }
 }
 

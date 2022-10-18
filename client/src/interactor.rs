@@ -443,6 +443,7 @@ impl HeldObject {
 
 pub struct Interactor {
     pub changes: Changes,
+    pub role: scene::perms::Role,
     client: Option<Client>,
     draw_details: SpriteDetails,
     holding: HeldObject,
@@ -467,6 +468,7 @@ impl Interactor {
         let selected_layer = scene.first_layer();
         Interactor {
             changes: Changes::new(),
+            role: scene::perms::Role::Owner,
             client,
             draw_details: SpriteDetails::default(),
             holding: HeldObject::None,
@@ -480,6 +482,11 @@ impl Interactor {
             selection_marquee: None,
             user: scene::perms::CANONICAL_UPDATER,
         }
+    }
+
+    fn update_role(&mut self) {
+        self.role = self.perms.get_role(self.user);
+        crate::bridge::set_role(self.role);
     }
 
     pub fn process_server_events(&mut self) {
@@ -533,9 +540,13 @@ impl Interactor {
             ServerEvent::Rejection(id) => self.unwind_event(id),
             ServerEvent::PermsChange(perms) => self.replace_perms(perms),
             ServerEvent::PermsUpdate(perms_event) => {
+                let is_role = matches!(perms_event, scene::comms::PermsEvent::RoleChange(..));
                 self.perms
                     .handle_event(scene::perms::CANONICAL_UPDATER, perms_event);
-                crate::bridge::set_role(self.perms.get_role(self.user));
+
+                if is_role {
+                    self.update_role();
+                }
             }
             ServerEvent::SceneChange(scene) => self.replace_scene(scene),
             ServerEvent::SceneUpdate(scene_event) => {
@@ -544,7 +555,7 @@ impl Interactor {
             }
             ServerEvent::UserId(id) => {
                 self.user = id;
-                crate::bridge::set_role(self.perms.get_role(self.user));
+                self.update_role();
             }
         }
     }
@@ -580,6 +591,7 @@ impl Interactor {
             self.redo_history.clear();
             self.history.push(event);
         } else {
+            crate::bridge::flog!("forbidden: {event:?}");
             self.scene.unwind_event(event);
         }
     }
@@ -1074,7 +1086,7 @@ impl Interactor {
 
     fn replace_perms(&mut self, new: Perms) {
         self.perms = new;
-        crate::bridge::set_role(self.perms.get_role(self.user));
+        self.update_role();
     }
 
     pub fn replace_scene(&mut self, new: Scene) {
@@ -1213,9 +1225,14 @@ impl Interactor {
     }
 
     pub fn remove_sprite(&mut self, sprite: Id) {
+        crate::bridge::flog!("removing: {sprite:?}");
         if sprite == Self::SELECTION_ID {
-            let event = self.scene.remove_sprites(&self.selected_sprites);
-            self.scene_event(event);
+            if self.single_selected() {
+                self.remove_sprite(self.selected_sprites[0]);
+            } else {
+                let event = self.scene.remove_sprites(&self.selected_sprites);
+                self.scene_event(event);
+            }
             self.clear_selection();
         } else {
             let opt = self.scene.remove_sprite(sprite);

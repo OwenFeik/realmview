@@ -23,6 +23,13 @@ impl Tool {
             Tool::Select => Cursor::Default,
         }
     }
+
+    fn allowed(&self, role: scene::perms::Role) -> bool {
+        match self {
+            Self::Pan => true,
+            _ => role.player(),
+        }
+    }
 }
 
 #[derive(serde_derive::Serialize)]
@@ -117,9 +124,13 @@ impl Viewport {
     }
 
     pub fn set_tool(&mut self, tool: Tool) {
-        crate::bridge::set_active_tool(tool).ok();
-        self.tool = tool;
-        self.update_cursor(None);
+        if tool.allowed(self.scene.role) {
+            crate::bridge::set_active_tool(tool).ok();
+            self.tool = tool;
+            self.update_cursor(None);
+        } else {
+            self.set_tool(Tool::Pan);
+        }
     }
 
     fn set_draw_tool(&mut self, draw_tool: DrawTool) {

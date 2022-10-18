@@ -989,6 +989,7 @@ pub fn set_active_tool(tool: crate::viewport::Tool) -> anyhow::Result<()> {
 pub fn set_role(role: scene::perms::Role) {
     set_visible("canvas_menu", !role.spectator()).ok();
     set_visible("tools_menu", role.player()).ok();
+    set_visible("draw_menu", role.player()).ok();
     set_visible("sprite_menu", role.player()).ok();
     set_visible("layers_menu", role.editor()).ok();
     set_visible("scene_menu", role.editor()).ok();

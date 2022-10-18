@@ -107,17 +107,24 @@ impl Server {
             }
             ClientEvent::SceneUpdate(event) => {
                 if let Some(client) = self.clients.get(from) {
-                    if self
+                    let (ok, perms_events) = self
                         .game
                         .write()
                         .await
-                        .handle_event(client.user, event.clone())
-                    {
+                        .handle_event(client.user, event.clone());
+
+                    if ok {
                         self.send_approval(message.id, from);
                         self.broadcast_event(ServerEvent::SceneUpdate(event), Some(from));
                     } else {
                         println!("Rejected event: {event:?}");
                         self.send_rejection(message.id, from);
+                    }
+
+                    if let Some(events) = perms_events {
+                        for event in events {
+                            self.broadcast_event(ServerEvent::PermsUpdate(event), None);
+                        }
                     }
                 }
             }

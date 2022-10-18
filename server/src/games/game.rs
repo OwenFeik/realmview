@@ -26,15 +26,21 @@ impl Game {
             .role_change(perms::CANONICAL_UPDATER, user, perms::Role::Player)
     }
 
-    pub fn handle_event(&mut self, user: i64, event: SceneEvent) -> bool {
+    pub fn handle_event(
+        &mut self,
+        user: i64,
+        event: SceneEvent,
+    ) -> (bool, Option<Vec<PermsEvent>>) {
         if self
             .perms
             .permitted(user, &event, self.scene.event_layer(&event))
         {
-            self.scene.apply_event(event)
-        } else {
-            false
+            let overrides = self.perms.ownership_overrides(user, &event);
+            if self.scene.apply_event(event) {
+                return (true, overrides);
+            }
         }
+        (false, None)
     }
 
     pub fn client_scene(&mut self) -> Scene {

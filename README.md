@@ -39,16 +39,18 @@
 ## Permissions
 
 * Owner / Editor
-    * All tools enabled without restriction
+    * ~~All tools enabled without restriction~~
     * ~~All menus available~~
     * ~~Meta controls available~~
 * Player
-    * All tools enabled
+    * ~~All tools enabled~~
         * Select tool only works on sprites which user has update permission on
-        * Can only delete sprites that user has remove permission for
+        * ~~Can only delete sprites that user has remove permission for~~
+        * ~~Can create new sprites and is granted update and delete permissions
+            for these~~
     * ~~Layer and scene menus hidden~~
     * ~~Meta controls hidden~~
 * Spectator
-    * All tools disabled except pan
+    * ~~All tools disabled except pan~~
     * ~~All menus hidden~~
     * ~~Meta controls hidden~~
