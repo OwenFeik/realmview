@@ -535,6 +535,7 @@ impl Interactor {
             ServerEvent::PermsUpdate(perms_event) => {
                 self.perms
                     .handle_event(scene::perms::CANONICAL_UPDATER, perms_event);
+                crate::bridge::set_role(self.perms.get_role(self.user));
             }
             ServerEvent::SceneChange(scene) => self.replace_scene(scene),
             ServerEvent::SceneUpdate(scene_event) => {
@@ -543,6 +544,7 @@ impl Interactor {
             }
             ServerEvent::UserId(id) => {
                 self.user = id;
+                crate::bridge::set_role(self.perms.get_role(self.user));
             }
         }
     }
@@ -1072,6 +1074,7 @@ impl Interactor {
 
     fn replace_perms(&mut self, new: Perms) {
         self.perms = new;
+        crate::bridge::set_role(self.perms.get_role(self.user));
     }
 
     pub fn replace_scene(&mut self, new: Scene) {

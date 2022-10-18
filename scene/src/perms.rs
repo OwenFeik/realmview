@@ -71,6 +71,21 @@ impl Role {
     fn lowest() -> Self {
         Role::Spectator
     }
+
+    /// This role is a spectator or lower
+    pub fn spectator(&self) -> bool {
+        *self <= Self::Spectator
+    }
+
+    /// This role is a player or higher
+    pub fn player(&self) -> bool {
+        *self >= Self::Player
+    }
+
+    /// This role is an editor or higher
+    pub fn editor(&self) -> bool {
+        *self >= Self::Editor
+    }
 }
 
 /// For this item, only uses who are listed or have a role exceeding this role
@@ -131,7 +146,7 @@ impl Perms {
         }
     }
 
-    fn get_role(&self, user: Id) -> Role {
+    pub fn get_role(&self, user: Id) -> Role {
         *self.roles.get(&user).unwrap_or(&Role::lowest())
     }
 

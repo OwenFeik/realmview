@@ -1,7 +1,6 @@
 # TODO
 
 * Scene
-    * Hide or show UI elements depending on user role
 * Layers
     * Select from selected layer first (possibly)
     * Layer opacity
@@ -36,3 +35,20 @@
         project, should be able to save the project. 
 * Callum requests
     * docs.google.com/document/d/1uKsAKS-huxNqc4kuHFot0McXTLlT3p83ojEalAcBtK0/
+
+## Permissions
+
+* Owner / Editor
+    * All tools enabled without restriction
+    * ~~All menus available~~
+    * ~~Meta controls available~~
+* Player
+    * All tools enabled
+        * Select tool only works on sprites which user has update permission on
+        * Can only delete sprites that user has remove permission for
+    * ~~Layer and scene menus hidden~~
+    * ~~Meta controls hidden~~
+* Spectator
+    * All tools disabled except pan
+    * ~~All menus hidden~~
+    * ~~Meta controls hidden~~
