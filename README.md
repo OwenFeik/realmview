@@ -25,32 +25,8 @@
         terminate that user's other sessions
     * Specify which users are allowed to join the game
     * Feedback for when connecting to a game as a given CLIENT_KEY fails
-    * Permission levels
-        * Editor should be able to configure permissions by layer, allowing or
-            forbidding users to
-            
-            * Move sprites
-            * Add sprites
     * Editors should be able to change the current scene to another in the
-        project, should be able to save the project. 
+        project, should be able to save the project
+    * Players should only be able to interact with the foreground 
 * Callum requests
     * docs.google.com/document/d/1uKsAKS-huxNqc4kuHFot0McXTLlT3p83ojEalAcBtK0/
-
-## Permissions
-
-* Owner / Editor
-    * ~~All tools enabled without restriction~~
-    * ~~All menus available~~
-    * ~~Meta controls available~~
-* Player
-    * ~~All tools enabled~~
-        * Select tool only works on sprites which user has update permission on
-        * ~~Can only delete sprites that user has remove permission for~~
-        * ~~Can create new sprites and is granted update and delete permissions
-            for these~~
-    * ~~Layer and scene menus hidden~~
-    * ~~Meta controls hidden~~
-* Spectator
-    * ~~All tools disabled except pan~~
-    * ~~All menus hidden~~
-    * ~~Meta controls hidden~~

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, vec};
 
 use serde_derive::{Deserialize, Serialize};
 
@@ -9,7 +9,7 @@ use crate::{
 
 pub const CANONICAL_UPDATER: Id = 0;
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 enum Perm {
     LayerNew,
     LayerRemove,
@@ -237,12 +237,25 @@ impl Perms {
         .is_some()
     }
 
+    pub fn selectable(&self, user: Id, item: Id) -> bool {
+        const SELECTABLE_PERMS: &[Perm] = &[
+            Perm::LayerRemove,
+            Perm::LayerUpdate,
+            Perm::SpriteRemove,
+            Perm::SpriteUpdate,
+        ];
+
+        let role = self.get_role(user);
+        SELECTABLE_PERMS.iter().any(|p| role.allows(*p))
+            || self.overrides.iter().any(|o| {
+                o.user == user
+                    && (o.item.is_none() || o.item.unwrap() == item)
+                    && SELECTABLE_PERMS.iter().any(|p| o.perm == *p)
+            })
+    }
+
     pub fn permitted(&self, user: Id, event: &SceneEvent, layer: Option<Id>) -> bool {
-        let pd = self.allowed_by_role(user, event, layer) || self.allowed_by_override(user, event);
-        if !pd {
-            println!("{event:?}");
-        }
-        pd
+        self.allowed_by_role(user, event, layer) || self.allowed_by_override(user, event)
     }
 
     /// Allow the creators of sprites or layers to update or delete them.

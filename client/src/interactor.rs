@@ -768,7 +768,7 @@ impl Interactor {
     }
 
     fn select(&mut self, id: Id) {
-        if !self.is_selected(id) {
+        if !self.is_selected(id) && self.perms.selectable(self.user, id) {
             self.selected_sprites.push(id);
             self.changes.sprite_selected_change();
         }
