@@ -107,14 +107,18 @@ async fn login(details: LoginRequest, pool: SqlitePool) -> Result<impl warp::Rep
     )
 }
 
-fn post_login_filter(pool: SqlitePool) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+fn post_login_filter(
+    pool: SqlitePool,
+) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     warp::post()
         .and(json_body::<LoginRequest>())
         .and(with_db(pool))
         .and_then(login)
 }
 
-fn get_login_filter(content_dir: &Path) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+fn get_login_filter(
+    content_dir: &Path,
+) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     warp::get()
         .and(warp::get())
         .and(warp::fs::file(content_dir.join(LOGIN_FILE)))
@@ -124,6 +128,5 @@ pub fn filter(
     pool: SqlitePool,
     content_dir: &Path,
 ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    warp::path!("login")
-        .and(post_login_filter(pool).or(get_login_filter(content_dir)))
+    warp::path!("login").and(post_login_filter(pool).or(get_login_filter(content_dir)))
 }

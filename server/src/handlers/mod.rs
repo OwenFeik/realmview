@@ -23,7 +23,7 @@ pub fn routes(
     let content_path = PathBuf::from(content_dir.clone());
     warp::fs::dir(content_path.clone())
         .or(login::filter(pool.clone(), &content_path))
-        .or(register::filter(pool.clone()))
+        .or(register::filter(pool.clone(), &content_path))
         .or(logout::filter(pool.clone()))
         .or(upload::filter(pool.clone(), content_dir.clone()))
         .or(media::filter(pool.clone(), content_dir))
