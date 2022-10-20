@@ -27,6 +27,11 @@ if kwargs.get("FIELD_HELP") is None and kwargs.get("HELP"):
     IFDEF(MAX) {{ max="{{ MAX }}" }}
     IFNDEF(OPTIONAL) {{ required="" }}
   >
-  IFDEF(FIELD_HELP) {{ <div id="{{ FIELD_ID }}_help" class="form-text">{{ FIELD_HELP }}</div> }}
-  <div class="invalid-feedback" data-feedback-for="{{ FIELD_ID }}">{{ FEEDBACK_TEXT }}</div>
+  IFDEF(FIELD_HELP) {{
+    <div id="{{ FIELD_ID }}_help" class="form-text">{{ FIELD_HELP }}</div>
+  }}
+  <div
+    class="invalid-feedback"
+    data-feedback-for="{{ FIELD_ID }}"
+  >{{ FEEDBACK_TEXT }}</div>
 </div>

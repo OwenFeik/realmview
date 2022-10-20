@@ -1,6 +1,10 @@
-<form
-  class="needs-validation"
-  onsubmit="return false"
-  action="{{ ACTION }}"
-  data-redirect="{{ REDIRECT }}"
->
+<div class="container-sm">
+  <div class="row justify-content-center">
+    <div class="col-sm-4 pt-5">
+      IFDEF(TITLE) {{ <h2 class="pb-3">{{ TITLE }}</h2> }}
+      <form
+        class="needs-validation"
+        onsubmit="return false"
+        action="{{ ACTION }}"
+        data-redirect="{{ REDIRECT }}"
+      >

@@ -1,15 +1,10 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    {{ head_common.html }}
-    <title>Login</title>
-  </head>
-  <body>
-    <div class="container-sm p-5">
-      {{ form/start(action=/login, redirect=scene.html) }}
-        {{ form/field(id=username, min_length=4, max_length=32) }}
-        {{ form/field(id=password, type=password, min_length=8, max_length=256) }}
-      {{ form/end() }}
-    </div>
-  </body>
-</html>
+{{ page/start(title="Log In") }}
+  {{ form/start(action=/login, redirect=scene.html, title="Log in") }}
+    {{ form/field(id=username, min_length=4, max_length=32) }}
+    {{
+      form/field(id=password, type=password, min_length=8, max_length=256)
+    }}
+  {{
+    form/end(text=|Don't have an account? <a href="/register">Register</a>.|)
+  }}
+{{ page/end() }}

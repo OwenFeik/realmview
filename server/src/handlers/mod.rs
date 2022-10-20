@@ -20,6 +20,8 @@ pub fn routes(
     games: crate::games::Games,
     content_dir: String,
 ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    const INDEX_FILE: &str = "index.html";
+
     let content_path = PathBuf::from(content_dir.clone());
     warp::fs::dir(content_path.clone())
         .or(login::filter(pool.clone(), &content_path))
@@ -30,6 +32,7 @@ pub fn routes(
         .or(project::filter(pool.clone()))
         .or(game::routes(pool.clone(), games, &content_path))
         .or(scene::routes(pool, &content_path))
+        .or(warp::get().and(warp::fs::file(content_path.join(INDEX_FILE))))
 }
 
 pub fn json_body<T: std::marker::Send + for<'de> serde::Deserialize<'de>>(

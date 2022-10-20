@@ -184,11 +184,7 @@ def unique_string() -> str:
 def function_from_name(
     funcs: typing.List[typing.Callable], name: str
 ) -> typing.Callable:
-    try:
-        return {f.__name__: f for f in funcs}[name]
-    except KeyError:
-        print(f"Missing function: {name}. Aborting.")
-        exit(os.EX_NOINPUT)
+    return {f.__name__: f for f in funcs}[name]
 
 
 def function_substitution(func: str, arg: str) -> str:
@@ -200,7 +196,15 @@ def function_substitution(func: str, arg: str) -> str:
         unique_string,
     ]
     args = [s.strip() for s in arg.split(",") if s]
-    return function_from_name(functions, func)(*args)  # type: ignore
+
+    try:
+        return function_from_name(functions, func)(*args)  # type: ignore
+    except KeyError:
+        try:
+            return kwarg_file_subsitution(func, arg)
+        except SystemExit:
+            print(f"Missing function: {func}. Aborting.")
+            exit(os.EX_NOINPUT)
 
 
 def read_block(start: int, html: str) -> str:
@@ -315,7 +319,7 @@ def remove_quotes(string: str) -> str:
 
 
 # TODO doesn't handle quoted strings with commas
-def kwarg_file_subsitution(file: str, args: str) -> str:
+def kwarg_file_subsitution(file: str, args: str = "") -> str:
     kwargs = {
         k.upper(): remove_quotes(v)
         for k, v in map(
@@ -398,11 +402,16 @@ def process_page(page) -> None:
 
 
 PROCESSES = 12
+MULTIPROCESSING = False
 
 
 def main() -> None:
-    with multiprocessing.Pool(PROCESSES) as pool:
-        pool.map(process_page, os.listdir(PAGES_DIR))
+    if MULTIPROCESSING:
+        with multiprocessing.Pool(PROCESSES) as pool:
+            pool.map(process_page, os.listdir(PAGES_DIR))
+    else:
+        for page in os.listdir(PAGES_DIR):
+            process_page(page)
 
 
 if __name__ == "__main__":
