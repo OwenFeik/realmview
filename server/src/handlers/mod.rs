@@ -22,7 +22,7 @@ pub fn routes(
 ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let content_path = PathBuf::from(content_dir.clone());
     warp::fs::dir(content_path.clone())
-        .or(login::filter(pool.clone()))
+        .or(login::filter(pool.clone(), &content_path))
         .or(register::filter(pool.clone()))
         .or(logout::filter(pool.clone()))
         .or(upload::filter(pool.clone(), content_dir.clone()))

@@ -1,4 +1,5 @@
 use std::convert::Infallible;
+use std::path::Path;
 
 use serde_derive::Deserialize;
 use sqlx::sqlite::SqlitePool;
@@ -9,6 +10,8 @@ use super::response::{cookie_result, Binary};
 use super::{current_time, json_body, with_db};
 use crate::crypto::{check_password, from_hex_string, generate_salt, to_hex_string};
 use crate::models::User;
+
+const LOGIN_FILE: &str = "login.html";
 
 #[derive(Deserialize)]
 struct LoginRequest {
@@ -104,12 +107,23 @@ async fn login(details: LoginRequest, pool: SqlitePool) -> Result<impl warp::Rep
     )
 }
 
-pub fn filter(
-    pool: SqlitePool,
-) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    warp::path!("login")
-        .and(warp::post())
+fn post_login_filter(pool: SqlitePool) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::post()
         .and(json_body::<LoginRequest>())
         .and(with_db(pool))
         .and_then(login)
+}
+
+fn get_login_filter(content_dir: &Path) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::get()
+        .and(warp::get())
+        .and(warp::fs::file(content_dir.join(LOGIN_FILE)))
+}
+
+pub fn filter(
+    pool: SqlitePool,
+    content_dir: &Path,
+) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path!("login")
+        .and(post_login_filter(pool).or(get_login_filter(content_dir)))
 }
