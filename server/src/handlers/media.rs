@@ -1,5 +1,9 @@
+use std::path::PathBuf;
+
 use sqlx::SqlitePool;
 use warp::Filter;
+
+const LIBRARY_FILE: &str = "media.html";
 
 #[derive(serde_derive::Serialize, sqlx::FromRow)]
 struct MediaItem {
@@ -15,7 +19,7 @@ mod details {
     use warp::Filter;
 
     use crate::handlers::response::{as_result, Binary, ResultReply};
-    use crate::handlers::{json_body, with_db, with_session, with_string};
+    use crate::handlers::{json_body, with_db, with_session, with_val};
     use crate::models::{Media, User};
 
     #[derive(serde_derive::Serialize)]
@@ -140,7 +144,7 @@ mod details {
             .and(warp::delete())
             .and(with_session())
             .and(with_db(pool))
-            .and(with_string(content_dir))
+            .and(with_val(content_dir))
             .and_then(media_delete)
     }
 
@@ -218,5 +222,9 @@ pub fn filter(
     pool: SqlitePool,
     content_dir: String,
 ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    list::filter(pool.clone()).or(details::filter(pool, content_dir))
+    list::filter(pool.clone())
+        .or(details::filter(pool, content_dir.clone()))
+        .or(warp::path("media").and(warp::get()).and(warp::fs::file(
+            PathBuf::from(content_dir).join(LIBRARY_FILE),
+        )))
 }

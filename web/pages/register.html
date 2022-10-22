@@ -3,8 +3,7 @@
     {{
       form/field(
         id=username,
-        min_length=4,
-        max_length=32,
+        props='min_length="4" max_length="32"'
         help="Your username must be 4-32 alphanumeric characters."
       )
     }}
@@ -12,7 +11,7 @@
       form/field(
         id=password,
         type=password,
-        min_length=8,
+        props='min_length="8"',
         help="Your password must be 8 or more characters including at least one number and one letter."
       )
     }}
@@ -21,7 +20,7 @@
         id=confirm_password,
         type=password,
         field_name="Confirm password",
-        min_length=8,
+        props='minlength="8"'
         help="Must match your password.",
         feedback_text="Please type your password again."
       )

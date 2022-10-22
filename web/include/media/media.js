@@ -1,10 +1,3 @@
-var media_manager;
-window.addEventListener("load", () => {
-    view_media();
-
-    media_manager = new MediaManager();
-});
-
 class MediaManager {
     constructor() {
         this.media = {};
@@ -52,7 +45,7 @@ class MediaManager {
 
 function preview_card(src, name) {
     // uses src and name
-    return template_to_element(`{{ scene/media/preview_card.html }}`);
+    return template_to_element(`{{ media/preview_card.html }}`);
 }
 
 function media_card(media_item) {
@@ -60,7 +53,9 @@ function media_card(media_item) {
     let src = media_item.url;
     let key = media_item.media_key;
     let title = media_item.title;
-    let card = template_to_element(`{{ scene/media/media_card.html }}`);
+    let card = template_to_element(
+        `{{ media/media_card(IFDEF(ADD_BUTTON) {{ add_button=1 }}) }}`
+    );
     
     let image = card.querySelector(".card-img-top");
     media_manager.add_media_with_image(image);
@@ -178,3 +173,6 @@ function delete_media_item(key) {
         }
     }));
 }
+
+var media_manager = new MediaManager();
+window.addEventListener("load", view_media);

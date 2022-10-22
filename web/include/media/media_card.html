@@ -9,10 +9,12 @@
     >
     <div class="card-body">
       <p class="card-text text-truncate">${title}</p>
+      IFDEF(ADD_BUTTON) {{
       <button
         class="btn btn-sm btn-primary"
         aria-roledescription="Add to scene"
       >Add {{ bootstrap_icon(plus-square) }}</button>
+      }}
       <button
         class="btn btn-sm btn-primary"
         data-bs-toggle="modal"

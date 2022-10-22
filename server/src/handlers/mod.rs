@@ -111,8 +111,10 @@ pub async fn with_user(
         .and_then(user_from_cookie)
 }
 
-pub fn with_string(string: String) -> impl Filter<Extract = (String,), Error = Infallible> + Clone {
-    warp::any().map(move || string.clone())
+pub fn with_val<T: Clone + std::marker::Send>(
+    val: T,
+) -> impl Filter<Extract = (T,), Error = Infallible> + Clone {
+    warp::any().map(move || val.clone())
 }
 
 pub mod response {

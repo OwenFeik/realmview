@@ -1,6 +1,9 @@
         IFDEF(TEXT) {{ <div class="form-text mb-3">{{ TEXT }}</div> }}
         <button
-          onclick="submit_form(this.parentNode); {{ CALLBACK }}"
+          onclick="
+            IFDEF(CALLBACK) {{ {{ CALLBACK }} }}
+            ELSE {{ submit_form(this.parentNode); }}
+          "
           class="btn btn-primary"
         >Submit</button>
         <div data-role="error_message" class="form-text text-danger"></div>

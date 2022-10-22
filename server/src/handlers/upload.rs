@@ -10,7 +10,7 @@ use warp::{
 };
 
 use super::response::{as_result, Binary};
-use super::{with_db, with_session, with_string};
+use super::{with_db, with_session, with_val};
 use crate::crypto::to_hex_string_unsized;
 use crate::models::{Media, User};
 
@@ -174,7 +174,7 @@ pub fn filter(
         .and(warp::post())
         .and(with_db(pool))
         .and(with_session())
-        .and(with_string(content_dir))
+        .and(with_val(content_dir))
         .and(warp::multipart::form())
         .and_then(upload)
 }

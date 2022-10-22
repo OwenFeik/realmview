@@ -4,15 +4,6 @@
         {{ head_common.html }}
         <meta charset="utf-8">
         <title>Scene</title>
-        <style>
-          .status-indicator {
-            width: 1.25em;
-            height: 1.25em;
-            position: absolute;
-            top: 0.5em;
-            right: 0.5em;
-          }
-        </style>
     </head>
     <body style="margin: 0; overflow: hidden;">
         {{ javascript(scene/rust_interface.js) }}
@@ -41,7 +32,7 @@
         </div>
         {{ scene/menu/menu.html }}
         {{ confirmation_modal.html }}
-        {{ scene/media/media_offcanvas.html }}
+        {{ media/media_offcanvas.html }}
         {{ scene/game/game_offcanvas.html }}
         {{ scene/project/project_offcanvas.html }}
         {{ bootstrap_js.html }}

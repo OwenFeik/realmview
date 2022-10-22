@@ -28,7 +28,7 @@ possible substitution styles are possible.
     * `unique_string()` returns an 8-character UUID, guaranteed to start with a
     letter.
 * Special templates: `{{ dir/file(key=value) }}` will load
-    `./special/dir/file.ext` (extensions ignored) action run the template with
+    `.include/dir/file.ext` (extensions ignored) action run the template with
     the key-value arguments supplied in the argument list. These templates have
     the following special substitutions:
     * `{{ KEY }}` will be replaced with the value of `KEY` in the `kwargs`.

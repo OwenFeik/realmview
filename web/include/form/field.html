@@ -16,16 +16,13 @@ if kwargs.get("FIELD_HELP") is None and kwargs.get("HELP"):
 }}
 
 <div class="mb-3">
-  <label for="{{ FIELD_ID }}">{{ FIELD_NAME }}</label>
+  <label for="{{ FIELD_ID }}" class="pb-1">{{ FIELD_NAME }}</label>
   <input
     class="form-control"
     type="{{ FIELD_TYPE }}"
     id="{{ FIELD_ID }}"
-    IFDEF(MIN_LENGTH) {{ minlength="{{ MIN_LENGTH }}" }}
-    IFDEF(MAX_LENGTH) {{ maxlength="{{ MAX_LENGTH }}" }}
-    IFDEF(MIN) {{ min="{{ MIN }}" }}
-    IFDEF(MAX) {{ max="{{ MAX }}" }}
     IFNDEF(OPTIONAL) {{ required="" }}
+    IFDEF(PROPS) {{ {{ PROPS }} }}
   >
   IFDEF(FIELD_HELP) {{
     <div id="{{ FIELD_ID }}_help" class="form-text">{{ FIELD_HELP }}</div>

@@ -331,7 +331,7 @@ def kwarg_file_subsitution(file: str, args: str = "") -> str:
         )
     }
 
-    file_path = os.path.join("special", file)
+    file_path = os.path.join(INCLUDE_DIR, file)
     html = include_file(file_path, False)
 
     try:
