@@ -145,19 +145,39 @@ def load_url(url: str) -> str:
     return content
 
 
+def is_url(poss: str) -> bool:
+    return poss.startswith("http://") or poss.startswith("https://")
+
+
 def load_resource(resource: str) -> str:
-    if resource.startswith("http://") or resource.startswith("https://"):
+    if is_url(resource):
         return load_url(resource)
     else:
         return include_file(resource)
 
 
+def rehost(url: str) -> str:
+    data = load_resource(url)
+    href = filename_from_url(url)
+    with open(os.path.join(output_directory(), href), "w") as f:
+        f.write(data)
+    return "/" + href
+
+
 def stylesheet(resource: str) -> str:
-    return f"<style>{load_resource(resource)}</style>"
+    if is_url(resource):
+        href = rehost(resource)
+        return f'<link rel="stylesheet" href="{href}">'
+    else:
+        return f"<style>{load_resource(resource)}</style>"
 
 
 def javascript(resource: str) -> str:
-    return f"<script>{load_resource(resource)}</script>"
+    if is_url(resource):
+        href = rehost(resource)
+        return f'<script src="{href}"></script>'
+    else:
+        return f"<script>{load_resource(resource)}</script>"
 
 
 def constant(
@@ -367,10 +387,10 @@ def include_file(file: str, process: bool = True) -> str:
 
 
 def handle_match(match: re.Match) -> str:
-    if func := match.group("func"):
-        return function_substitution(func, match.group("arg"))
-    elif kw_file := match.group("kwarg_file"):
+    if kw_file := match.group("kwarg_file"):
         return kwarg_file_subsitution(kw_file, match.group("args"))
+    elif func := match.group("func"):
+        return function_substitution(func, match.group("arg"))
     elif file := match.group("file"):
         return include_file(file)
     elif text := match.group("raw"):

@@ -29,7 +29,5 @@
         project, should be able to save the project
     * Players should only be able to interact with the foreground
 * Build
-    * Download JS and CSS and store in build directory instead of directly
-        including as text, in order to improve cacheability and clean up files
 * Callum requests
     * docs.google.com/document/d/1uKsAKS-huxNqc4kuHFot0McXTLlT3p83ojEalAcBtK0/
