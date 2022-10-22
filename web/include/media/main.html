@@ -1,9 +1,9 @@
-{{ nav/start() }}
-  {{ nav/item(tab=view_media, label=Library, selected=true) }}
-  {{ nav/item(tab=upload_media, label=Upload) }}
-{{ nav/end() }}
+<Nav>
+  <NavItem tab="view_media" label="Library" selected="true">
+  <NavItem tab="upload_media" label="Upload">
+</Nav>
 <div class="tab-content">
-  {{ tab/start(tab=view_media, selected=true) }}
+  <Tab tab="view_media" selected="true">
     <div class="d-flex justify-content-md-end align-items-center">
       <span class="spinner-border me-2 fade" id="media_view_loading"></span>
       <p
@@ -13,25 +13,25 @@
       <button
         class="btn btn-primary"
         onclick="view_media();"
-      >Refresh {{ bootstrap_icon(arrow-clockwise) }}</button>
+      >Refresh <Icon name="arrow-clockwise"></button>
     </div>
     <div class="row row-cols-auto" id="media_view_previews"></div>
-  {{ tab/end() }}
-  {{ tab/start(tab=upload_media) }}
-    {{ form/start(IFDEF(CLASS) {{ class="{{ CLASS }}" }}) }}
-      {{
-        form/field(
-          field_name="Upload Media",
-          type="file",
-          id="media_upload",
-          props='accept="image/png,image/jpg" multiple autocomplete="off"'
-        )
-      }}
-    {{ form/end(callback="upload_media()") }}
+  </Tab>
+  <Tab tab="upload_media">
+    <Form IFDEF(CLASS) {{ class="{{ CLASS }}" }}>
+      <FormField
+        id="media_upload"
+        name="Upload Media"
+        type="file"
+        accept="image/png,image/jpg"
+        multiple=""
+        autocomplete="off"
+      >
+    </Form callback="upload_media()">
     <div class="row row-cols-auto" id="media_upload_previews"></div>
-  {{ tab/end() }}
+  </Tab>
 </div>
 <script>
 {{ media/media.js(IFDEF(ADD_BUTTON) {{ add_button=1 }}) }}
 </script>
-{{ media/media_modal.html }}
+<MediaModal>

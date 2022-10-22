@@ -10,11 +10,9 @@
     * Use sprite menu to change texture
     * Group sprites
 * Media
-    * Media library
-        * Place media in directories
-        * Multiselect media, apply action to all items
-        * Search media
-    * Pressing enter in modal breaks things
+    * Place media in directories
+    * Multiselect media, apply action to all items
+    * Search media
 * Projects
     * /project/PROJECT_KEY should show a page with the scenes in that project
         and project metadata

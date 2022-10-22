@@ -1,9 +1,16 @@
 <div class="col pt-2">
   <div class="card">
     <img class="card-img-top" style="height: 6rem; object-fit: cover;" src="${src}">
-    <div class="spinner-border status-indicator" role="status"></div>
-    <div class="card-body">
-      <p class="card-text text-truncate">${name}</p>
+    <div class="card-body position-relative">
+      <p
+        class="card-text text-truncate"
+      >
+        <span
+          class="spinner-border spinner-border-sm status-indicator"
+          role="status"
+        ></span>
+        <span class="ps-1">${name}</span>
+      </p>
       <p class="card-text text-danger"></p>
     </div>
   </div>

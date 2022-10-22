@@ -54,7 +54,7 @@ function media_card(media_item) {
     let key = media_item.media_key;
     let title = media_item.title;
     let card = template_to_element(
-        `{{ media/media_card(IFDEF(ADD_BUTTON) {{ add_button=1 }}) }}`
+        `{{ media/card(IFDEF(ADD_BUTTON) {{ add_button=1 }}) }}`
     );
     
     let image = card.querySelector(".card-img-top");
@@ -73,19 +73,17 @@ function spinner_to_icon(spinner, icon, klasse) {
     spinner.classList.remove("spinner-border");
     spinner.innerHTML = icon;
     spinner.classList.add(klasse);
-    spinner.firstChild.style.display = "block";
-    spinner.firstChild.style.width = "1.25rem";
-    spinner.firstChild.style.height = "1.25rem";
+    spinner.firstChild.style.display = "inline-block";
 }
 
 function set_card_error(card, message) {
     card.querySelector(".text-danger").innerText = message;
-    let spinner = card.querySelector("div.spinner-border");
+    let spinner = card.querySelector(".spinner-border");
     spinner_to_icon(spinner, Icons.exclamation_triangle, "text-danger");
 }
 
 function set_card_success(card) {
-    let spinner = card.querySelector("div.spinner-border");
+    let spinner = card.querySelector(".spinner-border");
     spinner_to_icon(spinner, Icons.check_circle, "text-success");
 }
 

@@ -1,20 +1,39 @@
 PREAMBLE {{
 if kwargs.get("FIELD_ID") is None:
   kwargs["FIELD_ID"] = kwargs["ID"]
+  del kwargs["ID"]
 if kwargs.get("FIELD_NAME") is None:
   kwargs["FIELD_NAME"] = kwargs.get(
     "NAME", kwargs["FIELD_ID"].replace("_", " ").capitalize()
   )
-if kwargs.get("FEEDBACK_TEXT") is None:
-  kwargs["FEEDBACK_TEXT"] = (
-    "Please enter a valid "
-    + kwargs["FIELD_NAME"].lower()
-    + "."
-  )
+  if "NAME" in kwargs:
+    del kwargs["NAME"]
+
+kwargs["FIELD_FEEDBACK"] = kwargs.get(
+  "FEEDBACK",
+  "Please enter a valid "
+  + kwargs["FIELD_NAME"].lower()
+  + "."
+)
+
 if kwargs.get("FIELD_TYPE") is None:
-  kwargs["FIELD_TYPE"] = kwargs.get("TYPE", "text")
-if kwargs.get("FIELD_HELP") is None and kwargs.get("HELP"):
+  if "TYPE" in kwargs:
+    kwargs["FIELD_TYPE"] = kwargs["TYPE"]
+    del kwargs["TYPE"]
+  else:
+    kwargs["FIELD_TYPE"] = "text"
+if "FIELD_HELP" not in kwargs and "HELP" in kwargs:
   kwargs["FIELD_HELP"] = kwargs["HELP"]
+  del kwargs["HELP"]
+
+# Construct props from unused kwargs
+if "PROPS" not in kwargs: 
+  props = ""
+  for (key, value) in kwargs.items():
+    if not key.startswith("FIELD_"):
+      props += f'{key.lower()}="{value}"'
+  kwargs["PROPS"] = props
+
 if kwargs["FIELD_TYPE"] == "hidden":
   kwargs["HIDDEN"] = 1
 }}

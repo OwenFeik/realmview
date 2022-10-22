@@ -20,16 +20,6 @@
 }
 /* End loading_icon.html */
 
-/* For status indicator icons (media/preview_card.html) */
-.status-indicator {
-    width: 2em;
-    height: 2em;
-    position: absolute;
-    top: 0.5em;
-    right: 0.5em;
-  }
-/* End preview_card.html */
-
 /* BS overrides */
 /* For buttons in btn-groups which are just disabled icons. */
 .btn-group-icon {

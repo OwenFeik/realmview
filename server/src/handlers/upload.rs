@@ -38,7 +38,7 @@ fn hash_file(raw: &[u8]) -> anyhow::Result<String> {
 }
 
 async fn file_exists(pool: &SqlitePool, user: i64, hash: &str) -> anyhow::Result<Option<String>> {
-    let row_opt = sqlx::query("SELECT title FROM media WHERE user = ?1 AND hashed_value = ?1;")
+    let row_opt = sqlx::query("SELECT title FROM media WHERE user = ?1 AND hashed_value = ?2;")
         .bind(user)
         .bind(hash)
         .fetch_optional(pool)
