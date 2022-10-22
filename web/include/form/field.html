@@ -3,7 +3,7 @@ if kwargs.get("FIELD_ID") is None:
   kwargs["FIELD_ID"] = kwargs["ID"]
 if kwargs.get("FIELD_NAME") is None:
   kwargs["FIELD_NAME"] = kwargs.get(
-    "NAME", kwargs["FIELD_ID"].capitalize()
+    "NAME", kwargs["FIELD_ID"].replace("_", " ").capitalize()
   )
 if kwargs.get("FEEDBACK_TEXT") is None:
   kwargs["FEEDBACK_TEXT"] = (
@@ -34,6 +34,8 @@ ELSE {{
     class="form-control"
     type="{{ FIELD_TYPE }}"
     id="{{ FIELD_ID }}"
+    IFDEF(MINLENGTH) {{ minlength="{{ MINLENGTH }}" }}
+    IFDEF(MAXLENGTH) {{ maxlength="{{ MAXLENGTH }}" }}
     IFNDEF(OPTIONAL) {{ required="" }}
     IFDEF(PROPS) {{ {{ PROPS }} }}
   >

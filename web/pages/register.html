@@ -1,29 +1,23 @@
-{{ page/start(title="Register") }}
-  {{ form/start(action=/register, redirect=login.html, title="Register") }}
-    {{
-      form/field(
-        id=username,
-        props='min_length="4" max_length="32"',
-        help="Your username must be 4-32 alphanumeric characters."
-      )
-    }}
-    {{
-      form/field(
-        id=password,
-        type=password,
-        props='min_length="8"',
-        help="Your password must be 8 or more characters including at least one number and one letter."
-      )
-    }}
-    {{
-      form/field(
-        id=confirm_password,
-        type=password,
-        field_name="Confirm password",
-        props='minlength="8"',
-        help="Must match your password.",
-        feedback_text="Please type your password again."
-      )
-    }}
-  {{ form/end(text=|Already have an account? <a href="/login">Log in</a>.|) }}
-{{ page/end() }}
+<Page title="Register">
+  <Form action="/register" redirect="/login" title="Register">
+    <FormField
+      id="username"
+      minlength="4"
+      maxlength="32"
+      help="Your username must be 4-32 alphanumeric characters."
+    >
+    <FormField
+      id="password"
+      type="password"
+      minlength="8"
+      help="Your password must be 8 or more characters including at least one number and one letter."
+    >
+    <FormField
+      id="confirm_password"
+      type="password"
+      minlength="8"
+      help="Must match your password."
+      feedback_text="Please type your password again."
+    >
+  </Form text="Already have an account? <a href='/login'>Log in</a>.">  
+</Page>

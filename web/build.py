@@ -15,6 +15,62 @@ INCLUDE_CACHE_DIR = os.path.join(INCLUDE_DIR, ".cache")
 PAGES_DIR = os.path.join(WEB_DIR, "pages")
 
 
+# Build up the regular expression used to parse the input files.
+
+ANY = r"[\s\S]*?"
+
+IDENTIFIER_CHARACTERS = IC = r"[a-zA-Z0-9_]"
+
+# Anything that could appear in a used
+# URL, function argument, file name, etc
+FULL_CHARACTERS = FC = r"[a-zA-Z0-9_.:@/\-]"
+
+KWARG_ARG_REGEX = rf"({IC}+\s*=\s*" rf"({FC}+|\"[^\"]*\"|'[^']*'|\|[^\|]*\|))"
+
+OPEN = r"{{"
+CLOSE = r"}}"
+
+
+# file path (relative to include/) followed by comma separated
+# k = v args with any amount of whitespace between them
+KWARG_FILE_REGEX = (
+    rf"(?P<kwarg_file>{FC}+)"
+    rf"\(\s*(?P<args>({KWARG_ARG_REGEX}(,\s*|\s*(?=\))))*)\)"
+)
+
+# different syntax for the above
+# <FormField type="file"> becomes form/field(type="file")
+# Note that these are differentiated from normal HTML elements by the
+# leading capital letter.
+HTML_FILE_REGEX = (
+    rf"<\s*(?P<html_file>([A-Z]|/[A-Z])[a-zA-Z0-9_]+)\s*"
+    rf"(?P<html_args>({KWARG_ARG_REGEX}(\s+|\s*(?=>)))*)\s*>"
+)
+
+# function name followed by a single argument
+FUNCTION_REGEX = rf"(?P<func>{IC}+)\((?P<arg>{FC}*)\)"
+
+# file name
+INCLUDE_REGEX = rf"(?P<file>{FC}+)"
+
+# Treate as raw text
+FALLBACK_REGEX = r"(?P<raw>[^{}]+)"
+
+SUBSTITUTION_REGEXES = [
+    KWARG_FILE_REGEX,
+    FUNCTION_REGEX,
+    INCLUDE_REGEX,
+    FALLBACK_REGEX,
+]
+
+# Final regex matches all substitution types
+SUBSTITUTION_REGEX = re.compile(
+    rf"{OPEN}\s*("
+    + r"|".join(SUBSTITUTION_REGEXES)
+    + rf")\s*{CLOSE}|{HTML_FILE_REGEX}"
+)
+
+
 def output_directory() -> str:
     if len(sys.argv) > 1:
         output_dir = sys.argv[1]
@@ -22,57 +78,6 @@ def output_directory() -> str:
         output_dir = os.path.join(WEB_DIR, "output")
 
     return output_dir
-
-
-ANY = r"[\s\S]*?"
-
-IDENTIFIER_CHARACTERS = r"[a-zA-Z0-9_]"
-
-# Anything that could appear in a used
-# URL, function argument, file name, etc
-FULL_CHARACTERS = r"[a-zA-Z0-9_.:@/\-]"
-
-KWARG_ARG_REGEX = (
-    rf"({IDENTIFIER_CHARACTERS}+\s*=\s*"
-    rf"({FULL_CHARACTERS}+|\"[^\"]*\"|'[^']*'|\|[^\|]*\|))"
-)
-
-OPEN = r"{{"
-CLOSE = r"}}"
-
-
-def substitution_regex() -> re.Pattern:
-    ic = IDENTIFIER_CHARACTERS
-    fc = FULL_CHARACTERS
-
-    # function name followed by a single argument
-    function_regex = rf"(?P<func>{ic}+)\((?P<arg>{fc}*)\)"
-
-    # file path (relative to include/special) followed by comma separated
-    # k = v args with any amount of whitespace between them
-    kwarg_file_regex = (
-        rf"(?P<kwarg_file>{fc}+)"
-        rf"\(\s*(?P<args>({KWARG_ARG_REGEX}(,\s*|\s*(?=\))))*)\)"
-    )
-
-    # file name
-    include_regex = rf"(?P<file>{fc}+)"
-
-    # Treate as raw text
-    fallback_regex = r"(?P<raw>[^{}]+)"
-
-    substitution_types = [
-        function_regex,
-        kwarg_file_regex,
-        include_regex,
-        fallback_regex,
-    ]
-
-    overall_regex = (
-        rf"{OPEN}\s*(" + r"|".join(substitution_types) + rf")\s*{CLOSE}"
-    )
-
-    return re.compile(overall_regex)
 
 
 def ensure_cache_dir() -> str:
@@ -338,8 +343,7 @@ def remove_quotes(string: str) -> str:
     return string
 
 
-# TODO doesn't handle quoted strings with commas
-def kwarg_file_subsitution(file: str, args: str = "") -> str:
+def kwarg_substitution(html: str, args: str = "") -> str:
     kwargs = {
         k.upper(): remove_quotes(v)
         for k, v in map(
@@ -351,16 +355,47 @@ def kwarg_file_subsitution(file: str, args: str = "") -> str:
         )
     }
 
-    file_path = os.path.join(INCLUDE_DIR, file)
-    html = include_file(file_path, False)
-
     try:
         return process_kwarg_html(html, kwargs)
     except ValueError as e:
-        print(
-            f"Substitution failed for {file_path}.\nReason: {e}\nArgs: {kwargs}"
-        )
+        print(f"Substitution failed.\nReason: {e}\nArgs: {kwargs}")
         exit(os.EX_DATAERR)
+
+
+def kwarg_file_subsitution(file: str, args: str = "") -> str:
+    html = include_file(file, False)
+    return kwarg_substitution(html, args)
+
+
+def html_file_substitution(tag: str, args: str = "") -> str:
+    # </Form> means <FormEnd>
+    if tag[0] == "/":
+        processed = tag[1:] + "End"
+    else:
+        processed = tag
+
+    # Conver from camelcase, e.g.
+    # FormField to form/field
+    file = ""
+    for c in processed:
+        if c.isupper():
+            if file:
+                file += "/"
+            file += c.lower()
+        else:
+            file += c
+
+    try:
+        html = include_file(file, False)
+    except (FileNotFoundError, IsADirectoryError):
+        try:
+            # <Form> can mean <FormStart>
+            html = include_file(file + "/start", False)
+        except Exception as e:
+            print(f"Missing include file for tag: {tag}")
+            exit(os.EX_NOTFOUND)
+
+    return kwarg_substitution(html, args)
 
 
 def include_file(file: str, process: bool = True) -> str:
@@ -368,15 +403,11 @@ def include_file(file: str, process: bool = True) -> str:
         include = os.path.join(INCLUDE_DIR, file)
         with open(include, "r") as f:
             html = f.read()
-    except FileNotFoundError:
-        try:
-            # Allow omission of file extension
-            include = os.path.join(INCLUDE_DIR, file + ".html")
-            with open(include, "r") as f:
-                html = f.read()
-        except FileNotFoundError:
-            print(f"Missing include file: {file}. Aborting.")
-            exit(os.EX_DATAERR)
+    except (FileNotFoundError, IsADirectoryError):
+        # Allow omission of file extension
+        include = os.path.join(INCLUDE_DIR, file + ".html")
+        with open(include, "r") as f:
+            html = f.read()
 
     # Note: This could recurse until OOM if a file is self-referential.
     # Don't do that.
@@ -389,6 +420,8 @@ def include_file(file: str, process: bool = True) -> str:
 def handle_match(match: re.Match) -> str:
     if kw_file := match.group("kwarg_file"):
         return kwarg_file_subsitution(kw_file, match.group("args"))
+    elif ht_file := match.group("html_file"):
+        return html_file_substitution(ht_file, match.group("html_args"))
     elif func := match.group("func"):
         return function_substitution(func, match.group("arg"))
     elif file := match.group("file"):
@@ -402,8 +435,7 @@ def handle_match(match: re.Match) -> str:
 
 
 def process_html(html: str) -> str:
-    regex = substitution_regex()
-    while match := re.search(regex, html):
+    while match := re.search(SUBSTITUTION_REGEX, html):
         html = html.replace(match.group(0), handle_match(match))
     return html
 

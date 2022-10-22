@@ -1,10 +1,6 @@
-{{ page/start(title="Log In") }}
-  {{ form/start(action=/login, redirect=scene.html, title="Log in") }}
-    {{ form/field(id=username, min_length=4, max_length=32) }}
-    {{
-      form/field(id=password, type=password, min_length=8, max_length=256)
-    }}
-  {{
-    form/end(text=|Don't have an account? <a href="/register">Register</a>.|)
-  }}
-{{ page/end() }}
+<Page title="Log In">
+  <Form action="/login" redirect="scene" title="Log in">
+    <FormField id="username" minlength="4" maxlength="32">
+    <FormField id="password" type="password" minlength="8" max_length="256">
+  </Form text="Don't have an account? <a href='/register'>Register</a>.">
+</Page>
