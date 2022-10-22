@@ -13,6 +13,7 @@
     * Media library
         * Place media in directories
         * Multiselect media, apply action to all items
+        * Search media
     * Pressing enter in modal breaks things
 * Projects
     * /project/PROJECT_KEY should show a page with the scenes in that project
@@ -29,5 +30,8 @@
         project, should be able to save the project
     * Players should only be able to interact with the foreground
 * Build
+    * Custom HTML element-syle formatting, e.g. `<Page a="b" c="d">` becomes
+        `{{ page/start(a="b", c="d") }}` and `</Page a="b" c="d">` becomes
+        `{{ page/end(a="b", c="d") }}` 
 * Callum requests
     * docs.google.com/document/d/1uKsAKS-huxNqc4kuHFot0McXTLlT3p83ojEalAcBtK0/

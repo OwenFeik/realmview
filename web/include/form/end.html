@@ -1,4 +1,5 @@
         IFDEF(TEXT) {{ <div class="form-text mb-3">{{ TEXT }}</div> }}
+        IFNDEF(NOSUBMIT) {{
         <button
           onclick="
             IFDEF(CALLBACK) {{ {{ CALLBACK }} }}
@@ -6,6 +7,7 @@
           "
           class="btn btn-primary"
         >Submit</button>
+        }}
         <div data-role="error_message" class="form-text text-danger"></div>
       </form>
     </div>

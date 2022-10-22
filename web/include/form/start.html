@@ -7,6 +7,7 @@ kwargs["CLASS"] = kwargs.get("CLASS", "col-sm-4 pt-5")
     <div class="{{ CLASS }}">
       IFDEF(TITLE) {{ <h2 class="pb-3">{{ TITLE }}</h2> }}
       <form
+        IFDEF(ID) {{ id="{{ ID }}" }}
         class="needs-validation"
         onsubmit="return false;"
         IFDEF(ACTION) {{ action="{{ ACTION }}" }}

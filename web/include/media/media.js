@@ -60,9 +60,11 @@ function media_card(media_item) {
     let image = card.querySelector(".card-img-top");
     media_manager.add_media_with_image(image);
 
+    IFDEF(ADD_BUTTON) {{
     // Buttons: [Add, Edit]
     let buttons = card.querySelectorAll("button");
     buttons[0].onclick = () => add_to_scene(image);
+    }}
 
     return card;
 }

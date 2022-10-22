@@ -8,18 +8,22 @@ aria-hidden="true"
 <div class="modal-dialog">
   <div class="modal-content">
     <div class="modal-header">
-      <h5 class="modal-title" id="media_details_modal_label">Edit media details</h5>
-      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      <h5
+        class="modal-title"
+        id="media_details_modal_label"
+      >Edit media details</h5>
+      <button
+        type="button"
+        class="btn-close"
+        data-bs-dismiss="modal"
+        aria-label="Close"
+      ></button>
     </div>
     <div class="modal-body">
-      <form id="media_details_form" action="/media/details">
-        <div class="mb-3">
-          <label for="media_details_title" class="form-label">Title</label>
-          <input type="text" class="form-control" id="media_details_title" required maxlength="256">
-        </div>
-        <input type="hidden" id="media_details_media_key">
-        <div data-role="error_message" class="form-text text-danger"></div>
-      </form>
+      {{ form/start(action="/media/details", class="col", id="media_details_form") }}
+        {{ form/field(type="text", id="media_details_title", props='maxlength="256"', name="Title") }}
+        {{ form/field(type="hidden", id="media_details_media_key") }}
+      {{ form/end(nosubmit=1) }}
     </div>
     <div class="modal-footer">
       <span class="spinner-border me-2 fade" id="media_details_loading"></span>

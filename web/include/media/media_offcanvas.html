@@ -6,19 +6,18 @@
   style="width: 554px"
 >
   <div class="offcanvas-header">
-      <h2
-        class="offcanvas-title"
-        id="media_offcanvas_label"
-      >Media <a
+    <h2 class="offcanvas-title" id="media_offcanvas_label">
+      Media <a
         href="/media"
         target="_blank"
-      >{{ bootstrap_icon(box-arrow-up-right) }}</a></h2>
-      <button
-        type="button"
-        class="btn-close text-reset"
-        data-bs-dismiss="offcanvas"
-        aria-label="Close"
-      ></button>
+      >{{ bootstrap_icon(box-arrow-up-right) }}</a>
+    </h2>
+    <button
+      type="button"
+      class="btn-close text-reset"
+      data-bs-dismiss="offcanvas"
+      aria-label="Close"
+    ></button>
   </div>
   <div class="offcanvas-body">
     {{ media/main(add_button=1, class="col") }}

@@ -2,7 +2,9 @@ PREAMBLE {{
 if kwargs.get("FIELD_ID") is None:
   kwargs["FIELD_ID"] = kwargs["ID"]
 if kwargs.get("FIELD_NAME") is None:
-  kwargs["FIELD_NAME"] = kwargs["FIELD_ID"].capitalize()
+  kwargs["FIELD_NAME"] = kwargs.get(
+    "NAME", kwargs["FIELD_ID"].capitalize()
+  )
 if kwargs.get("FEEDBACK_TEXT") is None:
   kwargs["FEEDBACK_TEXT"] = (
     "Please enter a valid "
@@ -13,8 +15,19 @@ if kwargs.get("FIELD_TYPE") is None:
   kwargs["FIELD_TYPE"] = kwargs.get("TYPE", "text")
 if kwargs.get("FIELD_HELP") is None and kwargs.get("HELP"):
   kwargs["FIELD_HELP"] = kwargs["HELP"]
+if kwargs["FIELD_TYPE"] == "hidden":
+  kwargs["HIDDEN"] = 1
 }}
 
+IFDEF(HIDDEN) {{
+<input
+  type="hidden"
+  id="{{ FIELD_ID }}"
+  IFNDEF(OPTIONAL) {{ required="" }}
+  IFDEF(PROPS) {{ {{ PROPS }} }}
+>
+}}
+ELSE {{
 <div class="mb-3">
   <label for="{{ FIELD_ID }}" class="pb-1">{{ FIELD_NAME }}</label>
   <input
@@ -31,4 +44,5 @@ if kwargs.get("FIELD_HELP") is None and kwargs.get("HELP"):
     class="invalid-feedback"
     data-feedback-for="{{ FIELD_ID }}"
   >{{ FEEDBACK_TEXT }}</div>
-</div>
+</div>  
+}}
