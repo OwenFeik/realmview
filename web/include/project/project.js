@@ -18,4 +18,19 @@ function refresh_projects() {
     }))
 }
 
+function update_titles(project_key, project_title, scene_key, scene_title) {
+    let body = {
+        project_key,
+        project_title,
+        scene_key,
+        scene_title
+    };
+    
+    fetch("/scene/details", {
+        method: "POST",
+        body: JSON.stringify(body),
+        headers: { "Content-Type": "application/json" }
+    });
+}
+
 refresh_projects();

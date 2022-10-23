@@ -10,6 +10,14 @@
         button=""
         class="mb-1"
         value="${scene.title}"
+        action="
+          v => update_titles(
+            '${project.project_key}',
+            null,
+            '${scene.scene_key}',
+            v
+          )
+        "
       >
       <div>
         <Button

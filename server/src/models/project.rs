@@ -61,6 +61,17 @@ impl Project {
         }
     }
 
+    pub async fn get_by_key(
+        conn: &mut SqliteConnection,
+        project_key: &str,
+    ) -> anyhow::Result<Project> {
+        sqlx::query_as("SELECT * FROM projects WHERE project_key = ?1;")
+            .bind(project_key)
+            .fetch_one(conn)
+            .await
+            .map_err(|e| anyhow!(e))
+    }
+
     pub async fn update_title(
         &mut self,
         conn: &mut SqliteConnection,
@@ -143,6 +154,22 @@ impl Project {
     ) -> anyhow::Result<()> {
         sqlx::query("UPDATE scenes SET thumbnail = ?1 WHERE scene_key = ?2;")
             .bind(thumbnail)
+            .bind(scene_key)
+            .execute(conn)
+            .await
+            .map_err(|e| anyhow!("Database error: {e}"))?;
+        Ok(())
+    }
+
+    pub async fn update_scene_title(
+        &self,
+        conn: &mut SqliteConnection,
+        scene_key: &str,
+        title: &str,
+    ) -> anyhow::Result<()> {
+        sqlx::query("UPDATE scenes SET title = ?1 WHERE project = ?2 AND scene_key = ?3;")
+            .bind(title)
+            .bind(self.id)
             .bind(scene_key)
             .execute(conn)
             .await

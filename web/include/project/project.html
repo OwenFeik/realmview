@@ -1,6 +1,19 @@
 <div class="container py-5">
   <div class="row">
-    <div class="col fs-3">${project.title}</div>
+    <div class="col">
+      <EditableInput
+        button = ""
+        value="${project.title}"
+        action="
+          v => update_titles(
+            '${project.project_key}',
+            v,
+            null,
+            null
+          )
+        "
+      >
+    </div>
     <div class="col align-self-end d-flex">
       <Button class="ms-auto btn-danger" icon="trash3" text="Delete">
     </div>

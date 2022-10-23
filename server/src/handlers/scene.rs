@@ -82,6 +82,7 @@ mod save {
     use std::convert::Infallible;
 
     use serde_derive::Deserialize;
+    use sqlx::SqlitePool;
     use warp::Filter;
 
     use crate::{
@@ -156,15 +157,70 @@ mod save {
         }
     }
 
+    #[derive(Deserialize)]
+    struct SceneDetailsRequest {
+        project_title: Option<String>,
+        project_key: String,
+        scene_title: Option<String>,
+        scene_key: Option<String>,
+    }
+
+    async fn scene_details(
+        pool: SqlitePool,
+        skey: String,
+        req: SceneDetailsRequest,
+    ) -> Result<impl warp::Reply, Infallible> {
+        let user = match User::get_by_session(&pool, &skey).await {
+            Ok(Some(u)) => u,
+            _ => return Binary::result_failure("Invalid session."),
+        };
+
+        let conn = &mut match pool.acquire().await {
+            Ok(c) => c,
+            Err(e) => return Binary::from_error(e),
+        };
+
+        let mut project = match Project::get_by_key(conn, &req.project_key).await {
+            Ok(p) => p,
+            Err(e) => return Binary::from_error(e),
+        };
+
+        if project.user != user.id {
+            return Binary::result_failure("Project not found.");
+        }
+
+        if let Some(title) = req.project_title {
+            if let Err(e) = project.update_title(conn, title).await {
+                return Binary::from_error(e);
+            }
+        }
+
+        if let (Some(title), Some(scene_key)) = (req.scene_title, req.scene_key) {
+            if let Err(e) = project.update_scene_title(conn, &scene_key, &title).await {
+                return Binary::from_error(e);
+            }
+        }
+
+        Binary::result_success("Updated successfully")
+    }
+
     pub fn filter(
         pool: sqlx::SqlitePool,
     ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        warp::path!("scene" / "save")
-            .and(warp::post())
-            .and(with_db(pool))
-            .and(with_session())
-            .and(json_body())
-            .and_then(save_scene)
+        warp::path("scene").and(
+            (warp::path("save")
+                .and(warp::post())
+                .and(with_db(pool.clone()))
+                .and(with_session())
+                .and(json_body())
+                .and_then(save_scene))
+            .or(warp::path("details")
+                .and(warp::post())
+                .and(with_db(pool))
+                .and(with_session())
+                .and(json_body())
+                .and_then(scene_details)),
+        )
     }
 }
 
