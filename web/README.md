@@ -75,3 +75,5 @@ like `{{ dir/file(key=value) }}` one can use the equivalent expression
         Hello World
     {{ page/end() }}` 
     ```
+* `PageStart` can also be interpreted as `page_start.html` failing other
+    interpretations.
