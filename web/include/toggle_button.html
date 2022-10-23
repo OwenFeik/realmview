@@ -1,5 +1,5 @@
 {{
-  icon_button(
+  button(
     icon={{ ICON_A }},
     onclick="
       let value = this.getAttribute('data-value') === '1' ? false : true;
@@ -9,7 +9,7 @@
       );
       IFDEF(ACTION) {{ ({{ ACTION }})(value); }}
     ",
-    IFDEF(CLASSES) {{ {{ CLASSES }} }}
+    IFDEF(CLASS) {{ {{ CLASS }} }}
     IFDEF(OUTLINE) {{ outline=1, }}
     IFDEF(SMALL) {{ small=1, }}
     IFDEF(ID) {{ id={{ ID }}, }}

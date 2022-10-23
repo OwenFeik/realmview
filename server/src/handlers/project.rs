@@ -12,6 +12,7 @@ use crate::models::{Project, User};
 struct SceneListEntry {
     scene_key: String,
     title: String,
+    thumbnail: String,
 }
 
 #[derive(Serialize)]
@@ -49,10 +50,11 @@ async fn list_projects(pool: SqlitePool, session_key: String) -> ResultReply {
     while let Some(project) = projects.pop() {
         let scene_list = match project.list_scenes(conn).await {
             Ok(scenes) => scenes
-                .iter()
+                .into_iter()
                 .map(|s| SceneListEntry {
-                    scene_key: s.scene_key.clone(),
-                    title: s.title.clone(),
+                    scene_key: s.scene_key,
+                    title: s.title,
+                    thumbnail: s.thumbnail,
                 })
                 .collect(),
             Err(e) => return Binary::result_error(&format!("Database error. {e}")),

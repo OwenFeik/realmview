@@ -1,0 +1,23 @@
+PREAMBLE {{
+if "HREF" in kwargs:
+  kwargs["TAG"] = "a"
+kwargs["TAG"] = kwargs.get("TAG", "button")
+}}
+<{{ TAG }}
+  IFDEF(ID) {{ id="{{ ID }}" }}
+  class="
+    btn
+    IFDEF(OUTLINE) {{ btn-outline-primary }} ELSE {{ btn-primary }}
+    IFDEF(SMALL) {{ btn-sm }}
+    IFDEF(CLASS) {{ {{ CLASS }} }}
+  "
+  IFDEF(STYLE) {{ style="{{ STYLE }}" }}
+  type="button"
+  IFDEF(ONCLICK) {{ onclick="{{ ONCLICK }}" }}
+  IFDEF(ATTRS) {{ {{ ATTRS }} }}
+  IFDEF(HREF) {{ href="{{ HREF }}" target="_blank" }}
+>IFDEF(ICON) {{
+  {{ bootstrap_icon({{ ICON }}) }}
+}} IFDEF(TEXT) {{
+  {{ TEXT }}
+}}</{{ TAG }}>

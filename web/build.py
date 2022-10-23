@@ -374,26 +374,33 @@ def html_file_substitution(tag: str, args: str = "") -> str:
     else:
         processed = tag
 
-    # Conver from camelcase, e.g.
-    # FormField to form/field
-    file = ""
+    # Convert from camelcase, e.g.
+    # FormField to form/field or form_field
+    parts = []
+    part = ""
     for c in processed:
         if c.isupper():
-            if file:
-                file += "/"
-            file += c.lower()
+            if part:
+                parts.append(part)
+            part = c.lower()
         else:
-            file += c
+            part += c
+    if part:
+        parts.append(part)
 
-    try:
-        html = include_file(file, False)
-    except (FileNotFoundError, IsADirectoryError):
+    path = "/".join(parts)
+    start = path + "/start"
+    snake = "_".join(parts)
+
+    for file in [path, start, snake]:
         try:
-            # <Form> can mean <FormStart>
-            html = include_file(file + "/start", False)
-        except Exception as e:
-            print(f"Missing include file for tag: {tag}")
-            exit(os.EX_NOTFOUND)
+            html = include_file(file, False)
+            break
+        except (FileNotFoundError, IsADirectoryError):
+            pass
+    else:
+        print(f"Missing include file for tag: {tag}")
+        exit(os.EX_DATAERR)
 
     return kwarg_substitution(html, args)
 

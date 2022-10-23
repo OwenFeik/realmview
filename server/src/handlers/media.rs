@@ -1,9 +1,5 @@
-use std::path::PathBuf;
-
 use sqlx::SqlitePool;
 use warp::Filter;
-
-const LIBRARY_FILE: &str = "media.html";
 
 #[derive(serde_derive::Serialize, sqlx::FromRow)]
 struct MediaItem {
@@ -222,9 +218,5 @@ pub fn filter(
     pool: SqlitePool,
     content_dir: String,
 ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    list::filter(pool.clone())
-        .or(details::filter(pool, content_dir.clone()))
-        .or(warp::path("media").and(warp::get()).and(warp::fs::file(
-            PathBuf::from(content_dir).join(LIBRARY_FILE),
-        )))
+    list::filter(pool.clone()).or(details::filter(pool, content_dir))
 }

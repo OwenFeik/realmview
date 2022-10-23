@@ -166,6 +166,7 @@ mod scene_record {
         pub title: String,
         pub w: u32,
         pub h: u32,
+        pub thumbnail: String,
     }
 
     impl SceneRecord {

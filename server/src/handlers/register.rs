@@ -1,5 +1,4 @@
 use std::convert::Infallible;
-use std::path::Path;
 
 use serde_derive::{Deserialize, Serialize};
 use sqlx::{sqlite::SqlitePool, Sqlite};
@@ -8,8 +7,6 @@ use warp::{http::StatusCode, Filter};
 use super::response::{as_result, Binary};
 use super::{current_time, json_body, with_db};
 use crate::crypto::{generate_salt, hash_password, to_hex_string, Key};
-
-const REGISTER_PAGE: &str = "register.html";
 
 #[derive(Deserialize)]
 struct RegistrationRequest {
@@ -171,13 +168,10 @@ async fn register(
 
 pub fn filter(
     pool: SqlitePool,
-    content_dir: &Path,
 ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    warp::path!("register").and(
-        (warp::post()
-            .and(json_body::<RegistrationRequest>())
-            .and(with_db(pool))
-            .and_then(register))
-        .or(warp::get().and(warp::fs::file(content_dir.join(REGISTER_PAGE)))),
-    )
+    warp::path!("register")
+        .and(warp::post())
+        .and(json_body::<RegistrationRequest>())
+        .and(with_db(pool))
+        .and_then(register)
 }

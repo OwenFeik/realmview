@@ -1,4 +1,8 @@
-use std::{convert::Infallible, io::Read, path::PathBuf};
+use std::{
+    convert::Infallible,
+    io::Read,
+    path::{Path, PathBuf},
+};
 
 use bincode::deserialize;
 use sqlx::SqlitePool;
@@ -20,19 +24,30 @@ pub fn routes(
     games: crate::games::Games,
     content_dir: String,
 ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    const INDEX_FILE: &str = "index.html";
-
     let content_path = PathBuf::from(content_dir.clone());
     warp::fs::dir(content_path.clone())
-        .or(login::filter(pool.clone(), &content_path))
-        .or(register::filter(pool.clone(), &content_path))
+        .or(login::filter(pool.clone()))
+        .or(register::filter(pool.clone()))
         .or(logout::filter(pool.clone()))
         .or(upload::filter(pool.clone(), content_dir.clone()))
         .or(media::filter(pool.clone(), content_dir))
         .or(project::filter(pool.clone()))
         .or(game::routes(pool.clone(), games, &content_path))
         .or(scene::routes(pool, &content_path))
-        .or(warp::get().and(warp::fs::file(content_path.join(INDEX_FILE))))
+        .or(page_routes(&content_path))
+}
+
+fn page_routes(
+    dir: &Path,
+) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::get().and(
+        warp::path::end()
+            .and(warp::fs::file(dir.join("index.html")))
+            .or(warp::path("login").and(warp::fs::file(dir.join("login.html"))))
+            .or(warp::path("register").and(warp::fs::file(dir.join("register.html"))))
+            .or(warp::path("media").and(warp::fs::file(dir.join("media.html"))))
+            .or(warp::path("project").and(warp::fs::file(dir.join("project.html")))),
+    )
 }
 
 pub fn json_body<T: std::marker::Send + for<'de> serde::Deserialize<'de>>(

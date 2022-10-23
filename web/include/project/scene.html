@@ -1,0 +1,29 @@
+<div class="col-sm-2">
+  <div class="card">
+    <img
+      class="card-img-top"
+      style="max-height: 8rem; object-fit: cover;"
+      src="${scene.thumbnail}"
+    >
+    <div class="card-body">
+      <EditableInput
+        button=""
+        class="mb-1"
+        value="${scene.title}"
+      >
+      <div>
+        <Button
+          small=""
+          class=""
+          text="Launch"
+          href="/project/${project.project_key}/scene/${scene.scene_key}"
+        >
+        <Button
+          small=""  
+          class="btn-danger"
+          text="Delete"
+        >
+      </div>
+    </div>
+  </div>
+</div>

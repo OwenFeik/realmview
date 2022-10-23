@@ -9,7 +9,7 @@ IFNDEF(NOSTART) {{
   class="
     input-group
     IFDEF(SMALL) {{ input-group-sm }}
-    IFDEF(STARTCLASS) {{ {{ STARTCLASS }} }}
+    IFDEF(CLASS) {{ {{ CLASS }} }}
   "
 >
 }}
@@ -39,7 +39,7 @@ IFNDEF(NOSTART) {{
   >
   IFDEF(BUTTON) {{
     {{
-      icon_button(
+      button(
         icon=pencil-square,
         outline=true,
         IFDEF(SMALL) {{ small=true, }}
