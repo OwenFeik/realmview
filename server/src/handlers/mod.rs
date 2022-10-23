@@ -154,7 +154,10 @@ pub mod response {
         }
 
         pub fn result_failure(message: &str) -> ResultReply {
-            as_result(&Binary::new_failure(message), StatusCode::OK)
+            as_result(
+                &Binary::new_failure(message),
+                StatusCode::UNPROCESSABLE_ENTITY,
+            )
         }
 
         pub fn result_error(message: &str) -> ResultReply {
@@ -162,6 +165,10 @@ pub mod response {
                 &Binary::new_failure(message),
                 StatusCode::INTERNAL_SERVER_ERROR,
             )
+        }
+
+        pub fn from_error<E: std::fmt::Display>(err: E) -> ResultReply {
+            Self::result_failure(&format!("Error: {err}"))
         }
     }
 

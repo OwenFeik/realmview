@@ -163,6 +163,12 @@ function get_texture_queue() {
     return texture_queue;
 }
 
+// Return a canvas context with preserveDrawingBuffer, in order to enable
+// screenshotting.
+function get_webgl2_context(canvas) {
+    return canvas.getContext('webgl2', { preserveDrawingBuffer: true });
+}
+
 // Loads the texture with the specified ID and pushes the HTML image to the
 // texture queue. If necessary, this will query the desired image URL from
 // the server.

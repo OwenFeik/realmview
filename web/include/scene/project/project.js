@@ -270,6 +270,49 @@ function update_select(id, label, value, data_id = null) {
     select.value = value;
 }
 
+function upload_thumbnail() {
+    const ASPECT = 4 / 3;
+    const WIDTH = 256;
+    const HEIGHT = WIDTH / ASPECT;
+
+    // If no scene is selected, we don't know which scene the thumbnail is for.
+    let scene = selected_scene();
+    if (!scene) {
+        return;
+    }
+
+    // Find the largest rectangle with ASPECT ratio from the top left corner.  
+    let canvas = document.getElementById("canvas");
+    let sw, sh;
+    if (canvas.width / ASPECT > canvas.height * ASPECT) {
+        sw = canvas.width;
+        sh = Math.floor(canvas.height * ASPECT);
+    } else {
+        sw = Math.floor(canvas.width / ASPECT);
+        sh = canvas.height;
+    }
+
+    // Copy the contents of the canvas to a WIDTH * HEIGHT thumbnail.
+    let thumbnail = document.createElement("canvas");
+    thumbnail.width = WIDTH;
+    thumbnail.height = HEIGHT;
+    let ctx = thumbnail.getContext("2d");
+    ctx.fillStyle = "rgb(248, 249, 250)" // bg-light
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    ctx.drawImage(
+        canvas, 0, 0, sw, sh, 0, 0, WIDTH, HEIGHT
+    );
+
+    // Upload the thumbnail to the server.
+    thumbnail.toBlob(blob => {
+        let data = new FormData();
+        data.append("image", blob, "thumbnail.png");
+        data.append("thumbnail", scene);
+
+        fetch("/upload", { method: "POST", body: data });
+    });
+}
+
 function save_project() {
     let proj = selected_project();
     post(
@@ -296,6 +339,8 @@ function save_project() {
                 );
                 update_url_project_scene();
             }
+
+            upload_thumbnail();
         },
         null,
         "save_project_loading"

@@ -27,11 +27,11 @@ pub struct UserSession {
 
 impl UserSession {
     pub async fn get(pool: &SqlitePool, session_key: &str) -> anyhow::Result<Option<UserSession>> {
-        let user_sesion = sqlx::query_as("SELECT * FROM user_sessions WHERE session_key = ?1;")
+        let user_session = sqlx::query_as("SELECT * FROM user_sessions WHERE session_key = ?1;")
             .bind(session_key)
             .fetch_optional(pool)
             .await?;
-        Ok(user_sesion)
+        Ok(user_session)
     }
 
     pub async fn user(&self, pool: &SqlitePool) -> anyhow::Result<Option<User>> {

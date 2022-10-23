@@ -1,4 +1,5 @@
-use sqlx::SqliteConnection;
+use anyhow::anyhow;
+use sqlx::{SqliteConnection, Row};
 
 use self::layer::LayerRecord;
 pub use self::scene_record::SceneRecord;
@@ -123,6 +124,26 @@ impl Project {
         conn: &mut SqliteConnection,
     ) -> anyhow::Result<Vec<SceneRecord>> {
         SceneRecord::project_scenes(conn, self.id).await
+    }
+
+    pub async fn scene_owner(conn: &mut SqliteConnection, scene_key: &str) -> anyhow::Result<i64> {
+        let row = sqlx::query("SELECT user FROM scenes LEFT JOIN projects ON scenes.project = projects.id WHERE scenes.scene_key = ?1;")
+            .bind(scene_key)
+            .fetch_one(conn)
+            .await
+            .map_err(|_| anyhow!("Scene not found."))?;
+
+        Ok(row.get(0))
+    }
+
+    pub async fn set_scene_thumbnail(conn: &mut SqliteConnection, scene_key: &str, thumbnail: &str) -> anyhow::Result<()> {
+        sqlx::query("UPDATE scenes SET thumbnail = ?1 WHERE scene_key = ?2;")
+            .bind(thumbnail)
+            .bind(scene_key)
+            .execute(conn)
+            .await
+            .map_err(|e| anyhow!("Database error: {e}"))?;
+        Ok(())
     }
 }
 

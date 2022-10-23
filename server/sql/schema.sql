@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS scenes (
     project INTEGER REFERENCES projects(id) ON DELETE CASCADE NOT NULL,
     title TEXT,
     w INTEGER NOT NULL,
-    h INTEGER NOT NULL
+    h INTEGER NOT NULL,
+    thumbnail TEXT
 );
 
 CREATE TABLE IF NOT EXISTS layers (

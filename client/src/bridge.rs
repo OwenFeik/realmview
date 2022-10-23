@@ -20,6 +20,9 @@ extern "C" {
     // Returns an array where loaded texture images will be placed once ready.
     fn get_texture_queue() -> Array;
 
+    // Returns a WebGL2 Context with approriate options set.
+    fn get_webgl2_context(element: &HtmlCanvasElement) -> WebGl2RenderingContext;
+
     // Causes the texture with this ID to be loaded as an image and added to
     // the texture queue once ready.
     pub fn load_texture(media_key: String);
@@ -836,13 +839,7 @@ impl Cursor {
 }
 
 fn create_context(element: &HtmlCanvasElement) -> anyhow::Result<Gl> {
-    let gl = match element.get_context("webgl2") {
-        Ok(Some(c)) => match c.dyn_into::<Gl>() {
-            Ok(c) => c,
-            Err(_) => return Err(anyhow::anyhow!("Failed to cast to WebGL context.",)),
-        },
-        _ => return Err(anyhow::anyhow!("Failed to get rendering context.")),
-    };
+    let gl = get_webgl2_context(element);
 
     // Enable transparency
     gl.enable(Gl::BLEND);
