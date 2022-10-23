@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use sqlx::{SqliteConnection, Row};
+use sqlx::{Row, SqliteConnection};
 
 use self::layer::LayerRecord;
 pub use self::scene_record::SceneRecord;
@@ -136,7 +136,11 @@ impl Project {
         Ok(row.get(0))
     }
 
-    pub async fn set_scene_thumbnail(conn: &mut SqliteConnection, scene_key: &str, thumbnail: &str) -> anyhow::Result<()> {
+    pub async fn set_scene_thumbnail(
+        conn: &mut SqliteConnection,
+        scene_key: &str,
+        thumbnail: &str,
+    ) -> anyhow::Result<()> {
         sqlx::query("UPDATE scenes SET thumbnail = ?1 WHERE scene_key = ?2;")
             .bind(thumbnail)
             .bind(scene_key)

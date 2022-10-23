@@ -122,24 +122,37 @@ impl UploadImage {
         }
     }
 
-    async fn save_thumbnail(&self, pool: &SqlitePool, user: &User, content_dir: &str) -> anyhow::Result<UploadResponse> {
+    async fn save_thumbnail(
+        &self,
+        pool: &SqlitePool,
+        user: &User,
+        content_dir: &str,
+    ) -> anyhow::Result<UploadResponse> {
         let scene_key = match &self.role {
             ImageRole::Thumbnail(key) => key,
             _ => return Err(anyhow!("No scene ID provided.")),
         };
 
-        let mut conn = pool.acquire().await.map_err(|e| anyhow!("Failed to get database connection: {e}"))?;
+        let mut conn = pool
+            .acquire()
+            .await
+            .map_err(|e| anyhow!("Failed to get database connection: {e}"))?;
 
-        if crate::models::Project::scene_owner(&mut conn, &scene_key).await? != user.id {
+        if crate::models::Project::scene_owner(&mut conn, scene_key).await? != user.id {
             return Err(anyhow!("User does not own scene."));
         }
 
         self.write_file(content_dir, user).await?;
 
         let relative_path = self.relative_path(user)?;
-        crate::models::Project::set_scene_thumbnail(&mut conn, &scene_key, &relative_path).await.ok();
+        crate::models::Project::set_scene_thumbnail(&mut conn, scene_key, &relative_path)
+            .await
+            .ok();
 
-        Ok(UploadResponse::new(None, format!("/static/{}", &relative_path)))
+        Ok(UploadResponse::new(
+            None,
+            format!("/static/{}", &relative_path),
+        ))
     }
 
     async fn save_media(
@@ -254,10 +267,7 @@ async fn upload(
 
     for p in parts {
         match p.name() {
-            "thumbnail" => match collect_part(p)
-                .await
-                .map(|data| String::from_utf8(data))
-            {
+            "thumbnail" => match collect_part(p).await.map(String::from_utf8) {
                 Ok(Ok(scene_key)) => upload.role = ImageRole::Thumbnail(scene_key),
                 _ => return Binary::result_failure("Bad thumbnail scene ID."),
             },
