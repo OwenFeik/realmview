@@ -2,11 +2,28 @@
   <nav class="navbar navbar-expand-sm navbar-dark bg-primary">
     <div class="container-fluid">
       <a class="navbar-brand" href="/">{{ constant(APP_TITLE) }}</a>
-      <div class="collapse navbar-collapse">
+      <div class="collapse navbar-collapse d-flex">
         <div class="navbar-nav">
+        IFNDEF(LOGGEDIN) {{
           <a class="nav-link" href="/login">Log In</a>
-          <a class="nav-link" href="/register">Register</a>
+          <a class="nav-link" href="/register">Register</a>  
         </div>
+        }} ELSE {{
+          <a class="nav-link" href="/media">Media</a>
+          <a class="nav-link" href="/project">Projects</a>
+        </div>
+        <div class="ms-auto navbar-nav">
+          <a
+            class="nav-link"
+            style="cursor: pointer;"
+            onclick="
+              fetch('/logout', { method: 'POST' }).then(
+                () => window.location = '/'
+              )
+            "
+          >Log Out</a>
+        </div>
+        }}
       </div>
     </div>
   </nav>

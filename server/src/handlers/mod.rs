@@ -10,9 +10,8 @@ use warp::Filter;
 
 use crate::models::User;
 
+mod auth;
 mod game;
-mod login;
-mod logout;
 mod media;
 mod project;
 mod register;
@@ -26,9 +25,8 @@ pub fn routes(
 ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let content_path = PathBuf::from(content_dir.clone());
     warp::fs::dir(content_path.clone())
-        .or(login::filter(pool.clone()))
+        .or(auth::filter(pool.clone()))
         .or(register::filter(pool.clone()))
-        .or(logout::filter(pool.clone()))
         .or(upload::filter(pool.clone(), content_dir.clone()))
         .or(media::filter(pool.clone(), content_dir))
         .or(project::filter(pool.clone()))

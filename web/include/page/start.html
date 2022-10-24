@@ -6,4 +6,4 @@
       ELSE {{ {{ constant(APP_TITLE) }} }}</title>
   </head>
   <body>
-  {{ header() }}
+  {{ header({{ IFDEF(LOGGEDIN) {{ loggedin="" }} }}) }}

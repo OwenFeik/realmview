@@ -1,12 +1,12 @@
 use std::convert::Infallible;
 
 use serde_derive::Deserialize;
-use sqlx::sqlite::SqlitePool;
+use sqlx::SqlitePool;
 use warp::hyper::StatusCode;
 use warp::Filter;
 
 use super::response::{cookie_result, Binary};
-use super::{current_time, json_body, with_db};
+use super::{current_time, json_body, with_db, with_session};
 use crate::crypto::{check_password, from_hex_string, generate_salt, to_hex_string};
 use crate::models::User;
 
@@ -14,6 +14,24 @@ use crate::models::User;
 struct LoginRequest {
     username: String,
     password: String,
+}
+
+pub fn filter(
+    pool: SqlitePool,
+) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    let logout = warp::path("logout")
+        .and(warp::post())
+        .and(with_db(pool.clone()))
+        .and(with_session())
+        .and_then(logout);
+
+    let login = warp::path("login")
+        .and(warp::post())
+        .and(json_body::<LoginRequest>())
+        .and(with_db(pool))
+        .and_then(login);
+
+    login.or(logout)
 }
 
 fn decode_and_check_password(
@@ -104,12 +122,19 @@ async fn login(details: LoginRequest, pool: SqlitePool) -> Result<impl warp::Rep
     )
 }
 
-pub fn filter(
-    pool: SqlitePool,
-) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    warp::path("login")
-        .and(warp::post())
-        .and(json_body::<LoginRequest>())
-        .and(with_db(pool))
-        .and_then(login)
+async fn end_session(pool: &SqlitePool, session_key: &str) -> anyhow::Result<bool> {
+    let rows_affected =
+        sqlx::query("UPDATE user_sessions SET end_time = ?1 WHERE session_key = ?2")
+            .bind(current_time()? as i64)
+            .bind(session_key)
+            .execute(pool)
+            .await?
+            .rows_affected();
+
+    Ok(rows_affected > 0)
+}
+
+async fn logout(pool: SqlitePool, session_key: String) -> Result<impl warp::Reply, Infallible> {
+    end_session(&pool, session_key.as_str()).await.ok();
+    session_result(true, "Logged out.", StatusCode::OK, None)
 }

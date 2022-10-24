@@ -16,7 +16,7 @@ use crate::crypto::to_hex_string_unsized;
 use crate::models::{Media, User};
 
 // Maximum total size of media a single use can upload, in bytes
-const UPLOAD_LIMIT: usize = 128 * 1024 * 1024; // 128 KB
+const UPLOAD_LIMIT: usize = 128 * 1024 * 1024; // 128 MB
 
 #[derive(serde_derive::Serialize)]
 struct UploadResponse {
