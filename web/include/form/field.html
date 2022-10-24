@@ -1,7 +1,6 @@
 PREAMBLE {{
 if kwargs.get("FIELD_ID") is None:
-  kwargs["FIELD_ID"] = kwargs["ID"]
-  del kwargs["ID"]
+  kwargs["FIELD_ID"] = kwargs.pop("ID", unique_string())
 if kwargs.get("FIELD_NAME") is None:
   kwargs["FIELD_NAME"] = kwargs.get(
     "NAME", kwargs["FIELD_ID"].replace("_", " ").capitalize()
@@ -36,6 +35,9 @@ if "PROPS" not in kwargs:
 
 if kwargs["FIELD_TYPE"] == "hidden":
   kwargs["HIDDEN"] = 1
+
+if kwargs["FIELD_TYPE"] == "text" and not "MAXLENGTH" in kwargs:
+  kwargs["MAXLENGTH"] = "256"
 }}
 
 IFDEF(HIDDEN) {{

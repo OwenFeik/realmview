@@ -39,13 +39,16 @@ fn page_routes(
     dir: &Path,
 ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     warp::get().and(
-        warp::path::end()
-            .and(warp::fs::file(dir.join("index.html")))
+        (warp::path::end().and(warp::fs::file(dir.join("index.html"))))
             .or(warp::path("login").and(warp::fs::file(dir.join("login.html"))))
             .or(warp::path("register").and(warp::fs::file(dir.join("register.html"))))
             .or(warp::path("scene").and(warp::fs::file(dir.join(scene::SCENE_EDITOR_FILE))))
             .or(warp::path("media").and(warp::fs::file(dir.join("media.html"))))
-            .or(warp::path("project").and(warp::fs::file(dir.join("project.html")))),
+            .or(warp::path!("project" / String)
+                .map(|_| ())
+                .untuple_one()
+                .and(warp::fs::file(dir.join("new_project.html"))))
+            .or(warp::path("project").and(warp::fs::file(dir.join("projects.html")))),
     )
 }
 

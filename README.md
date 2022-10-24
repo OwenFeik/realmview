@@ -14,8 +14,6 @@
     * Multiselect media, apply action to all items
     * Search media
 * Projects
-    * /project/PROJECT_KEY should show a page with the scenes in that project
-        and project metadata
     * /project should show the same page but empty, with prompt to save the
         project and create a scene
 * Game

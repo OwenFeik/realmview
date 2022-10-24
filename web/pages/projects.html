@@ -1,0 +1,28 @@
+<Page title="Projects" loggedin="">
+  <div class="container-fluid">
+    <div class="container pt-3">
+      <div
+        id="new_prompt"
+        class="row justify-content-center align-items-center"
+      >
+        <div class="col-sm-3 d-flex flex-column justify-content-end">
+          <p
+            id="new_prompt_text"
+            class="text-muted"
+          >No projects. Create a new one to get started.</p>
+          <Button
+            id="new_prompt_button"
+            class="ms-auto"
+            href="/project/new"
+            icon="box-arrow-in-down-right"
+            text="New project"
+          >
+        </div>
+      </div>
+    </div>
+    <div id="project_list"></div>  
+  </div>
+  <ConfirmationModal />
+  <BootstrapJs />
+  <Js src="projects/projects.js">
+</Page>

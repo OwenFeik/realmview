@@ -357,7 +357,7 @@ def kwarg_substitution(html: str, args: str = "") -> str:
 
     try:
         return process_kwarg_html(html, kwargs)
-    except ValueError as e:
+    except (ValueError, KeyError) as e:
         print(f"Substitution failed.\nReason: {e}\nArgs: {kwargs}")
         exit(os.EX_DATAERR)
 
