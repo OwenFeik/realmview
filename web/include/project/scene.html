@@ -1,4 +1,8 @@
-<div class="col-sm-2">
+<!--
+  Scene list entry. Expects a SceneListEntry object called scene to be in
+  scope.
+-->
+<div id="scene_${scene.scene_key}" class="col-sm-2">
   <div class="card">
     <img
       class="card-img-top"
@@ -30,6 +34,7 @@
           small=""  
           class="btn-danger"
           text="Delete"
+          onclick="delete_scene('${scene.scene_key}', '${scene.title}')"
         >
       </div>
     </div>

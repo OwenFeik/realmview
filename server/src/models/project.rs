@@ -29,6 +29,23 @@ impl Project {
         .map_err(|e| anyhow::anyhow!(format!("Database error: {}", e)))
     }
 
+    pub async fn delete(self, conn: &mut SqliteConnection) -> anyhow::Result<()> {
+        sqlx::query(
+            r#"
+            DELETE FROM sprites WHERE scene IN (
+                SELECT id FROM scenes WHERE project = ?1
+            );
+            DELETE FROM scenes WHERE project = ?1;
+            DELETE FROM projects WHERE id = ?1;
+        "#,
+        )
+        .bind(self.id)
+        .execute(conn)
+        .await
+        .map_err(|e| anyhow!(e))?;
+        Ok(())
+    }
+
     pub async fn load(conn: &mut SqliteConnection, id: i64) -> anyhow::Result<Project> {
         let res = sqlx::query_as("SELECT * FROM projects WHERE id = ?1;")
             .bind(id)
@@ -174,6 +191,33 @@ impl Project {
             .execute(conn)
             .await
             .map_err(|e| anyhow!("Database error: {e}"))?;
+        Ok(())
+    }
+
+    pub async fn delete_scene(
+        conn: &mut SqliteConnection,
+        user: i64,
+        scene_key: &str,
+    ) -> anyhow::Result<()> {
+        sqlx::query(
+            r#"
+            DELETE FROM sprites WHERE scene IN (
+                SELECT scenes.id FROM scenes
+                LEFT JOIN projects ON scenes.project = projects.id
+                WHERE scenes.scene_key = ?1 AND projects.user = ?2
+            );
+            DELETE FROM scenes WHERE id IN (
+                SELECT scenes.id FROM scenes
+                LEFT JOIN projects ON scenes.project = projects.id
+                WHERE scenes.scene_key = ?1 AND projects.user = ?2
+            );
+        "#,
+        )
+        .bind(scene_key)
+        .bind(user)
+        .execute(conn)
+        .await
+        .map_err(|e| anyhow!(e))?;
         Ok(())
     }
 }

@@ -45,6 +45,7 @@ fn page_routes(
             .and(warp::fs::file(dir.join("index.html")))
             .or(warp::path("login").and(warp::fs::file(dir.join("login.html"))))
             .or(warp::path("register").and(warp::fs::file(dir.join("register.html"))))
+            .or(warp::path("scene").and(warp::fs::file(dir.join(scene::SCENE_EDITOR_FILE))))
             .or(warp::path("media").and(warp::fs::file(dir.join("media.html"))))
             .or(warp::path("project").and(warp::fs::file(dir.join("project.html")))),
     )

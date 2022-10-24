@@ -44,7 +44,7 @@ KWARG_FILE_REGEX = (
 # leading capital letter.
 HTML_FILE_REGEX = (
     rf"<\s*(?P<html_file>([A-Z]|/[A-Z])[a-zA-Z0-9_]+)\s*"
-    rf"(?P<html_args>({KWARG_ARG_REGEX}(\s+|\s*(?=>)))*)\s*>"
+    rf"(?P<html_args>({KWARG_ARG_REGEX}(\s+|\s*(?=>)))*)\s*/?>"
 )
 
 # function name followed by a single argument
@@ -405,6 +405,17 @@ def html_file_substitution(tag: str, args: str = "") -> str:
     return kwarg_substitution(html, args)
 
 
+# Removes comments from text.
+# Handles C-style comments ( // and /* */ ) and HTML comments (<!-- -->)
+def strip_comments(text):
+    return re.sub(
+        r"(/\*[\s\S]*?\*/|^[ \t]*//.*|<!--[\s\S]*?-->)",
+        "",
+        text,
+        flags=re.MULTILINE,
+    )
+
+
 def include_file(file: str, process: bool = True) -> str:
     try:
         include = os.path.join(INCLUDE_DIR, file)
@@ -415,6 +426,8 @@ def include_file(file: str, process: bool = True) -> str:
         include = os.path.join(INCLUDE_DIR, file + ".html")
         with open(include, "r") as f:
             html = f.read()
+
+    html = strip_comments(html)
 
     # Note: This could recurse until OOM if a file is self-referential.
     # Don't do that.

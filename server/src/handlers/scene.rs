@@ -1,11 +1,13 @@
 use std::path::Path;
 
 use serde_derive::Serialize;
-use warp::{hyper::StatusCode, Filter};
+use sqlx::SqlitePool;
+use warp::{hyper::StatusCode, Filter, Rejection, Reply};
 
+use super::{with_db, with_session};
 use crate::{
     handlers::response::{as_result, Binary, ResultReply},
-    models::Project,
+    models::{Project, User},
 };
 
 pub const SCENE_EDITOR_FILE: &str = "scene.html";
@@ -14,17 +16,13 @@ pub fn routes(
     pool: sqlx::SqlitePool,
     content_dir: &Path,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    save::filter(pool.clone())
-        .or(load::filter(pool))
-        .or(page_route(content_dir))
-}
-
-fn scene_route(
-    content_dir: &Path,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     warp::path("scene")
-        .and(warp::get())
-        .and(warp::fs::file(content_dir.join(SCENE_EDITOR_FILE)))
+        .and(
+            save::filter(pool.clone())
+                .or(load::filter(pool.clone()))
+                .or(delete_filter(pool)),
+        )
+        .or(proj_scene_route(content_dir))
 }
 
 fn proj_scene_route(
@@ -35,12 +33,6 @@ fn proj_scene_route(
         .untuple_one()
         .and(warp::get())
         .and(warp::fs::file(content_dir.join(SCENE_EDITOR_FILE)))
-}
-
-fn page_route(
-    content_dir: &Path,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    scene_route(content_dir).or(proj_scene_route(content_dir))
 }
 
 #[derive(Serialize)]
@@ -207,20 +199,18 @@ mod save {
     pub fn filter(
         pool: sqlx::SqlitePool,
     ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        warp::path("scene").and(
-            (warp::path("save")
-                .and(warp::post())
-                .and(with_db(pool.clone()))
-                .and(with_session())
-                .and(json_body())
-                .and_then(save_scene))
-            .or(warp::path("details")
-                .and(warp::post())
-                .and(with_db(pool))
-                .and(with_session())
-                .and(json_body())
-                .and_then(scene_details)),
-        )
+        (warp::path("save")
+            .and(warp::post())
+            .and(with_db(pool.clone()))
+            .and(with_session())
+            .and(json_body())
+            .and_then(save_scene))
+        .or(warp::path("details")
+            .and(warp::post())
+            .and(with_db(pool))
+            .and(with_session())
+            .and(json_body())
+            .and_then(scene_details))
     }
 }
 
@@ -270,10 +260,35 @@ mod load {
     pub fn filter(
         pool: sqlx::SqlitePool,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        warp::path!("scene" / "load" / String)
+        warp::path!("load" / String)
             .and(warp::get())
             .and(with_db(pool))
             .and(with_session())
             .and_then(load_scene)
     }
+}
+
+async fn delete_scene(scene_key: String, pool: SqlitePool, skey: String) -> ResultReply {
+    let user = match User::get_by_session(&pool, &skey).await {
+        Ok(Some(u)) => u,
+        _ => return Binary::result_failure("Invalid session."),
+    };
+
+    let conn = &mut match pool.acquire().await {
+        Ok(c) => c,
+        Err(e) => return Binary::result_error(&format!("{e}")),
+    };
+
+    match Project::delete_scene(conn, user.id, &scene_key).await {
+        Ok(()) => Binary::result_success("Scene deleted successfullly."),
+        Err(_) => Binary::result_failure("Scene not found."),
+    }
+}
+
+fn delete_filter(pool: SqlitePool) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
+    warp::path!(String)
+        .and(warp::path::end())
+        .and(with_db(pool))
+        .and(with_session())
+        .and_then(delete_scene)
 }

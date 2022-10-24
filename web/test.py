@@ -33,6 +33,17 @@ class Test(unittest.TestCase):
         build.process_preamble(html, kwargs)
         self.assertEqual(kwargs["VAR"], "val")
 
+    def test_strip_comments(self) -> None:
+        html = """
+            <!-- HTML comment -->
+            /*
+                C-style block comment
+            */
+            // C Line comment
+            // <!-- /* */ --> // combo
+        """
+        self.assertEqual(build.strip_comments(html).strip(), "")
+
 
 if __name__ == "__main__":
     unittest.main()

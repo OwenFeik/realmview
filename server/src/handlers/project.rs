@@ -38,7 +38,7 @@ async fn list_projects(pool: SqlitePool, session_key: String) -> ResultReply {
 
     let conn = &mut match pool.acquire().await {
         Ok(c) => c,
-        Err(e) => return Binary::result_error(&format!("{e}")),
+        Err(e) => return Binary::from_error(e),
     };
 
     let mut projects = match Project::list(conn, user.id).await {
@@ -77,12 +77,46 @@ async fn list_projects(pool: SqlitePool, session_key: String) -> ResultReply {
     )
 }
 
+async fn delete_project(project_key: String, pool: SqlitePool, session_key: String) -> ResultReply {
+    let user = match User::get_by_session(&pool, &session_key).await {
+        Ok(Some(user)) => user,
+        _ => return Binary::result_failure("Invalid session."),
+    };
+
+    let conn = &mut match pool.acquire().await {
+        Ok(c) => c,
+        Err(e) => return Binary::from_error(e),
+    };
+
+    let project = match Project::get_by_key(conn, &project_key).await {
+        Ok(p) => p,
+        Err(_) => return Binary::result_failure(""),
+    };
+
+    if project.user != user.id {
+        return Binary::result_failure("Project not found.");
+    }
+
+    match project.delete(conn).await {
+        Ok(()) => Binary::result_success("Project deleted successfully."),
+        Err(e) => Binary::from_error(e),
+    }
+}
+
 pub fn filter(
     pool: SqlitePool,
 ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    warp::path!("project" / "list")
-        .and(warp::get())
-        .and(with_db(pool))
-        .and(with_session())
-        .and_then(list_projects)
+    warp::path("project").and(
+        (warp::path("list")
+            .and(warp::get())
+            .and(with_db(pool.clone()))
+            .and(with_session())
+            .and_then(list_projects))
+        .or(warp::path!(String)
+            .and(warp::path::end())
+            .and(warp::delete())
+            .and(with_db(pool))
+            .and(with_session())
+            .and_then(delete_project)),
+    )
 }
