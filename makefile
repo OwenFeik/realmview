@@ -26,6 +26,7 @@ database: build-dir
 		|| [ ! -f ${build}/database.db ] \
 		|| ! cmp -s ${root}/server/sql/schema.sql ${build}/schema.sql; \
 	then \
+		rm -rf ${content}/uploads \
 		rm -f ${build}/database.db; \
 		cp ${root}/server/sql/schema.sql ${build}/schema.sql; \
 		sqlite3 ${build}/database.db < ${build}/schema.sql; \

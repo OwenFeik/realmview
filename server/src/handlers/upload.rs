@@ -15,6 +15,9 @@ use super::{with_db, with_session, with_val};
 use crate::crypto::to_hex_string_unsized;
 use crate::models::{Media, User};
 
+// Maximum total size of media a single use can upload, in bytes
+const UPLOAD_LIMIT: usize = 128 * 1024 * 1024; // 128 KB
+
 #[derive(serde_derive::Serialize)]
 struct UploadResponse {
     message: String,
@@ -60,6 +63,13 @@ impl UploadImage {
             ext: Self::DEFAULT_EXT.to_owned(),
             key: None,
         })
+    }
+
+    fn size(&self) -> usize {
+        match &self.data {
+            Some(data) => data.len() as usize,
+            None => 0,
+        }
     }
 
     fn ensure_key(&mut self) -> anyhow::Result<()> {
@@ -183,6 +193,7 @@ impl UploadImage {
             &relative_path,
             &self.title,
             &hash,
+            self.size() as i64,
         )
         .await
         {
@@ -255,9 +266,19 @@ async fn upload(
         _ => return Binary::result_failure("Invalid session."),
     };
 
+    let total_uploaded = match Media::user_total_size(&pool, user.id).await {
+        Ok(size) => size,
+        Err(e) => return Binary::from_error(e),
+    };
+
+    // If they're already full, don't bother processing the upload.
+    if total_uploaded >= UPLOAD_LIMIT {
+        return Binary::result_failure("Upload limit exceeded.");
+    }
+
     let parts: Vec<Part> = match form.try_collect().await {
         Ok(v) => v,
-        Err(_) => return Binary::result_failure("Upload failed."),
+        Err(e) => return Binary::result_failure(&format!("Upload failed: {e}")),
     };
 
     let mut upload = match UploadImage::new() {
@@ -299,6 +320,10 @@ async fn upload(
             }
             _ => (),
         }
+    }
+
+    if total_uploaded + upload.size() >= UPLOAD_LIMIT {
+        return Binary::result_failure("Upload limit exceeded.");
     }
 
     match upload.save(&pool, &user, &content_dir).await {

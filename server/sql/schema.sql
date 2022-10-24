@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS media (
     relative_path TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
     hashed_value CHAR(64) NOT NULL,
+    size INTEGER NOT NULL, -- Size in bytes
     UNIQUE(user, hashed_value)
 );
 
