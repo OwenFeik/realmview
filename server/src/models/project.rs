@@ -17,16 +17,27 @@ pub struct Project {
 }
 
 impl Project {
-    async fn new(conn: &mut SqliteConnection, user: i64) -> anyhow::Result<Project> {
+    const DEFAULT_TITLE: &'static str = "Untitled";
+    const MAX_TITLE_LENGTH: usize = 256;
+
+    pub async fn new(
+        conn: &mut SqliteConnection,
+        user: i64,
+        title: &str,
+    ) -> anyhow::Result<Project> {
+        if title.len() > Self::MAX_TITLE_LENGTH {
+            return Err(anyhow!("Title too long."));
+        }
+
         sqlx::query_as(
             "INSERT INTO projects (project_key, user, title) VALUES (?1, ?2, ?3) RETURNING *;",
         )
         .bind(crypto::random_hex_string(RECORD_KEY_LENGTH)?)
         .bind(user)
-        .bind("Untitled")
+        .bind(title)
         .fetch_one(conn)
         .await
-        .map_err(|e| anyhow::anyhow!(format!("Database error: {}", e)))
+        .map_err(|e| anyhow!(e))
     }
 
     pub async fn delete(self, conn: &mut SqliteConnection) -> anyhow::Result<()> {
@@ -74,7 +85,7 @@ impl Project {
     ) -> anyhow::Result<Project> {
         match id {
             Some(id) => Project::load(conn, id).await,
-            None => Project::new(conn, user).await,
+            None => Project::new(conn, user, Self::DEFAULT_TITLE).await,
         }
     }
 

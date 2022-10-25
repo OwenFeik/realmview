@@ -20,10 +20,10 @@ aria-hidden="true"
       ></button>
     </div>
     <div class="modal-body">
-      {{ form/start(action="/media/details", class="col", id="media_details_form") }}
-        {{ form/field(type="text", id="media_details_title", props='maxlength="256"', name="Title") }}
-        {{ form/field(type="hidden", id="media_details_media_key") }}
-      {{ form/end(nosubmit=1) }}
+      <Form id="media_details_form" class="col" action="/media/details">
+        <FormField id="media_details_title" name="Title">
+        <FormField id="media_details_media_key" type="hidden">
+      </Form nosubmit="">
     </div>
     <div class="modal-footer">
       <span class="spinner-border me-2 fade" id="media_details_loading"></span>
@@ -61,9 +61,9 @@ aria-hidden="true"
 
             post_form_json(
                 document.getElementById("media_details_form"),
-                success => {
+                resp => {
                     loading.classList.remove("show");
-                    if (success) {
+                    if (resp?.success) {
                         document
                             .getElementById("media_details_modal")
                             .querySelector(".btn-close")

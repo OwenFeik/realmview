@@ -1,8 +1,9 @@
-use serde_derive::Serialize;
+use serde_derive::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use warp::{hyper::StatusCode, Filter};
 
 use super::{
+    json_body,
     response::{as_result, Binary, ResultReply},
     with_db, with_session,
 };
@@ -28,6 +29,19 @@ struct ProjectListResponse {
     message: String,
     success: bool,
     list: Vec<ProjectListEntry>,
+}
+
+#[derive(Deserialize)]
+struct NewProjectRequest {
+    title: String,
+}
+
+#[derive(Serialize)]
+struct NewProjectResponse {
+    message: String,
+    success: bool,
+    project_key: String,
+    title: String,
 }
 
 async fn list_projects(pool: SqlitePool, session_key: String) -> ResultReply {
@@ -103,6 +117,37 @@ async fn delete_project(project_key: String, pool: SqlitePool, session_key: Stri
     }
 }
 
+async fn new_project(
+    request: NewProjectRequest,
+    pool: SqlitePool,
+    session_key: String,
+) -> ResultReply {
+    let user = match User::get_by_session(&pool, &session_key).await {
+        Ok(Some(user)) => user,
+        _ => return Binary::result_failure("Invalid session."),
+    };
+
+    let conn = &mut match pool.acquire().await {
+        Ok(c) => c,
+        Err(e) => return Binary::from_error(e),
+    };
+
+    let project = match Project::new(conn, user.id, &request.title).await {
+        Ok(project) => project,
+        Err(e) => return Binary::from_error(e),
+    };
+
+    as_result(
+        &NewProjectResponse {
+            message: "Project created successfully.".to_owned(),
+            success: true,
+            project_key: project.project_key,
+            title: request.title,
+        },
+        StatusCode::OK,
+    )
+}
+
 pub fn filter(
     pool: SqlitePool,
 ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
@@ -112,6 +157,12 @@ pub fn filter(
             .and(with_db(pool.clone()))
             .and(with_session())
             .and_then(list_projects))
+        .or(warp::path("new")
+            .and(warp::post())
+            .and(json_body::<NewProjectRequest>())
+            .and(with_db(pool.clone()))
+            .and(with_session())
+            .and_then(new_project))
         .or(warp::path!(String)
             .and(warp::path::end())
             .and(warp::delete())

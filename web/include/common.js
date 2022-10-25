@@ -61,6 +61,10 @@ function form_error(form, message) {
 }
 
 function post_form_json(form, callback = null) {
+    if (typeof form === "string") {
+        form = document.getElementById(form);
+    }
+    
     let req = new XMLHttpRequest();
 
     req.onerror = () => {
@@ -73,7 +77,7 @@ function post_form_json(form, callback = null) {
 
     req.onload = () => {
         if (callback) {
-            callback(req.response ? req.response.success : false);
+            callback(req.response);
         }
 
         if (!req.response) {

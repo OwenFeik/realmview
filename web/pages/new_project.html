@@ -1,5 +1,6 @@
-<Page title="Edit Project">
-  <Form>
-    <FormField name="Title">
-  </Form>
+<Page title="New Project">
+  <Form id="project_form" action="/project/new">
+    <FormField id="edit_project_title" name="Title" autocomplete="off">
+  </Form callback="submit_project_form();">
+  <Js src="project/new.js">
 </Page>
