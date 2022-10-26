@@ -18,8 +18,7 @@ pub fn routes(
 fn html_route(
     content_dir: &Path,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    let serve_scene_editor =
-        warp::fs::file(content_dir.join(crate::handlers::scene::SCENE_EDITOR_FILE));
+    let serve_scene_editor = warp::fs::file(content_dir.join("index.html"));
 
     let no_args = warp::path("game")
         .and(warp::get())

@@ -13,7 +13,7 @@ function update_titles(project_key, project_title, scene_key, scene_title) {
         scene_title
     };
     
-    fetch("/scene/details", {
+    fetch("/api/scene/details", {
         method: "POST",
         body: JSON.stringify(body),
         headers: { "Content-Type": "application/json" }
@@ -23,7 +23,7 @@ function update_titles(project_key, project_title, scene_key, scene_title) {
 function delete_project(project_key, project_title) {
     modal_confirm(
         () => {
-            fetch("/project/" + project_key, { method: "DELETE" }).then(
+            fetch("/api/project/" + project_key, { method: "DELETE" }).then(
                 resp => resp.json().then(body => {
                     if (body.success) {
                         document
@@ -43,7 +43,7 @@ function delete_project(project_key, project_title) {
 function delete_scene(scene_key, scene_title) {
     modal_confirm(
         () => {
-            fetch("/scene/" + scene_key, { method: "DELETE" }).then(
+            fetch("/api/scene/" + scene_key, { method: "DELETE" }).then(
                 resp => resp.json().then(body => {
                     if (body.success) {
                         document

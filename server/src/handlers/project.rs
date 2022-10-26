@@ -1,5 +1,5 @@
 use serde_derive::{Deserialize, Serialize};
-use sqlx::{SqlitePool, SqliteConnection};
+use sqlx::{SqliteConnection, SqlitePool};
 use warp::{hyper::StatusCode, Filter};
 
 use super::{
@@ -7,7 +7,7 @@ use super::{
     response::{as_result, Binary, ResultReply},
     with_db, with_session,
 };
-use crate::models::{Project, User, SceneRecord};
+use crate::models::{Project, SceneRecord, User};
 
 #[derive(Serialize)]
 struct SceneListEntry {
@@ -36,7 +36,12 @@ struct ProjectListEntry {
 
 impl ProjectListEntry {
     async fn from(project: Project, conn: &mut SqliteConnection) -> anyhow::Result<Self> {
-        let scene_list = project.list_scenes(conn).await?.into_iter().map(SceneListEntry::from).collect();
+        let scene_list = project
+            .list_scenes(conn)
+            .await?
+            .into_iter()
+            .map(SceneListEntry::from)
+            .collect();
         Ok(ProjectListEntry {
             id: project.id,
             project_key: project.project_key,
