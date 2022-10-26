@@ -26,7 +26,6 @@
         project, should be able to save the project
     * Players should only be able to interact with the foreground
 * Backend
-    * Move API endpoints to /api
 * Build
 * Callum requests
     * docs.google.com/document/d/1uKsAKS-huxNqc4kuHFot0McXTLlT3p83ojEalAcBtK0/

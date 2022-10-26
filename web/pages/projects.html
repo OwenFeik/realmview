@@ -50,7 +50,7 @@
     }
     
     function refresh_projects() {
-      fetch("/project/list").then(resp => resp.json().then(data => {
+      fetch("/api/project/list").then(resp => resp.json().then(data => {
         if (!data.success) {
           update_prompt(true);
           return;

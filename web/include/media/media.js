@@ -19,7 +19,7 @@ class MediaManager {
         }
         else {
             get(
-                "/media/" + media_key,
+                "/api/media/" + media_key,
                 resp => {
                     if (!resp.success) {
                         return;
@@ -116,7 +116,7 @@ function upload_media() {
         };
     
         req.responseType = "json";
-        req.open("POST", "/upload");
+        req.open("POST", "/api/upload");
         req.send(data);
     }
 }
@@ -158,13 +158,13 @@ function view_media() {
     };
     
     req.responseType = "json";
-    req.open("GET", "/media/list");
+    req.open("GET", "/api/media/list");
     req.send();
 }
 
 function delete_media_item(key) {
     modal_confirm(() => fetch(
-        "/media/" + key,
+        "/api/media/" + key,
         { method: "DELETE" }
     ).then(resp => {
         if (resp.ok) {

@@ -125,7 +125,7 @@ function load_projects(project_key = null, scene_key = null) {
     }
     else {
         get(
-            "/project/list",
+            "/api/project/list",
             resp => populate_project_select(
                 resp.list,
                 project_key || selected_project(),
@@ -196,7 +196,7 @@ function set_active_project(project_key, scene_key = null) {
 
     populate_scene_select();
     get(
-        "/project/list",
+        "/api/project/list",
         resp => {
             populate_project_select(resp.list, project_key);
             resp.list.forEach(proj => {
@@ -223,7 +223,7 @@ function set_active_scene(scene_key) {
     }
 
     get(
-        "/scene/load/" + scene_key,
+        "/api/scene/load/" + scene_key,
         resp => {
             document.getElementById("scene_select").value = scene_key;
             document.getElementById("scene_title").value = resp.title;
@@ -309,14 +309,14 @@ function upload_thumbnail() {
         data.append("image", blob, "thumbnail.png");
         data.append("thumbnail", scene);
 
-        fetch("/upload", { method: "POST", body: data });
+        fetch("/api/upload", { method: "POST", body: data });
     });
 }
 
 function save_project() {
     let proj = selected_project();
     post(
-        "/scene/save",
+        "/api/scene/save",
         {
             // struct SceneSaveRequest
             project_title: document.getElementById("project_title").value,

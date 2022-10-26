@@ -24,30 +24,44 @@ pub fn routes(
     content_dir: String,
 ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let content_path = PathBuf::from(content_dir.clone());
-    warp::fs::dir(content_path.clone())
+    warp::path("api")
+        .and(
+            auth::filter(pool.clone())
+                .or(register::filter(pool.clone()))
+                .or(upload::filter(pool.clone(), content_dir.clone()))
+                .or(media::filter(pool.clone(), content_dir))
+                .or(project::filter(pool.clone()))
+                .or(game::routes(pool.clone(), games, &content_path))
+                .or(scene::routes(pool)),
+        )
+        .or(warp::fs::dir(content_path.clone()))
         .or(page_routes(&content_path))
-        .or(auth::filter(pool.clone()))
-        .or(register::filter(pool.clone()))
-        .or(upload::filter(pool.clone(), content_dir.clone()))
-        .or(media::filter(pool.clone(), content_dir))
-        .or(project::filter(pool.clone()))
-        .or(game::routes(pool.clone(), games, &content_path))
-        .or(scene::routes(pool, &content_path))
 }
 
 fn page_routes(
     dir: &Path,
 ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    const SCENE_EDITOR_FILE: &str = "scene.html";
+
     warp::get().and(
         (warp::path::end().and(warp::fs::file(dir.join("index.html"))))
             .or(warp::path("login").and(warp::fs::file(dir.join("login.html"))))
             .or(warp::path("register").and(warp::fs::file(dir.join("register.html"))))
-            .or(warp::path("scene").and(warp::fs::file(dir.join(scene::SCENE_EDITOR_FILE))))
+            .or(warp::path("scene").and(warp::fs::file(dir.join(SCENE_EDITOR_FILE))))
             .or(warp::path("media").and(warp::fs::file(dir.join("media.html"))))
+            .or(warp::path!("project" / "new")
+                .and(warp::path::end())
+                .and(warp::fs::file(dir.join("new_project.html"))))
             .or(warp::path!("project" / String)
+                .and(warp::path::end())
                 .map(|_| ())
                 .untuple_one()
-                .and(warp::fs::file(dir.join("new_project.html"))))
+                .and(warp::fs::file(dir.join("edit_project.html"))))
+            .or(warp::path!("project" / String / "scene" / String)
+                .map(|_proj_key, _scene_key| {}) // TODO could validate
+                .untuple_one()
+                .and(warp::get())
+                .and(warp::fs::file(dir.join(SCENE_EDITOR_FILE))))
             .or(warp::path("project").and(warp::fs::file(dir.join("projects.html")))),
     )
 }
@@ -210,7 +224,10 @@ pub mod response {
         //
         // Max-Age=15552000 causes the cookie to be retained for up to 6 months
         // unless cleared (manually or by logging out).
-        let cookie = format!("{}={}; SameSite=Strict; Max-Age=15552000;", key, cookie);
+        let cookie = format!(
+            "{}={}; SameSite=Strict; Max-Age=15552000; Path=/;",
+            key, cookie
+        );
 
         Ok(warp::reply::with_header(
             as_reply(&body, status),

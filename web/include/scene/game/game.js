@@ -62,7 +62,7 @@ function error_fn(id) {
 function new_game() {
     const error = error_fn("launch_game_error");
     post(
-        "/game/new",
+        "/api/game/new",
         { "scene_key": selected_scene() },
         resp => {
             if (resp?.success) {
@@ -139,6 +139,6 @@ function join_game() {
     };
 
     req.responseType = "json";
-    req.open("POST", "/game/" + key);
+    req.open("POST", "/api/game/" + key);
     req.send();
 }
