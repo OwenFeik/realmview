@@ -1,6 +1,16 @@
 <Page title="New Project">
   <Form id="project_form" action="/project/new">
-    <FormField id="edit_project_title" name="Title" autocomplete="off">
+    <FormField id="project_title" name="Title" autocomplete="off">
   </Form callback="submit_project_form();">
-  <Js src="project/new.js">
+  <script>
+    function submit_project_form() {
+      const FORM_ID = "project_form";
+      post_form_json(FORM_ID, resp => {
+        // resp is a struct NewProjectResponse
+        if (resp.success) {
+          window.location.href = "/project/" + resp.project_key;
+        }
+      });
+    }
+  </script>
 </Page>

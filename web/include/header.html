@@ -4,15 +4,12 @@
       <a class="navbar-brand" href="/">{{ constant(APP_TITLE) }}</a>
       <div class="collapse navbar-collapse d-flex">
         <div class="navbar-nav">
-        IFNDEF(LOGGEDIN) {{
-          <a class="nav-link" href="/login">Log In</a>
-          <a class="nav-link" href="/register">Register</a>  
+          <a class="logged-out nav-link" href="/login">Log In</a>
+          <a class="logged-out nav-link" href="/register">Register</a>  
+          <a class="logged-in nav-link" href="/media">Media</a>
+          <a class="logged-in nav-link" href="/project">Projects</a>
         </div>
-        }} ELSE {{
-          <a class="nav-link" href="/media">Media</a>
-          <a class="nav-link" href="/project">Projects</a>
-        </div>
-        <div class="ms-auto navbar-nav">
+        <div class="logged-in ms-auto navbar-nav">
           <a
             class="nav-link"
             style="cursor: pointer;"
@@ -23,8 +20,17 @@
             "
           >Log Out</a>
         </div>
-        }}
       </div>
     </div>
   </nav>
 </header>
+<script>
+  const REGEX = /session_key=[\dA-Z]+/;
+  let hide = document.cookie.match(REGEX) ? 'out' : 'in';
+  document.querySelectorAll('.logged-' + hide)
+    .forEach(el => el.classList.add("d-none"));
+
+  if (link = document.querySelector(`a[href="${window.location.pathname}"]`)) {
+    link.classList.add("active");
+  }
+</script>  

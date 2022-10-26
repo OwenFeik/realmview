@@ -25,6 +25,7 @@ pub fn routes(
 ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     let content_path = PathBuf::from(content_dir.clone());
     warp::fs::dir(content_path.clone())
+        .or(page_routes(&content_path))
         .or(auth::filter(pool.clone()))
         .or(register::filter(pool.clone()))
         .or(upload::filter(pool.clone(), content_dir.clone()))
@@ -32,7 +33,6 @@ pub fn routes(
         .or(project::filter(pool.clone()))
         .or(game::routes(pool.clone(), games, &content_path))
         .or(scene::routes(pool, &content_path))
-        .or(page_routes(&content_path))
 }
 
 fn page_routes(

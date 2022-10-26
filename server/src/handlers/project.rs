@@ -1,5 +1,5 @@
 use serde_derive::{Deserialize, Serialize};
-use sqlx::SqlitePool;
+use sqlx::{SqlitePool, SqliteConnection};
 use warp::{hyper::StatusCode, Filter};
 
 use super::{
@@ -7,7 +7,7 @@ use super::{
     response::{as_result, Binary, ResultReply},
     with_db, with_session,
 };
-use crate::models::{Project, User};
+use crate::models::{Project, User, SceneRecord};
 
 #[derive(Serialize)]
 struct SceneListEntry {
@@ -16,12 +16,41 @@ struct SceneListEntry {
     thumbnail: String,
 }
 
+impl SceneListEntry {
+    fn from(scene: SceneRecord) -> Self {
+        SceneListEntry {
+            scene_key: scene.scene_key,
+            title: scene.title,
+            thumbnail: scene.thumbnail,
+        }
+    }
+}
+
 #[derive(Serialize)]
 struct ProjectListEntry {
     id: i64,
     project_key: String,
     title: String,
     scene_list: Vec<SceneListEntry>,
+}
+
+impl ProjectListEntry {
+    async fn from(project: Project, conn: &mut SqliteConnection) -> anyhow::Result<Self> {
+        let scene_list = project.list_scenes(conn).await?.into_iter().map(SceneListEntry::from).collect();
+        Ok(ProjectListEntry {
+            id: project.id,
+            project_key: project.project_key,
+            title: project.title,
+            scene_list,
+        })
+    }
+}
+
+#[derive(Serialize)]
+struct ProjectResponse {
+    message: String,
+    success: bool,
+    project: ProjectListEntry,
 }
 
 #[derive(Serialize)]
@@ -62,23 +91,10 @@ async fn list_projects(pool: SqlitePool, session_key: String) -> ResultReply {
 
     let mut project_list = vec![];
     while let Some(project) = projects.pop() {
-        let scene_list = match project.list_scenes(conn).await {
-            Ok(scenes) => scenes
-                .into_iter()
-                .map(|s| SceneListEntry {
-                    scene_key: s.scene_key,
-                    title: s.title,
-                    thumbnail: s.thumbnail,
-                })
-                .collect(),
-            Err(e) => return Binary::result_error(&format!("Database error. {e}")),
+        match ProjectListEntry::from(project, conn).await {
+            Ok(p) => project_list.push(p),
+            Err(e) => return Binary::from_error(e),
         };
-        project_list.push(ProjectListEntry {
-            id: project.id,
-            project_key: project.project_key,
-            title: project.title,
-            scene_list,
-        });
     }
 
     as_result(
@@ -104,7 +120,7 @@ async fn delete_project(project_key: String, pool: SqlitePool, session_key: Stri
 
     let project = match Project::get_by_key(conn, &project_key).await {
         Ok(p) => p,
-        Err(_) => return Binary::result_failure(""),
+        Err(_) => return Binary::result_failure("Project not found."),
     };
 
     if project.user != user.id {
@@ -148,6 +164,32 @@ async fn new_project(
     )
 }
 
+async fn get_project(project_key: String, pool: SqlitePool, session_key: String) -> ResultReply {
+    let user = match User::get_by_session(&pool, &session_key).await {
+        Ok(Some(user)) => user,
+        _ => return Binary::result_failure("Invalid session."),
+    };
+
+    let conn = &mut match pool.acquire().await {
+        Ok(c) => c,
+        Err(e) => return Binary::from_error(e),
+    };
+
+    let project = match Project::get_by_key(conn, &project_key).await {
+        Ok(p) => p,
+        Err(_) => return Binary::result_failure("Project not found."),
+    };
+
+    if project.user != user.id {
+        return Binary::result_failure("Project not found.");
+    }
+
+    match ProjectListEntry::from(project, conn).await {
+        Ok(body) => as_result(&body, StatusCode::OK),
+        Err(e) => Binary::from_error(e),
+    }
+}
+
 pub fn filter(
     pool: SqlitePool,
 ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
@@ -163,6 +205,12 @@ pub fn filter(
             .and(with_db(pool.clone()))
             .and(with_session())
             .and_then(new_project))
+        .or(warp::path!(String)
+            .and(warp::path::end())
+            .and(warp::get())
+            .and(with_db(pool.clone()))
+            .and(with_session())
+            .and_then(get_project))
         .or(warp::path!(String)
             .and(warp::path::end())
             .and(warp::delete())
