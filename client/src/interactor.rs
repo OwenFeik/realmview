@@ -490,6 +490,7 @@ impl Interactor {
     }
 
     pub fn process_server_events(&mut self) {
+        crate::bridge::flog!("{:?}", self.scene.project);
         if let Some(client) = &self.client {
             for event in client.events() {
                 self.process_server_event(event);
@@ -1075,13 +1076,11 @@ impl Interactor {
     }
 
     pub fn new_scene(&mut self, id: Id) {
-        if self.scene.id.is_some() {
-            self.scene = Scene::new();
-            if id != 0 {
-                self.scene.project = Some(id);
-            }
-            self.changes.all_change();
+        self.scene = Scene::new();
+        if id != 0 {
+            self.scene.project = Some(id);
         }
+        self.changes.all_change();
     }
 
     fn replace_perms(&mut self, new: Perms) {

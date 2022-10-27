@@ -14,8 +14,6 @@
     * Multiselect media, apply action to all items
     * Search media
 * Projects
-    * /project should show the same page but empty, with prompt to save the
-        project and create a scene
 * Game
     * Save the scene in the game
     * Associate each client with a user. When a user connects a second time,

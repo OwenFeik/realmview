@@ -56,11 +56,15 @@ function url_project_scene() {
     let project_key = parts[1];
     let scene_key = parts[3];
 
-    if (!key_regex.test(project_key) || !key_regex.test(scene_key)) {
-        return ret;
+    if (key_regex.test(project_key)) {
+        ret[0] = project_key;
     }
 
-    return [project_key, scene_key];
+    if (key_regex.test(scene_key)) {
+        ret[1] = scene_key;
+    }
+
+    return ret;
 }
 
 function is_scene_editor() {
@@ -246,6 +250,7 @@ function create_new_project() {
 }
 
 function create_new_scene() {
+    console.log("called!");
     document.getElementById("scene_title").value =
         "{{ constant(DEFAULT_TITLE) }}";
     let proj_id = parseInt(

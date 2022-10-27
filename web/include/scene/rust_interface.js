@@ -217,7 +217,6 @@ function new_scene(project_id = 0) {
     call_when_ready("new_scene", () => {
         RustFuncs.new_scene(project_id);
     });
-    
 }
 
 // Given an HTML image, load the texture for this image and add a sprite with

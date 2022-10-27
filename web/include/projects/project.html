@@ -21,7 +21,13 @@
     </div>
     <div class="col align-self-end d-flex">
       <Button
-        class="ms-auto btn-danger"
+        class="ms-auto"
+        icon="arrow-up-right-square"
+        text="New scene"
+        href="/project/${project.project_key}/scene/new"
+      >
+      <Button
+        class="btn-danger ms-2"
         icon="trash3"
         text="Delete"
         onclick="delete_project('${project.project_key}', '${project.title}')"
