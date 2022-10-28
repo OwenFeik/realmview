@@ -490,7 +490,6 @@ impl Interactor {
     }
 
     pub fn process_server_events(&mut self) {
-        crate::bridge::flog!("{:?}", self.scene.project);
         if let Some(client) = &self.client {
             for event in client.events() {
                 self.process_server_event(event);
@@ -1224,7 +1223,6 @@ impl Interactor {
     }
 
     pub fn remove_sprite(&mut self, sprite: Id) {
-        crate::bridge::flog!("removing: {sprite:?}");
         if sprite == Self::SELECTION_ID {
             if self.single_selected() {
                 self.remove_sprite(self.selected_sprites[0]);

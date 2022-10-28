@@ -1,20 +1,49 @@
+class MediaItem {
+    constructor(key, title, url) {
+        this.key = key;
+        this.title = title;
+        this.url = url;
+
+        this.card = template_to_element(
+            `{{ media/card(IFDEF(ADD_BUTTON) {{ add_button=1 }}) }}`
+        );
+
+        this.image = this.card.querySelector("img");
+
+        IFDEF(ADD_BUTTON) {{
+            // Buttons: [Add, Edit]
+            let buttons = this.card.querySelectorAll("button");
+            buttons[0].onclick = () => add_to_scene(this.image);
+        }}
+    }
+}
+
 class MediaManager {
     constructor() {
         this.media = {};
     }
 
+    add_item(resp_item) {
+        let media_item = new MediaItem(
+            resp_item.media_key, resp_item.title, resp_item.url
+        );
+        this.media[resp_item.media_key] = media_item; 
+        return media_item;
+    }
+
     remove_media(media_key) {
-        this.media[media_key] = null;
+        delete this.media[media_key];
     }
 
     load_media_with_key(media_key, callback) {
-        let image = this.media[media_key];
-        if (image) {
-            if (image.complete) {
-                callback(image);
+        if (media = this.media[media_key]) {
+            if (media.image.complete) {
+                callback(media.image);
             }
             else {
-                image.addEventListener("load", () => callback(image));
+                media.image.addEventListener(
+                    "load", () => callback(media.image)
+                );
             }
         }
         else {
@@ -24,49 +53,18 @@ class MediaManager {
                     if (!resp.success) {
                         return;
                     }
-    
-                    let i = new Image();
-                    i.src = resp.details.url;
-                    i.setAttribute("data-key", resp.details.media_key);
-                    this.media[resp.details.media_key] = i;
-                    i.addEventListener("load", () => callback(i));
+
+                    this.add_item(resp.details);
+                    this.load_media_with_key(media_key, callback);
                 }
             );    
         }        
-    }
-
-    add_media_with_image(image) {
-        let key = image.getAttribute("data-key");
-        if (key) {
-            this.media[key] = image;
-        }
     }
 }
 
 function preview_card(src, name) {
     // uses src and name
     return template_to_element(`{{ media/preview_card.html }}`);
-}
-
-function media_card(media_item) {
-    // Variables used in template
-    let src = media_item.url;
-    let key = media_item.media_key;
-    let title = media_item.title;
-    let card = template_to_element(
-        `{{ media/card(IFDEF(ADD_BUTTON) {{ add_button=1 }}) }}`
-    );
-    
-    let image = card.querySelector(".card-img-top");
-    media_manager.add_media_with_image(image);
-
-    IFDEF(ADD_BUTTON) {{
-    // Buttons: [Add, Edit]
-    let buttons = card.querySelectorAll("button");
-    buttons[0].onclick = () => add_to_scene(image);
-    }}
-
-    return card;
 }
 
 function spinner_to_icon(spinner, icon, klasse) {
@@ -121,6 +119,14 @@ function upload_media() {
     }
 }
 
+function show_media(media_list) {
+    let media_preview = document.getElementById("media_view_previews");
+    media_preview.innerHTML = "";
+    media_list.forEach(item => {
+        media_preview.appendChild(item.card);
+    });
+}
+
 function view_media() {
     let req = new XMLHttpRequest();
     let label = document.getElementById("media_view_error");
@@ -128,8 +134,7 @@ function view_media() {
     let loading = document.getElementById("media_view_loading");
     loading.classList.add("show");
     
-    let media_preview = document.getElementById("media_view_previews");
-    media_preview.innerHTML = "";
+    show_media([]);
 
     req.onerror = () => {
         label.classList.remove("d-none");
@@ -145,9 +150,9 @@ function view_media() {
         }
         else if (req.response.success) {
             label.classList.add("d-none");
-            req.response.items.forEach(item => {
-                media_preview.appendChild(media_card(item));
-            });
+            show_media(
+                req.response.items.map(item => media_manager.add_item(item))
+            );
         }
         else {
             label.classList.remove("d-none");
@@ -172,6 +177,14 @@ function delete_media_item(key) {
             media_manager.remove_media(key);
         }
     }));
+}
+
+function search_filter(query) {
+    query = query.toLowerCase();
+    let matching = Object
+        .values(media_manager.media)
+        .filter(item => item.title.toLowerCase().includes(query))
+    show_media(matching);
 }
 
 var media_manager = new MediaManager();

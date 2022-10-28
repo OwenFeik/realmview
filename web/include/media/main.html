@@ -4,16 +4,30 @@
 </Nav>
 <div class="tab-content">
   <Tab tab="view_media" selected="true">
-    <div class="d-flex justify-content-md-end align-items-center">
-      <span class="spinner-border me-2 fade" id="media_view_loading"></span>
-      <p
-        class="text-danger m-0 me-2 d-none"
-        id="media_view_error"
-      >Network error.</p>
-      <button
-        class="btn btn-primary"
-        onclick="view_media();"
-      >Refresh <Icon name="arrow-clockwise"></button>
+    <div class="row">
+      <div class="col-sm-6 d-flex mb-2">
+        <input
+          type="text"
+          class="ms-2 form-control"
+          style="max-width: 20rem;"
+          oninput="search_filter(this.value);"
+        >
+        <span class="ms-2 fs-4"><Icon name="search" /></span>
+      </div>
+      <div class="col-sm-6 d-flex align-items-center mb-2">
+        <span
+          id="media_view_loading"
+          class="ms-auto spinner-border me-2 fade"
+        ></span>
+        <p
+          class="text-danger m-0 me-2 d-none"
+          id="media_view_error"
+        >Network error.</p>
+        <button
+          class="btn btn-primary"
+          onclick="view_media();"
+        >Refresh <Icon name="arrow-clockwise"></button>
+      </div>
     </div>
     <div class="row row-cols-auto" id="media_view_previews"></div>
   </Tab>
