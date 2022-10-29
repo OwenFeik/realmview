@@ -36,7 +36,8 @@ class MediaManager {
     }
 
     load_media_with_key(media_key, callback) {
-        if (media = this.media[media_key]) {
+        let media = this.media[media_key];
+        if (media) {
             if (media.image.complete) {
                 callback(media.image);
             }

@@ -1,7 +1,6 @@
 # TODO
 
 * Scene
-    * When adding a new sprite from media tab, drawing rendering breaks
 * Layers
     * Select from selected layer first (possibly)
     * Layer opacity
