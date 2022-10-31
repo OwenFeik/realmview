@@ -1,6 +1,8 @@
 use sqlx::SqlitePool;
 use warp::Filter;
 
+use crate::models::Media;
+
 #[derive(serde_derive::Serialize, sqlx::FromRow)]
 struct MediaItem {
     media_key: String,
@@ -8,6 +10,20 @@ struct MediaItem {
 
     #[sqlx(rename = "relative_path")]
     url: String,
+    w: Option<f32>,
+    h: Option<f32>,
+}
+
+impl MediaItem {
+    fn from(record: Media) -> Self {
+        Self {
+            media_key: record.media_key,
+            title: record.title,
+            url: record.relative_path,
+            w: record.w,
+            h: record.h,
+        }
+    }
 }
 
 mod details {
@@ -87,11 +103,7 @@ mod details {
             _ => return Binary::result_failure("Media not found."),
         };
 
-        MediaItemResponse::result(super::MediaItem {
-            media_key: record.media_key,
-            title: record.title,
-            url: record.relative_path,
-        })
+        MediaItemResponse::result(super::MediaItem::from(record))
     }
 
     fn retrieve_filter(
@@ -161,11 +173,13 @@ mod list {
     use warp::Filter;
 
     use super::MediaItem;
-    use crate::handlers::{
-        response::{as_result, Binary},
-        with_db, with_session,
+    use crate::{
+        handlers::{
+            response::{as_result, Binary},
+            with_db, with_session,
+        },
+        models::{Media, User},
     };
-    use crate::models::User;
 
     #[derive(serde_derive::Serialize)]
     struct MediaListResponse {
@@ -182,23 +196,17 @@ mod list {
         }
     }
 
-    async fn user_media(pool: &SqlitePool, user_id: i64) -> anyhow::Result<Vec<MediaItem>> {
-        let results =
-            sqlx::query_as("SELECT media_key, title, relative_path FROM media WHERE user = ?1;")
-                .bind(user_id)
-                .fetch_all(pool)
-                .await?;
-        Ok(results)
-    }
-
     async fn list_media(pool: SqlitePool, skey: String) -> Result<impl warp::Reply, Infallible> {
         let user = match User::get_by_session(&pool, &skey).await {
             Ok(Some(user)) => user,
             _ => return Binary::result_failure("Invalid session."),
         };
 
-        match user_media(&pool, user.id).await {
-            Ok(media) => as_result(&MediaListResponse::new(media), warp::http::StatusCode::OK),
+        match Media::user_media(&pool, user.id).await {
+            Ok(media) => as_result(
+                &MediaListResponse::new(media.into_iter().map(MediaItem::from).collect()),
+                warp::http::StatusCode::OK,
+            ),
             Err(_) => Binary::result_error("Database error."),
         }
     }

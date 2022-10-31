@@ -12,6 +12,8 @@ pub struct Media {
     pub title: String,
     pub hashed_value: String,
     pub size: i64,
+    pub w: Option<f32>,
+    pub h: Option<f32>,
 }
 
 impl Media {
@@ -70,6 +72,14 @@ impl Media {
             .await
             .map_err(|_| anyhow!("Media item not found."))?;
         Ok(())
+    }
+
+    pub async fn user_media(pool: &SqlitePool, user_id: i64) -> anyhow::Result<Vec<Media>> {
+        let results = sqlx::query_as("SELECT * FROM media WHERE user = ?1;")
+            .bind(user_id)
+            .fetch_all(pool)
+            .await?;
+        Ok(results)
     }
 
     pub fn generate_key() -> anyhow::Result<String> {

@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS media (
     title TEXT NOT NULL,
     hashed_value CHAR(64) NOT NULL,
     size INTEGER NOT NULL, -- Size in bytes
+    w REAL, -- Default width of tokens created with this media
+    h REAL, -- Default height of tokens created with this media
     UNIQUE(user, hashed_value)
 );
 

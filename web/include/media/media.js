@@ -1,8 +1,10 @@
 class MediaItem {
-    constructor(key, title, url) {
+    constructor(key, title, url, width, height) {
         this.key = key;
         this.title = title;
         this.url = url;
+        this.width = width;
+        this.height = height;
 
         this.card = template_to_element(
             `{{ media/card(IFDEF(ADD_BUTTON) {{ add_button=1 }}) }}`
@@ -24,9 +26,8 @@ class MediaManager {
     }
 
     add_item(resp_item) {
-        let media_item = new MediaItem(
-            resp_item.media_key, resp_item.title, resp_item.url
-        );
+        let i = resp_item;
+        let media_item = new MediaItem(i.media_key, i.title, i.url, i.w, i.h);
         this.media[resp_item.media_key] = media_item; 
         return media_item;
     }
