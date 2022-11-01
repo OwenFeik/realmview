@@ -10,8 +10,8 @@ struct MediaItem {
 
     #[sqlx(rename = "relative_path")]
     url: String,
-    w: Option<f32>,
-    h: Option<f32>,
+    w: f32,
+    h: f32,
 }
 
 impl MediaItem {
@@ -57,21 +57,8 @@ mod details {
     struct DetailsUpdate {
         media_key: String,
         title: String,
-    }
-
-    async fn update_in_db(
-        pool: &SqlitePool,
-        user_id: i64,
-        key: String,
-        title: String,
-    ) -> anyhow::Result<()> {
-        sqlx::query("UPDATE media SET title = ?1 WHERE media_key = ?2 AND user = ?3;")
-            .bind(&title)
-            .bind(key)
-            .bind(user_id)
-            .execute(pool)
-            .await?;
-        Ok(())
+        w: f32,
+        h: f32,
     }
 
     async fn update_media(pool: SqlitePool, skey: String, details: DetailsUpdate) -> ResultReply {
@@ -80,7 +67,16 @@ mod details {
             _ => return Binary::result_failure("Invalid session."),
         };
 
-        match update_in_db(&pool, user.id, details.media_key, details.title).await {
+        match Media::update(
+            &pool,
+            user.id,
+            details.media_key,
+            details.title,
+            details.w,
+            details.h,
+        )
+        .await
+        {
             Ok(()) => Binary::result_success("Media updated."),
             Err(_) => Binary::result_error("Database error."),
         }

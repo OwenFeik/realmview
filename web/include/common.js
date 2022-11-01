@@ -12,7 +12,17 @@ function get_icon(name) {
     return Icons[name.replace("-", "_")];
 }
 
+function element_or_string(element) {
+    if (typeof element === "string") {
+        return document.getElementById(element);
+    }
+
+    return element;
+}
+
 function form_to_json(form) {
+    form = element_or_string(form);
+
     let form_prefix = form.id.replace("_form", "") + "_";
 
     let data = {};
@@ -24,14 +34,21 @@ function form_to_json(form) {
         }
         
         if (element.tagName === "INPUT") {
-            data[element.id.replace(form_prefix, "")] = element.value;
+            let value = element.value;
+            if (element.type == "number") {
+                value = parseFloat(value);
+            }
+
+            data[element.id.replace(form_prefix, "")] = value;
         }
     }
 
-    return JSON.stringify(data);
+    return data;
 }
 
 function field_error(form, field_name, message) {
+    form = element_or_string(form);
+
     let input = form.querySelector("#" + field_name);
     input.setCustomValidity(message);
 
@@ -56,14 +73,13 @@ function field_error(form, field_name, message) {
 }
 
 function form_error(form, message) {
-    form.querySelector("[data-role='error_message']").innerText = message;
-
+    element_or_string(form)
+        .querySelector("[data-role='error_message']")
+        .innerText = message;
 }
 
 function post_form_json(form, callback = null) {
-    if (typeof form === "string") {
-        form = document.getElementById(form);
-    }
+    form = element_or_string(form);
     
     let req = new XMLHttpRequest();
 
@@ -102,10 +118,12 @@ function post_form_json(form, callback = null) {
     req.responseType = "json";
     req.open("POST", form.action);
     req.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-    req.send(form_to_json(form));
+    req.send(JSON.stringify(form_to_json(form)));
 }
 
 function submit_form(form) {
+    form = element_or_string(form);
+
     if (form.classList.contains("needs-validation")) {
         form.classList.add("was-validated");
         if (!form.checkValidity()) {

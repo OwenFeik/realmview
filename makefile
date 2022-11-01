@@ -18,7 +18,8 @@ server: content database
 content: html wasm
 
 db: database
-	sqlite3 ${build}/database.db --header --box
+	sqlite3 ${build}/database.db --header --box || \
+		sqlite3 ${build}/database.db --header
 
 database: build-dir
 	@if \

@@ -1,10 +1,10 @@
 class MediaItem {
-    constructor(key, title, url, width, height) {
+    constructor(key, title, url, w, h) {
         this.key = key;
         this.title = title;
         this.url = url;
-        this.width = width;
-        this.height = height;
+        this.w = w;
+        this.h = h;
 
         this.card = template_to_element(
             `{{ media/card(IFDEF(ADD_BUTTON) {{ add_button=1 }}) }}`
@@ -18,6 +18,15 @@ class MediaItem {
             buttons[0].onclick = () => add_to_scene(this.image);
         }}
     }
+
+    set_attr(key, value) {
+        this[key] = value;
+        this.image.setAttribute("data-" + key, value);
+    }
+
+    update(obj) {
+        Object.entries(obj).forEach(([k, v]) => this.set_attr(k, v));
+    }
 }
 
 class MediaManager {
@@ -30,6 +39,10 @@ class MediaManager {
         let media_item = new MediaItem(i.media_key, i.title, i.url, i.w, i.h);
         this.media[resp_item.media_key] = media_item; 
         return media_item;
+    }
+    
+    update_item(media_key, obj) {
+        this.media[media_key]?.update(obj);
     }
 
     remove_media(media_key) {

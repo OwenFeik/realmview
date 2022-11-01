@@ -480,6 +480,8 @@ mod sprite {
     // relevant to the Sprite type because x, y, w, h are all REAL. May be
     // resolved in a future SQLite version but error persists in 3.38.0.
     // see: https://github.com/launchbadge/sqlx/issues/1596
+    //
+    // Confirmed not working in sqlx = 0.6.2
 
     #[derive(Debug, sqlx::FromRow)]
     pub struct SpriteRecord {

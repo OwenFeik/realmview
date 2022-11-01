@@ -185,22 +185,23 @@ impl UploadImage {
 
         self.ensure_key()?;
         let relative_path = self.relative_path(user)?;
+        let url = format!("/static/{}", &relative_path);
         self.write_file(content_dir, user).await?;
-        match Media::create(
-            pool,
-            self.key.as_ref().unwrap(),
+        match Media::new(
+            self.key.as_ref().unwrap().clone(),
             user.id,
-            &relative_path,
-            &self.title,
-            &hash,
+            relative_path,
+            self.title.clone(),
+            hash,
             self.size() as i64,
         )
+        .create(pool)
         .await
         {
-            Ok(media) => {
-                let url = format!("/static/{}", &relative_path);
-                Ok(UploadResponse::new(Some(media.media_key), url))
-            }
+            Ok(()) => Ok(UploadResponse::new(
+                Some(self.key.as_ref().unwrap().clone()),
+                url,
+            )),
             Err(e) => {
                 // Remove file as part of cleanup.
                 tokio::fs::remove_file(&self.real_path(content_dir, user)?)

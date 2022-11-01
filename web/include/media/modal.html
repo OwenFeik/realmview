@@ -22,58 +22,68 @@ aria-hidden="true"
     <div class="modal-body">
       <Form id="media_details_form" class="col" action="/api/media/details">
         <FormField id="media_details_title" name="Title">
+        <FormField id="media_details_w" name="Default Width" type="number">
+        <FormField id="media_details_h" name="Default Height" type="number">
         <FormField id="media_details_media_key" type="hidden">
       </Form nosubmit="">
     </div>
     <div class="modal-footer">
       <span class="spinner-border me-2 fade" id="media_details_loading"></span>
-      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-      <button type="button" class="btn btn-primary" id="media_details_save">Save</button>
+      <button
+        type="button"
+        class="btn btn-secondary"
+        data-bs-dismiss="modal"
+      >Close</button>
+      <button
+        type="button"
+        class="btn btn-primary"
+        id="media_details_save"
+      >Save</button>
     </div>  
   </div>
 </div>
 </div>
 <script>
-    function configure_media_details_modal() {
-        document
+  function configure_media_details_modal() {
+    document
+    .getElementById("media_details_modal")
+    .addEventListener("show.bs.modal", e => {
+      let button = e.relatedTarget;
+      
+      let el = button.parentNode;
+      while (!el.classList.contains("card")) {
+        el = el.parentNode;
+      }
+      
+      let image = el.querySelector(".card-img-top");
+      ["title", "media_key", "w", "h"].forEach(field => {
+        document.getElementById("media_details_" + field)
+        .value = image.getAttribute("data-" + field);
+      });
+      
+      form_error(document.getElementById("media_details_form"), "");
+    });
+    
+    document.getElementById("media_details_save").onclick = () => {
+      let loading = document.getElementById("media_details_loading");
+      loading.classList.add("show");
+      
+      post_form_json(
+      document.getElementById("media_details_form"),
+      resp => {
+        loading.classList.remove("show");
+        if (resp?.success) {
+          document
             .getElementById("media_details_modal")
-            .addEventListener("show.bs.modal", e => {
-                let button = e.relatedTarget;
-                
-                let el = button.parentNode;
-                while (!el.classList.contains("card")) {
-                    el = el.parentNode;
-                }
-
-                let image = el.querySelector(".card-img-top");
-                document
-                    .getElementById("media_details_title")
-                    .value = image.getAttribute("data-title");
-                document
-                    .getElementById("media_details_media_key")
-                    .value = image.getAttribute("data-key");
-                form_error(document.getElementById("media_details_form"), "");
-            });
-
-        document.getElementById("media_details_save").onclick = () => {
-            let loading = document.getElementById("media_details_loading");
-            loading.classList.add("show");
-
-            post_form_json(
-                document.getElementById("media_details_form"),
-                resp => {
-                    loading.classList.remove("show");
-                    if (resp?.success) {
-                        document
-                            .getElementById("media_details_modal")
-                            .querySelector(".btn-close")
-                            .click();
-                        view_media();
-                    }
-                }
-            );
-        };
-    }
-
-    window.addEventListener("load", configure_media_details_modal);
+            .querySelector(".btn-close")
+            .click();
+          let details = form_to_json("media_details_form");
+          media_manager.update_item(details.media_key, details);
+        }
+      }
+      );
+    };
+  }
+  
+  window.addEventListener("load", configure_media_details_modal);
 </script>
