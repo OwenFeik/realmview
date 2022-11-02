@@ -197,6 +197,8 @@ impl Sprite {
     pub const DEFAULT_STROKE: f32 = 0.2;
     pub const SOLID_STROKE: f32 = 0.0;
     pub const DEFAULT_COLOUR: Colour = [1.0, 0.0, 1.0, 1.0];
+    pub const DEFAULT_WIDTH: f32 = 1.0;
+    pub const DEFAULT_HEIGHT: f32 = 1.0;
 
     // Minimum size of a sprite dimension; too small and sprites can be lost.
     const MIN_SIZE: f32 = 0.25;
@@ -208,7 +210,7 @@ impl Sprite {
 
     pub fn new(id: Id, visual: Option<Visual>) -> Sprite {
         Sprite {
-            rect: Rect::new(0.0, 0.0, 1.0, 1.0),
+            rect: Rect::new(0.0, 0.0, Self::DEFAULT_WIDTH, Self::DEFAULT_HEIGHT),
             z: 1,
             visual: visual.unwrap_or(Sprite::DEFAULT_VISUAL),
             id,

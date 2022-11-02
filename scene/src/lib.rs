@@ -301,11 +301,11 @@ impl Scene {
         &mut self,
         visual: Option<SpriteVisual>,
         layer: Id,
-        at: Point,
+        at: Rect,
     ) -> Option<SceneEvent> {
         let id = self.next_id();
         let mut sprite = Sprite::new(id, visual);
-        sprite.set_pos(at);
+        sprite.set_rect(at);
         self.add_sprite(sprite, layer)
     }
 

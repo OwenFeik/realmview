@@ -867,7 +867,7 @@ impl Interactor {
                 ..Default::default()
             })),
             None,
-            at,
+            Rect::at(at, Sprite::DEFAULT_WIDTH, Sprite::DEFAULT_HEIGHT),
         ) {
             self.start_move_group();
             self.holding = HeldObject::Drawing(id, ephemeral);
@@ -1153,7 +1153,7 @@ impl Interactor {
         &mut self,
         visual: Option<SpriteVisual>,
         layer: Option<Id>,
-        at: Option<Point>,
+        at: Option<Rect>,
     ) -> Option<Id> {
         let layer = layer.unwrap_or(self.selected_layer);
 
@@ -1181,7 +1181,7 @@ impl Interactor {
         &mut self,
         visual: Option<SpriteVisual>,
         layer: Option<Id>,
-        at: Point,
+        at: Rect,
     ) -> Option<Id> {
         self.new_sprite_common(visual, layer, Some(at))
     }

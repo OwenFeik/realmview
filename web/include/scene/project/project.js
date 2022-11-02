@@ -250,7 +250,6 @@ function create_new_project() {
 }
 
 function create_new_scene() {
-    console.log("called!");
     document.getElementById("scene_title").value =
         "{{ constant(DEFAULT_TITLE) }}";
     let proj_id = parseInt(

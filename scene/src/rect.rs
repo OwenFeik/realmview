@@ -25,7 +25,7 @@ impl Rect {
         Rect { x, y, w, h }
     }
 
-    pub fn from_point(point: Point, w: f32, h: f32) -> Rect {
+    pub fn at(point: Point, w: f32, h: f32) -> Rect {
         Rect {
             x: point.x,
             y: point.y,

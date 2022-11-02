@@ -1,3 +1,7 @@
+<!--
+  Make sure to include <MediaModal> in document root. 
+  it doesn't render properly if included here.
+-->
 <Nav>
   <NavItem tab="view_media" label="Library" selected="true">
   <NavItem tab="upload_media" label="Upload">
@@ -48,4 +52,3 @@
 <script>
 {{ media/media.js(IFDEF(ADD_BUTTON) {{ add_button=1 }}) }}
 </script>
-<MediaModal>

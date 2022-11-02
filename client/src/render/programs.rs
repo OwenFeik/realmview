@@ -176,7 +176,7 @@ impl TextureManager {
     }
 
     pub fn load_image(&mut self, image: &HtmlImageElement) -> scene::Id {
-        let id = match image.get_attribute("data-key") {
+        let id = match image.get_attribute("data-media_key") {
             Some(s) => super::parse_media_key(&s),
             None => 0,
         };

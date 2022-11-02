@@ -1,6 +1,7 @@
 # TODO
 
 * Scene
+    * Copy and paste shortcuts
 * Layers
     * Select from selected layer first (possibly)
     * Layer opacity
@@ -8,6 +9,7 @@
     * When dragging a sprite, if it isn't locked to the grid at the start, it
         shouldn't snap at the end
     * Use sprite menu to change texture
+    * When cloning, select newly cloned sprites
     * Group sprites
 * Media
     * Place media in directories
