@@ -13,9 +13,8 @@ window.addEventListener("load", () => {
 });
 
 function load_project_scene() {
-    document.getElementById("scene_title").value
-        = document.getElementById("project_title").value
-        = "{{ constant(DEFAULT_TITLE) }}";
+    set_title("project");
+    set_title("scene");
     const [proj_key, scene_key] = url_project_scene();
     populate_scene_select();
     load_projects(proj_key, scene_key);
@@ -190,6 +189,20 @@ function populate_scene_select(list = null, scene_key = null) {
     update_url_project_scene();
 }
 
+function set_title(name, title) {
+    let input = document.getElementById(name + "_title");
+    let button = input.parentNode.querySelector("button");
+    if (title) {
+        input.value = title;
+        input.disabled = true;
+        button.innerHTML = Icons.pencil_square;
+    } else {
+        input.value = "{{ constant(DEFAULT_TITLE) }}";
+        input.disabled = false;
+        button.innerHTML = Icons.check_circle;
+    }
+}
+
 function set_active_project(project_key, scene_key = null) {
     update_url_project_scene();
 
@@ -205,9 +218,7 @@ function set_active_project(project_key, scene_key = null) {
             populate_project_select(resp.list, project_key);
             resp.list.forEach(proj => {
                 if (proj.project_key === project_key) {
-                    document.getElementById(
-                        "project_title"
-                    ).value = proj.title;
+                    set_title("project", proj.title);
                     populate_scene_select(proj.scene_list);
                     set_active_scene(scene_key);
                 }
@@ -230,7 +241,7 @@ function set_active_scene(scene_key) {
         "/api/scene/load/" + scene_key,
         resp => {
             document.getElementById("scene_select").value = scene_key;
-            document.getElementById("scene_title").value = resp.title;
+            set_title("scene", resp.title);
 
             if (resp.success) {
                 load_scene(resp.scene);
@@ -243,15 +254,19 @@ function set_active_scene(scene_key) {
 }
 
 function create_new_project() {
-    document.getElementById("project_title").value = 
-        "{{ constant(DEFAULT_TITLE) }}";
+    set_title("project");
     populate_scene_select();
     create_new_scene();
 }
 
 function create_new_scene() {
-    document.getElementById("scene_title").value =
-        "{{ constant(DEFAULT_TITLE) }}";
+    set_title(scene, document.getElementById("scene_title").value);
+
+    if (!selected_scene()) {
+        // Already a new scene, don't overwrite.
+        return;
+    }
+
     let proj_id = parseInt(
         document
             .getElementById("project_select")

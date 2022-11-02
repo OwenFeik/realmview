@@ -27,7 +27,7 @@ IFNDEF(NOSTART) {{
     autocomplete="off"
     IFDEF(VALUE) {{ value="{{ VALUE }}" }}
     IFDEF(BUTTON) {{
-      disabled
+      IFNDEF(ENABLED) {{ disabled }}
       onkeypress="
         // Submit on enter.
         if (event.keyCode === 13) {
@@ -40,7 +40,7 @@ IFNDEF(NOSTART) {{
   IFDEF(BUTTON) {{
     {{
       button(
-        icon=pencil-square,
+        icon=IFDEF(ENABLED) {{ "check-circle" }} ELSE {{ "pencil-square" }},
         outline=true,
         IFDEF(SMALL) {{ small=true, }}
         onclick="
