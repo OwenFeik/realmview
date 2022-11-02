@@ -9,8 +9,7 @@ use web_sys::{
     ProgressEvent, UiEvent, Url, WebGl2RenderingContext, Window,
 };
 
-use crate::interactor::SceneDetails;
-use crate::interactor::SpriteDetails;
+use crate::interactor::details::{SceneDetails, SpriteDetails};
 use crate::render::Renderer;
 use crate::scene::{Id, Layer, Rect, Sprite};
 use crate::viewport::ViewportPoint;

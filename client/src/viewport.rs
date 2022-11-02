@@ -136,7 +136,7 @@ impl Viewport {
     fn set_draw_tool(&mut self, draw_tool: DrawTool) {
         self.set_tool(Tool::Draw);
 
-        let mut deets: crate::interactor::SpriteDetails = Default::default();
+        let mut deets: crate::interactor::details::SpriteDetails = Default::default();
         match draw_tool {
             DrawTool::Ellipse => deets.shape = Some(scene::SpriteShape::Ellipse),
             DrawTool::Freehand => {

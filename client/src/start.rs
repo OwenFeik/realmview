@@ -77,7 +77,8 @@ pub fn start() -> Result<(), JsValue> {
 
     let vp_ref = vp.clone();
     let scene_details_closure = Closure::wrap(Box::new(move |json: String| {
-        if let Ok(details) = serde_json::from_str::<crate::interactor::SceneDetails>(&json) {
+        if let Ok(details) = serde_json::from_str::<crate::interactor::details::SceneDetails>(&json)
+        {
             let mut lock = vp_ref.lock();
             lock.scene.scene_details(details);
             crate::bridge::set_scene_details(lock.scene.get_scene_details());
