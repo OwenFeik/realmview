@@ -29,8 +29,14 @@
         >Network error.</p>
         <button
           class="btn btn-primary"
+          type="button"
           onclick="view_media();"
         >Refresh <Icon name="arrow-clockwise"></button>
+        IFNDEF(SCENE) {{<button
+          class="btn btn-danger ms-2"
+          type="button"
+          onclick="media_manager.delete_selected()"
+        >Delete selected<Icon name="trash3"></button>}}
       </div>
     </div>
     <div class="row row-cols-auto" id="media_view_previews"></div>
@@ -50,5 +56,5 @@
   </Tab>
 </div>
 <script>
-{{ media/media.js(IFDEF(ADD_BUTTON) {{ add_button=1 }}) }}
+{{ media/media.js(IFDEF(SCENE) {{ scene=1 }}) }}
 </script>

@@ -13,7 +13,6 @@
     * Group sprites
 * Media
     * Place media in directories
-    * Multiselect media, apply action to all items
 * Projects
 * Game
     * Save the scene in the game

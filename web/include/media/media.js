@@ -7,16 +7,10 @@ class MediaItem {
         this.h = h;
 
         this.card = template_to_element(
-            `{{ media/card(IFDEF(ADD_BUTTON) {{ add_button=1 }}) }}`
+            `{{ media/card(IFDEF(SCENE) {{ scene=1 }}) }}`
         );
 
         this.image = this.card.querySelector("img");
-
-        IFDEF(ADD_BUTTON) {{
-            // Buttons: [Add, Edit]
-            let buttons = this.card.querySelectorAll("button");
-            buttons[0].onclick = () => add_to_scene(this.image);
-        }}
     }
 
     set_attr(key, value) {
@@ -27,30 +21,65 @@ class MediaItem {
     update(obj) {
         Object.entries(obj).forEach(([k, v]) => this.set_attr(k, v));
     }
+
+    delete() {
+        fetch("/api/media/" + this.key, { method: "DELETE" });
+        this.card.remove();
+    }
+
+    selected() {
+        return this.card.querySelector(".form-check-input").checked;
+    }
 }
 
 class MediaManager {
     constructor() {
-        this.media = {};
+        this.media = new Map();
     }
 
     add_item(resp_item) {
         let i = resp_item;
         let media_item = new MediaItem(i.media_key, i.title, i.url, i.w, i.h);
-        this.media[resp_item.media_key] = media_item; 
+        this.media.set(resp_item.media_key, media_item);
         return media_item;
     }
     
     update_item(media_key, obj) {
-        this.media[media_key]?.update(obj);
+        this.media.get(media_key)?.update(obj);
     }
 
-    remove_media(media_key) {
-        delete this.media[media_key];
+    delete_item(media_key, confirm = true) {
+        let item = this.media.get(media_key);
+        if (item) {
+            const deleteItem = () => {
+                item.delete();
+                this.media.delete(media_key);
+            };
+
+            if (confirm) {
+                modal_confirm(
+                    deleteItem, 
+                    `Permanently delete "${item.title}"?`
+                );
+            } else {
+                deleteItem();
+            }
+        }
+    }
+
+    delete_selected() {
+        let to_delete = this
+            .media_list()
+            .filter(item => item.selected())
+            .map(item => item.key);
+
+        modal_confirm(() => {
+            to_delete.map(key => this.delete_item(key, false));
+        }, `Permanently delete ${to_delete.length} pieces of media?`);
     }
 
     load_media_with_key(media_key, callback) {
-        let media = this.media[media_key];
+        let media = this.media.get(media_key);
         if (media) {
             if (media.image.complete) {
                 callback(media.image);
@@ -74,6 +103,10 @@ class MediaManager {
                 }
             );    
         }        
+    }
+
+    media_list() {
+        return Array.from(this.media.values());
     }
 }
 
@@ -182,22 +215,11 @@ function view_media() {
     req.send();
 }
 
-function delete_media_item(key) {
-    modal_confirm(() => fetch(
-        "/api/media/" + key,
-        { method: "DELETE" }
-    ).then(resp => {
-        if (resp.ok) {
-            document.getElementById("media_" + key)?.remove();
-            media_manager.remove_media(key);
-        }
-    }));
-}
-
 function search_filter(query) {
     query = query.toLowerCase();
-    let matching = Object
-        .values(media_manager.media)
+    let matching = media_manager
+        .media
+        .values()
         .filter(item => item.title.toLowerCase().includes(query))
     show_media(matching);
 }

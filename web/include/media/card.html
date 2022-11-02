@@ -10,25 +10,29 @@
       data-h="${h}"
     >
     <div class="card-body">
-      <p class="card-text text-truncate">${title}</p>
-      IFDEF(ADD_BUTTON) {{
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox">
+        <label class="form-check-label">${title}</label>
+      </div>
+      IFDEF(SCENE) {{
       <button
         class="btn btn-sm btn-primary"
         aria-roledescription="Add to scene"
-      >Add {{ bootstrap_icon(plus-square) }}</button>
+        onclick="add_to_scene(this.parentNode.previousSibling);"
+      >Add <Icon name="plus-square"></button>
       }}
       <button
         class="btn btn-sm btn-primary"
         data-bs-toggle="modal"
         data-bs-target="#media_details_modal"
         aria-roledescription="Edit details"
-      >Edit {{ bootstrap_icon(pencil-square) }}</button>
+      >Edit <Icon name="pencil-square"></button>
       <button
         class="btn btn-sm btn-danger"
         type="button"
         aria-roledescription="Delete media"
-        onclick="delete_media_item('${key}')"
-      >Delete {{ bootstrap_icon(trash3) }}</button>
+        onclick="media_manager.delete_item('${key}')"
+      >Delete <Icon name="trash3"></button>
     </div>
   </div>
 </div>

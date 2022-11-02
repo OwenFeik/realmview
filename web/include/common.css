@@ -33,6 +33,11 @@
     transform: translateY(-0.1em);
 }
 
+/* Align checkbox labels better with text. */
+.form-check-label {
+    transform: translateY(-0.1rem);
+}
+
 /* Fit colour inputs in input groups properly. */
 .input-group input[type='color'] {
     height: 38px;
