@@ -67,7 +67,7 @@ impl UploadImage {
 
     fn size(&self) -> usize {
         match &self.data {
-            Some(data) => data.len() as usize,
+            Some(data) => data.len(),
             None => 0,
         }
     }

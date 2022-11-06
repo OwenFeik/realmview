@@ -118,23 +118,17 @@ impl Layer {
         // Reversing the iterator atm because the sprites are rendered from the
         // front of the Vec to the back, hence the last Sprite in the Vec is
         // rendered on top, and will be clicked first.
-        for sprite in self.sprites.iter_mut().rev() {
-            if sprite.rect.contains_point(at) {
-                return Some(sprite);
-            }
-        }
-
-        None
+        self.sprites
+            .iter_mut()
+            .rev()
+            .find(|s| s.rect.contains_point(at))
     }
 
     pub fn sprite_at_ref(&self, at: Point) -> Option<&Sprite> {
-        for sprite in self.sprites.iter().rev() {
-            if sprite.rect.contains_point(at) {
-                return Some(sprite);
-            }
-        }
-
-        None
+        self.sprites
+            .iter()
+            .rev()
+            .find(|s| s.rect.contains_point(at))
     }
 
     pub fn sprites_in(&self, region: Rect) -> Vec<Id> {
