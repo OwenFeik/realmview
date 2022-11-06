@@ -208,11 +208,11 @@ impl Sprite {
         stroke: Self::SOLID_STROKE,
     };
 
-    pub fn new(id: Id, visual: Option<Visual>) -> Sprite {
-        Sprite {
+    pub fn new(id: Id, visual: Option<Visual>) -> Self {
+        Self {
             rect: Rect::new(0.0, 0.0, Self::DEFAULT_WIDTH, Self::DEFAULT_HEIGHT),
             z: 1,
-            visual: visual.unwrap_or(Sprite::DEFAULT_VISUAL),
+            visual: visual.unwrap_or(Self::DEFAULT_VISUAL),
             id,
         }
     }

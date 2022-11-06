@@ -40,22 +40,39 @@ impl History {
         self.issued_events.retain(|c| c.id != id);
     }
 
-    pub fn issue_event(&mut self, event: SceneEvent) {
+    /// Internal common backend for `issue_event` and `issue_event_no_history`,
+    /// handles creating a `ClientMessage` from a `SceneEvent` with a unique ID
+    /// and sending it to the server. If there is no `Client`, this is a no-op.
+    fn _issue_event(&mut self, event: SceneEvent) {
         static EVENT_ID: AtomicI64 = AtomicI64::new(1);
 
         // Queue event to be sent to server
         if let Some(client) = &self.client {
             let message = ClientMessage {
                 id: EVENT_ID.fetch_add(1, Ordering::Relaxed),
-                event: ClientEvent::SceneUpdate(event.clone()),
+                event: ClientEvent::SceneUpdate(event),
             };
             client.send_message(&message);
             self.issued_events.push(message);
+        }
+    }
+
+    /// Issue an event, publishing it to the server and adding it to the
+    /// history stack. Should be called with every event produced from the
+    /// scene to ensure consistency with the server.
+    pub fn issue_event(&mut self, event: SceneEvent) {
+        if self.client.is_some() {
+            self._issue_event(event.clone());
         }
 
         // When adding a new entry to the history, all undone events are lost.
         self.redo_history.clear();
         self.history.push(event);
+    }
+
+    /// Issue an event to the server without affecting the history stack.
+    pub fn issue_event_no_history(&mut self, event: SceneEvent) {
+        self._issue_event(event);
     }
 
     pub fn issue_redo(&mut self, opt: Option<SceneEvent>) {

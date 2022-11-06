@@ -76,6 +76,10 @@ pub struct Viewport {
     // Size to render a scene unit, in pixels
     grid_zoom: f32,
 
+    /// Where on the viewport the cursor is. None implies the cursor is not on
+    /// the viewport.
+    cursor_position: Option<ViewportPoint>,
+
     // Current grab for dragging on the viewport
     grabbed_at: Option<ViewportPoint>,
 
@@ -98,6 +102,7 @@ impl Viewport {
                 h: 0.0,
             },
             grid_zoom: Viewport::BASE_GRID_ZOOM,
+            cursor_position: None,
             grabbed_at: None,
             redraw_needed: true,
         };
@@ -312,12 +317,8 @@ impl Viewport {
     }
 
     fn handle_key_down(&mut self, key: Key, ctrl: bool) {
-        if key.is_arrow() {
-            self.handle_arrow_key_down(key, ctrl);
-            return;
-        }
-
         match key {
+            k if k.is_arrow() => self.handle_arrow_key_down(key, ctrl),
             Key::Delete => self.scene.remove_selection(),
             Key::Escape => {
                 self.scene.clear_selection();
@@ -330,12 +331,14 @@ impl Viewport {
                 self.scene.select_all();
                 self.set_tool(Tool::Select);
             }
-            Key::C => self.set_draw_tool(DrawTool::Ellipse),
+            Key::C => self.scene.copy(),
             Key::D => self.scene.clear_selection(),
+            Key::E => self.set_draw_tool(DrawTool::Ellipse),
             Key::F => self.set_draw_tool(DrawTool::Freehand),
             Key::L => self.set_draw_tool(DrawTool::Line),
             Key::Q => self.set_tool(Tool::Select),
             Key::R => self.set_draw_tool(DrawTool::Rectangle),
+            Key::V => self.scene.paste(self.target_point()),
             Key::Y => self.scene.redo(),
             Key::Z => self.scene.undo(),
             _ => {}
@@ -351,16 +354,26 @@ impl Viewport {
         for event in &events {
             match event.input {
                 Input::Mouse(at, MouseAction::Down, button) => {
+                    self.cursor_position = Some(at);
                     self.handle_mouse_down(at, button, event.ctrl)
                 }
+                Input::Mouse(at, MouseAction::Enter, _) => {
+                    self.cursor_position = Some(at);
+                }
                 Input::Mouse(_, MouseAction::Leave, button) => {
+                    self.cursor_position = None;
                     self.handle_mouse_up(button, event.alt, event.ctrl)
                 }
-                Input::Mouse(at, MouseAction::Move, _) => self.handle_mouse_move(at, event.ctrl),
-                Input::Mouse(_, MouseAction::Up, button) => {
+                Input::Mouse(at, MouseAction::Move, _) => {
+                    self.cursor_position = Some(at);
+                    self.handle_mouse_move(at, event.ctrl)
+                }
+                Input::Mouse(at, MouseAction::Up, button) => {
+                    self.cursor_position = Some(at);
                     self.handle_mouse_up(button, event.alt, event.ctrl)
                 }
                 Input::Mouse(at, MouseAction::Wheel(delta), _) => {
+                    self.cursor_position = Some(at);
                     self.handle_scroll(at, delta, event.shift, event.ctrl)
                 }
                 Input::Keyboard(KeyboardAction::Down, key) => self.handle_key_down(key, event.ctrl),
@@ -429,6 +442,12 @@ impl Viewport {
             x: (self.viewport.w / 2.0) * self.grid_zoom,
             y: (self.viewport.h / 2.0) * self.grid_zoom,
         }
+    }
+
+    fn target_point(&self) -> Point {
+        self.cursor_position
+            .map(|p| self.scene_point(p))
+            .unwrap_or_else(|| self.centre_tile())
     }
 
     pub fn centre_tile(&self) -> Point {

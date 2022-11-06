@@ -305,7 +305,7 @@ impl Scene {
     ) -> Option<SceneEvent> {
         let id = self.next_id();
         let mut sprite = Sprite::new(id, visual);
-        sprite.set_rect(at);
+        sprite.rect = at;
         self.add_sprite(sprite, layer)
     }
 

@@ -15,6 +15,7 @@ pub mod holding;
 pub struct Interactor {
     pub changes: changes::Changes,
     pub role: scene::perms::Role,
+    copied: Option<Vec<Sprite>>,
     draw_details: details::SpriteDetails,
     history: history::History,
     holding: holding::HeldObject,
@@ -37,6 +38,7 @@ impl Interactor {
         Interactor {
             changes: changes::Changes::new(),
             role: scene::perms::Role::Owner,
+            copied: None,
             draw_details: details::SpriteDetails::default(),
             history: history::History::new(client),
             holding: holding::HeldObject::None,
@@ -135,7 +137,7 @@ impl Interactor {
             let opt = self.scene.unwind_event(event);
             if let Some(event) = &opt {
                 let layers_changed = event.is_layer();
-                self.history.issue_event(event.clone());
+                self.history.issue_event_no_history(event.clone());
                 self.changes.layer_change_if(layers_changed);
                 self.changes.sprite_selected_change();
             }
@@ -152,6 +154,52 @@ impl Interactor {
                 self.changes.sprite_selected_change();
             }
         }
+    }
+
+    pub fn copy(&mut self) {
+        if !self.has_selection() {
+            return;
+        }
+
+        let mut copied = Vec::with_capacity(self.selected_sprites.len());
+        let mut xmin = std::f32::MAX;
+        let mut ymin = std::f32::MAX;
+        for id in &self.selected_sprites {
+            if let Some(sprite) = self.scene.sprite_ref(*id) {
+                copied.push(sprite.clone());
+                xmin = xmin.min(sprite.rect.x);
+                ymin = ymin.min(sprite.rect.y);
+            }
+        }
+
+        for sprite in &mut copied {
+            sprite.rect.x -= xmin;
+            sprite.rect.y -= ymin;
+        }
+
+        self.copied = Some(copied);
+    }
+
+    pub fn paste(&mut self, at: Point) {
+        let Some(sprites) = &self.copied else {
+            return;
+        };
+
+        let mut events = Vec::with_capacity(sprites.len());
+
+        // Place new sprite at cursor.
+        let delta = at.round();
+        for s in sprites {
+            let at = s.rect.translate(delta);
+            if let Some(event) =
+                self.scene
+                    .new_sprite_at(Some(s.visual.clone()), self.selected_layer, at)
+            {
+                events.push(event);
+            }
+        }
+
+        self.scene_event(SceneEvent::EventSet(events));
     }
 
     fn update_role(&mut self) {

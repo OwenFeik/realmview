@@ -253,6 +253,7 @@ impl Canvas {
         for event_name in [
             "mousedown",
             "mouseup",
+            "mouseenter",
             "mouseleave",
             "mousemove",
             "wheel",
@@ -377,6 +378,7 @@ impl Canvas {
 #[derive(Debug)]
 pub enum MouseAction {
     Down,
+    Enter,
     Up,
     Leave,
     Move,
@@ -561,7 +563,7 @@ impl InputEvent {
             "keydown" | "keyup" => {
                 Self::from_keyboard(event.unchecked_ref::<web_sys::KeyboardEvent>())
             }
-            "mousedown" | "mouseleave" | "mousemove" | "mouseup" | "wheel" => {
+            "mousedown" | "mouseenter" | "mouseleave" | "mousemove" | "mouseup" | "wheel" => {
                 Self::from_mouse(event.unchecked_ref::<web_sys::MouseEvent>())
             }
             _ => None,
@@ -571,6 +573,7 @@ impl InputEvent {
     fn from_mouse(event: &web_sys::MouseEvent) -> Option<InputEvent> {
         let action = match event.type_().as_str() {
             "mousedown" => MouseAction::Down,
+            "mouseenter" => MouseAction::Enter,
             "mouseleave" => MouseAction::Leave,
             "mousemove" => MouseAction::Move,
             "mouseup" => MouseAction::Up,

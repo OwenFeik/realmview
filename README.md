@@ -1,7 +1,6 @@
 # TODO
 
 * Scene
-    * Copy and paste shortcuts
     * Fog of war
 * Layers
     * Select from selected layer first (possibly)
