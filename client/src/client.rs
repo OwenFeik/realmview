@@ -16,7 +16,14 @@ pub struct Client {
     incoming_events: Rc<Mutex<Vec<ServerEvent>>>,
 }
 
+/// The `Client` handles sending `ClientMessage`s to the server and receiving
+/// `ServerMessage`s form the server. It opens a `WebSocket` with the server
+/// and listens on this socket, posting messages if `send_message` is used.
 impl Client {
+    /// If the page URL is /game/GAME_KEY/client/CLIENT_KEY, this will attempt
+    /// to connect to the appropriate game websocket. If the URL doesn't match
+    /// will return Ok(None). On successfully connection returns
+    /// Ok(Some(Client)) on a failed connection returns Err.
     pub fn new() -> anyhow::Result<Option<Client>> {
         let ws = match websocket_url() {
             Ok(Some(url)) => match WebSocket::new(&url) {

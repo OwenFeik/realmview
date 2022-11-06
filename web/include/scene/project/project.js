@@ -260,7 +260,7 @@ function create_new_project() {
 }
 
 function create_new_scene() {
-    set_title(scene, document.getElementById("scene_title").value);
+    set_title("scene", document.getElementById("scene_title").value);
 
     if (!selected_scene()) {
         // Already a new scene, don't overwrite.

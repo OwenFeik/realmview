@@ -891,7 +891,7 @@ pub fn websocket_url() -> anyhow::Result<Option<String>> {
             parts.retain(|p| !p.is_empty());
             match parts[..] {
                 ["game", game_key, "client", client_key] => Ok(Some(format!(
-                    "ws://{}/game/{}/{}",
+                    "ws://{}/api/game/{}/{}",
                     &host, game_key, client_key
                 ))),
                 _ => Ok(None),

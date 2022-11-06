@@ -1,4 +1,4 @@
-use std::{convert::Infallible, path::Path};
+use std::convert::Infallible;
 
 use warp::Filter;
 
@@ -7,36 +7,10 @@ use crate::games::Games;
 pub fn routes(
     pool: sqlx::SqlitePool,
     games: Games,
-    content_dir: &Path,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     new::filter(pool.clone(), games.clone())
         .or(join::filter(pool, games.clone()))
         .or(connect::filter(games))
-        .or(html_route(content_dir))
-}
-
-fn html_route(
-    content_dir: &Path,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    let serve_scene_editor = warp::fs::file(content_dir.join("index.html"));
-
-    let no_args = warp::path("game")
-        .and(warp::get())
-        .and(serve_scene_editor.clone());
-
-    let one_key = warp::path!("game" / String)
-        .map(|_game_key| {})
-        .untuple_one()
-        .and(warp::get())
-        .and(serve_scene_editor.clone());
-
-    let both_keys = warp::path!("game" / String / "client" / String)
-        .map(|_game_key, _client_key| {})
-        .untuple_one()
-        .and(warp::get())
-        .and(serve_scene_editor);
-
-    no_args.or(one_key).or(both_keys)
 }
 
 fn with_games(games: Games) -> impl Filter<Extract = (Games,), Error = Infallible> + Clone {

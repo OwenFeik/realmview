@@ -1,100 +1,15 @@
-use std::{
-    collections::HashMap,
-    sync::atomic::{AtomicI64, Ordering},
-};
-
 use bincode::serialize;
+use scene::comms::ServerEvent;
 
 use crate::scene::{
-    comms::{ClientEvent, ClientMessage, SceneEvent, ServerEvent},
-    perms::Perms,
-    Dimension, Id, Layer, Point, Rect, Scene, Sprite, SpriteShape, SpriteVisual,
+    comms::SceneEvent, perms::Perms, Dimension, Id, Layer, Point, Rect, Scene, Sprite, SpriteShape,
+    SpriteVisual,
 };
 use crate::{bridge::Cursor, client::Client};
 
+pub mod changes;
 pub mod details;
-
-pub struct Changes {
-    // A change to a layer locked status, title, visibility, etc that will
-    // require the layers list to be updated.
-    layer: bool,
-
-    // A change to a sprite that will require a re-render
-    sprite: bool,
-
-    // A change to the selected sprite that will require the sprite menu to be
-    // updated.
-    selected: bool,
-}
-
-impl Changes {
-    fn new() -> Self {
-        Changes {
-            layer: true,
-            sprite: true,
-            selected: true,
-        }
-    }
-
-    fn all_change(&mut self) {
-        self.layer = true;
-        self.sprite = true;
-        self.selected = true;
-    }
-
-    fn all_change_if(&mut self, changed: bool) {
-        self.layer_change_if(changed);
-        self.sprite_change_if(changed);
-        self.selected_change_if(changed);
-    }
-
-    fn layer_change(&mut self) {
-        self.layer = true;
-    }
-
-    fn layer_change_if(&mut self, changed: bool) {
-        self.layer = self.layer || changed;
-    }
-
-    pub fn handle_layer_change(&mut self) -> bool {
-        let ret = self.layer;
-        self.layer = false;
-        ret
-    }
-
-    fn sprite_change(&mut self) {
-        self.sprite = true;
-    }
-
-    fn sprite_change_if(&mut self, changed: bool) {
-        self.sprite = self.sprite || changed;
-    }
-
-    pub fn handle_sprite_change(&mut self) -> bool {
-        let ret = self.sprite;
-        self.sprite = false;
-        ret
-    }
-
-    fn selected_change(&mut self) {
-        self.selected = true;
-    }
-
-    fn selected_change_if(&mut self, changed: bool) {
-        self.selected = self.selected || changed;
-    }
-
-    pub fn handle_selected_change(&mut self) -> bool {
-        let ret = self.selected;
-        self.selected = false;
-        ret
-    }
-
-    fn sprite_selected_change(&mut self) {
-        self.sprite = true;
-        self.selected = true;
-    }
-}
+pub mod history;
 
 #[derive(Clone, Copy, Debug)]
 enum HeldObject {
@@ -198,14 +113,11 @@ impl HeldObject {
 }
 
 pub struct Interactor {
-    pub changes: Changes,
+    pub changes: changes::Changes,
     pub role: scene::perms::Role,
-    client: Option<Client>,
     draw_details: details::SpriteDetails,
+    history: history::History,
     holding: HeldObject,
-    history: Vec<SceneEvent>,
-    redo_history: Vec<Option<SceneEvent>>,
-    issued_events: Vec<ClientMessage>,
     perms: Perms,
     scene: Scene,
     selected_layer: Id,
@@ -223,14 +135,11 @@ impl Interactor {
         let scene = Scene::new();
         let selected_layer = scene.first_layer();
         Interactor {
-            changes: Changes::new(),
+            changes: changes::Changes::new(),
             role: scene::perms::Role::Owner,
-            client,
             draw_details: details::SpriteDetails::default(),
+            history: history::History::new(client),
             holding: HeldObject::None,
-            history: vec![],
-            redo_history: vec![],
-            issued_events: vec![],
             perms: Perms::new(),
             scene,
             selected_layer,
@@ -240,60 +149,23 @@ impl Interactor {
         }
     }
 
-    fn update_role(&mut self) {
-        self.role = self.perms.get_role(self.user);
-        crate::bridge::set_role(self.role);
-    }
-
     pub fn process_server_events(&mut self) {
-        if let Some(client) = &self.client {
-            for event in client.events() {
+        if let Some(events) = self.history.server_events() {
+            for event in events {
                 self.process_server_event(event);
                 self.changes.sprite_change();
             }
         }
     }
 
-    pub fn cursor(&self) -> Cursor {
-        self.holding.cursor()
-    }
-
-    pub fn cursor_at(&self, at: Point, ctrl: bool) -> Cursor {
-        if matches!(self.holding, HeldObject::None) {
-            match self.grab_at(at, ctrl).0 {
-                HeldObject::Sprite(..) => Cursor::Pointer,
-                h => h.cursor(),
-            }
-        } else {
-            self.cursor()
-        }
-    }
-
-    fn approve_event(&mut self, id: Id) {
-        self.issued_events.retain(|c| c.id != id);
-    }
-
-    fn unwind_event(&mut self, id: Id) {
-        if let Some(i) = self.issued_events.iter().position(|c| c.id == id) {
-            if let ClientEvent::SceneUpdate(e) = self.issued_events.remove(i).event {
-                // If we got rejected while dragging a sprite, release that
-                // sprite to prevent visual jittering and allow the position to
-                // reset.
-                if self.held_id() == e.item() {
-                    self.holding = HeldObject::None;
-                }
-
-                self.changes.layer_change_if(e.is_layer());
-                self.changes.sprite_selected_change();
-                self.scene.unwind_event(e);
-            }
-        }
-    }
-
     fn process_server_event(&mut self, event: ServerEvent) {
         match event {
-            ServerEvent::Approval(id) => self.approve_event(id),
-            ServerEvent::Rejection(id) => self.unwind_event(id),
+            ServerEvent::Approval(id) => self.history.approve_event(id),
+            ServerEvent::Rejection(id) => {
+                if let Some(event) = self.history.take_event(id) {
+                    self.unwind_event(event)
+                }
+            }
             ServerEvent::PermsChange(perms) => self.replace_perms(perms),
             ServerEvent::PermsUpdate(perms_event) => {
                 let is_role = matches!(perms_event, scene::comms::PermsEvent::RoleChange(..));
@@ -316,18 +188,17 @@ impl Interactor {
         }
     }
 
-    fn issue_client_event(&mut self, scene_event: SceneEvent) {
-        static EVENT_ID: AtomicI64 = AtomicI64::new(1);
-
-        // Queue event to be sent to server
-        if let Some(client) = &self.client {
-            let message = ClientMessage {
-                id: EVENT_ID.fetch_add(1, Ordering::Relaxed),
-                event: ClientEvent::SceneUpdate(scene_event),
-            };
-            client.send_message(&message);
-            self.issued_events.push(message);
+    fn unwind_event(&mut self, event: SceneEvent) {
+        // If we got rejected while dragging a sprite, release that
+        // sprite to prevent visual jittering and allow the position to
+        // reset.
+        if self.held_id() == event.item() {
+            self.holding = HeldObject::None;
         }
+
+        self.changes.layer_change_if(event.is_layer());
+        self.changes.sprite_selected_change();
+        self.scene.unwind_event(event);
     }
 
     fn scene_event(&mut self, event: SceneEvent) {
@@ -335,17 +206,13 @@ impl Interactor {
             .perms
             .permitted(self.user, &event, self.scene.event_layer(&event))
         {
-            self.issue_client_event(event.clone());
+            self.history.issue_event(event.clone());
 
             self.changes.layer_change_if(event.is_layer());
             self.changes.sprite_change_if(event.is_sprite());
             if let Some(id) = event.item() {
                 self.changes.selected_change_if(self.is_selected(id));
             }
-
-            // When adding a new entry to the history, all undone events are lost.
-            self.redo_history.clear();
-            self.history.push(event);
         } else {
             crate::bridge::flog!("forbidden: {event:?}");
             self.scene.unwind_event(event);
@@ -355,104 +222,6 @@ impl Interactor {
     fn scene_option(&mut self, event_option: Option<SceneEvent>) {
         if let Some(event) = event_option {
             self.scene_event(event);
-        }
-    }
-
-    fn start_move_group(&mut self) {
-        self.history.push(SceneEvent::Dummy);
-    }
-
-    fn consume_history_until<F: FnMut(&SceneEvent) -> bool>(&mut self, mut pred: F) {
-        while let Some(e) = self.history.pop() {
-            if !pred(&e) {
-                if !matches!(e, SceneEvent::Dummy) {
-                    self.history.push(e);
-                }
-                break;
-            }
-        }
-    }
-
-    fn group_moves_single(&mut self, last: SceneEvent) {
-        let (sprite, mut start, finish) = if let SceneEvent::SpriteMove(id, from, to) = last {
-            (id, from, to)
-        } else {
-            return;
-        };
-
-        self.consume_history_until(|e| {
-            if let SceneEvent::SpriteMove(id, from, _) = e {
-                if *id == sprite {
-                    start = *from;
-                    return true;
-                }
-            }
-            false
-        });
-
-        self.history
-            .push(SceneEvent::SpriteMove(sprite, start, finish));
-    }
-
-    fn group_moves_drawing(&mut self, last: SceneEvent) {
-        let sprite = if let SceneEvent::SpriteDrawingFinish(id) = last {
-            id
-        } else {
-            return;
-        };
-
-        let mut opt = None;
-        self.consume_history_until(|e| match e {
-            SceneEvent::SpriteDrawingPoint(id, ..) => *id == sprite,
-            SceneEvent::SpriteNew(s, ..) => {
-                if s.id == sprite {
-                    opt = Some(e.clone());
-                }
-                false
-            }
-            _ => false,
-        });
-
-        if let Some(event) = opt {
-            self.history.push(event);
-        }
-    }
-
-    fn group_moves_set(&mut self, last: SceneEvent) {
-        self.history.push(last);
-        let mut moves = HashMap::new();
-
-        self.consume_history_until(|e| {
-            if let SceneEvent::EventSet(v) = e {
-                for event in v {
-                    if let SceneEvent::SpriteMove(id, from, _) = event {
-                        if let Some(SceneEvent::SpriteMove(_, start, _)) = moves.get_mut(id) {
-                            *start = *from;
-                        } else {
-                            moves.insert(*id, event.clone());
-                        }
-                    }
-                }
-                true
-            } else {
-                false
-            }
-        });
-
-        self.history.push(SceneEvent::EventSet(
-            moves.into_values().collect::<Vec<SceneEvent>>(),
-        ));
-    }
-
-    fn end_move_group(&mut self) {
-        let opt = self.history.pop();
-        if let Some(event) = opt {
-            match event {
-                SceneEvent::SpriteDrawingFinish(..) => self.group_moves_drawing(event),
-                SceneEvent::SpriteMove(..) => self.group_moves_single(event),
-                SceneEvent::EventSet(..) => self.group_moves_set(event),
-                _ => self.history.push(event),
-            };
         }
     }
 
@@ -466,23 +235,42 @@ impl Interactor {
             let opt = self.scene.unwind_event(event);
             if let Some(event) = &opt {
                 let layers_changed = event.is_layer();
-                self.issue_client_event(event.clone());
+                self.history.issue_event(event.clone());
                 self.changes.layer_change_if(layers_changed);
                 self.changes.sprite_selected_change();
             }
-            self.redo_history.push(opt);
+            self.history.issue_redo(opt);
         }
     }
 
     pub fn redo(&mut self) {
-        if let Some(Some(event)) = self.redo_history.pop() {
+        if let Some(event) = self.history.pop_redo() {
             if let Some(event) = self.scene.unwind_event(event) {
                 let layers_changed = event.is_layer();
-                self.issue_client_event(event.clone());
-                self.history.push(event);
+                self.history.issue_event(event);
                 self.changes.layer_change_if(layers_changed);
                 self.changes.sprite_selected_change();
             }
+        }
+    }
+
+    fn update_role(&mut self) {
+        self.role = self.perms.get_role(self.user);
+        crate::bridge::set_role(self.role);
+    }
+
+    pub fn cursor(&self) -> Cursor {
+        self.holding.cursor()
+    }
+
+    pub fn cursor_at(&self, at: Point, ctrl: bool) -> Cursor {
+        if matches!(self.holding, HeldObject::None) {
+            match self.grab_at(at, ctrl).0 {
+                HeldObject::Sprite(..) => Cursor::Pointer,
+                h => h.cursor(),
+            }
+        } else {
+            self.cursor()
         }
     }
 
@@ -603,7 +391,7 @@ impl Interactor {
         }
 
         if self.holding.is_sprite() {
-            self.start_move_group();
+            self.history.start_move_group();
         }
 
         self.changes.sprite_change();
@@ -618,7 +406,7 @@ impl Interactor {
             None,
             Rect::at(at, Sprite::DEFAULT_WIDTH, Sprite::DEFAULT_HEIGHT),
         ) {
-            self.start_move_group();
+            self.history.start_move_group();
             self.holding = HeldObject::Drawing(id, ephemeral);
         }
     }
@@ -747,7 +535,7 @@ impl Interactor {
             } else {
                 let opt = sprite.finish_drawing();
                 self.scene_option(opt);
-                self.end_move_group();
+                self.history.end_move_group();
             }
         }
     }
@@ -774,7 +562,7 @@ impl Interactor {
         };
 
         if self.holding.is_sprite() {
-            self.end_move_group();
+            self.history.end_move_group();
         }
 
         self.holding = HeldObject::None;
