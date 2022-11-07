@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 #![feature(drain_filter)]
+#![feature(int_roundings)]
 
 use comms::SceneEvent;
 pub use layer::Layer;
@@ -13,6 +14,7 @@ pub use sprite::{
 pub mod comms;
 pub mod perms;
 
+mod fog;
 mod layer;
 mod point;
 mod rect;
