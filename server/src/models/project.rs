@@ -132,8 +132,8 @@ impl Project {
             scene.id,
             self.id,
             scene_title,
-            scene.w,
-            scene.h,
+            scene.w(),
+            scene.h(),
         )
         .await?;
 
@@ -346,8 +346,7 @@ mod scene_record {
             scene.id = Some(self.id);
             scene.title = Some(self.title.clone());
             scene.project = Some(self.project);
-            scene.w = self.w;
-            scene.h = self.h;
+            scene.set_size(self.w, self.h);
             Ok(scene)
         }
 

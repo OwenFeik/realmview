@@ -15,6 +15,9 @@ pub struct Renderer {
 
     // To render map grid
     grid_renderer: programs::GridRenderer,
+
+    // To render fog of war
+    fog_renderer: programs::FogRenderer,
 }
 
 impl Renderer {
@@ -22,12 +25,17 @@ impl Renderer {
         Ok(Renderer {
             sprite_renderer: programs::SpriteRenderer::new(gl.clone())?,
             line_renderer: programs::LineRenderer::new(gl.clone())?,
-            grid_renderer: programs::GridRenderer::new(gl)?,
+            grid_renderer: programs::GridRenderer::new(gl.clone())?,
+            fog_renderer: programs::FogRenderer::new(gl)?,
         })
     }
 
     pub fn render_grid(&mut self, vp: Rect, dims: Rect, grid_size: f32) {
         self.grid_renderer.render_grid(vp, dims, grid_size);
+    }
+
+    pub fn render_fog(&mut self, vp: Rect, grid_size: f32, fog: &scene::Fog) {
+        self.fog_renderer.render_fog(vp, grid_size, fog);
     }
 
     pub fn load_image(&mut self, image: &HtmlImageElement) -> scene::Id {

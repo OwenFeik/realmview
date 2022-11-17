@@ -3,6 +3,7 @@
 #![feature(int_roundings)]
 
 use comms::SceneEvent;
+pub use fog::Fog;
 pub use layer::Layer;
 pub use point::{Point, PointVector};
 pub use rect::{Dimension, Rect};
@@ -34,8 +35,7 @@ pub struct Scene {
     pub removed_layers: Vec<Layer>,
     pub title: Option<String>,
     pub project: Option<Id>,
-    pub w: u32,
-    pub h: u32,
+    pub fog: Fog,
 }
 
 impl Scene {
@@ -47,6 +47,21 @@ impl Scene {
 
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn h(&self) -> u32 {
+        self.fog.h
+    }
+
+    pub fn w(&self) -> u32 {
+        self.fog.w
+    }
+
+    pub fn set_size(&mut self, w: u32, h: u32) -> SceneEvent {
+        let old_w = self.w();
+        let old_h = self.h();
+        self.fog.resize(w, h);
+        SceneEvent::SceneDimensions(old_w, old_h, w, h)
     }
 
     fn next_id(&mut self) -> Id {
@@ -435,9 +450,8 @@ impl Scene {
                 true
             }
             SceneEvent::SceneDimensions(old_w, old_h, new_w, new_h) => {
-                if self.w == old_w && self.h == old_h {
-                    self.w = new_w;
-                    self.h = new_h;
+                if self.w() == old_w && self.h() == old_h {
+                    self.set_size(new_w, new_h);
                     true
                 } else {
                     false
@@ -534,10 +548,8 @@ impl Scene {
             }
             SceneEvent::LayerVisibility(l, visible) => self.layer(l)?.set_visible(!visible),
             SceneEvent::SceneDimensions(old_w, old_h, new_w, new_h) => {
-                if self.w == new_w && self.h == new_h {
-                    self.w = old_w;
-                    self.h = old_h;
-                    Some(SceneEvent::SceneDimensions(new_w, new_h, old_w, old_h))
+                if self.w() == new_w && self.h() == new_h {
+                    Some(self.set_size(old_w, old_h))
                 } else {
                     None
                 }
@@ -601,8 +613,7 @@ impl Default for Scene {
             removed_layers: vec![],
             title: None,
             project: None,
-            w: Scene::DEFAULT_SIZE,
-            h: Scene::DEFAULT_SIZE,
+            fog: Fog::new(Scene::DEFAULT_SIZE, Scene::DEFAULT_SIZE),
         }
     }
 }

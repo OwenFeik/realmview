@@ -550,9 +550,14 @@ impl Interactor {
         Rect {
             x: 0.0,
             y: 0.0,
-            w: self.scene.w as f32,
-            h: self.scene.h as f32,
+            w: self.scene.w() as f32,
+            h: self.scene.h() as f32,
         }
+    }
+
+    #[must_use]
+    pub fn fog(&self) -> &scene::Fog {
+        &self.scene.fog
     }
 
     #[must_use]
@@ -586,7 +591,8 @@ impl Interactor {
     }
 
     pub fn scene_details(&mut self, details: details::SceneDetails) {
-        details.update_scene(&mut self.scene);
+        let opt = details.update_scene(&mut self.scene);
+        self.scene_option(opt);
         self.changes.sprite_change();
     }
 

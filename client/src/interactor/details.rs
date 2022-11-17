@@ -17,22 +17,30 @@ impl SceneDetails {
         SceneDetails {
             id: scene.id,
             title: scene.title.clone(),
-            w: Some(scene.w),
-            h: Some(scene.h),
+            w: Some(scene.w()),
+            h: Some(scene.h()),
         }
     }
 
-    pub fn update_scene(&self, scene: &mut Scene) {
+    pub fn update_scene(&self, scene: &mut Scene) -> Option<SceneEvent> {
+        let mut events = Vec::new();
         if self.title.is_some() {
+            let old = scene.title.clone();
             scene.title = self.title.clone();
+            events.push(SceneEvent::SceneTitle(old, self.title.clone().unwrap()));
         }
 
-        if let Some(w) = self.w {
-            scene.w = w;
+        match (self.w, self.h) {
+            (Some(w), Some(h)) => events.push(scene.set_size(w, h)),
+            (Some(w), None) => events.push(scene.set_size(w, scene.h())),
+            (None, Some(h)) => events.push(scene.set_size(scene.w(), h)),
+            _ => {}
         }
 
-        if let Some(h) = self.h {
-            scene.h = h;
+        if events.is_empty() {
+            None
+        } else {
+            Some(SceneEvent::EventSet(events))
         }
     }
 }

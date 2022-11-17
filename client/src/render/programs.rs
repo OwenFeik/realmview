@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use js_sys::Float32Array;
+use scene::PointVector;
 use wasm_bindgen::{closure::Closure, JsCast};
 use web_sys::{
     HtmlImageElement, WebGlBuffer, WebGlProgram, WebGlShader, WebGlTexture, WebGlUniformLocation,
@@ -839,6 +840,83 @@ impl GridRenderer {
         }
 
         self.line_renderer.render_lines(None);
+    }
+}
+
+pub struct FogRenderer {
+    solid_renderer: SolidRenderer,
+    shape: Option<Mesh>,
+    current_vp: Option<Rect>,
+    current_dimensions: Option<(u32, u32)>,
+    current_grid_size: Option<f32>,
+}
+
+impl FogRenderer {
+    pub fn new(gl: Rc<Gl>) -> anyhow::Result<Self> {
+        Ok(Self {
+            solid_renderer: SolidRenderer::new(gl)?,
+            shape: None,
+            current_vp: None,
+            current_dimensions: None,
+            current_grid_size: None,
+        })
+    }
+
+    pub fn create_fog(&mut self, vp: Rect, grid_size: f32, fog: &scene::Fog) {
+        let mut points = PointVector::new();
+
+        let d = grid_size;
+
+        let mut fill_tile = |x, y| {
+            let x = (x as f32) * d - vp.x;
+            let y = (y as f32) * d - vp.y;
+
+            let tl = Point::new(x, y);
+            let tr = Point::new(x + d, y);
+            let bl = Point::new(x, y + d);
+            let br = Point::new(x + d, y + d);
+
+            points.add_tri(tl, tr, br);
+            points.add_tri(tl, bl, br);
+        };
+
+        for x in 0..fog.w {
+            for y in 0..fog.h {
+                if fog.occluded(x, y) {
+                    fill_tile(x, y);
+                }
+            }
+        }
+
+        self.current_vp = Some(vp);
+        self.current_dimensions = Some((fog.w, fog.h));
+        self.current_grid_size = Some(grid_size);
+
+        if let Ok(mut mesh) = Mesh::new(
+            &self.solid_renderer.gl,
+            &self.solid_renderer.program,
+            &points.data,
+        ) {
+            mesh.set_transforms(false, false);
+            self.shape = Some(mesh);
+        }
+    }
+
+    pub fn render_fog(&mut self, vp: Rect, grid_size: f32, fog: &scene::Fog) {
+        if self.shape.is_none()
+            || self.current_vp.is_none()
+            || self.current_vp.unwrap() != vp
+            || self.current_dimensions.is_none()
+            || self.current_dimensions.unwrap() != (fog.w, fog.h)
+            || self.current_grid_size != Some(grid_size)
+        {
+            self.create_fog(vp, grid_size, fog);
+        }
+
+        if let Some(shape) = self.shape.as_ref() {
+            self.solid_renderer
+                .draw(shape, [0.0, 0.0, 0.0, 1.0], vp, vp);
+        }
     }
 }
 

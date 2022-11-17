@@ -7,13 +7,14 @@
 /// - This is ceil(w / 32) u32s per row and h rows.
 /// - Then to check if (x, y) is occluded, we find the relevant u32 at
 ///   index ceil(w / 32) * y + (x / 32)
-/// 
+///
 /// A 1 implies that that cell is clear while a 0 implies that the cell is
 /// occluded.
 
-struct Fog {
-    w: u32,
-    h: u32,
+#[derive(Clone, serde_derive::Deserialize, serde_derive::Serialize)]
+pub struct Fog {
+    pub w: u32,
+    pub h: u32,
     fog: Vec<u32>,
 }
 
@@ -21,7 +22,11 @@ impl Fog {
     const BITS: u32 = 32;
 
     pub fn new(w: u32, h: u32) -> Fog {
-        Fog { w, h, fog: Self::make_fog(w, h) }
+        Fog {
+            w,
+            h,
+            fog: Self::make_fog(w, h),
+        }
     }
 
     fn row_ints(w: u32) -> u32 {
@@ -45,16 +50,16 @@ impl Fog {
     }
 
     fn on_map(&self, x: u32, y: u32) -> bool {
-        return x < self.w && y < self.h;
+        x < self.w && y < self.h
     }
 
-    fn resize(&mut self, w: u32, h: u32) {
+    pub fn resize(&mut self, w: u32, h: u32) {
         let mut new_fog = Self::make_fog(w, h);
 
         for y in 0..h {
             for x in 0..w {
                 if self.on_map(x, y) {
-                    let idx = (Self::row_ints(w) * y + (x / Self::BITS)) as usize; 
+                    let idx = (Self::row_ints(w) * y + (x / Self::BITS)) as usize;
                     new_fog[idx] = self.fog[self.idx(x, y)];
                 }
             }
@@ -65,7 +70,7 @@ impl Fog {
         self.fog = new_fog;
     }
 
-    fn occluded(&self, x: u32, y: u32) -> bool {
+    pub fn occluded(&self, x: u32, y: u32) -> bool {
         if !self.on_map(x, y) {
             return true;
         }
@@ -77,7 +82,7 @@ impl Fog {
         }
     }
 
-    fn reveal(&mut self, x: u32, y: u32) {
+    pub fn reveal(&mut self, x: u32, y: u32) {
         if !self.on_map(x, y) {
             return;
         }
@@ -88,7 +93,7 @@ impl Fog {
         }
     }
 
-    fn occlude(&mut self, x: u32, y: u32) {
+    pub fn occlude(&mut self, x: u32, y: u32) {
         if !self.on_map(x, y) {
             return;
         }
@@ -103,7 +108,7 @@ impl Fog {
 #[cfg(test)]
 mod test {
     use super::Fog;
-    
+
     #[test]
     fn test_reveal() {
         let mut fog = Fog::new(43, 25);
