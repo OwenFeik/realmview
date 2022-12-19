@@ -15,6 +15,10 @@
 pub struct Fog {
     pub w: u32,
     pub h: u32,
+
+    /// Number of revealed cells
+    pub n_revealed: u32,
+
     fog: Vec<u32>,
 }
 
@@ -25,6 +29,7 @@ impl Fog {
         Fog {
             w,
             h,
+            n_revealed: 0,
             fog: Self::make_fog(w, h),
         }
     }
@@ -87,6 +92,10 @@ impl Fog {
             return;
         }
 
+        if self.occluded(x, y) {
+            self.n_revealed += 1;
+        }
+
         let index = self.idx(x, y);
         if let Some(row) = self.fog.get_mut(index) {
             *row |= 1 << (x % Self::BITS);
@@ -96,6 +105,10 @@ impl Fog {
     pub fn occlude(&mut self, x: u32, y: u32) {
         if !self.on_map(x, y) {
             return;
+        }
+
+        if !self.occluded(x, y) {
+            self.n_revealed -= 1;
         }
 
         let index = self.idx(x, y);

@@ -34,8 +34,14 @@ impl Renderer {
         self.grid_renderer.render_grid(vp, dims, grid_size);
     }
 
-    pub fn render_fog(&mut self, vp: Rect, grid_size: f32, fog: &scene::Fog) {
-        self.fog_renderer.render_fog(vp, grid_size, fog);
+    pub fn render_fog(&mut self, vp: Rect, grid_size: f32, fog: &scene::Fog, transparent: bool) {
+        let colour = if transparent {
+            [0.0, 0.0, 0.0, 0.5]
+        } else {
+            [0.0, 0.0, 0.0, 1.0]
+        };
+
+        self.fog_renderer.render_fog(vp, grid_size, fog, colour);
     }
 
     pub fn load_image(&mut self, image: &HtmlImageElement) -> scene::Id {

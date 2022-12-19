@@ -11,6 +11,7 @@ use crate::{
 #[derive(Clone, Copy, Debug, serde_derive::Deserialize, serde_derive::Serialize)]
 pub enum Tool {
     Draw,
+    Fog,
     Pan,
     Select,
 }
@@ -19,6 +20,7 @@ impl Tool {
     fn cursor(&self) -> Cursor {
         match self {
             Tool::Draw => Cursor::Crosshair,
+            Tool::Fog => Cursor::Crosshair,
             Tool::Pan => Cursor::Grab,
             Tool::Select => Cursor::Default,
         }
@@ -26,6 +28,7 @@ impl Tool {
 
     fn allowed(&self, role: scene::perms::Role) -> bool {
         match self {
+            Self::Fog => role.editor(),
             Self::Pan => true,
             _ => role.player(),
         }
@@ -80,6 +83,9 @@ pub struct Viewport {
     /// the viewport.
     cursor_position: Option<ViewportPoint>,
 
+    /// Whether the left mousebutton is currently being held down.
+    mouse_down: Option<bool>,
+
     // Current grab for dragging on the viewport
     grabbed_at: Option<ViewportPoint>,
 
@@ -103,6 +109,7 @@ impl Viewport {
             },
             grid_zoom: Viewport::BASE_GRID_ZOOM,
             cursor_position: None,
+            mouse_down: None,
             grabbed_at: None,
             redraw_needed: true,
         };
@@ -195,11 +202,16 @@ impl Viewport {
 
     fn handle_mouse_down(&mut self, at: ViewportPoint, button: MouseButton, ctrl: bool) {
         match button {
-            MouseButton::Left => match self.tool {
-                Tool::Draw => self.scene.start_draw(self.scene_point(at), ctrl),
-                Tool::Pan => self.grab(at),
-                Tool::Select => self.scene.grab(self.scene_point(at), ctrl),
-            },
+            MouseButton::Left => {
+                match self.tool {
+                    Tool::Draw => self.scene.start_draw(self.scene_point(at), ctrl),
+                    Tool::Pan => self.grab(at),
+                    Tool::Select => self.scene.grab(self.scene_point(at), ctrl),
+                    _ => (),
+                };
+
+                self.mouse_down = Some(true);
+            }
             MouseButton::Right => {
                 if let Some(id) = self.scene.sprite_at(self.scene_point(at)) {
                     sprite_dropdown(id, at.x, at.y);
@@ -223,6 +235,8 @@ impl Viewport {
                     self.release_grab();
                 }
                 self.scene.release(alt, ctrl);
+
+                self.mouse_down = Some(false);
             }
             MouseButton::Right => self.release_grab(),
             MouseButton::Middle => self.centre_viewport(),
@@ -241,6 +255,10 @@ impl Viewport {
         }
 
         self.update_cursor(Some(self.scene.cursor_at(scene_point, ctrl)));
+
+        if matches!(self.mouse_down, Some(true)) && matches!(self.tool, Tool::Fog) {
+            self.scene.set_fog(scene_point, ctrl);
+        }
     }
 
     fn zoom(&mut self, delta: f32, at: Option<ViewportPoint>) {
@@ -339,6 +357,7 @@ impl Viewport {
             Key::Q => self.set_tool(Tool::Select),
             Key::R => self.set_draw_tool(DrawTool::Rectangle),
             Key::V => self.scene.paste(self.target_point()),
+            Key::W => self.set_tool(Tool::Fog),
             Key::Y => self.scene.redo(),
             Key::Z => self.scene.undo(),
             _ => {}
@@ -405,7 +424,12 @@ impl Viewport {
             self.context
                 .draw_grid(vp, self.scene.dimensions(), self.grid_zoom);
         }
-        self.context.draw_fog(vp, self.grid_zoom, self.scene.fog());
+        self.context.draw_fog(
+            vp,
+            self.grid_zoom,
+            self.scene.fog(),
+            self.scene.role.editor(),
+        );
 
         for rect in self.scene.selections() {
             self.context

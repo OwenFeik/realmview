@@ -2,6 +2,8 @@
 
 * Scene
     * Fog of war
+        * Save
+        * Network
 * Layers
     * Select from selected layer first (possibly)
     * Layer opacity

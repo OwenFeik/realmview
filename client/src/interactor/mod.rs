@@ -560,6 +560,18 @@ impl Interactor {
         &self.scene.fog
     }
 
+    pub fn set_fog(&mut self, at: Point, ctrl: bool) {
+        let x = at.x as u32;
+        let y = at.y as u32;
+        if ctrl {
+            self.scene.fog.occlude(x, y);
+        } else {
+            self.scene.fog.reveal(x, y);
+        }
+
+        self.changes.sprite_change();
+    }
+
     #[must_use]
     pub fn export(&self) -> Vec<u8> {
         match serialize(&self.scene) {

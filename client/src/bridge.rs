@@ -454,6 +454,7 @@ pub enum Key {
     T,
     U,
     V,
+    W,
     X,
     Y,
     Z,
@@ -501,6 +502,7 @@ impl Key {
             "t" => Self::T,
             "u" => Self::U,
             "v" => Self::V,
+            "w" => Self::W,
             "x" => Self::X,
             "y" => Self::Y,
             "z" => Self::Z,
@@ -703,8 +705,8 @@ impl Context {
         self.renderer.render_grid(vp, dims, grid_size);
     }
 
-    pub fn draw_fog(&mut self, vp: Rect, grid_size: f32, fog: &scene::Fog) {
-        self.renderer.render_fog(vp, grid_size, fog);
+    pub fn draw_fog(&mut self, vp: Rect, grid_size: f32, fog: &scene::Fog, editor: bool) {
+        self.renderer.render_fog(vp, grid_size, fog, editor);
     }
 
     pub fn draw_sprites(&mut self, vp: Rect, sprites: &[Sprite], grid_size: f32) {
@@ -1003,4 +1005,7 @@ pub fn set_role(role: scene::perms::Role) {
     set_visible("layers_menu", role.editor()).ok();
     set_visible("scene_menu", role.editor()).ok();
     set_visible("show_offcanvas", role.editor()).ok();
+
+    // Fog tool, editor only
+    set_visible("tool_radio_fog_label", role.editor()).ok();
 }

@@ -849,6 +849,7 @@ pub struct FogRenderer {
     current_vp: Option<Rect>,
     current_dimensions: Option<(u32, u32)>,
     current_grid_size: Option<f32>,
+    current_n_revelead: Option<u32>,
 }
 
 impl FogRenderer {
@@ -859,6 +860,7 @@ impl FogRenderer {
             current_vp: None,
             current_dimensions: None,
             current_grid_size: None,
+            current_n_revelead: None,
         })
     }
 
@@ -891,6 +893,7 @@ impl FogRenderer {
         self.current_vp = Some(vp);
         self.current_dimensions = Some((fog.w, fog.h));
         self.current_grid_size = Some(grid_size);
+        self.current_n_revelead = Some(fog.n_revealed);
 
         if let Ok(mut mesh) = Mesh::new(
             &self.solid_renderer.gl,
@@ -902,20 +905,20 @@ impl FogRenderer {
         }
     }
 
-    pub fn render_fog(&mut self, vp: Rect, grid_size: f32, fog: &scene::Fog) {
+    pub fn render_fog(&mut self, vp: Rect, grid_size: f32, fog: &scene::Fog, colour: Colour) {
         if self.shape.is_none()
             || self.current_vp.is_none()
             || self.current_vp.unwrap() != vp
             || self.current_dimensions.is_none()
             || self.current_dimensions.unwrap() != (fog.w, fog.h)
             || self.current_grid_size != Some(grid_size)
+            || self.current_n_revelead != Some(fog.n_revealed)
         {
             self.create_fog(vp, grid_size, fog);
         }
 
         if let Some(shape) = self.shape.as_ref() {
-            self.solid_renderer
-                .draw(shape, [0.0, 0.0, 0.0, 1.0], vp, vp);
+            self.solid_renderer.draw(shape, colour, vp, vp);
         }
     }
 }
