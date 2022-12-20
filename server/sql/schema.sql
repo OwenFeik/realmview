@@ -45,7 +45,8 @@ CREATE TABLE IF NOT EXISTS scenes (
     title TEXT,
     w INTEGER NOT NULL,
     h INTEGER NOT NULL,
-    thumbnail TEXT
+    thumbnail TEXT,
+    fog BLOB -- Vec<u32>, big endian encoded
 );
 
 CREATE TABLE IF NOT EXISTS layers (

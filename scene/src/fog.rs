@@ -36,6 +36,29 @@ impl Fog {
         }
     }
 
+    pub fn bytes(&self) -> Vec<u8> {
+        self.fog.iter().flat_map(|f| f.to_be_bytes()).collect()
+    }
+
+    pub fn from_bytes(w: u32, h: u32, bytes: &[u8]) -> Self {
+        let fog: Vec<u32> = bytes
+            .chunks_exact(32 / 8)
+            .map(|b| u32::from_be_bytes([b[0], b[1], b[2], b[3]]))
+            .collect();
+
+        let mut n_revealed = 0;
+        for line in fog.iter() {
+            n_revealed += line.count_ones();
+        }
+
+        Self {
+            w,
+            h,
+            n_revealed,
+            fog,
+        }
+    }
+
     fn row_ints(w: u32) -> u32 {
         w.div_ceil(Self::BITS)
     }

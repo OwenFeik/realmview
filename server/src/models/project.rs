@@ -134,6 +134,7 @@ impl Project {
             scene_title,
             scene.w(),
             scene.h(),
+            scene.fog.bytes(),
         )
         .await?;
 
@@ -249,6 +250,7 @@ mod scene_record {
         pub w: u32,
         pub h: u32,
         pub thumbnail: String,
+        pub fog: Vec<u8>,
     }
 
     impl SceneRecord {
@@ -277,15 +279,17 @@ mod scene_record {
             title: &str,
             width: u32,
             height: u32,
+            fog: Vec<u8>,
         ) -> anyhow::Result<SceneRecord> {
             sqlx::query_as(
-                "INSERT INTO scenes (scene_key, project, title, w, h) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING *;",
+                "INSERT INTO scenes (scene_key, project, title, w, h, fog) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING *;",
             )
             .bind(crypto::random_hex_string(RECORD_KEY_LENGTH)?)
             .bind(project)
             .bind(title)
             .bind(width)
             .bind(height)
+            .bind(fog)
             .fetch_one(conn)
             .await
             .map_err(|e| anyhow!("Failed to create scene: {e}"))
@@ -298,10 +302,11 @@ mod scene_record {
             title: String,
             width: u32,
             height: u32,
+            fog: Vec<u8>,
         ) -> anyhow::Result<SceneRecord> {
             let mut record = match id {
                 Some(id) => SceneRecord::load(conn, id).await,
-                None => SceneRecord::create(conn, project, &title, width, height).await,
+                None => SceneRecord::create(conn, project, &title, width, height, fog).await,
             }?;
 
             if record.title != title {
@@ -346,7 +351,7 @@ mod scene_record {
             scene.id = Some(self.id);
             scene.title = Some(self.title.clone());
             scene.project = Some(self.project);
-            scene.set_size(self.w, self.h);
+            scene.fog = scene::Fog::from_bytes(self.w, self.h, &self.fog);
             Ok(scene)
         }
 
