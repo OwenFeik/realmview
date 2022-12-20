@@ -431,7 +431,7 @@ impl Viewport {
                 self.grid_zoom,
                 self.scene.fog(),
                 self.scene.role.editor(),
-            );    
+            );
         }
 
         for rect in self.scene.selections() {

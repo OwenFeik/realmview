@@ -135,7 +135,7 @@ impl Project {
             scene.w(),
             scene.h(),
             scene.fog.bytes(),
-            scene.fog.active
+            scene.fog.active,
         )
         .await?;
 
@@ -307,31 +307,48 @@ mod scene_record {
             width: u32,
             height: u32,
             fog: Vec<u8>,
-            fog_active: bool
+            fog_active: bool,
         ) -> anyhow::Result<SceneRecord> {
-            let mut record = match id {
-                Some(id) => SceneRecord::load(conn, id).await,
-                None => SceneRecord::create(conn, project, &title, width, height, fog, fog_active).await,
-            }?;
-
-            if record.title != title {
-                record.update_title(conn, &title).await?;
-                record.title = title;
-            }
-            Ok(record)
+            Ok(match id {
+                Some(id) => {
+                    let record = SceneRecord::load(conn, id).await?;
+                    record
+                        .update_scene(conn, &title, width, height, fog, fog_active)
+                        .await?;
+                    SceneRecord::load(conn, record.id).await?
+                }
+                None => {
+                    SceneRecord::create(conn, project, &title, width, height, fog, fog_active)
+                        .await?
+                }
+            })
         }
 
-        async fn update_title(
+        async fn update_scene(
             &self,
             conn: &mut SqliteConnection,
             title: &str,
+            width: u32,
+            height: u32,
+            fog: Vec<u8>,
+            fog_active: bool,
         ) -> anyhow::Result<()> {
-            sqlx::query("UPDATE scenes SET title = ?1 WHERE id = ?2;")
-                .bind(title)
-                .bind(self.id)
-                .execute(conn)
-                .await
-                .map_err(|_| anyhow!("Failed to update scene title."))?;
+            sqlx::query(
+                r#"
+                UPDATE scenes SET
+                    title = ?1, w = ?2, h = ?3, fog = ?4, fog_active = ?5
+                WHERE id = ?6;
+            "#,
+            )
+            .bind(title)
+            .bind(width)
+            .bind(height)
+            .bind(fog)
+            .bind(fog_active)
+            .bind(self.id)
+            .execute(conn)
+            .await
+            .map_err(|_| anyhow!("Failed to update scene title."))?;
             Ok(())
         }
 

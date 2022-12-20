@@ -26,7 +26,9 @@ impl Perm {
     pub fn of(event: &SceneEvent) -> Perm {
         match *event {
             SceneEvent::Dummy | SceneEvent::EventSet(..) => Perm::Special,
-            SceneEvent::FogActive(..) | SceneEvent::FogOcclude(..) | SceneEvent::FogReveal(..) => Perm::FogEdit,
+            SceneEvent::FogActive(..) | SceneEvent::FogOcclude(..) | SceneEvent::FogReveal(..) => {
+                Perm::FogEdit
+            }
             SceneEvent::LayerLocked(..)
             | SceneEvent::LayerMove(..)
             | SceneEvent::LayerRename(..)

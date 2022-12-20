@@ -1,7 +1,6 @@
 # TODO
 
 * Scene
-    * Fog of war changes don't save properly
 * Layers
     * Select from selected layer first (possibly)
     * Layer opacity
