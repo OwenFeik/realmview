@@ -112,6 +112,7 @@ impl Interactor {
 
             self.changes.layer_change_if(event.is_layer());
             self.changes.sprite_change_if(event.is_sprite());
+            self.changes.sprite_change_if(event.is_fog());
             if let Some(id) = event.item() {
                 self.changes.selected_change_if(self.is_selected(id));
             }
@@ -563,13 +564,8 @@ impl Interactor {
     pub fn set_fog(&mut self, at: Point, ctrl: bool) {
         let x = at.x as u32;
         let y = at.y as u32;
-        if ctrl {
-            self.scene.fog.occlude(x, y);
-        } else {
-            self.scene.fog.reveal(x, y);
-        }
-
-        self.changes.sprite_change();
+        let opt = self.scene.fog.set(x, y, ctrl);
+        self.scene_option(opt);
     }
 
     #[must_use]

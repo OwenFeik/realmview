@@ -10,6 +10,8 @@ use super::{
 pub enum SceneEvent {
     Dummy,                                        // To trigger redraws, etc
     EventSet(Vec<SceneEvent>),                    // Collection of other events
+    FogOcclude(bool, u32, u32),                   // (occluded, x, y)
+    FogReveal(bool, u32, u32),                    // (occluded, x, y)
     LayerLocked(Id, bool),                        // (layer, status)
     LayerMove(Id, i32, bool),                     // (layer, starting_z, up)
     LayerNew(Id, String, i32),                    // (local_id, title, z)
@@ -30,6 +32,16 @@ pub enum SceneEvent {
 }
 
 impl SceneEvent {
+    pub fn is_fog(&self) -> bool {
+        if matches!(self, Self::FogOcclude(..) | Self::FogReveal(..)) {
+            true
+        } else if let Self::EventSet(events) = self {
+            events.iter().any(|e| e.is_fog())
+        } else {
+            false
+        }
+    }
+
     pub fn is_layer(&self) -> bool {
         if matches!(
             self,

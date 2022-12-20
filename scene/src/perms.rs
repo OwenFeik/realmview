@@ -11,6 +11,7 @@ pub const CANONICAL_UPDATER: Id = 0;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 enum Perm {
+    FogEdit,
     LayerNew,
     LayerRemove,
     LayerUpdate,
@@ -25,6 +26,7 @@ impl Perm {
     pub fn of(event: &SceneEvent) -> Perm {
         match *event {
             SceneEvent::Dummy | SceneEvent::EventSet(..) => Perm::Special,
+            SceneEvent::FogOcclude(..) | SceneEvent::FogReveal(..) => Perm::FogEdit,
             SceneEvent::LayerLocked(..)
             | SceneEvent::LayerMove(..)
             | SceneEvent::LayerRename(..)

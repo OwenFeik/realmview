@@ -1,3 +1,5 @@
+use crate::comms::SceneEvent;
+
 /// A `struct Fog` represents fog of war over the scene. It keeps a bit array
 /// indicating whether each tile is occluded as it's representation of the fog.
 ///
@@ -87,33 +89,47 @@ impl Fog {
         }
     }
 
-    pub fn reveal(&mut self, x: u32, y: u32) {
+    pub fn reveal(&mut self, x: u32, y: u32) -> Option<SceneEvent> {
         if !self.on_map(x, y) {
-            return;
+            return None;
         }
 
-        if self.occluded(x, y) {
-            self.n_revealed += 1;
+        if !self.occluded(x, y) {
+            return None;
         }
 
+        self.n_revealed += 1;
         let index = self.idx(x, y);
         if let Some(row) = self.fog.get_mut(index) {
             *row |= 1 << (x % Self::BITS);
         }
+
+        Some(SceneEvent::FogReveal(true, x, y))
     }
 
-    pub fn occlude(&mut self, x: u32, y: u32) {
+    pub fn occlude(&mut self, x: u32, y: u32) -> Option<SceneEvent> {
         if !self.on_map(x, y) {
-            return;
+            return None;
         }
 
-        if !self.occluded(x, y) {
-            self.n_revealed -= 1;
+        if self.occluded(x, y) {
+            return None;
         }
 
+        self.n_revealed -= 1;
         let index = self.idx(x, y);
         if let Some(row) = self.fog.get_mut(index) {
             *row &= !(1 << (x % Self::BITS));
+        }
+
+        Some(SceneEvent::FogOcclude(false, x, y))
+    }
+
+    pub fn set(&mut self, x: u32, y: u32, occluded: bool) -> Option<SceneEvent> {
+        if occluded {
+            self.occlude(x, y)
+        } else {
+            self.reveal(x, y)
         }
     }
 }

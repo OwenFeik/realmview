@@ -413,6 +413,22 @@ impl Scene {
                 .into_iter()
                 .map(|e| self.apply_event(e))
                 .all(std::convert::identity),
+            SceneEvent::FogOcclude(occluded, x, y) => {
+                if self.fog.occluded(x, y) == occluded {
+                    self.fog.occlude(x, y);
+                    true
+                } else {
+                    false
+                }
+            }
+            SceneEvent::FogReveal(occluded, x, y) => {
+                if self.fog.occluded(x, y) == occluded {
+                    self.fog.reveal(x, y);
+                    true
+                } else {
+                    false
+                }
+            }
             SceneEvent::LayerLocked(l, locked) => {
                 self.layer(l).map(|l| l.set_locked(locked));
                 true
@@ -538,6 +554,9 @@ impl Scene {
                     .filter_map(|e| self.unwind_event(e))
                     .collect::<Vec<SceneEvent>>(),
             )),
+            SceneEvent::FogOcclude(occluded, x, y) | SceneEvent::FogReveal(occluded, x, y) => {
+                self.fog.set(x, y, occluded)
+            }
             SceneEvent::LayerLocked(l, locked) => self.layer(l)?.set_locked(!locked),
             SceneEvent::LayerMove(l, _, up) => self.move_layer(l, !up),
             SceneEvent::LayerNew(id, _, _) => self.remove_layer(id),
