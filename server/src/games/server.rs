@@ -1,11 +1,10 @@
 use std::collections::HashMap;
 
 use bincode::serialize;
-use tokio::sync::{mpsc::UnboundedSender, RwLock};
+use tokio::sync::mpsc::UnboundedSender;
 use warp::ws::Message;
 
-use super::client::Client;
-use super::game::Game;
+use super::{client::Client, Game, GameRef};
 use crate::scene::{
     comms::{ClientEvent, ClientMessage, ServerEvent},
     Scene,
@@ -14,20 +13,29 @@ use crate::scene::{
 pub struct Server {
     clients: HashMap<String, Client>,
     owner: i64,
-    game: RwLock<Game>,
+    game: Game,
 }
 
 impl Server {
-    pub fn new(owner: i64, game: Game) -> Self {
-        Server {
+    const SAVE_INTERVAL_SECONDS: u64 = 10;
+
+    pub fn new(owner: i64, scene: Scene, key: &str) -> Self {
+        Self {
             clients: HashMap::new(),
             owner,
-            game: RwLock::new(game),
+            game: super::Game::new(scene, owner, key),
         }
     }
 
-    pub fn new_with_scene(owner: i64, scene: Scene) -> Self {
-        Self::new(owner, super::Game::new(scene, owner))
+    pub async fn start(server: GameRef) {
+        tokio::task::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(Self::SAVE_INTERVAL_SECONDS));
+            
+            loop {
+                interval.tick().await;
+                server.read().await.save().await;
+            }
+        });
     }
 
     pub fn add_client(&mut self, key: String, user: i64) {
@@ -46,15 +54,17 @@ impl Server {
         if let Some(client) = self.get_client_mut(&key) {
             client.set_sender(sender);
             let player = client.user;
-            let mut lock = self.game.write().await;
 
-            if let Some(event) = lock.add_player(player) {
+            if let Some(event) = self.game.add_player(player) {
                 self.broadcast_event(ServerEvent::PermsUpdate(event), Some(&key));
             }
 
             self.send_to(ServerEvent::UserId(player), &key);
-            self.send_to(ServerEvent::SceneChange(lock.client_scene()), &key);
-            self.send_to(ServerEvent::PermsChange(lock.client_perms()), &key);
+
+            let scene = self.game.client_scene();
+            self.send_to(ServerEvent::SceneChange(scene), &key);
+            let perms = self.game.client_perms();
+            self.send_to(ServerEvent::PermsChange(perms), &key);
             true
         } else {
             self.drop_client(&key);
@@ -100,18 +110,14 @@ impl Server {
         self.send_to(ServerEvent::Rejection(event_id), client_key);
     }
 
-    pub async fn handle_message(&self, message: ClientMessage, from: &str) {
+    pub async fn handle_message(&mut self, message: ClientMessage, from: &str) {
         match message.event {
             ClientEvent::Ping => {
                 self.send_approval(message.id, from);
             }
             ClientEvent::SceneUpdate(event) => {
                 if let Some(client) = self.clients.get(from) {
-                    let (ok, perms_events) = self
-                        .game
-                        .write()
-                        .await
-                        .handle_event(client.user, event.clone());
+                    let (ok, perms_events) = self.game.handle_event(client.user, event.clone());
 
                     if ok {
                         self.send_approval(message.id, from);
@@ -129,5 +135,9 @@ impl Server {
                 }
             }
         };
+    }
+
+    async fn save(&self) {
+        println!("TODO: Implement saving.");
     }
 }

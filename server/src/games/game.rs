@@ -5,16 +5,22 @@ use crate::scene::{
 };
 
 pub struct Game {
+    pub key: String,
+
     scene: Scene,
     perms: Perms,
 }
 
 impl Game {
-    pub fn new(mut scene: Scene, owner: i64) -> Self {
+    pub fn new(mut scene: Scene, owner: i64, key: &str) -> Self {
         scene.canon();
         let mut perms = Perms::new();
         perms.set_owner(owner);
-        Self { scene, perms }
+        Self {
+            key: key.to_owned(),
+            scene,
+            perms,
+        }
     }
 
     pub fn handle_perms(&mut self, user: i64, event: PermsEvent) -> bool {

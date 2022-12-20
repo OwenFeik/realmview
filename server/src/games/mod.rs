@@ -45,7 +45,7 @@ pub async fn client_connection(ws: WebSocket, key: String, game: GameRef) {
     while let Some(result) = client_ws_recv.next().await {
         match result {
             Ok(msg) => match deserialize(msg.as_bytes()) {
-                Ok(message) => game.read().await.handle_message(message, &key).await,
+                Ok(message) => game.write().await.handle_message(message, &key).await,
                 Err(e) => eprintln!("Error parsing ws message: {}", e),
             },
             Err(e) => {

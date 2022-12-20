@@ -188,7 +188,6 @@ impl Interactor {
 
         let mut events = Vec::with_capacity(sprites.len());
 
-
         self.selected_sprites.clear();
 
         // Place new sprite at cursor.
