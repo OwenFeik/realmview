@@ -188,6 +188,9 @@ impl Interactor {
 
         let mut events = Vec::with_capacity(sprites.len());
 
+
+        self.selected_sprites.clear();
+
         // Place new sprite at cursor.
         let delta = at.round();
         for s in sprites {
@@ -196,6 +199,9 @@ impl Interactor {
                 self.scene
                     .new_sprite_at(Some(s.visual.clone()), self.selected_layer, at)
             {
+                if let SceneEvent::SpriteNew(s, _) = &event {
+                    self.selected_sprites.push(s.id);
+                }
                 events.push(event);
             }
         }
