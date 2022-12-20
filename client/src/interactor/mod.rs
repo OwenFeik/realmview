@@ -592,6 +592,7 @@ impl Interactor {
     pub fn replace_scene(&mut self, new: Scene) {
         self.scene = new;
         self.changes.all_change();
+        crate::bridge::set_scene_details(self.get_scene_details());
     }
 
     pub fn get_scene_details(&mut self) -> details::SceneDetails {

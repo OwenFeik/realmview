@@ -38,6 +38,17 @@
     transform: translateY(-0.1rem);
 }
 
+/* Remove ugly padding when in input group. */
+.input-group .form-check {
+    min-height: 0;
+    padding-left: 0;
+}
+
+/* Remove unneeded padding when in input group. */
+.input-group .form-check input[type='checkbox'] {
+    margin: 0;
+}
+
 /* Fit colour inputs in input groups properly. */
 .input-group input[type='color'] {
     height: 38px;

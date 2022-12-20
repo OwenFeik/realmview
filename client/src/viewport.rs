@@ -424,12 +424,15 @@ impl Viewport {
             self.context
                 .draw_grid(vp, self.scene.dimensions(), self.grid_zoom);
         }
-        self.context.draw_fog(
-            vp,
-            self.grid_zoom,
-            self.scene.fog(),
-            self.scene.role.editor(),
-        );
+
+        if self.scene.fog().active {
+            self.context.draw_fog(
+                vp,
+                self.grid_zoom,
+                self.scene.fog(),
+                self.scene.role.editor(),
+            );    
+        }
 
         for rect in self.scene.selections() {
             self.context

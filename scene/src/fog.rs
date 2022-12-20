@@ -15,6 +15,7 @@ use crate::comms::SceneEvent;
 
 #[derive(Clone, serde_derive::Deserialize, serde_derive::Serialize)]
 pub struct Fog {
+    pub active: bool,
     pub w: u32,
     pub h: u32,
 
@@ -29,6 +30,7 @@ impl Fog {
 
     pub fn new(w: u32, h: u32) -> Fog {
         Fog {
+            active: false,
             w,
             h,
             n_revealed: 0,
@@ -52,6 +54,7 @@ impl Fog {
         }
 
         Self {
+            active: false,
             w,
             h,
             n_revealed,
@@ -153,6 +156,16 @@ impl Fog {
             self.occlude(x, y)
         } else {
             self.reveal(x, y)
+        }
+    }
+
+    pub fn set_active(&mut self, active: bool) -> Option<SceneEvent> {
+        if self.active == active {
+            None
+        } else {
+            let old = self.active;
+            self.active = active;
+            Some(SceneEvent::FogActive(old, self.active))
         }
     }
 }

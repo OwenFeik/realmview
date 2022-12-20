@@ -413,6 +413,14 @@ impl Scene {
                 .into_iter()
                 .map(|e| self.apply_event(e))
                 .all(std::convert::identity),
+            SceneEvent::FogActive(old, new) => {
+                if self.fog.active == old {
+                    self.fog.active = new;
+                    true
+                } else {
+                    false
+                }
+            }
             SceneEvent::FogOcclude(occluded, x, y) => {
                 if self.fog.occluded(x, y) == occluded {
                     self.fog.occlude(x, y);
@@ -554,6 +562,7 @@ impl Scene {
                     .filter_map(|e| self.unwind_event(e))
                     .collect::<Vec<SceneEvent>>(),
             )),
+            SceneEvent::FogActive(old, _) => self.fog.set_active(old),
             SceneEvent::FogOcclude(occluded, x, y) | SceneEvent::FogReveal(occluded, x, y) => {
                 self.fog.set(x, y, occluded)
             }

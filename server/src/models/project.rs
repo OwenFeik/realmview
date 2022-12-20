@@ -135,6 +135,7 @@ impl Project {
             scene.w(),
             scene.h(),
             scene.fog.bytes(),
+            scene.fog.active
         )
         .await?;
 
@@ -251,6 +252,7 @@ mod scene_record {
         pub h: u32,
         pub thumbnail: String,
         pub fog: Vec<u8>,
+        pub fog_active: bool,
     }
 
     impl SceneRecord {
@@ -280,9 +282,10 @@ mod scene_record {
             width: u32,
             height: u32,
             fog: Vec<u8>,
+            fog_active: bool,
         ) -> anyhow::Result<SceneRecord> {
             sqlx::query_as(
-                "INSERT INTO scenes (scene_key, project, title, w, h, fog) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING *;",
+                "INSERT INTO scenes (scene_key, project, title, w, h, fog, fog_active) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) RETURNING *;",
             )
             .bind(crypto::random_hex_string(RECORD_KEY_LENGTH)?)
             .bind(project)
@@ -290,6 +293,7 @@ mod scene_record {
             .bind(width)
             .bind(height)
             .bind(fog)
+            .bind(fog_active)
             .fetch_one(conn)
             .await
             .map_err(|e| anyhow!("Failed to create scene: {e}"))
@@ -303,10 +307,11 @@ mod scene_record {
             width: u32,
             height: u32,
             fog: Vec<u8>,
+            fog_active: bool
         ) -> anyhow::Result<SceneRecord> {
             let mut record = match id {
                 Some(id) => SceneRecord::load(conn, id).await,
-                None => SceneRecord::create(conn, project, &title, width, height, fog).await,
+                None => SceneRecord::create(conn, project, &title, width, height, fog, fog_active).await,
             }?;
 
             if record.title != title {
@@ -352,6 +357,7 @@ mod scene_record {
             scene.title = Some(self.title.clone());
             scene.project = Some(self.project);
             scene.fog = scene::Fog::from_bytes(self.w, self.h, &self.fog);
+            scene.fog.active = self.fog_active;
             Ok(scene)
         }
 

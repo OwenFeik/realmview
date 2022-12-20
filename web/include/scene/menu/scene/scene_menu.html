@@ -25,6 +25,24 @@
           action="v => update_scene_details('h', v)"
         )
       }}
+      <div class="input-group input-group-sm mt-2">
+        <div class="input-group-text">
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              value=""
+              id="scene_menu_fog"
+              oninput="update_scene_details('fog', this.checked);"
+            >
+          </div>  
+        </div>
+        <div class="input-group-text">
+          <label
+            for="scene_menu_fog"
+          >Fog of War</label>
+        </div>
+      </div>
     |
   )
 }}
@@ -41,5 +59,7 @@ function set_scene_details(details_json) {
     input.value = scene[d];
     input.disabled = false;
   });
+
+  document.getElementById("scene_menu_fog").checked = scene.fog;
 }
 </script>

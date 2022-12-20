@@ -10,6 +10,7 @@ pub struct SceneDetails {
     pub title: Option<String>,
     pub w: Option<u32>,
     pub h: Option<u32>,
+    pub fog: Option<bool>,
 }
 
 impl SceneDetails {
@@ -19,6 +20,7 @@ impl SceneDetails {
             title: scene.title.clone(),
             w: Some(scene.w()),
             h: Some(scene.h()),
+            fog: Some(scene.fog.active),
         }
     }
 
@@ -35,6 +37,12 @@ impl SceneDetails {
             (Some(w), None) => events.push(scene.set_size(w, scene.h())),
             (None, Some(h)) => events.push(scene.set_size(scene.w(), h)),
             _ => {}
+        }
+
+        if self.fog.is_some() {
+            if let Some(event) = scene.fog.set_active(self.fog.unwrap()) {
+                events.push(event);
+            }
         }
 
         if events.is_empty() {
