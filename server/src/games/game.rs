@@ -23,6 +23,10 @@ impl Game {
         }
     }
 
+    pub fn project_id(&self) -> Option<i64> {
+        self.scene.project
+    }
+
     pub fn handle_perms(&mut self, user: i64, event: PermsEvent) -> bool {
         self.perms.handle_event(user, event)
     }
@@ -47,6 +51,10 @@ impl Game {
             }
         }
         (false, None)
+    }
+
+    pub fn server_scene(&self) -> Scene {
+        self.scene.clone()
     }
 
     pub fn client_scene(&mut self) -> Scene {

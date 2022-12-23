@@ -65,8 +65,6 @@ mod save {
         models::{Project, User},
     };
 
-    const DEFAULT_SCENE_TITLE: &str = "Untitled";
-
     #[derive(Deserialize)]
     struct SceneSaveRequest {
         project_title: String,
@@ -79,7 +77,7 @@ mod save {
         skey: String,
         req: SceneSaveRequest,
     ) -> Result<impl warp::Reply, Infallible> {
-        let scene: scene::Scene = match base64::decode(req.encoded) {
+        let mut scene: scene::Scene = match base64::decode(req.encoded) {
             Ok(b) => match bincode::deserialize(&b) {
                 Ok(s) => s,
                 Err(_) => {
@@ -112,15 +110,12 @@ mod save {
             return Binary::result_failure("Failed to update project title.");
         }
 
-        let mut scene_title = req.title.trim();
-        if scene_title.is_empty() {
-            scene_title = DEFAULT_SCENE_TITLE;
+        let title = req.title.trim();
+        if !title.is_empty() {
+            scene.title = Some(title.to_owned());
         }
 
-        match project
-            .update_scene(conn, scene, scene_title.to_string())
-            .await
-        {
+        match project.update_scene(conn, scene).await {
             Ok(r) => match r.load_scene(conn).await {
                 Ok(s) => super::SceneResponse::reply(s, r.scene_key, project),
                 Err(s) => Binary::result_failure(&format!(

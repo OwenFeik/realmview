@@ -125,13 +125,15 @@ impl Project {
         &self,
         conn: &mut SqliteConnection,
         scene: scene::Scene,
-        scene_title: String,
     ) -> anyhow::Result<SceneRecord> {
         let s = scene_record::SceneRecord::get_or_create(
             conn,
             scene.id,
             self.id,
-            scene_title,
+            scene
+                .title
+                .clone()
+                .unwrap_or_else(|| Self::DEFAULT_TITLE.to_owned()),
             scene.w(),
             scene.h(),
             scene.fog.bytes(),

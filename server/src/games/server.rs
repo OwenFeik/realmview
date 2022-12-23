@@ -1,40 +1,81 @@
 use std::collections::HashMap;
+use std::time;
 
 use bincode::serialize;
+use sqlx::{SqliteConnection, SqlitePool};
 use tokio::sync::mpsc::UnboundedSender;
 use warp::ws::Message;
 
 use super::{client::Client, Game, GameRef};
-use crate::scene::{
-    comms::{ClientEvent, ClientMessage, ServerEvent},
-    Scene,
+use crate::{
+    models::Project,
+    scene::{
+        comms::{ClientEvent, ClientMessage, ServerEvent},
+        Scene,
+    },
 };
 
 pub struct Server {
+    alive: bool,
+    last_action: time::SystemTime,
     clients: HashMap<String, Client>,
     owner: i64,
     game: Game,
 }
 
 impl Server {
-    const SAVE_INTERVAL_SECONDS: u64 = 10;
+    const SAVE_INTERVAL: time::Duration = time::Duration::from_secs(10);
+    const INACTIVITY_TIMEOUT: time::Duration = time::Duration::from_secs(1800);
 
     pub fn new(owner: i64, scene: Scene, key: &str) -> Self {
         Self {
+            alive: true,
+            last_action: time::SystemTime::now(),
             clients: HashMap::new(),
             owner,
             game: super::Game::new(scene, owner, key),
         }
     }
 
-    pub async fn start(server: GameRef) {
-        tokio::task::spawn(async move {
-            let mut interval =
-                tokio::time::interval(std::time::Duration::from_secs(Self::SAVE_INTERVAL_SECONDS));
+    fn die(&mut self) {
+        self.alive = false;
+        // TODO properly kill server by closing web sockets &c
+    }
 
-            loop {
+    pub async fn start(server: GameRef, pool: SqlitePool) {
+        tokio::task::spawn(async move {
+            let mut interval = tokio::time::interval(Self::SAVE_INTERVAL);
+
+            let mut previous_action_time = server.read().await.last_action;
+            while server.read().await.alive {
+                // Wait for SAVE_INTERVAL
                 interval.tick().await;
-                server.read().await.save().await;
+
+                // Grab a read lock on the server
+                let lock = server.read().await;
+
+                // If something's changed in the scene, save it
+                if lock.last_action > previous_action_time {
+                    if let Ok(mut conn) = pool.acquire().await {
+                        if let Err(e) = lock.save(&mut conn).await {
+                            eprintln!("Failed to save scene: {e}");
+                        }
+                        previous_action_time = lock.last_action;
+                    } else {
+                        dbg!("Failed to acquire database connection.");
+                    }
+                }
+
+                // If the server has timed out, close it down
+                if let Ok(duration) = time::SystemTime::now().duration_since(lock.last_action) {
+                    if duration > Self::INACTIVITY_TIMEOUT {
+                        println!("Closing {} due to inactivity.", &lock.game.key);
+
+                        // Drop read lock so we can get a write lock
+                        drop(lock);
+                        server.write().await.die();
+                    }
+                }
             }
         });
     }
@@ -112,6 +153,9 @@ impl Server {
     }
 
     pub async fn handle_message(&mut self, message: ClientMessage, from: &str) {
+        // Keep track of last activity. Even a ping will keep the server up.
+        self.last_action = time::SystemTime::now();
+
         match message.event {
             ClientEvent::Ping => {
                 self.send_approval(message.id, from);
@@ -138,7 +182,15 @@ impl Server {
         };
     }
 
-    async fn save(&self) {
-        println!("TODO: Implement saving.");
+    async fn save(&self, conn: &mut SqliteConnection) -> anyhow::Result<()> {
+        if let Some(id) = self.game.project_id() {
+            let project = Project::load(conn, id).await?;
+            project
+                .update_scene(conn, self.game.server_scene())
+                .await
+                .map(|_| ())
+        } else {
+            Err(anyhow::anyhow!("Scene has no project."))
+        }
     }
 }

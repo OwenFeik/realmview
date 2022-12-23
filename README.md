@@ -1,6 +1,7 @@
 # TODO
 
 * Scene
+    * Warn when saving over changes
 * Layers
     * Select from selected layer first (possibly)
     * Layer opacity
@@ -11,7 +12,8 @@
     * Place media in directories
 * Projects
 * Game
-    * Save the scene in the game
+    * When the WebSocket is closed, try to reconnect or redirect to a
+        "game ended" page
     * Associate each client with a user. When a user connects a second time,
         terminate that user's other sessions
     * Specify which users are allowed to join the game
