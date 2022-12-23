@@ -28,6 +28,13 @@ var RustFuncs = {
     project.
     */
 
+    change_scene: missing_func,
+    /*
+    function change_scene(scene_key: string)
+
+    Switch to a new scene if in a game, else a nop.
+    */
+
     scene_details: missing_func,
     /*
     function scene_details(details_json: string)
@@ -217,6 +224,15 @@ function new_scene(project_id = 0) {
     call_when_ready("new_scene", () => {
         RustFuncs.new_scene(project_id);
     });
+}
+
+// Wrapper to change the scene when in a game.
+function change_scene(scene_key) {
+    if (scene_key) {
+        call_when_ready("change_scene", () => {
+            RustFuncs.change_scene(scene_key);
+        });    
+    }
 }
 
 // Given an HTML image, load the texture for this image and add a sprite with

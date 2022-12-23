@@ -119,7 +119,8 @@ pub enum PermsEvent {
 #[derive(Debug, Deserialize, Serialize)]
 pub enum ClientEvent {
     Ping,
-    SceneUpdate(SceneEvent),
+    SceneUpdate(SceneEvent), // (event)
+    SceneChange(String),     // (scene_key)
 }
 
 // Events sent by Client. The client will keep track of these after sending them
@@ -139,6 +140,7 @@ pub enum ServerEvent {
     PermsChange(Perms),
     PermsUpdate(PermsEvent),
     SceneChange(Scene),
+    SceneList(Vec<(String, String)>, String),
     SceneUpdate(SceneEvent),
     UserId(Id),
 }

@@ -76,6 +76,13 @@ pub fn start() -> Result<(), JsValue> {
     new_scene_closure.forget();
 
     let vp_ref = vp.clone();
+    let change_scene_closure = Closure::wrap(Box::new(move |scene_key: String| {
+        vp_ref.lock().scene.change_scene(scene_key);
+    }) as Box<dyn FnMut(String)>);
+    expose_closure_string_in("change_scene", &change_scene_closure);
+    change_scene_closure.forget();
+
+    let vp_ref = vp.clone();
     let scene_details_closure = Closure::wrap(Box::new(move |json: String| {
         if let Ok(details) = serde_json::from_str::<crate::interactor::details::SceneDetails>(&json)
         {

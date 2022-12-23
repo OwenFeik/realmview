@@ -34,9 +34,11 @@ window.addEventListener("load", () => {
     // tab.
     current_game_tab.style.display = "";
     current_game_tab.click();
-});
 
-{{ scene/game/role.js }}
+    // Set up the scene switcher
+    const scene_change = document.getElementById("scene_menu_change_scene"); 
+    scene_change.oninput = () => change_scene(scene_change.value); 
+});
 
 function set_up_copy_link_btn() {
     const join_game_link = document.getElementById("join_game_link");

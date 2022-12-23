@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use anyhow::anyhow;
 use js_sys::Array;
 use serde_derive::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
@@ -113,7 +114,7 @@ impl Element {
     fn new(name: &str) -> anyhow::Result<Element> {
         match create_element(name)?.dyn_into::<HtmlElement>() {
             Ok(e) => Ok(Element { element: e }),
-            Err(_) => Err(anyhow::anyhow!("Couldn't cast to HtmlElement.")),
+            Err(_) => Err(anyhow!("Couldn't cast to HtmlElement.")),
         }
     }
 
@@ -121,13 +122,13 @@ impl Element {
         self.element
             .style()
             .set_property(property, value)
-            .map_err(|e| anyhow::anyhow!("Failed to set element CSS: {e:?}."))
+            .map_err(|e| anyhow!("Failed to set element CSS: {e:?}."))
     }
 
     fn set_attr(&self, name: &str, value: &str) -> anyhow::Result<()> {
         self.element
             .set_attribute(name, value)
-            .map_err(|e| anyhow::anyhow!("Failed to set element attribute: {e:?}."))
+            .map_err(|e| anyhow!("Failed to set element attribute: {e:?}."))
     }
 }
 
@@ -162,7 +163,7 @@ impl Canvas {
 
         let canvas = match element.dyn_into::<HtmlCanvasElement>() {
             Ok(c) => Canvas::new(c)?,
-            Err(_) => return Err(anyhow::anyhow!("Couldn't cast Element to HtmlCanvas.",)),
+            Err(_) => return Err(anyhow!("Couldn't cast Element to HtmlCanvas.",)),
         };
 
         canvas.init()?;
@@ -195,7 +196,7 @@ impl Canvas {
         self.element
             .style()
             .set_property(property, value)
-            .map_err(|e| anyhow::anyhow!("Failed to set canvas CSS: {e:?}."))
+            .map_err(|e| anyhow!("Failed to set canvas CSS: {e:?}."))
     }
 
     /// Set CSS on the canvas element to ensure it fills the screen without
@@ -228,7 +229,7 @@ impl Canvas {
         let result =
             window()?.add_event_listener_with_callback("resize", closure.as_ref().unchecked_ref());
         closure.forget();
-        result.map_err(|e| anyhow::anyhow!("Failed to add resize listener: {e:?}."))
+        result.map_err(|e| anyhow!("Failed to add resize listener: {e:?}."))
     }
 
     fn configure_events(&self) -> anyhow::Result<()> {
@@ -243,9 +244,7 @@ impl Canvas {
                 .add_event_listener_with_callback(event_name, listener.as_ref().unchecked_ref())
                 .is_err()
             {
-                return Err(anyhow::anyhow!(
-                    "Failed to add mouse event listener to canvas."
-                ));
+                return Err(anyhow!("Failed to add mouse event listener to canvas."));
             }
             listener.forget();
         }
@@ -273,7 +272,7 @@ impl Canvas {
                 .add_event_listener_with_callback(event_name, listener.as_ref().unchecked_ref())
                 .is_err()
             {
-                return Err(anyhow::anyhow!("Failed to add event listener to canvas."));
+                return Err(anyhow!("Failed to add event listener to canvas."));
             }
 
             listener.forget();
@@ -358,7 +357,7 @@ impl Canvas {
 
         match result {
             Ok(()) => (),
-            Err(_) => return Err(anyhow::anyhow!("Failed to add event listener.")),
+            Err(_) => return Err(anyhow!("Failed to add event listener.")),
         };
 
         {
@@ -371,7 +370,7 @@ impl Canvas {
             closure.forget();
             result
         }
-        .map_err(|e| anyhow::anyhow!("Failed to add click listener: {e:?}."))
+        .map_err(|e| anyhow!("Failed to add click listener: {e:?}."))
     }
 }
 
@@ -839,7 +838,7 @@ impl Cursor {
         element
             .style()
             .set_property("cursor", &self.css())
-            .map_err(|e| anyhow::anyhow!("Error: {e:?}"))
+            .map_err(|e| anyhow!("Error: {e:?}"))
     }
 
     #[must_use]
@@ -865,33 +864,41 @@ fn create_context(element: &HtmlCanvasElement) -> anyhow::Result<Gl> {
 fn window() -> anyhow::Result<Window> {
     match web_sys::window() {
         Some(w) => Ok(w),
-        None => Err(anyhow::anyhow!("No Window.")),
+        None => Err(anyhow!("No Window.")),
     }
 }
 
 fn get_document() -> anyhow::Result<Document> {
     match window()?.document() {
         Some(d) => Ok(d),
-        None => Err(anyhow::anyhow!("No Document.")),
+        None => Err(anyhow!("No Document.")),
     }
 }
 
 fn get_body() -> anyhow::Result<HtmlElement> {
     match get_document()?.body() {
         Some(b) => Ok(b),
-        None => Err(anyhow::anyhow!("No Body.")),
+        None => Err(anyhow!("No Body.")),
+    }
+}
+
+fn get_element_by_id(id: &str) -> anyhow::Result<HtmlElement> {
+    if let Some(element) = get_document()?.get_element_by_id(id) {
+        Ok(element.unchecked_into::<HtmlElement>())
+    } else {
+        Err(anyhow!("Element not found."))
     }
 }
 
 pub fn websocket_url() -> anyhow::Result<Option<String>> {
     let win = match window() {
         Ok(w) => w,
-        Err(_) => return Err(anyhow::anyhow!("Failed to read window Location.")),
+        Err(_) => return Err(anyhow!("Failed to read window Location.")),
     };
     let loc = win.location();
     let host = match loc.host() {
         Ok(h) => h,
-        Err(_) => return Err(anyhow::anyhow!("Failed to read window host.")),
+        Err(_) => return Err(anyhow!("Failed to read window host.")),
     };
 
     match loc.pathname() {
@@ -906,21 +913,21 @@ pub fn websocket_url() -> anyhow::Result<Option<String>> {
                 _ => Ok(None),
             }
         }
-        Err(_) => Err(anyhow::anyhow!("Failed to read window pathname.")),
+        Err(_) => Err(anyhow!("Failed to read window pathname.")),
     }
 }
 
 fn create_element(name: &str) -> anyhow::Result<web_sys::Element> {
     get_document()?
         .create_element(name)
-        .map_err(|e| anyhow::anyhow!("Element creation failed: {e:?}."))
+        .map_err(|e| anyhow!("Element creation failed: {e:?}."))
 }
 
 fn create_appended(name: &str) -> anyhow::Result<web_sys::Element> {
     let element = create_element(name)?;
     match get_body()?.append_child(&element) {
         Ok(_) => Ok(element),
-        Err(_) => Err(anyhow::anyhow!("Failed to append element.")),
+        Err(_) => Err(anyhow!("Failed to append element.")),
     }
 }
 
@@ -930,9 +937,9 @@ fn get_window_dimensions() -> anyhow::Result<(u32, u32)> {
     match (win.inner_width(), win.inner_height()) {
         (Ok(w), Ok(h)) => match (w.as_f64(), h.as_f64()) {
             (Some(w), Some(h)) => Ok((w as u32, h as u32)),
-            _ => Err(anyhow::anyhow!("Window dimensions non-numeric.")),
+            _ => Err(anyhow!("Window dimensions non-numeric.")),
         },
-        _ => Err(anyhow::anyhow!("No Window dimensions.")),
+        _ => Err(anyhow!("No Window dimensions.")),
     }
 }
 
@@ -945,24 +952,21 @@ fn create_file_upload() -> anyhow::Result<HtmlInputElement> {
     element
         .element
         .dyn_into::<HtmlInputElement>()
-        .map_err(|_| anyhow::anyhow!("Failed to cast element to HtmlInputElement."))
+        .map_err(|_| anyhow!("Failed to cast element to HtmlInputElement."))
 }
 
 pub fn request_animation_frame(f: &Closure<dyn FnMut()>) -> anyhow::Result<()> {
     match window()?.request_animation_frame(f.as_ref().unchecked_ref()) {
         Ok(_) => Ok(()),
-        Err(_) => Err(anyhow::anyhow!("Failed to get animation frame.")),
+        Err(_) => Err(anyhow!("Failed to get animation frame.")),
     }
 }
 
 fn set_visible(id: &str, visible: bool) -> anyhow::Result<()> {
-    if let Some(element) = get_document()?.get_element_by_id(id) {
-        element
-            .unchecked_ref::<HtmlElement>()
-            .style()
-            .set_property("display", if visible { "" } else { "none" })
-            .ok();
-    }
+    get_element_by_id(id)?
+        .style()
+        .set_property("display", if visible { "" } else { "none" })
+        .ok();
     Ok(())
 }
 
@@ -980,7 +984,7 @@ fn enum_to_id(tool: impl serde::Serialize, pref: &str) -> anyhow::Result<String>
     if let Ok(s) = serde_json::ser::to_string(&tool) {
         Ok(format!("{pref}{}", s.to_lowercase().replace('"', "")))
     } else {
-        Err(anyhow::anyhow!("Serialisation error."))
+        Err(anyhow!("Serialisation error."))
     }
 }
 
@@ -1008,4 +1012,22 @@ pub fn set_role(role: scene::perms::Role) {
 
     // Fog tool, editor only
     set_visible("tool_radio_fog_label", role.editor()).ok();
+}
+
+pub fn populate_change_scene(scenes: &[(String, String)], current: &str) -> anyhow::Result<()> {
+    let select = get_element_by_id("scene_menu_change_scene")?;
+    select.set_inner_html("");
+
+    for (key, title) in scenes {
+        let opt = create_element("option")?;
+        opt.set_attribute("value", key).ok();
+        opt.set_inner_html(title);
+        select.append_child(&opt).ok();
+    }
+
+    let input = select.unchecked_ref::<HtmlInputElement>();
+    input.set_value(current);
+    input.set_disabled(scenes.len() <= 1);
+
+    Ok(())
 }

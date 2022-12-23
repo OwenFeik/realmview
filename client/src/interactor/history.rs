@@ -40,21 +40,27 @@ impl History {
         self.issued_events.retain(|c| c.id != id);
     }
 
-    /// Internal common backend for `issue_event` and `issue_event_no_history`,
-    /// handles creating a `ClientMessage` from a `SceneEvent` with a unique ID
-    /// and sending it to the server. If there is no `Client`, this is a no-op.
-    fn _issue_event(&mut self, event: SceneEvent) {
+    /// Creates a `ClientMessage` with a unique ID and sends it to the server.
+    /// If there is no `Client`, this is a no-op.
+    fn issue_message(&mut self, event: ClientEvent) {
         static EVENT_ID: AtomicI64 = AtomicI64::new(1);
 
         // Queue event to be sent to server
         if let Some(client) = &self.client {
             let message = ClientMessage {
                 id: EVENT_ID.fetch_add(1, Ordering::Relaxed),
-                event: ClientEvent::SceneUpdate(event),
+                event,
             };
             client.send_message(&message);
             self.issued_events.push(message);
         }
+    }
+
+    /// Internal common backend for `issue_event` and `issue_event_no_history`,
+    /// handles creating a `ClientEvent` from a `SceneEvent` and pushing along
+    /// to be sent in a message.
+    fn _issue_event(&mut self, event: SceneEvent) {
+        self.issue_message(ClientEvent::SceneUpdate(event));
     }
 
     /// Issue an event, publishing it to the server and adding it to the
@@ -185,5 +191,9 @@ impl History {
                 _ => self.history.push(event),
             };
         }
+    }
+
+    pub fn change_scene(&mut self, scene_key: String) {
+        self.issue_message(ClientEvent::SceneChange(scene_key));
     }
 }

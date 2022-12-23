@@ -12,15 +12,15 @@
     * Place media in directories
 * Projects
 * Game
+    * Fog of war cursor size
     * When the WebSocket is closed, try to reconnect or redirect to a
         "game ended" page
     * Associate each client with a user. When a user connects a second time,
         terminate that user's other sessions
     * Specify which users are allowed to join the game
     * Feedback for when connecting to a game as a given CLIENT_KEY fails
-    * Editors should be able to change the current scene to another in the
-        project, should be able to save the project
     * Players should only be able to interact with the foreground
+    * On changing scene players become spectators atm
 * Backend
 * Build
 * Callum requests

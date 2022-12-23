@@ -1,12 +1,19 @@
 window.addEventListener("load", () => {
     const project_select = document.getElementById("project_select");
     const scene_select = document.getElementById("scene_select");
+    const scene_change = document.getElementById("scene_menu_change_scene");
 
     add_default_option(project_select);
     project_select.oninput = e => set_active_project(e.target.value);
 
-    scene_select.disabled = true;
+    scene_select.disabled = scene_change.disabled = true;
     scene_select.oninput = e => set_active_scene(e.target.value);
+
+    const [proj, scene] = url_project_scene();
+    if (proj && scene) {
+        // Only set this if this isn't in a game
+        scene_change.oninput = e => set_active_scene(e.target.value);
+    }
 
     configure_loading_icon_reset();
     load_project_scene();
@@ -166,26 +173,43 @@ function populate_project_select(list, project_key = null, scene_key = null) {
     update_url_project_scene();
 }
 
+function add_scene_entries(select, list, default_option = true) {
+    if (!select) {
+        return;
+    }
+
+    while (select.options.length) {
+        select.remove(0);
+    }
+
+    if (default_option) {
+        add_default_option(select);
+    }
+
+    list.forEach(scene => {
+        select.add(new Option(scene.title, scene.scene_key));
+    });
+
+    select.disabled = select.options.length <= 1;
+}
+
 function populate_scene_select(list = null, scene_key = null) {
     const scene_select = document.getElementById("scene_select");
+    const scene_change = document.getElementById("scene_menu_change_scene");
 
     update_loading_icon("scene_select_loading", LoadingIconStates.Idle);
 
-    while (scene_select.options.length) {
-        scene_select.remove(0);
-    }
-
-    add_default_option(scene_select);
     if (list) {
+        add_scene_entries(scene_select, list);
+        add_scene_entries(scene_change, list, false);
+
         list.forEach(scene => {
-            scene_select.add(new Option(scene.title, scene.scene_key));
             if (scene.scene_key === scene_key) {
                 set_active_scene(scene_key);
             }
         });    
     }
 
-    scene_select.disabled = scene_select.options.length === 1;
     update_url_project_scene();
 }
 
@@ -241,6 +265,13 @@ function set_active_scene(scene_key) {
         "/api/scene/load/" + scene_key,
         resp => {
             document.getElementById("scene_select").value = scene_key;
+            let scene_change = document.getElementById(
+                "scene_menu_change_scene"
+            );
+            if (scene_change) {
+                scene_change.value = scene_key;
+            }
+
             set_title("scene", resp.title);
 
             if (resp.success) {
@@ -350,6 +381,9 @@ function save_project() {
             // Only update if the selected project is unchanged
             if (selected_project() === proj) {
                 update_select("scene_select", resp.title, resp.scene_key);
+                update_select(
+                    "scene_menu_change_scene", resp.title, resp.scene_key
+                );
                 update_select(
                     "project_select",
                     resp.project_title,

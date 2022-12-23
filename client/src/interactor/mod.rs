@@ -83,6 +83,9 @@ impl Interactor {
                 }
             }
             ServerEvent::SceneChange(scene) => self.replace_scene(scene),
+            ServerEvent::SceneList(scenes, current) => {
+                crate::bridge::populate_change_scene(&scenes, &current).ok();
+            }
             ServerEvent::SceneUpdate(scene_event) => {
                 self.changes.layer_change_if(scene_event.is_layer());
                 self.scene.apply_event(scene_event);
@@ -598,6 +601,10 @@ impl Interactor {
             self.scene.project = Some(id);
         }
         self.changes.all_change();
+    }
+
+    pub fn change_scene(&mut self, scene_key: String) {
+        self.history.change_scene(scene_key);
     }
 
     fn replace_perms(&mut self, new: Perms) {

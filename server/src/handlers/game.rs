@@ -195,13 +195,21 @@ mod new {
             }
         };
 
-        let server = Arc::new(RwLock::new(games::GameServer::new(
-            user.id, scene, &game_key,
-        )));
-        games::GameServer::start(server.clone(), pool).await;
-        games.write().await.insert(game_key.clone(), server);
+        if let Some(project) = scene.project {
+            let server = Arc::new(RwLock::new(games::GameServer::new(
+                user.id,
+                project,
+                scene,
+                pool.clone(),
+                &game_key,
+            )));
+            games::GameServer::start(server.clone()).await;
+            games.write().await.insert(game_key.clone(), server);
 
-        super::join::join_game(games, game_key, user.id).await
+            super::join::join_game(games, game_key, user.id).await
+        } else {
+            Binary::result_failure("Scene project unknown.")
+        }
     }
 
     pub fn filter(

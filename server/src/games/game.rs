@@ -6,17 +6,19 @@ use crate::scene::{
 
 pub struct Game {
     pub key: String,
+    pub project: i64,
 
     scene: Scene,
     perms: Perms,
 }
 
 impl Game {
-    pub fn new(mut scene: Scene, owner: i64, key: &str) -> Self {
+    pub fn new(project: i64, mut scene: Scene, owner: i64, key: &str) -> Self {
         scene.canon();
         let mut perms = Perms::new();
         perms.set_owner(owner);
         Self {
+            project,
             key: key.to_owned(),
             scene,
             perms,
@@ -25,6 +27,10 @@ impl Game {
 
     pub fn project_id(&self) -> Option<i64> {
         self.scene.project
+    }
+
+    pub fn scene_id(&self) -> Option<i64> {
+        self.scene.id
     }
 
     pub fn handle_perms(&mut self, user: i64, event: PermsEvent) -> bool {
@@ -51,6 +57,15 @@ impl Game {
             }
         }
         (false, None)
+    }
+
+    pub fn replace_scene(&mut self, scene: Scene, owner: i64) {
+        self.scene = scene;
+        self.scene.canon();
+
+        let mut perms = Perms::new();
+        perms.set_owner(owner);
+        self.perms = perms;
     }
 
     pub fn server_scene(&self) -> Scene {

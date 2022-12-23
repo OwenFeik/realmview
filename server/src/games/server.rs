@@ -1,14 +1,15 @@
 use std::collections::HashMap;
 use std::time;
 
+use anyhow::anyhow;
 use bincode::serialize;
-use sqlx::{SqliteConnection, SqlitePool};
+use sqlx::{pool::PoolConnection, SqlitePool};
 use tokio::sync::mpsc::UnboundedSender;
 use warp::ws::Message;
 
 use super::{client::Client, Game, GameRef};
 use crate::{
-    models::Project,
+    models::{Project, SceneRecord},
     scene::{
         comms::{ClientEvent, ClientMessage, ServerEvent},
         Scene,
@@ -17,6 +18,7 @@ use crate::{
 
 pub struct Server {
     alive: bool,
+    pool: SqlitePool,
     last_action: time::SystemTime,
     clients: HashMap<String, Client>,
     owner: i64,
@@ -27,13 +29,14 @@ impl Server {
     const SAVE_INTERVAL: time::Duration = time::Duration::from_secs(10);
     const INACTIVITY_TIMEOUT: time::Duration = time::Duration::from_secs(1800);
 
-    pub fn new(owner: i64, scene: Scene, key: &str) -> Self {
+    pub fn new(owner: i64, project: i64, scene: Scene, pool: SqlitePool, key: &str) -> Self {
         Self {
             alive: true,
+            pool,
             last_action: time::SystemTime::now(),
             clients: HashMap::new(),
             owner,
-            game: super::Game::new(scene, owner, key),
+            game: super::Game::new(project, scene, owner, key),
         }
     }
 
@@ -42,7 +45,7 @@ impl Server {
         // TODO properly kill server by closing web sockets &c
     }
 
-    pub async fn start(server: GameRef, pool: SqlitePool) {
+    pub async fn start(server: GameRef) {
         tokio::task::spawn(async move {
             let mut interval = tokio::time::interval(Self::SAVE_INTERVAL);
 
@@ -56,13 +59,10 @@ impl Server {
 
                 // If something's changed in the scene, save it
                 if lock.last_action > previous_action_time {
-                    if let Ok(mut conn) = pool.acquire().await {
-                        if let Err(e) = lock.save(&mut conn).await {
-                            eprintln!("Failed to save scene: {e}");
-                        }
-                        previous_action_time = lock.last_action;
+                    if let Err(e) = lock.save_scene().await {
+                        eprintln!("Failed to save scene: {e}");
                     } else {
-                        dbg!("Failed to acquire database connection.");
+                        previous_action_time = lock.last_action;
                     }
                 }
 
@@ -107,6 +107,13 @@ impl Server {
             self.send_to(ServerEvent::SceneChange(scene), &key);
             let perms = self.game.client_perms();
             self.send_to(ServerEvent::PermsChange(perms), &key);
+
+            if player == self.owner {
+                if let Ok(event) = self.scene_list().await {
+                    self.send_to(event, &key);
+                }
+            }
+
             true
         } else {
             self.drop_client(&key);
@@ -116,6 +123,14 @@ impl Server {
 
     fn get_client_mut(&mut self, key: &str) -> Option<&mut Client> {
         self.clients.get_mut(key)
+    }
+
+    fn is_owner(&self, key: &str) -> bool {
+        if let Some(client) = self.clients.get(key) {
+            client.user == self.owner
+        } else {
+            false
+        }
     }
 
     fn broadcast_event(&self, event: ServerEvent, exclude: Option<&str>) {
@@ -160,6 +175,18 @@ impl Server {
             ClientEvent::Ping => {
                 self.send_approval(message.id, from);
             }
+            ClientEvent::SceneChange(scene_key) => {
+                if self.is_owner(from) {
+                    if let Err(e) = self.load_scene(&scene_key).await {
+                        eprintln!("Failed to load scene: {e}");
+                        self.send_rejection(message.id, from);
+                    } else {
+                        self.send_approval(message.id, from);
+                    }
+                } else {
+                    self.send_rejection(message.id, from);
+                }
+            }
             ClientEvent::SceneUpdate(event) => {
                 if let Some(client) = self.clients.get(from) {
                     let (ok, perms_events) = self.game.handle_event(client.user, event.clone());
@@ -182,7 +209,42 @@ impl Server {
         };
     }
 
-    async fn save(&self, conn: &mut SqliteConnection) -> anyhow::Result<()> {
+    async fn acquire_conn(&self) -> anyhow::Result<PoolConnection<sqlx::Sqlite>> {
+        self.pool
+            .acquire()
+            .await
+            .map_err(|e| anyhow!("Failed to acquire connection: {e}"))
+    }
+
+    async fn replace_scene(&mut self, scene: Scene) {
+        self.save_scene().await.ok(); // If this fails, so be it
+
+        // Replace the local scene with the new one
+        self.game.replace_scene(scene.clone(), self.owner);
+
+        // Send the new scene and perms to all clients
+        let keys: Vec<String> = self.clients.keys().map(|k| k.to_owned()).collect();
+        for client_key in keys {
+            let scene_change = ServerEvent::SceneChange(self.game.client_scene());
+            let perms_change = ServerEvent::PermsChange(self.game.client_perms());
+
+            self.send_to(scene_change, &client_key);
+            self.send_to(perms_change, &client_key);
+        }
+    }
+
+    async fn load_scene(&mut self, scene_key: &str) -> anyhow::Result<()> {
+        let conn = &mut self.acquire_conn().await?;
+        let record = SceneRecord::load_from_key(conn, scene_key).await?;
+        let scene = record.load_scene(conn).await?;
+
+        self.replace_scene(scene).await;
+
+        Ok(())
+    }
+
+    async fn save_scene(&self) -> anyhow::Result<()> {
+        let conn = &mut self.acquire_conn().await?;
         if let Some(id) = self.game.project_id() {
             let project = Project::load(conn, id).await?;
             project
@@ -190,7 +252,31 @@ impl Server {
                 .await
                 .map(|_| ())
         } else {
-            Err(anyhow::anyhow!("Scene has no project."))
+            Err(anyhow!("Scene has no project."))
+        }
+    }
+
+    async fn scene_list(&self) -> anyhow::Result<ServerEvent> {
+        let conn = &mut self.acquire_conn().await?;
+        if let Some(id) = self.game.project_id() {
+            let project = Project::load(conn, id).await?;
+            let current_scene_id = self.game.scene_id();
+            let mut current = String::from("");
+            let scenes = project
+                .list_scenes(conn)
+                .await?
+                .into_iter()
+                .map(|scene| {
+                    if current_scene_id == Some(scene.id) {
+                        current = scene.scene_key.clone();
+                    }
+
+                    (scene.scene_key, scene.title)
+                })
+                .collect();
+            Ok(ServerEvent::SceneList(scenes, current))
+        } else {
+            Err(anyhow!("Failed to find project."))
         }
     }
 }
