@@ -5,8 +5,6 @@
     * Select from selected layer first (possibly)
     * Layer opacity
 * Sprites
-    * When dragging a sprite, if it isn't locked to the grid at the start, it
-        shouldn't snap at the end
     * Use sprite menu to change texture
     * Group sprites
 * Media
@@ -25,3 +23,19 @@
 * Build
 * Callum requests
     * docs.google.com/document/d/1uKsAKS-huxNqc4kuHFot0McXTLlT3p83ojEalAcBtK0/
+
+# Documentation
+
+## Keyboard Shortcuts
+
+* `Q`  Select
+
+## Moving Sprites
+
+* Use the select tool to drag sprites around. Click on a sprite and drag to
+    move or draw a marquee to select multiple sprites.
+* When dragging a sprite, if that sprite was initially aligned to the grid, it
+    will be snapped to the grid on finishing the move. If it was initially
+    unaligned, it will remain so. To change this behaviour, hold `Alt`. So If
+    you want to unalign a sprite from the grid, hold `Alt` when releasing a
+    drag. Likewise to snap an unaligned sprite to the grid. 

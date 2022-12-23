@@ -200,11 +200,11 @@ impl Viewport {
         self.update_cursor(Some(Cursor::Grabbing));
     }
 
-    fn handle_mouse_down(&mut self, at: ViewportPoint, button: MouseButton, ctrl: bool) {
+    fn handle_mouse_down(&mut self, at: ViewportPoint, button: MouseButton, ctrl: bool, alt: bool) {
         match button {
             MouseButton::Left => {
                 match self.tool {
-                    Tool::Draw => self.scene.start_draw(self.scene_point(at), ctrl),
+                    Tool::Draw => self.scene.start_draw(self.scene_point(at), ctrl, alt),
                     Tool::Pan => self.grab(at),
                     Tool::Select => self.scene.grab(self.scene_point(at), ctrl),
                     _ => (),
@@ -374,7 +374,7 @@ impl Viewport {
             match event.input {
                 Input::Mouse(at, MouseAction::Down, button) => {
                     self.cursor_position = Some(at);
-                    self.handle_mouse_down(at, button, event.ctrl)
+                    self.handle_mouse_down(at, button, event.ctrl, event.alt)
                 }
                 Input::Mouse(at, MouseAction::Enter, _) => {
                     self.cursor_position = Some(at);

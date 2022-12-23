@@ -29,8 +29,9 @@ impl Server {
 
     pub async fn start(server: GameRef) {
         tokio::task::spawn(async move {
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(Self::SAVE_INTERVAL_SECONDS));
-            
+            let mut interval =
+                tokio::time::interval(std::time::Duration::from_secs(Self::SAVE_INTERVAL_SECONDS));
+
             loop {
                 interval.tick().await;
                 server.read().await.save().await;

@@ -34,6 +34,12 @@ impl Rect {
         }
     }
 
+    /// Whether the rect is aligned to a full, half, or quarter tile grid cell.
+    pub fn is_aligned(&self) -> bool {
+        ((self.x % determine_unit_size(self.w)).abs() <= f32::EPSILON)
+            && ((self.y % determine_unit_size(self.h)).abs() <= f32::EPSILON)
+    }
+
     pub fn scaled_from(from: Rect, factor: f32) -> Rect {
         let mut rect = from;
         rect *= factor;
@@ -229,6 +235,20 @@ impl Div<f32> for Rect {
             w: self.w / rhs,
             h: self.h / rhs,
         }
+    }
+}
+
+pub fn float_eq(a: f32, b: f32) -> bool {
+    (a - b).abs() <= f32::EPSILON
+}
+
+pub fn determine_unit_size(d: f32) -> f32 {
+    if d.abs() < 0.5 {
+        0.25
+    } else if d.abs() < 1.0 {
+        0.5
+    } else {
+        1.0
     }
 }
 

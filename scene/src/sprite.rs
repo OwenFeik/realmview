@@ -1,6 +1,7 @@
 use serde_derive::{Deserialize, Serialize};
 
 use super::{comms::SceneEvent, Dimension, Id, Point, PointVector, Rect};
+use crate::rect::determine_unit_size;
 
 pub type Colour = [f32; 4];
 
@@ -259,11 +260,23 @@ impl Sprite {
     }
 
     pub fn enforce_min_size(&mut self) -> Option<SceneEvent> {
-        if self.rect.w < Sprite::MIN_SIZE || self.rect.h < Sprite::MIN_SIZE {
-            Some(self.set_rect(self.rect.sized_as(
-                self.rect.w.max(Sprite::MIN_SIZE),
-                self.rect.h.max(Sprite::MIN_SIZE),
-            )))
+        let mut new_w = None;
+        let mut new_h = None;
+        if self.rect.w.abs() < Sprite::MIN_SIZE {
+            new_w = Some(self.rect.w.signum() * Sprite::MIN_SIZE);
+        }
+
+        if self.rect.h.abs() < Sprite::MIN_SIZE {
+            new_h = Some(self.rect.w.signum() * Sprite::MIN_SIZE);
+        }
+
+        if new_w.is_some() || new_h.is_some() {
+            Some(
+                self.set_rect(
+                    self.rect
+                        .sized_as(new_w.unwrap_or(self.rect.w), new_w.unwrap_or(self.rect.h)),
+                ),
+            )
         } else {
             None
         }
@@ -463,16 +476,6 @@ fn round_dimension(d: f32) -> f32 {
     }
 }
 
-fn determine_unit_size(d: f32) -> f32 {
-    if d.abs() < 0.5 {
-        0.25
-    } else if d.abs() < 1.0 {
-        0.5
-    } else {
-        1.0
-    }
-}
-
 fn round_to_nearest(d: f32, n: f32) -> f32 {
     let sign = d.signum();
     let d = d.abs();
@@ -481,8 +484,8 @@ fn round_to_nearest(d: f32, n: f32) -> f32 {
 
 #[cfg(test)]
 mod test {
-    use super::Drawing;
-    use crate::{Point, PointVector};
+    use super::{round_dimension, Drawing};
+    use crate::{rect::float_eq, Point, PointVector};
 
     #[test]
     fn test_simplify() {
@@ -496,5 +499,13 @@ mod test {
             drawing.points,
             PointVector::from(vec![1.5, 1.5, 0.5, 0.5, 1.5, 1.5, 3.5, 3.5])
         );
+    }
+
+    #[test]
+    fn test_round_dimension() {
+        assert!(float_eq(round_dimension(-123.456), -123.0));
+        assert!(float_eq(round_dimension(0.1), 0.25));
+        assert!(float_eq(round_dimension(-0.6), -0.5));
+        assert!(float_eq(round_dimension(0.76), 1.0));
     }
 }

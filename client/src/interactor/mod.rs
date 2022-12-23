@@ -23,6 +23,9 @@ pub struct Interactor {
     scene: Scene,
     selected_layer: Id,
     selected_sprites: Vec<Id>,
+
+    /// Whether all sprites in the selection are aligned to the grid.
+    selection_aligned: bool,
     selection_marquee: Option<Rect>,
     user: Id,
 }
@@ -45,7 +48,8 @@ impl Interactor {
             perms: Perms::new(),
             scene,
             selected_layer,
-            selected_sprites: vec![],
+            selected_sprites: Vec::new(),
+            selection_aligned: true,
             selection_marquee: None,
             user: scene::perms::CANONICAL_UPDATER,
         }
@@ -182,24 +186,24 @@ impl Interactor {
     }
 
     pub fn paste(&mut self, at: Point) {
-        let Some(sprites) = &self.copied else {
+        if self.copied.is_none() {
             return;
+        } else {
+            self.clear_selection();
         };
 
-        let mut events = Vec::with_capacity(sprites.len());
-
-        self.selected_sprites.clear();
+        let mut events = Vec::with_capacity(self.copied.as_ref().unwrap().len());
 
         // Place new sprite at cursor.
         let delta = at.round();
-        for s in sprites {
+        for s in self.copied.as_ref().unwrap().clone() {
             let at = s.rect.translate(delta);
             if let Some(event) =
                 self.scene
                     .new_sprite_at(Some(s.visual.clone()), self.selected_layer, at)
             {
                 if let SceneEvent::SpriteNew(s, _) = &event {
-                    self.selected_sprites.push(s.id);
+                    self.select(s.id);
                 }
                 events.push(event);
             }
@@ -258,6 +262,7 @@ impl Interactor {
     pub fn clear_selection(&mut self) {
         self.selected_sprites.clear();
         self.changes.sprite_selected_change();
+        self.selection_aligned = true;
     }
 
     fn clear_held_selection(&mut self) {
@@ -268,13 +273,17 @@ impl Interactor {
     fn select(&mut self, id: Id) {
         if !self.is_selected(id) && self.perms.selectable(self.user, id) {
             self.selected_sprites.push(id);
+            if let Some(s) = self.sprite_ref(id) {
+                self.selection_aligned = self.selection_aligned && s.rect.is_aligned();
+            }
             self.changes.sprite_selected_change();
         }
     }
 
-    fn select_multiple(&mut self, ids: &mut Vec<Id>) {
-        let mut ids = ids.drain_filter(|&mut id| !self.is_selected(id)).collect();
-        self.selected_sprites.append(&mut ids);
+    fn select_multiple(&mut self, ids: &[Id]) {
+        for id in ids {
+            self.select(*id);
+        }
     }
 
     pub fn select_all(&mut self) {
@@ -315,7 +324,7 @@ impl Interactor {
     fn grab_at(&self, at: Point, add: bool) -> (holding::HeldObject, Option<Id>) {
         if let Some(s) = self.scene.sprite_at_ref(at) {
             if self.has_selection() {
-                if self.selected_sprites.contains(&s.id) {
+                if self.is_selected(s.id) {
                     return if self.single_selected() {
                         (holding::HeldObject::grab_sprite(s, at), None)
                     } else {
@@ -351,10 +360,10 @@ impl Interactor {
         self.changes.sprite_change();
     }
 
-    pub fn start_draw(&mut self, at: Point, ephemeral: bool) {
+    pub fn start_draw(&mut self, at: Point, ephemeral: bool, alt: bool) {
         self.clear_held_selection();
         if self.draw_details.shape.is_some() {
-            self.new_held_shape(self.draw_details.shape.unwrap(), at);
+            self.new_held_shape(self.draw_details.shape.unwrap(), at, !alt);
         } else if let Some(id) = self.new_sprite_at(
             Some(self.draw_details.drawing()),
             None,
@@ -451,10 +460,10 @@ impl Interactor {
         false
     }
 
-    fn finish_sprite_resize(&mut self, id: Id, starting_rect: Rect, snap_to_grid: bool) {
+    fn finish_sprite_resize(&mut self, id: Id, starting_rect: Rect, switch_align: bool) {
         if !self.apply_ignore_threshold(id, starting_rect) {
             if let Some(s) = self.scene.sprite(id) {
-                if snap_to_grid {
+                if starting_rect.is_aligned() ^ switch_align {
                     let event = s.snap_size();
                     self.scene_event(event);
                 } else {
@@ -466,8 +475,10 @@ impl Interactor {
         self.changes.sprite_selected_change();
     }
 
-    fn finish_sprite_drag(&mut self, id: Id, starting_rect: Rect, snap_to_grid: bool) {
-        if !self.apply_ignore_threshold(id, starting_rect) && snap_to_grid {
+    fn finish_sprite_drag(&mut self, id: Id, starting_rect: Rect, switch_align: bool) {
+        if !self.apply_ignore_threshold(id, starting_rect)
+            && (starting_rect.is_aligned() ^ switch_align)
+        {
             if let Some(s) = self.scene.sprite(id) {
                 let event = s.snap_pos();
                 self.scene_event(event);
@@ -476,8 +487,8 @@ impl Interactor {
         self.changes.sprite_selected_change();
     }
 
-    fn finish_selection_drag(&mut self, snap_to_grid: bool) {
-        if snap_to_grid {
+    fn finish_selection_drag(&mut self, switch_align: bool) {
+        if self.selection_aligned ^ switch_align {
             self.selection_effect(|s| Some(s.snap_pos()));
         }
         self.changes.sprite_selected_change();
@@ -506,16 +517,16 @@ impl Interactor {
                 }
 
                 if let Some(region) = self.selection_marquee {
-                    let mut selection = self.scene.sprites_in(region, alt);
-                    self.select_multiple(&mut selection);
+                    let selection = self.scene.sprites_in(region, alt);
+                    self.select_multiple(&selection);
                 }
                 self.selection_marquee = None;
                 self.changes.sprite_selected_change();
             }
-            holding::HeldObject::Selection(_) => self.finish_selection_drag(!alt),
-            holding::HeldObject::Sprite(id, _, start) => self.finish_sprite_drag(id, start, !alt),
+            holding::HeldObject::Selection(_) => self.finish_selection_drag(alt),
+            holding::HeldObject::Sprite(id, _, start) => self.finish_sprite_drag(id, start, alt),
             holding::HeldObject::Anchor(id, _, _, start) => {
-                self.finish_sprite_resize(id, start, !alt)
+                self.finish_sprite_resize(id, start, alt)
             }
         };
 
@@ -695,7 +706,7 @@ impl Interactor {
         self.new_sprite_common(visual, layer, Some(at))
     }
 
-    pub fn new_held_shape(&mut self, shape: SpriteShape, at: Point) {
+    pub fn new_held_shape(&mut self, shape: SpriteShape, at: Point, snap_to_grid: bool) {
         self.clear_held_selection();
         if let Some(id) = self.new_sprite(
             Some(SpriteVisual::Solid {
@@ -705,6 +716,7 @@ impl Interactor {
             }),
             Some(self.selected_layer),
         ) {
+            let at = if snap_to_grid { at.round() } else { at };
             let opt = self.scene.sprite(id).map(|s| {
                 self.holding = holding::HeldObject::Anchor(s.id, 1, 1, s.rect);
                 s.set_rect(Rect::new(at.x, at.y, 0.0, 0.0))

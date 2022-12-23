@@ -197,12 +197,9 @@ mod new {
 
         let server = Arc::new(RwLock::new(games::GameServer::new(
             user.id, scene, &game_key,
-        ))); 
+        )));
         games::GameServer::start(server.clone()).await;
-        games.write().await.insert(
-            game_key.clone(),
-            server,
-        );
+        games.write().await.insert(game_key.clone(), server);
 
         super::join::join_game(games, game_key, user.id).await
     }
