@@ -217,10 +217,14 @@ function view_media() {
 
 function search_filter(query) {
     query = query.toLowerCase();
-    let matching = media_manager
-        .media
-        .values()
-        .filter(item => item.title.toLowerCase().includes(query))
+    let matching = [];
+    
+    for (const item of media_manager.media.values()) {
+        if (item.title.toLowerCase().includes(query)) {
+            matching.push(item);
+        }
+    }
+
     show_media(matching);
 }
 
