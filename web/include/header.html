@@ -6,8 +6,9 @@
         <div class="navbar-nav">
           <a class="logged-out nav-link" href="/login">Log In</a>
           <a class="logged-out nav-link" href="/register">Register</a>  
-          <a class="logged-in nav-link" href="/media">Media</a>
+          <a class="logged-in nav-link" href="/game">Join</a>
           <a class="logged-in nav-link" href="/project">Projects</a>
+          <a class="logged-in nav-link" href="/media">Media</a>
         </div>
         <div class="logged-in ms-auto navbar-nav">
           <a
@@ -25,12 +26,22 @@
   </nav>
 </header>
 <script>
-  const REGEX = /session_key=[\dA-Z]+/;
-  let hide = document.cookie.match(REGEX) ? 'out' : 'in';
-  document.querySelectorAll('.logged-' + hide)
+const REGEX = /session_key=[\dA-Z]+/;
+let logged_in = document.cookie.match(REGEX);
+
+// Hide logged in pages
+document.querySelectorAll('.logged-' + (logged_in ? 'out' : 'in'))
     .forEach(el => el.classList.add("d-none"));
 
-  if (link = document.querySelector(`a[href="${window.location.pathname}"]`)) {
+// Highlight the current page
+if (link = document.querySelector(`a[href="${window.location.pathname}"]`)) {
     link.classList.add("active");
-  }
+}
 </script>  
+IFDEF(LOGGEDIN) {{
+<script>
+if (!logged_in) {
+    window.location.href = '/login';
+}
+</script>
+}}

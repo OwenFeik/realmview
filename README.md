@@ -12,6 +12,7 @@
     * Place media in directories
 * Projects
 * Game
+    * Hide illegal dropdown options for players
     * Fog of war cursor size
     * When the WebSocket is closed, try to reconnect or redirect to a
         "game ended" page

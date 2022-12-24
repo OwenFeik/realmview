@@ -98,7 +98,7 @@ mod join {
             Ok(client_key) => {
                 as_result(&JoinGameResponse::new(game_key, client_key), StatusCode::OK)
             }
-            Err(_) => Binary::result_error("Crypography error."),
+            Err(_) => Binary::result_error("Cryptography error."),
         }
     }
 

@@ -41,9 +41,8 @@ pub fn routes(
 fn page_routes(
     dir: &Path,
 ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    const SCENE_EDITOR_FILE: &str = "scene.html";
-
-    let serve_scene = warp::fs::file(dir.join(SCENE_EDITOR_FILE));
+    let serve_scene = warp::fs::file(dir.join("scene.html"));
+    let serve_game = warp::fs::file(dir.join("game.html"));
 
     warp::get().and(
         (warp::path::end().and(warp::fs::file(dir.join("index.html"))))
@@ -67,12 +66,12 @@ fn page_routes(
             .or(warp::path!("game" / String / "client" / String)
                 .map(|_game_key, _client_key| {})
                 .untuple_one()
-                .and(serve_scene.clone()))
+                .and(serve_scene))
             .or(warp::path!("game" / String)
                 .map(|_game_key| {})
                 .untuple_one()
-                .and(serve_scene.clone()))
-            .or(warp::path("game").and(serve_scene)),
+                .and(serve_game.clone()))
+            .or(warp::path("game").and(serve_game)),
     )
 }
 
@@ -244,5 +243,14 @@ pub mod response {
             "Set-Cookie",
             cookie.as_str(),
         ))
+    }
+
+    fn invalid_session() -> Result<impl warp::Reply, Infallible> {
+        cookie_result(
+            &Binary::new_failure("Invalid session."),
+            StatusCode::UNAUTHORIZED,
+            "session_key",
+            None,
+        )
     }
 }
