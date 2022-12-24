@@ -223,7 +223,11 @@ impl Server {
         self.game.replace_scene(scene.clone(), self.owner);
 
         // Send the new scene and perms to all clients
-        let keys: Vec<(String, i64)> = self.clients.iter().map(|(k, c)| (k.to_owned(), c.user)).collect();
+        let keys: Vec<(String, i64)> = self
+            .clients
+            .iter()
+            .map(|(k, c)| (k.to_owned(), c.user))
+            .collect();
         for (client_key, user) in keys {
             self.game.add_player(user);
 

@@ -259,7 +259,11 @@ impl Perms {
     }
 
     pub fn permitted(&self, user: Id, event: &SceneEvent, layer: Option<Id>) -> bool {
-        self.allowed_by_role(user, event, layer) || self.allowed_by_override(user, event)
+        if let SceneEvent::EventSet(events) = event {
+            events.iter().all(|e| self.permitted(user, e, layer))
+        } else {
+            self.allowed_by_role(user, event, layer) || self.allowed_by_override(user, event)
+        }
     }
 
     /// Allow the creators of sprites or layers to update or delete them.

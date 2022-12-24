@@ -35,6 +35,11 @@ window.addEventListener("load", () => {
     current_game_tab.style.display = "";
     current_game_tab.click();
 
+    // Hide the project offcanvas
+    document.querySelector(
+        "button[aria-controls='project_offcanvas']"
+    ).style.display = "none";
+
     // Set up the scene switcher
     const scene_change = document.getElementById("scene_menu_change_scene"); 
     scene_change.oninput = () => change_scene(scene_change.value); 
