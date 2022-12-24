@@ -20,8 +20,8 @@
     * Specify which users are allowed to join the game
     * Feedback for when connecting to a game as a given CLIENT_KEY fails
     * Players should only be able to interact with the foreground
-    * On changing scene players become spectators atm
 * Backend
+    * Save perms, reload when the same scene is loaded
 * Build
 * Callum requests
     * docs.google.com/document/d/1uKsAKS-huxNqc4kuHFot0McXTLlT3p83ojEalAcBtK0/
