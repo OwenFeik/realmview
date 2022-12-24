@@ -17,6 +17,7 @@ pub struct Interactor {
     pub role: scene::perms::Role,
     copied: Option<Vec<Sprite>>,
     draw_details: details::SpriteDetails,
+    fog_brush: u32,
     history: history::History,
     holding: holding::HeldObject,
     perms: Perms,
@@ -43,6 +44,7 @@ impl Interactor {
             role: scene::perms::Role::Owner,
             copied: None,
             draw_details: details::SpriteDetails::default(),
+            fog_brush: 1,
             history: history::History::new(client),
             holding: holding::HeldObject::None,
             perms: Perms::new(),
@@ -580,11 +582,15 @@ impl Interactor {
         &self.scene.fog
     }
 
+    pub fn set_fog_brush(&mut self, size: u32) {
+        self.fog_brush = size;
+    }
+
     pub fn set_fog(&mut self, at: Point, ctrl: bool) {
         let x = at.x as u32;
         let y = at.y as u32;
-        let opt = self.scene.fog.set(x, y, ctrl);
-        self.scene_option(opt);
+        let event = self.scene.fog.set_square(x, y, self.fog_brush, ctrl);
+        self.scene_event(event);
     }
 
     #[must_use]

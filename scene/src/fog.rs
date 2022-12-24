@@ -159,6 +159,29 @@ impl Fog {
         }
     }
 
+    pub fn set_square(&mut self, x: u32, y: u32, d: u32, occluded: bool) -> SceneEvent {
+        let mut events = Vec::new();
+
+        for dx in 0..(d + 1).div_ceil(2) {
+            for dy in 0..(d + 1).div_ceil(2) {
+                if dx <= x && dy <= y {
+                    for (u, v) in [
+                        (x - dx, y - dy),
+                        (x - dx, y + dy),
+                        (x + dx, y + dy),
+                        (x + dx, y - dy),
+                    ] {
+                        if let Some(event) = self.set(u, v, occluded) {
+                            events.push(event);
+                        }
+                    }
+                }
+            }
+        }
+
+        SceneEvent::EventSet(events)
+    }
+
     pub fn set_active(&mut self, active: bool) -> Option<SceneEvent> {
         if self.active == active {
             None

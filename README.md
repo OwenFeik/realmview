@@ -13,7 +13,6 @@
 * Projects
 * Game
     * Hide illegal dropdown options for players
-    * Fog of war cursor size
     * When the WebSocket is closed, try to reconnect or redirect to a
         "game ended" page
     * Associate each client with a user. When a user connects a second time,
@@ -23,6 +22,7 @@
     * Players should only be able to interact with the foreground
 * Backend
     * Save perms, reload when the same scene is loaded
+    * Expose closure macro
 * Build
 * Callum requests
     * docs.google.com/document/d/1uKsAKS-huxNqc4kuHFot0McXTLlT3p83ojEalAcBtK0/

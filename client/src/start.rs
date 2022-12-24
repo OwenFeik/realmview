@@ -212,6 +212,13 @@ pub fn start() -> Result<(), JsValue> {
     expose_closure_string_in("draw_details", &draw_details_closure);
     draw_details_closure.forget();
 
+    let vp_ref = vp.clone();
+    let set_fog_brush_closure = Closure::wrap(Box::new(move |size: f64| {
+        vp_ref.lock().scene.set_fog_brush(size as u32);
+    }) as Box<dyn FnMut(f64)>);
+    expose_closure_f64("set_fog_brush", &set_fog_brush_closure);
+    set_fog_brush_closure.forget();
+
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
 

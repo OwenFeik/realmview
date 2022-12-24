@@ -141,6 +141,13 @@ var RustFuncs = {
 
     Updates the details for a new drawing.
     */
+
+    set_fog_brush: missing_func,
+    /*
+    function set_fog_brush(brush_size: number)
+
+    Sets the size of the fog of war brush, in tiles.
+    */
 };
 
 // Array of callbacks to be performed when a given closure is available.
