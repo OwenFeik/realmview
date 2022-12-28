@@ -1,11 +1,16 @@
-<Page>
-  <div class="container-fluid">
-    <div class="row justify-content-center">
-      <div class="col-sm-4 text-center pt-5">
-        <h1>
-          <a href="/register">Register</a> or <a href="/login">Log In</a>
-        </h1>
-      </div>
-    </div>
-  </div>
-</Page>
+<PageFloat>
+  <h1>{{ constant(APP_TITLE) }}</h1>
+  <p>
+    Welcome to <b>{{ constant(APP_TITLE) }}</b>!
+  </p>
+  <p>
+    <b>{{ constant(APP_TITLE) }}</b> is a tool for creating, editing and
+    playing on battlemaps. It allows you to upload your maps and tokens, easily
+    load them into a grid-based battlemap and then run a game, arranging your
+    content or drawing with paint tools and it all live with your players.
+  </p>
+  <p>
+    If you already have an account, <a href="/login">log in</a>. Otherwise,
+    <a href="/register">register</a> to get started.
+  </p>
+</PageFloat>

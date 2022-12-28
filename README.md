@@ -29,6 +29,12 @@
 
 # Documentation
 
+## Requirements
+
+### Build Requirements
+
+* Python 3.8 or greater.
+
 ## Keyboard Shortcuts
 
 * `Q`  Select

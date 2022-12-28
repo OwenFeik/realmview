@@ -1,46 +1,38 @@
-<Page title="Join Game" loggedin="">
-  <div
-    class="row justify-content-center align-items-center"
-    style="height: 50vh;"
+<PageFloat title="Join Game" loggedin="">
+  <div id="failure_info" class="d-none">
+    <p class="text-danger text-center">Failed to join game.</p>
+    <hr>
+    <p class="text-muted mb-0 mt-2">Try again?</p>  
+  </div>
+  <form
+    id="join_game_form"
+    class="needs-validation"
+    onsubmit="join_game(); return false;"
   >
-    <div class="col-sm-3 d-flex flex-column justify-content-end">
-      <div id="failure_info" class="d-none">
-        <p class="text-danger text-center">Failed to join game.</p>
-        <hr>
-        <p class="text-muted mb-0 mt-2">Try again?</p>  
-      </div>
-      <form
-        id="join_game_form"
-        class="needs-validation"
-        onsubmit="join_game(); return false;"
+    <div class="row py-2">
+      <input
+        type="text"
+        id="game_key"
+        placeholder="Game key, e.g. AB12C3"
+        class="form-control"
+        minlength="{{ constant(GAME_KEY_LENGTH) }}"
+        maxlength="{{ constant(GAME_KEY_LENGTH) }}"
+        required
       >
-        <div class="row py-2">
-          <input
-            type="text"
-            id="game_key"
-            placeholder="Game key, e.g. AB12C3"
-            class="form-control"
-            minlength="{{ constant(GAME_KEY_LENGTH) }}"
-            maxlength="{{ constant(GAME_KEY_LENGTH) }}"
-            required
-          >
-          <div
-            class="invalid-feedback"
-            data-feedback-for="game_key"
-          >Game keys are <Constant
-            name="GAME_KEY_LENGTH"
-          > characters, A-F 0-9.</div>
-        </div>
-        <div class="row py-2">
-          <button
-            type="submit"
-            class="btn btn-primary"
-          >Join Game <Icon name="arrow-down-right-square"></button>
-        </div>
-      </form>
+      <div
+        class="invalid-feedback"
+        data-feedback-for="game_key"
+      >Game keys are <Constant
+        name="GAME_KEY_LENGTH"
+      > characters, A-F 0-9.</div>
     </div>
-  </div>
-  </div>
+    <div class="row py-2">
+      <button
+        type="submit"
+        class="btn btn-primary"
+      >Join Game <Icon name="arrow-down-right-square"></button>
+    </div>
+  </form>
 <script>
 window.addEventListener("load", () => {
     const parts = url_parts();
@@ -120,4 +112,4 @@ function join_game() {
     req.send();
 }
 </script>
-</Page>
+</PageFloat>
