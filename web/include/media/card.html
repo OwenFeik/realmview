@@ -18,7 +18,9 @@
       <button
         class="btn btn-sm btn-primary"
         aria-roledescription="Add to scene"
-        onclick="add_to_scene(this.parentNode.previousSibling);"
+        onclick="
+          add_to_scene(this.parentNode.parentNode.querySelector('img'));
+        "
       >Add <Icon name="plus-square"></button>
       }}
       <button

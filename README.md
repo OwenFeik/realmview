@@ -12,6 +12,8 @@
     * Place media in directories
 * Projects
 * Game
+    * Place newly added sprites in a non-occluded area for players
+    * Prevent selection of occluded sprites for players
     * Hide illegal dropdown options for players
     * When the WebSocket is closed, try to reconnect or redirect to a
         "game ended" page
@@ -21,6 +23,7 @@
     * Feedback for when connecting to a game as a given CLIENT_KEY fails
     * Players should only be able to interact with the foreground
 * Backend
+    * When saving a scene, a new project is created
     * Save perms, reload when the same scene is loaded
     * Expose closure macro
 * Build
