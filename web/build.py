@@ -444,29 +444,29 @@ def include_file(file: str, process: bool = True) -> str:
         return html
 
 
-def handle_match(match: re.Match) -> str:
-    groups = match.groupdict()
-    if "kwarg_file" in groups:
-        return kwarg_file_subsitution(groups["kwarg_file"], groups["args"])
-    elif "html_file" in groups:
-        return html_file_substitution(groups["html_file"], groups["html_args"])
-    elif match.group("func"):
-        return function_substitution(groups["func"], groups["arg"])
-    elif "file" in groups:
-        return include_file(groups["file"])
-    elif "raw" in groups:
-        return groups["raw"]
-    else:
-        # This path is unreachable unless additional options are added to the
-        # regular expression.
-        return ""
-
-
 def process_html(html: str) -> str:
-    m = re.search(SUBSTITUTION_REGEX, html)
+    regex = re.compile(SUBSTITUTION_REGEX)
+
+    m = re.search(regex, html)
     while m:
-        html = html.replace(m.group(0), handle_match(m))
-        m = re.search(SUBSTITUTION_REGEX, html)
+        groups = m.groupdict()
+        if "kwarg_file" in groups:
+            repl = kwarg_file_subsitution(groups["kwarg_file"], groups["args"])
+        elif "html_file" in groups:
+            repl = html_file_substitution(
+                groups["html_file"], groups["html_args"]
+            )
+        elif m.group("func"):
+            repl = function_substitution(groups["func"], groups["arg"])
+        elif "file" in groups:
+            repl = include_file(groups["file"])
+        elif "raw" in groups:
+            repl = groups["raw"]
+        else:
+            raise ValueError("Unknown match type.")
+
+        html = html.replace(m.group(0), repl)
+        m = re.search(regex, html)
     return html
 
 
