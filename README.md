@@ -36,6 +36,9 @@
 
 ### Build Requirements
 
+* Rust Nightly (`rustup default nightly`)
+* `wasm-pack` (`cargo install wasm-pack`)
+* OpenSSL (`apt install libssl-dev` / `yum install openssl-devel`)
 * Python 3.6
 
 ## Keyboard Shortcuts
