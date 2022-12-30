@@ -25,7 +25,7 @@ IDENTIFIER_CHARACTERS = IC = r"[a-zA-Z0-9_]"
 # URL, function argument, file name, etc
 FULL_CHARACTERS = FC = r"[a-zA-Z0-9_.:@/\-]"
 
-KWARG_ARG_REGEX = rf"({IC}+\s*=\s*" rf"({FC}+|\"[^\"]*\"|'[^']*'|\|[^\|]*\|))"
+KWARG_ARG_REGEX = rf"({IC}+\s*=\s*({FC}+|\"[^\"]*\"|'[^']*'|\|[^\|]*\|))"
 
 OPEN = r"{{"
 CLOSE = r"}}"
@@ -450,17 +450,17 @@ def process_html(html: str) -> str:
     m = re.search(regex, html)
     while m:
         groups = m.groupdict()
-        if "kwarg_file" in groups:
+        if groups.get("kwarg_file"):
             repl = kwarg_file_subsitution(groups["kwarg_file"], groups["args"])
-        elif "html_file" in groups:
+        elif groups.get("html_file"):
             repl = html_file_substitution(
                 groups["html_file"], groups["html_args"]
             )
         elif m.group("func"):
             repl = function_substitution(groups["func"], groups["arg"])
-        elif "file" in groups:
+        elif groups.get("file"):
             repl = include_file(groups["file"])
-        elif "raw" in groups:
+        elif groups.get("raw"):
             repl = groups["raw"]
         else:
             raise ValueError("Unknown match type.")
