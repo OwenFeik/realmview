@@ -121,7 +121,8 @@ def bootstrap_icon(name: str) -> str:
     URL_FORMAT = "https://icons.getbootstrap.com/assets/icons/{}"
 
     filename = f"{name}.svg"
-    if cached_file := load_cached_file(filename):
+    cached_file = load_cached_file(filename)
+    if cached_file:
         return cached_file
     svg = download_resource(URL_FORMAT.format(filename))
     cache_file(filename, svg)
@@ -143,8 +144,9 @@ def filename_from_url(url: str) -> str:
 
 def load_url(url: str) -> str:
     filename = filename_from_url(url)
-    if content := load_cached_file(filename):
-        return content
+    cached_content = load_cached_file(filename)
+    if cached_content:
+        return cached_content
     content = download_resource(url)
     cache_file(filename, content)
     return content
@@ -201,8 +203,9 @@ def constant(
 
 
 def unique_string() -> str:
-    while (s := uuid.uuid4().hex[:8].upper())[0].isdigit():
-        pass
+    s = "1"  # do
+    while s[0].isdigit():
+        s = uuid.uuid4().hex[:8].upper()
     return s
 
 
@@ -254,9 +257,11 @@ def read_block(start: int, html: str) -> str:
 
 
 def read_identifier_block(identifier: str, html: str) -> str:
-    if not (match := re.search(re.escape(identifier) + rf"\s*{OPEN}", html)):
+    m = re.search(re.escape(identifier) + rf"\s*{OPEN}", html)
+    if m:
+        return read_block(m.start(), html)
+    else:
         raise ValueError(f"Missing indentifier: {identifier}")
-    return read_block(match.start(), html)
 
 
 def block_contents(block: str) -> str:
@@ -299,11 +304,12 @@ IFDEF_REGEX = re.compile(_IFDEF_REGEX)
 def _process_ifdefs(
     regex: re.Pattern, html: str, kwargs: typing.Dict[str, str]
 ) -> str:
-    while match := re.search(regex, html):
-        cond = match.group("cond")
-        kwarg = match.group("arg")
+    m = re.search(regex, html)
+    while m:
+        cond = m.group("cond")
+        kwarg = m.group("arg")
 
-        if_block, else_block, full = read_ifdef_block(match.start(), html)
+        if_block, else_block, full = read_ifdef_block(m.start(), html)
 
         if (cond == "IFDEF" and kwarg in kwargs) or (
             cond == "IFNDEF" and kwarg not in kwargs
@@ -313,6 +319,7 @@ def _process_ifdefs(
             repl = block_contents(else_block).strip()
 
         html = html.replace(full, repl, 1)
+        m = re.search(regex, html)
     return html
 
 
@@ -438,16 +445,17 @@ def include_file(file: str, process: bool = True) -> str:
 
 
 def handle_match(match: re.Match) -> str:
-    if kw_file := match.group("kwarg_file"):
-        return kwarg_file_subsitution(kw_file, match.group("args"))
-    elif ht_file := match.group("html_file"):
-        return html_file_substitution(ht_file, match.group("html_args"))
-    elif func := match.group("func"):
-        return function_substitution(func, match.group("arg"))
-    elif file := match.group("file"):
-        return include_file(file)
-    elif text := match.group("raw"):
-        return text
+    groups = match.groupdict()
+    if "kwarg_file" in groups:
+        return kwarg_file_subsitution(groups["kwarg_file"], groups["args"])
+    elif "html_file" in groups:
+        return html_file_substitution(groups["html_file"], groups["html_args"])
+    elif match.group("func"):
+        return function_substitution(groups["func"], groups["arg"])
+    elif "file" in groups:
+        return include_file(groups["file"])
+    elif "raw" in groups:
+        return groups["raw"]
     else:
         # This path is unreachable unless additional options are added to the
         # regular expression.
@@ -455,8 +463,10 @@ def handle_match(match: re.Match) -> str:
 
 
 def process_html(html: str) -> str:
-    while match := re.search(SUBSTITUTION_REGEX, html):
-        html = html.replace(match.group(0), handle_match(match))
+    m = re.search(SUBSTITUTION_REGEX, html)
+    while m:
+        html = html.replace(m.group(0), handle_match(m))
+        m = re.search(SUBSTITUTION_REGEX, html)
     return html
 
 

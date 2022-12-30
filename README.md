@@ -36,7 +36,7 @@
 
 ### Build Requirements
 
-* Python 3.8 or greater.
+* Python 3.
 
 ## Keyboard Shortcuts
 
