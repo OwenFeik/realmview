@@ -64,7 +64,7 @@ SUBSTITUTION_REGEXES = [
 ]
 
 # Final regex matches all substitution types
-SUBSTITUTION_REGEX = re.compile(
+SUBSTITUTION_REGEX = (
     rf"{OPEN}\s*("
     + r"|".join(SUBSTITUTION_REGEXES)
     + rf")\s*{CLOSE}|{HTML_FILE_REGEX}"
@@ -297,12 +297,12 @@ BLOCK_REGEX = rf"{OPEN}{ANY}{CLOSE}"
 _IFDEF_REGEX = (
     rf"(?P<ident>(?P<cond>IFN?DEF)\((?P<arg>[A-Z_]+)\))\s*{BLOCK_REGEX}"
 )
-IFDEF_ELSE_REGEX = re.compile(_IFDEF_REGEX + rf"\s*ELSE\s*{BLOCK_REGEX}")
-IFDEF_REGEX = re.compile(_IFDEF_REGEX)
+IFDEF_ELSE_REGEX = _IFDEF_REGEX + rf"\s*ELSE\s*{BLOCK_REGEX}"
+IFDEF_REGEX = _IFDEF_REGEX
 
 
 def _process_ifdefs(
-    regex: re.Pattern, html: str, kwargs: typing.Dict[str, str]
+    regex: str, html: str, kwargs: typing.Dict[str, str]
 ) -> str:
     m = re.search(regex, html)
     while m:
