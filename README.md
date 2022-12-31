@@ -12,7 +12,6 @@
     * Place media in directories
 * Projects
 * Game
-    * Prevent selection of occluded sprites for players
     * Manage fog of war by player
     * Hide illegal dropdown options for players
     * When the WebSocket is closed, try to reconnect or redirect to a

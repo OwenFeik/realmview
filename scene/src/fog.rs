@@ -115,6 +115,22 @@ impl Fog {
         }
     }
 
+    pub fn rect_occluded(&self, rect: crate::Rect) -> bool {
+        let x0 = rect.x.floor().max(0.0) as u32;
+        let y0 = rect.y.floor().max(0.0) as u32;
+        let x1 = (rect.x + rect.w).max(0.0) as u32;
+        let y1 = (rect.y + rect.h).max(0.0) as u32;
+
+        for x in x0..x1 {
+            for y in y0..y1 {
+                if !self.occluded(x, y) {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
     pub fn reveal(&mut self, x: u32, y: u32) -> Option<SceneEvent> {
         if !self.on_map(x, y) {
             return None;

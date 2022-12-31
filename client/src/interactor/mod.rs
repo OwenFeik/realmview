@@ -277,10 +277,14 @@ impl Interactor {
 
     fn select(&mut self, id: Id) {
         if !self.is_selected(id) && self.perms.selectable(self.user, id) {
-            self.selected_sprites.push(id);
             if let Some(s) = self.sprite_ref(id) {
-                self.selection_aligned = self.selection_aligned && s.rect.is_aligned();
+                if self.role.editor() || !self.scene.fog.rect_occluded(s.rect) {
+                    self.selection_aligned = self.selection_aligned && s.rect.is_aligned();
+                } else {
+                    return;
+                }
             }
+            self.selected_sprites.push(id);
             self.changes.sprite_selected_change();
         }
     }
@@ -328,18 +332,22 @@ impl Interactor {
     /// and an ID option which contains the newly selected sprite, if any.
     fn grab_at(&self, at: Point, add: bool) -> (holding::HeldObject, Option<Id>) {
         if let Some(s) = self.scene.sprite_at_ref(at) {
-            if self.has_selection() {
-                if self.is_selected(s.id) {
-                    return if self.single_selected() {
-                        (holding::HeldObject::grab_sprite(s, at), None)
-                    } else {
-                        (holding::HeldObject::Selection(at), None)
-                    };
-                } else if add {
-                    return (holding::HeldObject::Selection(at), Some(s.id));
+            if !self.role.editor() && self.scene.fog.rect_occluded(s.rect) {
+                (holding::HeldObject::Marquee(at), None)
+            } else {
+                if self.has_selection() {
+                    if self.is_selected(s.id) {
+                        return if self.single_selected() {
+                            (holding::HeldObject::grab_sprite(s, at), None)
+                        } else {
+                            (holding::HeldObject::Selection(at), None)
+                        };
+                    } else if add {
+                        return (holding::HeldObject::Selection(at), Some(s.id));
+                    }
                 }
+                (holding::HeldObject::grab_sprite(s, at), Some(s.id))
             }
-            (holding::HeldObject::grab_sprite(s, at), Some(s.id))
         } else {
             (holding::HeldObject::Marquee(at), None)
         }
