@@ -9,7 +9,16 @@ serve: server content
 	echo "Serving at http://localhost:3030/"
 	RUST_BACKTRACE=1 \
 		DATABASE_URL=${build}/database.db \
-		${build}/server ${content}
+		${build}/server ${content} 3030
+
+deploy: content
+	${cargo} build -p server --release
+	cp --remove-destination ${target}/release/server ${build}/server
+	echo "Serving on port 80"
+	sudo \
+		RUST_BACKTRACE=1 \
+		DATABASE_URL=${build}/database.db \
+		${build}/server ${content} 80
 
 server: content database
 	${cargo} build -p server

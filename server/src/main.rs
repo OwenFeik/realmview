@@ -29,12 +29,18 @@ async fn connect_to_db() -> SqlitePool {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    const USAGE: &str = "Usage: ./server content/ 80";
+
     let games: Games = Arc::new(RwLock::new(HashMap::new()));
     let pool = connect_to_db().await;
-    let content_dir = std::env::args().nth(1).expect("Usage: ./server content/");
+    let content_dir = std::env::args().nth(1).expect(USAGE);
     let route = handlers::routes(pool, games, content_dir);
-
-    warp::serve(route).run(([127, 0, 0, 1], 3030)).await;
+    let port = std::env::args()
+        .nth(2)
+        .expect(USAGE)
+        .parse::<u16>()
+        .expect("Invalid port number.");
+    warp::serve(route).run(([0, 0, 0, 0], port)).await;
 
     Ok(())
 }
