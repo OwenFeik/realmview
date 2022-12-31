@@ -12,8 +12,8 @@
     * Place media in directories
 * Projects
 * Game
-    * Place newly added sprites in a non-occluded area for players
     * Prevent selection of occluded sprites for players
+    * Manage fog of war by player
     * Hide illegal dropdown options for players
     * When the WebSocket is closed, try to reconnect or redirect to a
         "game ended" page
@@ -38,6 +38,8 @@
 
 * Rust Nightly (`rustup default nightly`)
 * `wasm-pack` (`cargo install wasm-pack`)
+    * Note: `0.10.2`, `0.10.3` found to segfault when building. `0.9.0` known
+        working.
 * OpenSSL (`apt install libssl-dev` / `yum install openssl-devel`)
 * Python 3.6
 

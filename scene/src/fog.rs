@@ -191,6 +191,59 @@ impl Fog {
             Some(SceneEvent::FogActive(old, self.active))
         }
     }
+
+    pub fn nearest_clear(&self, x: u32, y: u32) -> (u32, u32) {
+        let mut tiles = vec![(x, y)];
+        let add_tile = |tiles: &mut Vec<(u32, u32)>, p: (u32, u32)| {
+            if !tiles.contains(&p) {
+                tiles.push(p);
+            }
+        };
+        let add_adjacent = |tiles: &mut Vec<(u32, u32)>, (x, y): (u32, u32)| {
+            let xm = x > 0;
+            let ym = y > 0;
+            let xp = x < self.w - 1;
+            let yp = y < self.h - 1;
+
+            if xm {
+                if ym {
+                    add_tile(tiles, (x - 1, y - 1));
+                }
+                add_tile(tiles, (x - 1, y));
+                if yp {
+                    add_tile(tiles, (x - 1, y + 1));
+                }
+            }
+
+            if ym {
+                add_tile(tiles, (x, y - 1));
+            }
+
+            if yp {
+                add_tile(tiles, (x, y + 1));
+            }
+
+            if xp {
+                if ym {
+                    add_tile(tiles, (x + 1, y - 1));
+                }
+                add_tile(tiles, (x + 1, y));
+                if yp {
+                    add_tile(tiles, (x + 1, y + 1));
+                }
+            }
+        };
+
+        let mut i = 0;
+        while let Some(&(x, y)) = tiles.get(i) {
+            if !self.occluded(x, y) {
+                return (x, y);
+            }
+            add_adjacent(&mut tiles, (x, y));
+            i += 1;
+        }
+        (x, y)
+    }
 }
 
 #[cfg(test)]

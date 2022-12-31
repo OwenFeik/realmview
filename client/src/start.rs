@@ -100,7 +100,7 @@ pub fn start() -> Result<(), JsValue> {
         move |layer: f64, w: f64, h: f64, media_key: String| {
             let texture = crate::render::parse_media_key(&media_key);
             let mut lock = vp_ref.lock();
-            let at = lock.centre_tile();
+            let at = lock.placement_tile();
             lock.scene.new_sprite_at(
                 Some(scene::SpriteVisual::Texture {
                     id: texture,

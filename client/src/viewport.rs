@@ -478,12 +478,28 @@ impl Viewport {
             .unwrap_or_else(|| self.centre_tile())
     }
 
-    pub fn centre_tile(&self) -> Point {
+    fn centre_tile(&self) -> Point {
         (self.viewport.top_left()
             + Point {
                 x: self.viewport.w / 2.0,
                 y: self.viewport.h / 2.0,
             })
         .round()
+    }
+
+    pub fn placement_tile(&self) -> Point {
+        let centre = self.centre_tile();
+        if self.scene.role.editor() {
+            centre
+        } else {
+            let x = centre.x as u32;
+            let y = centre.y as u32;
+            let nearest = self.scene.fog().nearest_clear(x, y);
+            if nearest != (x, y) {
+                Point::new(nearest.0 as f32, nearest.1 as f32)
+            } else {
+                centre
+            }
+        }
     }
 }
