@@ -1,6 +1,12 @@
 # TODO
 
+* Site
+    * Homepage should be different when logged in. Maybe just redirect to
+        project page by default.
 * Scene
+    * Ephemeral shapes don't work
+    * Undoing creation of a shape moves it to a 1x1 in top left\
+    * Make shapes hollow by default
     * Warn when saving over changes
 * Layers
     * Select from selected layer first (possibly)
@@ -38,13 +44,30 @@
 * Rust Nightly (`rustup default nightly`)
 * `wasm-pack` (`cargo install wasm-pack`)
     * Note: `0.10.2`, `0.10.3` found to segfault when building. `0.9.0` known
-        working.
+        working. (`cargo install wasm-pack@0.9.0`)
 * OpenSSL (`apt install libssl-dev` / `yum install openssl-devel`)
 * Python 3.6
 
 ## Keyboard Shortcuts
 
-* `Q`  Select
+| Key    | Tool          |
+| ------ | ------------- |
+| Space  | Pan           |
+| Escape | `D` then `Q`  |
+| `A`    | Select all    |
+| `C`    | Copy          |
+| `D`    | Deselect      |
+| `E`    | Ellipse       |
+| `F`    | Freehand draw |
+| `L`    | Line draw     |
+| `Q`    | Select        |
+| `R`    | Rectangle     |
+| `V`    | Paste         |
+| `W`    | Edit fog      |
+| `Y`    | Redo          |
+| `Z`    | Undo          |
+| `+`    | Zoom in       |
+| `-`    | Zoom out      |
 
 ## Moving Sprites
 
