@@ -1,0 +1,16 @@
+IFDEF(LABEL) {{
+<div class="input-group-text" IFDEF(ID) {{ id="{{ ID }}_label" }}>
+  <label IFDEF(ID) {{ for="{{ ID }}" }}>{{ LABEL }}</label>
+</div>
+}}
+<div class="input-group-text" IFDEF(ID) {{ id="{{ ID }}_container" }}>
+  <div class="form-check">
+    <input
+      class="form-check-input"
+      type="checkbox"
+      IFDEF(CHECKED) {{ value="" }}
+      IFDEF(ID) {{ id="{{ ID }}" }}
+      IFDEF(ACTION) {{ oninput="({{ ACTION }})(this.checked);" }}
+    >
+  </div>
+</div>

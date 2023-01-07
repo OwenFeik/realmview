@@ -1,0 +1,33 @@
+<EditableInput
+  id="{{ PREFIX }}_stroke"
+  label="Stroke Width"
+  type="number"
+  min=0
+  max=1000
+  small=1
+  value=20
+  action="v => ({{ ACTION }})(v / 100)"
+  IFDEF(NOSTART) {{ nostart=1 }}
+  noend=1
+>
+<Checkbox
+  id="{{ PREFIX }}_solid"
+  label="Solid"
+  action="
+    solid => {
+      const input = document.getElementById('{{ PREFIX }}_stroke');
+      
+      let value;
+      if (solid) {
+        input.disabled = true;
+        value = 0.0;
+      } else {
+        input.disabled = false;
+        value = parseFloat(input.value) / 100.0;
+      }
+
+      ({{ ACTION }})(value);
+    }
+  "
+>
+IFNDEF(NOEND) {{ </div> }}
