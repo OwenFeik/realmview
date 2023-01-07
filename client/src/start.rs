@@ -89,7 +89,6 @@ pub fn start() -> Result<(), JsValue> {
             let mut lock = vp_ref.lock();
             lock.scene.scene_details(details);
             crate::bridge::set_scene_details(lock.scene.get_scene_details());
-            crate::bridge::flog!("{:?}", lock.scene.get_scene_details());
         }
     }) as Box<dyn FnMut(String)>);
     expose_closure_string_in("scene_details", &scene_details_closure);

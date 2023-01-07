@@ -89,12 +89,18 @@ impl SpriteDetails {
     }
 
     pub fn drawing(&self) -> SpriteVisual {
+        let stroke = if self.stroke() < f32::EPSILON {
+            Sprite::DEFAULT_STROKE
+        } else {
+            self.stroke()
+        };
+
         SpriteVisual::Drawing(SpriteDrawing {
             drawing_type: self.drawing_type(),
             colour: self.colour(),
             cap_start: self.cap_start(),
             cap_end: self.cap_end(),
-            stroke: self.stroke(),
+            stroke,
             ..Default::default()
         })
     }
@@ -257,7 +263,7 @@ impl SpriteDetails {
         }
     }
 
-    fn stroke(&self) -> f32 {
+    pub fn stroke(&self) -> f32 {
         self.stroke.unwrap_or(Sprite::DEFAULT_STROKE)
     }
 

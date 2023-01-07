@@ -110,6 +110,35 @@ impl History {
         }
     }
 
+    fn drain_history_until<F: FnMut(&SceneEvent) -> bool>(
+        &mut self,
+        mut pred: F,
+    ) -> Vec<SceneEvent> {
+        let mut drained = Vec::new();
+        while let Some(e) = self.history.pop() {
+            if pred(&e) {
+                drained.push(e);
+            } else {
+                if !matches!(e, SceneEvent::Dummy) {
+                    self.history.push(e);
+                }
+                break;
+            }
+        }
+        drained
+    }
+
+    pub fn group_for_item(&mut self, item: Id) {
+        let events = self.drain_history_until(|e| {
+            if let Some(id) = e.item() {
+                id == item
+            } else {
+                false
+            }
+        });
+        self.history.push(SceneEvent::EventSet(events));
+    }
+
     fn group_moves_single(&mut self, last: SceneEvent) {
         let (sprite, mut start, finish) = if let SceneEvent::SpriteMove(id, from, to) = last {
             (id, from, to)
@@ -195,5 +224,17 @@ impl History {
 
     pub fn change_scene(&mut self, scene_key: String) {
         self.issue_message(ClientEvent::SceneChange(scene_key));
+    }
+
+    pub fn erase_item(&mut self, id_to_erase: Id) {
+        let predicate = |e: &SceneEvent| {
+            if let Some(id) = e.item() {
+                id != id_to_erase
+            } else {
+                true
+            }
+        };
+        self.history.retain(predicate);
+        self.redo_history.retain(predicate);
     }
 }

@@ -4,5 +4,6 @@
     "DATA_ID_ATTR": "data-id",
     "GAME_KEY_LENGTH": 6,
     "SCENE_KEY_LENGTH": 16,
-    "HOVER_ELEM_INSET": "10px"
+    "HOVER_ELEM_INSET": "10px",
+    "SPRITE_STROKE_SOLID": 0.0
 }

@@ -4,14 +4,17 @@
     * Homepage should be different when logged in. Maybe just redirect to
         project page by default.
 * Scene
-    * Undoing creation of a shape moves it to a 1x1 in top left
-    * Make shapes hollow by default
+    * Undoing creation of a shape moves it to a 0x0 at cursor
     * Warn when saving over changes
     * Keyboard shortcuts on hovering tools
+    * Outline is 1x1 while drawing
+    * Updating sprite shape via menu is broken
+    * Tool selection gets broken when changing stroke
 * Layers
     * Select from selected layer first (possibly)
     * Layer opacity
 * Sprites
+    * Hide sprite menu when no sprite selected
     * Use sprite menu to change texture
     * Group sprites
 * Media

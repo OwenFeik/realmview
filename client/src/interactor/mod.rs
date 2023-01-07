@@ -43,7 +43,10 @@ impl Interactor {
             changes: changes::Changes::new(),
             role: scene::perms::Role::Owner,
             copied: None,
-            draw_details: details::SpriteDetails::default(),
+            draw_details: details::SpriteDetails {
+                stroke: Some(Sprite::DEFAULT_STROKE),
+                ..Default::default()
+            },
             fog_brush: 1,
             history: history::History::new(client),
             holding: holding::HeldObject::None,
@@ -525,6 +528,7 @@ impl Interactor {
             holding::HeldObject::Ephemeral(held) => {
                 if let Some(id) = held.held_id() {
                     self.remove_sprite(id);
+                    self.history.erase_item(id);
                 }
             }
             holding::HeldObject::None => {}
@@ -739,21 +743,18 @@ impl Interactor {
         ephemeral: bool,
     ) {
         self.clear_held_selection();
-        if let Some(id) = self.new_sprite(
+        let at = Rect::at(if snap_to_grid { at.round() } else { at }, 0.0, 0.0);
+        if let Some(id) = self.new_sprite_at(
             Some(SpriteVisual::Solid {
                 colour: self.draw_details.colour(),
                 shape,
-                stroke: Sprite::SOLID_STROKE,
+                stroke: self.draw_details.stroke(),
             }),
             Some(self.selected_layer),
+            at,
         ) {
-            let at = if snap_to_grid { at.round() } else { at };
-            let opt = self.scene.sprite(id).map(|s| {
-                self.holding = holding::HeldObject::Anchor(s.id, 1, 1, s.rect);
-                self.holding.set_ephemeral(ephemeral);
-                s.set_rect(Rect::new(at.x, at.y, 0.0, 0.0))
-            });
-            self.scene_option(opt);
+            self.holding = holding::HeldObject::Anchor(id, 1, 1, at);
+            self.holding.set_ephemeral(ephemeral);
         }
     }
 

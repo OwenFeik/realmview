@@ -26,22 +26,11 @@
         )
       }}
       <div class="input-group input-group-sm mt-2">
-        <div class="input-group-text">
-          <label
-            for="scene_menu_fog"
-          >Fog of War</label>
-        </div>
-        <div class="input-group-text">
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              value=""
-              id="scene_menu_fog"
-              oninput="update_scene_details('fog', this.checked);"
-            >
-          </div>
-        </div>
+        <Checkbox
+          label="Fog of War"
+          id="scene_menu_fog"
+          action="v => update_scene_details('fog', v)"
+        >
         <EditableInput
           id="scene_menu_fog_brush"
           label="Brush"
