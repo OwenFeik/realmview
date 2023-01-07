@@ -2,10 +2,11 @@ use scene::{Id, Point, Rect, Sprite};
 
 use crate::bridge::Cursor;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum HeldObject {
     Anchor(Id, i32, i32, Rect), // (sprite, dx, dy, starting_rect)
-    Drawing(Id, bool),          // (sprite, ephemeral)
+    Drawing(Id),                // (sprite, ephemeral)
+    Ephemeral(Box<HeldObject>),
     Marquee(Point),
     None,
     Selection(Point),
@@ -17,15 +18,35 @@ impl HeldObject {
     // sprite can be dragged.
     const ANCHOR_RADIUS: f32 = 0.2;
 
-    fn held_id(&self) -> Option<Id> {
+    pub fn held_id(&self) -> Option<Id> {
         match self {
             Self::Anchor(id, ..) | Self::Drawing(id, ..) | Self::Sprite(id, ..) => Some(*id),
+            Self::Ephemeral(held) => held.held_id(),
             _ => None,
         }
     }
 
     fn is_none(&self) -> bool {
         matches!(self, HeldObject::None)
+    }
+
+    /// If this isn't a HeldObject::Ephemeral, wrap it in one.
+    pub fn ephemeral(&mut self) {
+        if !matches!(self, Self::Ephemeral(..)) {
+            *self = HeldObject::Ephemeral(Box::new(self.clone()))
+        }
+    }
+
+    /// Update this HeldObject so that it is wrapped in HeldObject::Ephemeral
+    /// if ephemeral is true, otherwise not wrapped.
+    pub fn set_ephemeral(&mut self, ephemeral: bool) {
+        if let Self::Ephemeral(held) = self {
+            if !ephemeral {
+                *self = *held.clone();
+            }
+        } else if ephemeral {
+            self.ephemeral();
+        }
     }
 
     pub fn is_sprite(&self) -> bool {
@@ -97,8 +118,18 @@ impl HeldObject {
                 _ => Cursor::Move,
             },
             Self::Drawing(..) => Cursor::Crosshair,
+            Self::Ephemeral(held) => held.cursor(),
             Self::Marquee(..) | Self::None => Cursor::Default,
             Self::Selection(..) | Self::Sprite(..) => Cursor::Move,
+        }
+    }
+
+    /// Returns a clone of this HeldObject if it isn't a wrapper, otherwise
+    /// a clone of the wrapped HeldObject.
+    pub fn value(&self) -> HeldObject {
+        match self {
+            HeldObject::Ephemeral(held) => *held.clone(),
+            _ => self.clone(),
         }
     }
 }

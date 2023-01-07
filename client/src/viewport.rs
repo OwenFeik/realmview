@@ -336,7 +336,6 @@ impl Viewport {
 
     fn handle_key_down(&mut self, key: Key, ctrl: bool) {
         match key {
-            k if k.is_arrow() => self.handle_arrow_key_down(key, ctrl),
             Key::Delete => self.scene.remove_selection(),
             Key::Escape => {
                 self.scene.clear_selection();
@@ -360,6 +359,7 @@ impl Viewport {
             Key::W => self.set_tool(Tool::Fog),
             Key::Y => self.scene.redo(),
             Key::Z => self.scene.undo(),
+            k if k.is_arrow() => self.handle_arrow_key_down(key, ctrl),
             _ => {}
         }
     }

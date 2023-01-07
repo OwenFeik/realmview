@@ -4,10 +4,10 @@
     * Homepage should be different when logged in. Maybe just redirect to
         project page by default.
 * Scene
-    * Ephemeral shapes don't work
-    * Undoing creation of a shape moves it to a 1x1 in top left\
+    * Undoing creation of a shape moves it to a 1x1 in top left
     * Make shapes hollow by default
     * Warn when saving over changes
+    * Keyboard shortcuts on hovering tools
 * Layers
     * Select from selected layer first (possibly)
     * Layer opacity
