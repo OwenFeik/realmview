@@ -55,3 +55,6 @@ features = [
     'WheelEvent',             # Handle scrolling on battlemap
     'Window',                 # Access window globals
 ]
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false # Causes a segfault
