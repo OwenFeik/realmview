@@ -37,7 +37,10 @@ impl Perm {
             SceneEvent::LayerNew(..) | SceneEvent::LayerRestore(..) => Perm::LayerNew,
             SceneEvent::SceneDimensions(..) | SceneEvent::SceneTitle(..) => Perm::SceneDetails,
             SceneEvent::SpriteLayer(..) => Perm::LayerUpdate,
-            SceneEvent::SpriteMove(..)
+            SceneEvent::GroupNew(..)
+            | SceneEvent::GroupAdd(..)
+            | SceneEvent::GroupRemove(..)
+            | SceneEvent::SpriteMove(..)
             | SceneEvent::SpriteVisual(..)
             | SceneEvent::SpriteDrawingFinish(..)
             | SceneEvent::SpriteDrawingPoint(..) => Perm::SpriteUpdate,

@@ -16,6 +16,7 @@ pub mod comms;
 pub mod perms;
 
 mod fog;
+mod group;
 mod layer;
 mod point;
 mod rect;
@@ -36,6 +37,7 @@ pub struct Scene {
     pub title: Option<String>,
     pub project: Option<Id>,
     pub fog: Fog,
+    pub groups: Vec<group::Group>,
 }
 
 impl Scene {
@@ -229,6 +231,10 @@ impl Scene {
         let ret = Some(SceneEvent::LayerMove(self.layers[i].id, layer_z, up));
         self.sort_layers();
         ret
+    }
+
+    fn group(&mut self, id: Id) -> Option<&mut group::Group> {
+        self.groups.iter_mut().find(|g| g.id == id)
     }
 
     pub fn sprite(&mut self, id: Id) -> Option<&mut Sprite> {
@@ -437,6 +443,22 @@ impl Scene {
                     false
                 }
             }
+            SceneEvent::GroupNew(id) => {
+                if self.groups.iter().any(|g| g.id == id) {
+                    false
+                } else {
+                    self.groups.push(group::Group::new(id));
+                    true
+                }
+            }
+            SceneEvent::GroupAdd(group, sprite) => {
+                self.group(group).map(|g| g.add(sprite));
+                true
+            }
+            SceneEvent::GroupRemove(group, sprite) => {
+                self.group(group).map(|g| g.remove(sprite));
+                true
+            }
             SceneEvent::LayerLocked(l, locked) => {
                 self.layer(l).map(|l| l.set_locked(locked));
                 true
@@ -566,6 +588,12 @@ impl Scene {
             SceneEvent::FogOcclude(occluded, x, y) | SceneEvent::FogReveal(occluded, x, y) => {
                 self.fog.set(x, y, occluded)
             }
+            SceneEvent::GroupAdd(group, sprite) => self.group(group).map(|g| g.remove(sprite)),
+            SceneEvent::GroupNew(id) => {
+                self.groups.retain(|g| g.id != id);
+                None
+            }
+            SceneEvent::GroupRemove(group, sprite) => self.group(group).map(|g| g.add(sprite)),
             SceneEvent::LayerLocked(l, locked) => self.layer(l)?.set_locked(!locked),
             SceneEvent::LayerMove(l, _, up) => self.move_layer(l, !up),
             SceneEvent::LayerNew(id, _, _) => self.remove_layer(id),
@@ -642,6 +670,7 @@ impl Default for Scene {
             title: None,
             project: None,
             fog: Fog::new(Scene::DEFAULT_SIZE, Scene::DEFAULT_SIZE),
+            groups: Vec::new(),
         }
     }
 }
