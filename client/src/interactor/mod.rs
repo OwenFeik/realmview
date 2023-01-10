@@ -1,6 +1,7 @@
 use bincode::serialize;
 use scene::comms::ServerEvent;
 
+use crate::dropdown::DropdownEvent;
 use crate::scene::{
     comms::SceneEvent, perms::Perms, Dimension, Id, Layer, Point, Rect, Scene, Sprite, SpriteShape,
     SpriteVisual,
@@ -274,17 +275,25 @@ impl Interactor {
         self.clear_selection();
     }
 
-    fn select(&mut self, id: Id) {
+    /// Common handling for sprites in groups and single sprites. Only called
+    /// from select.
+    fn _select(&mut self, id: Id, require_visible: bool) {
         if !self.is_selected(id) && self.perms.selectable(self.user, id) {
             if let Some(s) = self.sprite_ref(id) {
-                if self.role.editor() || !self.scene.fog.rect_occluded(s.rect) {
+                if !require_visible || self.role.editor() || !self.scene.fog.rect_occluded(s.rect) {
                     self.selection_aligned = self.selection_aligned && s.rect.is_aligned();
-                } else {
-                    return;
+                    self.selected_sprites.push(id);
+                    self.changes.sprite_selected_change();
                 }
             }
-            self.selected_sprites.push(id);
-            self.changes.sprite_selected_change();
+        }
+    }
+
+    fn select(&mut self, id: Id) {
+        if let Some(g) = self.scene.sprite_group(id).map(|g| g.sprites().to_owned()) {
+            g.iter().for_each(|id| self._select(*id, false));
+        } else {
+            self._select(id, true);
         }
     }
 
@@ -868,5 +877,30 @@ impl Interactor {
 
     pub fn update_draw_details(&mut self, details: details::SpriteDetails) {
         self.draw_details.update_from(&details);
+    }
+
+    fn group_selected(&mut self) {
+        crate::bridge::flog!("Group selected sprites!");
+    }
+
+    pub fn handle_dropdown_event(&mut self, event: DropdownEvent) {
+        match event {
+            DropdownEvent::Clone => {
+                if let Some(id) = self.selected_id() {
+                    self.clone_sprite(id);
+                }
+            }
+            DropdownEvent::Delete => {
+                if let Some(id) = self.selected_id() {
+                    self.remove_sprite(id);
+                }
+            }
+            DropdownEvent::Group => self.group_selected(),
+            DropdownEvent::Layer(layer) => {
+                if let Some(sprite) = self.selected_id() {
+                    self.sprite_layer(sprite, layer)
+                }
+            }
+        }
     }
 }

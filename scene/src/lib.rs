@@ -237,6 +237,10 @@ impl Scene {
         self.groups.iter_mut().find(|g| g.id == id)
     }
 
+    pub fn sprite_group(&self, id: Id) -> Option<&group::Group> {
+        self.groups.iter().find(|g| g.includes(id))
+    }
+
     pub fn sprite(&mut self, id: Id) -> Option<&mut Sprite> {
         for layer in self.layers.iter_mut() {
             let s_opt = layer.sprite(id);

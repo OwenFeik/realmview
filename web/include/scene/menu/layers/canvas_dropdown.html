@@ -4,30 +4,6 @@
   style="position: absolute; width: 200px;"
   data-id="0"
 >
-  <li>
-    <a
-      class="dropdown-item"
-      href="#"
-      onclick="
-        hide_sprite_dropdown();
-        RustFuncs.clone_sprite(parseInt(
-          this.parentNode.parentNode.getAttribute('data-id')
-        ));
-      "
-    >Clone</a>
-  </li>
-  <li>
-    <a
-      class="dropdown-item"
-      href="#"
-      onclick="
-        hide_sprite_dropdown();
-        RustFuncs.remove_sprite(parseInt(
-          this.parentNode.parentNode.getAttribute('data-id')
-        ));
-      "
-    >Delete</a>
-  </li>
   <li class="dropend">
     <a
       class="dropdown-item dropdown-toggle"

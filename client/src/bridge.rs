@@ -154,7 +154,7 @@ impl Canvas {
     /// Create a new canvas element and set it up to fill the screen.
     fn new_element() -> anyhow::Result<Canvas> {
         let element = {
-            if let Some(e) = get_document()?.get_element_by_id("canvas") {
+            if let Ok(e) = get_element_by_id("canvas") {
                 e
             } else {
                 create_appended("canvas")?
@@ -890,6 +890,21 @@ fn get_element_by_id(id: &str) -> anyhow::Result<HtmlElement> {
     }
 }
 
+fn append_child(parent: &HtmlElement, child: &HtmlElement) {
+    parent
+        .append_child(child.unchecked_ref::<web_sys::Node>())
+        .ok();
+}
+
+fn prepend_child(parent: &HtmlElement, child: &HtmlElement) {
+    parent
+        .insert_before(
+            child.unchecked_ref::<web_sys::Node>(),
+            parent.first_child().as_ref(),
+        )
+        .ok();
+}
+
 pub fn websocket_url() -> anyhow::Result<Option<String>> {
     let win = match window() {
         Ok(w) => w,
@@ -917,13 +932,14 @@ pub fn websocket_url() -> anyhow::Result<Option<String>> {
     }
 }
 
-fn create_element(name: &str) -> anyhow::Result<web_sys::Element> {
+fn create_element(name: &str) -> anyhow::Result<web_sys::HtmlElement> {
     get_document()?
         .create_element(name)
+        .map(|e| e.unchecked_into::<web_sys::HtmlElement>())
         .map_err(|e| anyhow!("Element creation failed: {e:?}."))
 }
 
-fn create_appended(name: &str) -> anyhow::Result<web_sys::Element> {
+fn create_appended(name: &str) -> anyhow::Result<web_sys::HtmlElement> {
     let element = create_element(name)?;
     match get_body()?.append_child(&element) {
         Ok(_) => Ok(element),
@@ -1028,6 +1044,23 @@ pub fn populate_change_scene(scenes: &[(String, String)], current: &str) -> anyh
     let input = select.unchecked_ref::<HtmlInputElement>();
     input.set_value(current);
     input.set_disabled(scenes.len() <= 1);
+
+    Ok(())
+}
+
+pub fn add_dropdown_entry(label: &str, handler: Box<dyn FnMut()>) -> anyhow::Result<()> {
+    let menu = get_element_by_id("canvas_sprite_dropdown")?;
+    let item = create_element("li")?;
+    append_child(&menu, &item);
+    let link = create_element("a")?;
+    prepend_child(&item, &link);
+    link.set_class_name("dropdown-item");
+    link.set_attribute("href", "#").ok();
+    link.set_inner_text(label);
+
+    let closure = Closure::wrap(handler);
+    link.set_onclick(Some(closure.as_ref().unchecked_ref()));
+    closure.forget();
 
     Ok(())
 }

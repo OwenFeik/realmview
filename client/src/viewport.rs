@@ -1,3 +1,4 @@
+use crate::dropdown::Dropdown;
 use crate::scene::{Point, Rect};
 use crate::{
     bridge::{
@@ -73,6 +74,9 @@ pub struct Viewport {
     // WebGL rendering context wrapper
     context: Context,
 
+    // Canvas context menu
+    dropdown: Dropdown,
+
     // Measured in scene units (tiles)
     viewport: Rect,
 
@@ -100,6 +104,7 @@ impl Viewport {
         let mut vp = Viewport {
             scene: Interactor::new(client),
             context: Context::new()?,
+            dropdown: Dropdown::new(),
             tool: Tool::Select,
             viewport: Rect {
                 x: 0.0,
@@ -398,6 +403,10 @@ impl Viewport {
                 Input::Keyboard(KeyboardAction::Down, key) => self.handle_key_down(key, event.ctrl),
                 Input::Keyboard(KeyboardAction::Up, _) => (),
             };
+        }
+
+        if let Some(event) = self.dropdown.event() {
+            self.scene.handle_dropdown_event(event);
         }
     }
 

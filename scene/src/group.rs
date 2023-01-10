@@ -29,4 +29,8 @@ impl Group {
         self.sprites.retain(|s| *s != sprite);
         SceneEvent::GroupRemove(self.id, sprite)
     }
+
+    pub fn sprites(&self) -> &[Id] {
+        &self.sprites
+    }
 }
