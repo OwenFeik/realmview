@@ -30,4 +30,8 @@ impl Group {
     pub fn sprites(&self) -> &[Id] {
         &self.sprites
     }
+
+    pub fn empty(&self) -> bool {
+        self.sprites.is_empty()
+    }
 }

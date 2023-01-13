@@ -1,6 +1,7 @@
 use anyhow::anyhow;
 use sqlx::{Row, SqliteConnection};
 
+use self::group::GroupRecord;
 use self::layer::LayerRecord;
 pub use self::scene_record::SceneRecord;
 use self::sprite::SpriteRecord;
@@ -156,6 +157,13 @@ impl Project {
 
             for sprite in &layer.sprites {
                 SpriteRecord::save(conn, sprite, l.id, s.id).await?;
+            }
+        }
+
+        GroupRecord::delete_scene_groups(conn, s.id).await?;
+        for group in &scene.groups {
+            if !group.empty() {
+                GroupRecord::from(s.id, group).save(conn).await?;
             }
         }
 
@@ -371,12 +379,19 @@ mod scene_record {
                 }
             }
 
+            let groups = super::group::GroupRecord::load_scene_groups(conn, self.id)
+                .await?
+                .iter()
+                .map(|gr| gr.to_group())
+                .collect();
+
             let mut scene = scene::Scene::new_with_layers(layers);
             scene.id = Some(self.id);
             scene.title = Some(self.title.clone());
             scene.project = Some(self.project);
             scene.fog = scene::Fog::from_bytes(self.w, self.h, &self.fog);
             scene.fog.active = self.fog_active;
+            scene.groups = groups;
             Ok(scene)
         }
 
@@ -746,6 +761,85 @@ mod sprite {
                 .fetch_all(conn)
                 .await
                 .map_err(|e| anyhow::anyhow!("Failed to load sprite list: {e}."))
+        }
+    }
+}
+
+mod group {
+    use sqlx::SqliteConnection;
+
+    #[derive(sqlx::FromRow)]
+    pub struct GroupRecord {
+        id: i64,
+        scene: i64,
+        ids: Vec<u8>,
+    }
+
+    impl GroupRecord {
+        pub fn from(scene: i64, group: &scene::Group) -> Self {
+            Self {
+                id: group.id,
+                scene,
+                ids: group
+                    .sprites()
+                    .iter()
+                    .flat_map(|f| f.to_be_bytes())
+                    .collect(),
+            }
+        }
+
+        pub fn to_group(&self) -> scene::Group {
+            scene::Group::new(
+                self.id,
+                self.ids
+                    .chunks_exact(64 / 8)
+                    .map(|b| i64::from_be_bytes([b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]]))
+                    .collect(),
+            )
+        }
+
+        async fn delete(&self, conn: &mut SqliteConnection) -> anyhow::Result<()> {
+            sqlx::query("DELETE FROM groups WHERE id = ?1 AND scene = ?2;")
+                .bind(self.id)
+                .bind(self.scene)
+                .execute(conn)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to delete group: {e}"))?;
+            Ok(())
+        }
+
+        pub async fn save(&self, conn: &mut SqliteConnection) -> anyhow::Result<()> {
+            sqlx::query("INSERT INTO groups (id, scene, ids) VALUES (?1, ?2, ?3);")
+                .bind(self.id)
+                .bind(self.scene)
+                .bind(&self.ids)
+                .execute(conn)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to save group: {e}"))?;
+            Ok(())
+        }
+
+        pub async fn delete_scene_groups(
+            conn: &mut SqliteConnection,
+            scene: i64,
+        ) -> anyhow::Result<()> {
+            sqlx::query("DELETE FROM groups WHERE scene = ?1;")
+                .bind(scene)
+                .execute(conn)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to delete scene groups: {e}"))?;
+            Ok(())
+        }
+
+        pub async fn load_scene_groups(
+            conn: &mut SqliteConnection,
+            scene: i64,
+        ) -> anyhow::Result<Vec<GroupRecord>> {
+            sqlx::query_as("SELECT * FROM groups WHERE scene = ?1;")
+                .bind(scene)
+                .fetch_all(conn)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to load scene groups: {e}"))
         }
     }
 }

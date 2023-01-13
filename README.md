@@ -4,7 +4,6 @@
     * Homepage should be different when logged in. Maybe just redirect to
         project page by default.
 * Scene
-    * Save and load groups
     * Undoing creation of a shape moves it to a 0x0 at cursor
     * Warn when saving over changes
     * Keyboard shortcuts on hovering tools

@@ -4,6 +4,7 @@
 
 use comms::SceneEvent;
 pub use fog::Fog;
+pub use group::Group;
 pub use layer::Layer;
 pub use point::{Point, PointVector};
 pub use rect::{Dimension, Rect};
@@ -37,7 +38,7 @@ pub struct Scene {
     pub title: Option<String>,
     pub project: Option<Id>,
     pub fog: Fog,
-    pub groups: Vec<group::Group>,
+    pub groups: Vec<Group>,
 }
 
 impl Scene {
@@ -236,11 +237,11 @@ impl Scene {
     fn new_group(&mut self, id: Option<Id>, sprites: Option<Vec<Id>>) -> SceneEvent {
         let id = id.unwrap_or(self.next_id);
         self.groups
-            .push(group::Group::new(id, sprites.unwrap_or_default()));
+            .push(Group::new(id, sprites.unwrap_or_default()));
         SceneEvent::GroupNew(id)
     }
 
-    fn group(&mut self, id: Id) -> Option<&mut group::Group> {
+    fn group(&mut self, id: Id) -> Option<&mut Group> {
         self.groups.iter_mut().find(|g| g.id == id)
     }
 
@@ -249,7 +250,7 @@ impl Scene {
         SceneEvent::GroupDelete(id)
     }
 
-    pub fn sprite_group(&self, id: Id) -> Option<&group::Group> {
+    pub fn sprite_group(&self, id: Id) -> Option<&Group> {
         self.groups.iter().find(|g| g.includes(id))
     }
 
@@ -264,7 +265,7 @@ impl Scene {
             }
         }
 
-        let new_group = group::Group::new(self.next_id(), sprites.clone());
+        let new_group = Group::new(self.next_id(), sprites.clone());
         events.push(SceneEvent::GroupNew(new_group.id));
 
         for id in sprites {
@@ -486,7 +487,7 @@ impl Scene {
                 if self.groups.iter().any(|g| g.id == id) {
                     false
                 } else {
-                    self.groups.push(group::Group::new(id, Vec::new()));
+                    self.groups.push(Group::new(id, Vec::new()));
                     true
                 }
             }

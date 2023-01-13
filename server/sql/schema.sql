@@ -82,3 +82,10 @@ CREATE TABLE IF NOT EXISTS sprites (
     cap_end INTEGER,
     UNIQUE(id, scene)
 );
+
+CREATE TABLE IF NOT EXISTS groups (
+    id INTEGER NOT NULL,
+    scene INTEGER REFERENCES scenes(id) ON DELETE CASCADE NOT NULL,
+    ids BLOB, -- Vec<i64>, big endian encoded
+    UNIQUE(id, scene)
+);
