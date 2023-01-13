@@ -7,7 +7,6 @@
     * Undoing creation of a shape moves it to a 0x0 at cursor
     * Warn when saving over changes
     * Keyboard shortcuts on hovering tools
-    * Outline is 1x1 while drawing
     * Updating sprite shape via menu is broken
     * Tool selection gets broken when changing stroke
 * Layers

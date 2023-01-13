@@ -591,8 +591,11 @@ impl Interactor {
             }
         }
 
-        if let Some(sprite) = self.held_sprite() {
-            selections.push(sprite.rect);
+        // Don't want a 1*1 square showing while the user draws lines.
+        if !matches!(self.holding, holding::HeldObject::Drawing(..)) {
+            if let Some(sprite) = self.held_sprite() {
+                selections.push(sprite.rect);
+            }
         }
 
         if let Some(rect) = self.selection_marquee {
