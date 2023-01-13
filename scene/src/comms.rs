@@ -72,7 +72,9 @@ impl SceneEvent {
     pub fn is_sprite(&self) -> bool {
         if matches!(
             self,
-            Self::SpriteDrawingFinish(..)
+            Self::GroupAdd(..)
+                | Self::GroupRemove(..)
+                | Self::SpriteDrawingFinish(..)
                 | Self::SpriteDrawingPoint(..)
                 | Self::SpriteLayer(..)
                 | Self::SpriteMove(..)
@@ -92,6 +94,8 @@ impl SceneEvent {
     // If is_sprite or is_layer is true, this will be safe to unwrap.
     pub fn item(&self) -> Option<Id> {
         let id = match self {
+            Self::GroupAdd(_, id) => id,
+            Self::GroupRemove(_, id) => id,
             Self::LayerLocked(id, ..) => id,
             Self::LayerMove(id, ..) => id,
             Self::LayerNew(id, ..) => id,

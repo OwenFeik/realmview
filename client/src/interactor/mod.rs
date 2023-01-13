@@ -116,19 +116,26 @@ impl Interactor {
         self.scene.unwind_event(event);
     }
 
+    fn change_if(&mut self, event: &SceneEvent) {
+        self.changes.layer_change_if(event.is_layer());
+        self.changes.sprite_change_if(event.is_sprite());
+        self.changes.sprite_change_if(event.is_fog());
+        if let Some(id) = event.item() {
+            self.changes.selected_change_if(self.is_selected(id));
+        }
+
+        if let SceneEvent::EventSet(events) = event {
+            events.iter().for_each(|e| self.change_if(e));
+        }
+    }
+
     fn scene_event(&mut self, event: SceneEvent) {
         if self
             .perms
             .permitted(self.user, &event, self.scene.event_layer(&event))
         {
-            self.history.issue_event(event.clone());
-
-            self.changes.layer_change_if(event.is_layer());
-            self.changes.sprite_change_if(event.is_sprite());
-            self.changes.sprite_change_if(event.is_fog());
-            if let Some(id) = event.item() {
-                self.changes.selected_change_if(self.is_selected(id));
-            }
+            self.change_if(&event);
+            self.history.issue_event(event);
         } else {
             crate::bridge::flog!("forbidden: {event:?}");
             self.scene.unwind_event(event);
@@ -937,5 +944,18 @@ impl Interactor {
                 }
             }
         }
+    }
+
+    pub fn allowed_options(&self) -> &[DropdownEvent] {
+        if self.selected_sprites.len() > 1 {
+            if let Some(&id) = self.selected_sprites.first() {
+                if self.scene.sprite_group(id).is_some() {
+                    return &[];
+                } else {
+                    return &[DropdownEvent::Ungroup];
+                }
+            }
+        }
+        &[DropdownEvent::Group, DropdownEvent::Ungroup]
     }
 }

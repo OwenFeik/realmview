@@ -473,6 +473,7 @@ impl Viewport {
             } else {
                 clear_selected_sprite();
             }
+            self.dropdown.update_options(self.scene.allowed_options());
         }
     }
 

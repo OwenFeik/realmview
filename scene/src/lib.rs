@@ -264,8 +264,13 @@ impl Scene {
             }
         }
 
-        let new_group = group::Group::new(self.next_id(), sprites);
+        let new_group = group::Group::new(self.next_id(), sprites.clone());
         events.push(SceneEvent::GroupNew(new_group.id));
+
+        for id in sprites {
+            events.push(SceneEvent::GroupAdd(new_group.id, id));
+        }
+
         self.groups.push(new_group);
 
         SceneEvent::EventSet(events)

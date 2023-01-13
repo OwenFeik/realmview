@@ -6,7 +6,7 @@ use crate::{bridge::element::Element, viewport::ViewportPoint};
 
 type Output = Rc<Mutex<Option<DropdownEvent>>>;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DropdownEvent {
     Clone,
     Delete,
@@ -158,6 +158,16 @@ impl Dropdown {
             let item = self.new_item(&layer.title, DropdownEvent::Layer(layer.id));
             self.layers_menu.append_child(&item.element);
             self.layers.push(item);
+        }
+    }
+
+    pub fn update_options(&self, hide: &[DropdownEvent]) {
+        for item in &self.items {
+            if hide.contains(&item.event) {
+                item.element.hide();
+            } else {
+                item.element.show();
+            }
         }
     }
 }
