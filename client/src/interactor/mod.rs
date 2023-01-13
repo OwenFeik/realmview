@@ -257,7 +257,7 @@ impl Interactor {
     }
 
     fn is_selected(&self, id: Id) -> bool {
-        self.selected_sprites.contains(&id)
+        id == Self::SELECTION_ID || self.selected_sprites.contains(&id)
     }
 
     fn single_selected(&self) -> bool {
@@ -475,6 +475,18 @@ impl Interactor {
             Some(Self::SELECTION_ID)
         } else {
             Some(id)
+        }
+    }
+
+    pub fn select_at(&mut self, at: Point, add: bool) -> bool {
+        if let Some(id) = self.sprite_at(at) {
+            if !add && !self.is_selected(id) && self.has_selection() {
+                self.clear_selection();
+            }
+            self.select(id);
+            true
+        } else {
+            false
         }
     }
 

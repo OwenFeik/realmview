@@ -27,10 +27,6 @@ extern "C" {
     // the texture queue once ready.
     pub fn load_texture(media_key: String);
 
-    // Shows a dropdown with actions for the specified sprite at (x, y) on the
-    // scene canvas.
-    pub fn sprite_dropdown(sprite: Id, x: f32, y: f32);
-
     // Shows or hides the relevant UI elements given a role integer.
     pub fn update_interface(role: i32);
 
@@ -93,6 +89,8 @@ extern "C" {
     pub fn log_js_value(v: &JsValue);
 }
 
+pub mod element;
+
 // I want this around for debugging
 #[allow(unused_macros)]
 macro_rules! flog {
@@ -105,32 +103,6 @@ macro_rules! flog {
 pub(crate) use flog;
 
 pub type Gl = WebGl2RenderingContext;
-
-struct Element {
-    element: HtmlElement,
-}
-
-impl Element {
-    fn new(name: &str) -> anyhow::Result<Element> {
-        match create_element(name)?.dyn_into::<HtmlElement>() {
-            Ok(e) => Ok(Element { element: e }),
-            Err(_) => Err(anyhow!("Couldn't cast to HtmlElement.")),
-        }
-    }
-
-    fn set_css(&self, property: &str, value: &str) -> anyhow::Result<()> {
-        self.element
-            .style()
-            .set_property(property, value)
-            .map_err(|e| anyhow!("Failed to set element CSS: {e:?}."))
-    }
-
-    fn set_attr(&self, name: &str, value: &str) -> anyhow::Result<()> {
-        self.element
-            .set_attribute(name, value)
-            .map_err(|e| anyhow!("Failed to set element attribute: {e:?}."))
-    }
-}
 
 struct Canvas {
     element: Rc<HtmlCanvasElement>,
@@ -960,10 +932,10 @@ fn get_window_dimensions() -> anyhow::Result<(u32, u32)> {
 }
 
 fn create_file_upload() -> anyhow::Result<HtmlInputElement> {
-    let element = Element::new("input")?;
+    let element = element::Element::try_new("input")?;
 
-    element.set_attr("type", "file")?;
-    element.set_attr("accept", "image/*")?;
+    element.try_set_attr("type", "file")?;
+    element.try_set_attr("accept", "image/*")?;
 
     element
         .element
@@ -1044,23 +1016,6 @@ pub fn populate_change_scene(scenes: &[(String, String)], current: &str) -> anyh
     let input = select.unchecked_ref::<HtmlInputElement>();
     input.set_value(current);
     input.set_disabled(scenes.len() <= 1);
-
-    Ok(())
-}
-
-pub fn add_dropdown_entry(label: &str, handler: Box<dyn FnMut()>) -> anyhow::Result<()> {
-    let menu = get_element_by_id("canvas_sprite_dropdown")?;
-    let item = create_element("li")?;
-    append_child(&menu, &item);
-    let link = create_element("a")?;
-    prepend_child(&item, &link);
-    link.set_class_name("dropdown-item");
-    link.set_attribute("href", "#").ok();
-    link.set_inner_text(label);
-
-    let closure = Closure::wrap(handler);
-    link.set_onclick(Some(closure.as_ref().unchecked_ref()));
-    closure.forget();
 
     Ok(())
 }

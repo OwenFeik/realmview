@@ -2,8 +2,8 @@ use crate::dropdown::Dropdown;
 use crate::scene::{Point, Rect};
 use crate::{
     bridge::{
-        clear_selected_sprite, set_scene_details, set_selected_sprite, sprite_dropdown,
-        update_layers_list, Context, Cursor, Input, Key, KeyboardAction, MouseAction, MouseButton,
+        clear_selected_sprite, set_scene_details, set_selected_sprite, update_layers_list, Context,
+        Cursor, Input, Key, KeyboardAction, MouseAction, MouseButton,
     },
     client::Client,
     interactor::Interactor,
@@ -46,8 +46,8 @@ enum DrawTool {
 
 #[derive(Clone, Copy, Debug)]
 pub struct ViewportPoint {
-    x: f32,
-    y: f32,
+    pub x: f32,
+    pub y: f32,
 }
 
 impl ViewportPoint {
@@ -215,11 +215,12 @@ impl Viewport {
                     _ => (),
                 };
 
+                self.dropdown.hide();
                 self.mouse_down = Some(true);
             }
             MouseButton::Right => {
-                if let Some(id) = self.scene.sprite_at(self.scene_point(at)) {
-                    sprite_dropdown(id, at.x, at.y);
+                if self.scene.select_at(self.scene_point(at), ctrl) {
+                    self.dropdown.show(at);
                 } else {
                     self.grab(at)
                 }
@@ -462,6 +463,7 @@ impl Viewport {
         }
 
         if self.scene.changes.handle_layer_change() {
+            self.dropdown.update_layers(self.scene.layers());
             update_layers_list(self.scene.layers());
         }
 

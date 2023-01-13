@@ -27,6 +27,7 @@ features = [
     'Blob',                   # Load files from disk
     'CssStyleDeclaration',    # Set CSS on created elements
     'Document',               # Access to document methods
+    'DomTokenList',           # HTML element classList
     'Element',                # Create and work with nodes
     'ErrorEvent',             # WebSocket errors
     'Event',                  # Generic handling for user input

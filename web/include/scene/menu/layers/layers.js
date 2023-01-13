@@ -20,19 +20,6 @@ function layers_list_entry(layer) {
     return el;
 }
 
-function canvas_layers_list_entry(layer) {
-    // Uses layer.id and layer.title
-    return template_to_element(
-        `{{ scene/menu/layers/canvas_list_item.html }}`
-    );
-}
-
-function update_canvas_layers_list(layers) {
-    const list = document.getElementById("canvas_sprite_dropdown_layer_list");
-    list.innerHTML = "";
-    layers.forEach(layer => list.appendChild(canvas_layers_list_entry(layer)));
-}
-
 function update_layers_list(layers, selected) {
     const RADIO_SEL = "input[name='layer_radio']";
 
@@ -83,8 +70,6 @@ function update_layers_list(layers, selected) {
     if (!selected_one) {
         list.querySelector(RADIO_SEL).checked = true;
     }
-
-    update_canvas_layers_list(layers);
 }
 
 function selected_layer() {

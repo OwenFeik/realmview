@@ -190,9 +190,6 @@ function load_texture(media_key) {
     media_manager.load_media_with_key(media_key, i => texture_queue.push(i));
 }
 
-// scene/menu/layers/canvas_dropdown.html
-// function sprite_downdown(id: number, x: number, y: number)
-
 // scene/menu/sprite/sprite_menu.html
 // function set_selected_sprite(sprite_json: string)
 // function clear_selected_sprite()
