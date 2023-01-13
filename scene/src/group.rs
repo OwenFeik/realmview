@@ -3,15 +3,12 @@ use crate::{comms::SceneEvent, Id};
 #[derive(Clone, serde_derive::Deserialize, serde_derive::Serialize)]
 pub struct Group {
     pub id: Id,
-    sprites: Vec<i64>,
+    sprites: Vec<Id>,
 }
 
 impl Group {
-    pub fn new(id: Id) -> Self {
-        Group {
-            id,
-            sprites: Vec::new(),
-        }
+    pub fn new(id: Id, sprites: Vec<Id>) -> Self {
+        Group { id, sprites }
     }
 
     pub fn includes(&self, sprite: Id) -> bool {

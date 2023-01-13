@@ -233,12 +233,42 @@ impl Scene {
         ret
     }
 
+    fn new_group(&mut self, id: Option<Id>, sprites: Option<Vec<Id>>) -> SceneEvent {
+        let id = id.unwrap_or(self.next_id);
+        self.groups
+            .push(group::Group::new(id, sprites.unwrap_or_default()));
+        SceneEvent::GroupNew(id)
+    }
+
     fn group(&mut self, id: Id) -> Option<&mut group::Group> {
         self.groups.iter_mut().find(|g| g.id == id)
     }
 
+    pub fn remove_group(&mut self, id: Id) -> SceneEvent {
+        self.groups.retain(|g| g.id != id);
+        SceneEvent::GroupDelete(id)
+    }
+
     pub fn sprite_group(&self, id: Id) -> Option<&group::Group> {
         self.groups.iter().find(|g| g.includes(id))
+    }
+
+    pub fn group_sprites(&mut self, sprites: Vec<Id>) -> SceneEvent {
+        let mut events = Vec::new();
+
+        for &sprite in &sprites {
+            if let Some(group) = self.sprite_group(sprite) {
+                if let Some(group) = self.group(group.id) {
+                    events.push(group.remove(sprite));
+                }
+            }
+        }
+
+        let new_group = group::Group::new(self.next_id(), sprites);
+        events.push(SceneEvent::GroupNew(new_group.id));
+        self.groups.push(new_group);
+
+        SceneEvent::EventSet(events)
     }
 
     pub fn sprite(&mut self, id: Id) -> Option<&mut Sprite> {
@@ -451,12 +481,16 @@ impl Scene {
                 if self.groups.iter().any(|g| g.id == id) {
                     false
                 } else {
-                    self.groups.push(group::Group::new(id));
+                    self.groups.push(group::Group::new(id, Vec::new()));
                     true
                 }
             }
             SceneEvent::GroupAdd(group, sprite) => {
                 self.group(group).map(|g| g.add(sprite));
+                true
+            }
+            SceneEvent::GroupDelete(group) => {
+                self.remove_group(group);
                 true
             }
             SceneEvent::GroupRemove(group, sprite) => {
@@ -593,6 +627,7 @@ impl Scene {
                 self.fog.set(x, y, occluded)
             }
             SceneEvent::GroupAdd(group, sprite) => self.group(group).map(|g| g.remove(sprite)),
+            SceneEvent::GroupDelete(group) => Some(self.new_group(Some(group), None)),
             SceneEvent::GroupNew(id) => {
                 self.groups.retain(|g| g.id != id);
                 None

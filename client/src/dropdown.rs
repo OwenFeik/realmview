@@ -10,6 +10,7 @@ pub enum DropdownEvent {
     Delete,
     Group,
     Layer(scene::Id),
+    Ungroup,
 }
 
 pub struct Dropdown {
@@ -26,6 +27,7 @@ impl Dropdown {
             ("Clone", DropdownEvent::Clone),
             ("Delete", DropdownEvent::Delete),
             ("Group Selection", DropdownEvent::Group),
+            ("Ungroup", DropdownEvent::Ungroup),
         ] {
             let event = dropdown.event.clone();
             add_dropdown_entry(

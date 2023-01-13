@@ -39,6 +39,7 @@ impl Perm {
             SceneEvent::SpriteLayer(..) => Perm::LayerUpdate,
             SceneEvent::GroupNew(..)
             | SceneEvent::GroupAdd(..)
+            | SceneEvent::GroupDelete(..)
             | SceneEvent::GroupRemove(..)
             | SceneEvent::SpriteMove(..)
             | SceneEvent::SpriteVisual(..)

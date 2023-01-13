@@ -370,6 +370,10 @@ impl Viewport {
     }
 
     fn process_ui_events(&mut self) {
+        if let Some(event) = self.dropdown.event() {
+            self.scene.handle_dropdown_event(event);
+        }
+
         let events = match self.context.events() {
             Some(e) => e,
             None => return,
@@ -403,10 +407,6 @@ impl Viewport {
                 Input::Keyboard(KeyboardAction::Down, key) => self.handle_key_down(key, event.ctrl),
                 Input::Keyboard(KeyboardAction::Up, _) => (),
             };
-        }
-
-        if let Some(event) = self.dropdown.event() {
-            self.scene.handle_dropdown_event(event);
         }
     }
 

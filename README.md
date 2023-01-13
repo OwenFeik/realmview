@@ -16,13 +16,12 @@
 * Sprites
     * Hide sprite menu when no sprite selected
     * Use sprite menu to change texture
-    * Group sprites
 * Media
     * Place media in directories
 * Projects
 * Game
     * Manage fog of war by player
-    * Hide illegal dropdown options for players
+    * Hide illegal dropdown options for players, sprites
     * When the WebSocket is closed, try to reconnect or redirect to a
         "game ended" page
     * Associate each client with a user. When a user connects a second time,
@@ -36,7 +35,11 @@
     * Expose closure macro
 * Build
 * Callum requests
-    * docs.google.com/document/d/1uKsAKS-huxNqc4kuHFot0McXTLlT3p83ojEalAcBtK0/
+    * Display current start and end of lines.
+    * Easily switch sprite media.
+    * Each player gets a layer of their own automatically.
+    * Persistent measurements.
+    * Hold a button to rotate a sprite.
 
 # Documentation
 

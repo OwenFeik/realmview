@@ -16,6 +16,7 @@ pub enum SceneEvent {
     GroupNew(Id),                                 // (group_id)
     GroupAdd(Id, Id),                             // (group_id, sprite_id)
     GroupRemove(Id, Id),                          // (group_id, sprite_id)
+    GroupDelete(Id),                              // (group_id)
     LayerLocked(Id, bool),                        // (layer, status)
     LayerMove(Id, i32, bool),                     // (layer, starting_z, up)
     LayerNew(Id, String, i32),                    // (local_id, title, z)

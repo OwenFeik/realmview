@@ -346,7 +346,11 @@ impl Interactor {
                 if self.has_selection() {
                     if self.is_selected(s.id) {
                         return if self.single_selected() {
-                            (holding::HeldObject::grab_sprite(s, at), None)
+                            if self.scene.sprite_group(s.id).is_some() {
+                                (holding::HeldObject::Selection(at), None)
+                            } else {
+                                (holding::HeldObject::grab_sprite(s, at), None)
+                            }
                         } else {
                             (holding::HeldObject::Selection(at), None)
                         };
@@ -354,7 +358,12 @@ impl Interactor {
                         return (holding::HeldObject::Selection(at), Some(s.id));
                     }
                 }
-                (holding::HeldObject::grab_sprite(s, at), Some(s.id))
+
+                if self.scene.sprite_group(s.id).is_some() {
+                    (holding::HeldObject::Selection(at), Some(s.id))
+                } else {
+                    (holding::HeldObject::grab_sprite(s, at), Some(s.id))
+                }
             }
         } else {
             (holding::HeldObject::Marquee(at), None)
@@ -880,7 +889,17 @@ impl Interactor {
     }
 
     fn group_selected(&mut self) {
-        crate::bridge::flog!("Group selected sprites!");
+        let event = self.scene.group_sprites(self.selected_sprites.clone());
+        self.scene_event(event);
+    }
+
+    fn ungroup_selected(&mut self) {
+        if let Some(&id) = self.selected_sprites.first() {
+            if let Some(group) = self.scene.sprite_group(id) {
+                let event = self.scene.remove_group(group.id);
+                self.scene_event(event);
+            }
+        }
     }
 
     pub fn handle_dropdown_event(&mut self, event: DropdownEvent) {
@@ -896,6 +915,7 @@ impl Interactor {
                 }
             }
             DropdownEvent::Group => self.group_selected(),
+            DropdownEvent::Ungroup => self.ungroup_selected(),
             DropdownEvent::Layer(layer) => {
                 if let Some(sprite) = self.selected_id() {
                     self.sprite_layer(sprite, layer)
