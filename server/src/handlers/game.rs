@@ -80,21 +80,28 @@ mod join {
         }
     }
 
-    async fn add_client(game: GameRef, user_id: i64) -> anyhow::Result<String> {
+    async fn add_client(game: GameRef, user_id: i64, user_name: String) -> anyhow::Result<String> {
         let client_key = generate_game_key()?;
 
-        game.write().await.add_client(client_key.clone(), user_id);
+        game.write()
+            .await
+            .add_client(client_key.clone(), user_id, user_name);
 
         Ok(client_key)
     }
 
-    pub async fn join_game(games: Games, game_key: String, user_id: i64) -> ResultReply {
+    pub async fn join_game(
+        games: Games,
+        game_key: String,
+        user_id: i64,
+        user_name: String,
+    ) -> ResultReply {
         let game = match games.read().await.get(&game_key) {
             Some(game_ref) => game_ref.clone(),
             None => return Binary::result_error("Game not found."),
         };
 
-        match add_client(game, user_id).await {
+        match add_client(game, user_id, user_name).await {
             Ok(client_key) => {
                 as_result(&JoinGameResponse::new(game_key, client_key), StatusCode::OK)
             }
@@ -113,7 +120,7 @@ mod join {
             _ => return Binary::result_failure("Bad session."),
         };
 
-        join_game(games, game_key, user.id).await
+        join_game(games, game_key, user.id, user.username).await
     }
 
     pub fn filter(
@@ -206,7 +213,7 @@ mod new {
             games::GameServer::start(server.clone()).await;
             games.write().await.insert(game_key.clone(), server);
 
-            super::join::join_game(games, game_key, user.id).await
+            super::join::join_game(games, game_key, user.id, user.username).await
         } else {
             Binary::result_failure("Scene project unknown.")
         }

@@ -42,6 +42,7 @@ pub struct Scene {
 }
 
 impl Scene {
+    pub const FOREGROUND_Z: i32 = 1;
     const DEFAULT_SIZE: u32 = 32;
 
     // When creating a clone of this scene for a client, this many IDs will be
@@ -707,7 +708,7 @@ impl Default for Scene {
             next_id: 4,
             canon: false,
             layers: vec![
-                Layer::new(1, "Foreground", 1),
+                Layer::new(1, "Foreground", Self::FOREGROUND_Z),
                 Layer::new(2, "Scenery", -1),
                 Layer::new(3, "Background", -2),
             ],

@@ -147,7 +147,7 @@ pub enum ServerEvent {
     Rejection(Id),
     PermsChange(Perms),
     PermsUpdate(PermsEvent),
-    SceneChange(Scene),
+    SceneChange(Scene, Option<Id>), // (new_scene, selected_layer)
     SceneList(Vec<(String, String)>, String),
     SceneUpdate(SceneEvent),
     UserId(Id),

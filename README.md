@@ -18,8 +18,6 @@
     terminate that user's other sessions
 * Specify which users are allowed to join the game
 * Feedback for when connecting to a game as a given CLIENT_KEY fails
-* Players should only be able to interact with the foreground
-* Each player gets a layer of their own automatically
 * Display currently selected line caps
 * Measurements, persistent measurements
 * Hold a button to rotate a sprite

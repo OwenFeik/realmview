@@ -3,12 +3,17 @@ use warp::ws::Message;
 
 pub struct Client {
     pub user: i64,
+    pub username: String,
     sender: Option<UnboundedSender<Message>>,
 }
 
 impl Client {
-    pub fn new(user: i64) -> Self {
-        Client { user, sender: None }
+    pub fn new(user: i64, username: String) -> Self {
+        Client {
+            user,
+            username,
+            sender: None,
+        }
     }
 
     pub fn send(&self, message: Message) {

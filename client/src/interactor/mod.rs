@@ -88,7 +88,14 @@ impl Interactor {
                     self.update_role();
                 }
             }
-            ServerEvent::SceneChange(scene) => self.replace_scene(scene),
+            ServerEvent::SceneChange(scene, layer) => {
+                self.replace_scene(scene);
+                if let Some(id) = layer {
+                    if self.scene.layer(id).is_some() {
+                        self.selected_layer = id;
+                    }
+                }
+            }
             ServerEvent::SceneList(scenes, current) => {
                 crate::bridge::populate_change_scene(&scenes, &current).ok();
             }

@@ -80,8 +80,8 @@ impl Server {
         });
     }
 
-    pub fn add_client(&mut self, key: String, user: i64) {
-        self.clients.insert(key, Client::new(user));
+    pub fn add_client(&mut self, key: String, user: i64, username: String) {
+        self.clients.insert(key, Client::new(user, username));
     }
 
     pub fn has_client(&self, key: &str) -> bool {
@@ -93,32 +93,38 @@ impl Server {
     }
 
     pub async fn connect_client(&mut self, key: String, sender: UnboundedSender<Message>) -> bool {
-        if let Some(client) = self.get_client_mut(&key) {
+        let (player, name) = if let Some(client) = self.get_client_mut(&key) {
             client.set_sender(sender);
-            let player = client.user;
-
-            if let Some(event) = self.game.add_player(player) {
-                self.broadcast_event(ServerEvent::PermsUpdate(event), Some(&key));
-            }
-
-            self.send_to(ServerEvent::UserId(player), &key);
-
-            let scene = self.game.client_scene();
-            self.send_to(ServerEvent::SceneChange(scene), &key);
-            let perms = self.game.client_perms();
-            self.send_to(ServerEvent::PermsChange(perms), &key);
-
-            if player == self.owner {
-                if let Ok(event) = self.scene_list().await {
-                    self.send_to(event, &key);
-                }
-            }
-
-            true
+            (client.user, client.username.clone())
         } else {
             self.drop_client(&key);
-            false
+            return false;
+        };
+
+        let (perms, scene, layer) = self.game.add_player(player, &name);
+
+        if let Some(event) = perms {
+            self.broadcast_event(ServerEvent::PermsUpdate(event), Some(&key));
         }
+
+        if let Some(event) = scene {
+            self.broadcast_event(ServerEvent::SceneUpdate(event), Some(&key));
+        }
+
+        self.send_to(ServerEvent::UserId(player), &key);
+
+        let scene = self.game.client_scene();
+        self.send_to(ServerEvent::SceneChange(scene, layer), &key);
+        let perms = self.game.client_perms();
+        self.send_to(ServerEvent::PermsChange(perms), &key);
+
+        if player == self.owner {
+            if let Ok(event) = self.scene_list().await {
+                self.send_to(event, &key);
+            }
+        }
+
+        true
     }
 
     fn get_client_mut(&mut self, key: &str) -> Option<&mut Client> {
@@ -223,15 +229,14 @@ impl Server {
         self.game.replace_scene(scene.clone(), self.owner);
 
         // Send the new scene and perms to all clients
-        let keys: Vec<(String, i64)> = self
+        let keys: Vec<(String, i64, String)> = self
             .clients
             .iter()
-            .map(|(k, c)| (k.to_owned(), c.user))
+            .map(|(k, c)| (k.to_owned(), c.user, c.username.clone()))
             .collect();
-        for (client_key, user) in keys {
-            self.game.add_player(user);
-
-            let scene_change = ServerEvent::SceneChange(self.game.client_scene());
+        for (client_key, user, name) in keys {
+            let (_, _, layer) = self.game.add_player(user, &name);
+            let scene_change = ServerEvent::SceneChange(self.game.client_scene(), layer);
             let perms_change = ServerEvent::PermsChange(self.game.client_perms());
 
             self.send_to(scene_change, &client_key);
