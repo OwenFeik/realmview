@@ -83,7 +83,7 @@ fn add_cap(dst: &mut PointVector, cap: scene::SpriteCap, at: Point, direction: f
             );
         }
         scene::SpriteCap::Round => add_semicircle(dst, at, stroke / 2.0, direction - PI / 2.0),
-        _ => {}
+        scene::SpriteCap::None => dst.add_tri(at, at, at),
     }
 }
 

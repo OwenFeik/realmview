@@ -15,7 +15,6 @@
 * Sprites
     * Hide sprite menu when no sprite selected
     * Use sprite menu to change texture
-    * Square ended lines still jump during drawing 
 * Media
     * Place media in directories
 * Projects

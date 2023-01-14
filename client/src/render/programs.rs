@@ -396,38 +396,42 @@ impl DrawingRenderer {
     fn create_key(drawing: &scene::SpriteDrawing) -> u128 {
         // Key format is a u128 with the following structure:
         //
-        // 32 bits for the rect width
-        // 32 bits for the rect height
-        // 32 bits for the stroke width
+        // 20 bits for the rect x (20 leftmost bits)
+        // 20 bits for the rect y (20 leftmost bits)
+        // 20 bits for the rect width (20 leftmost bits)
+        // 20 bits for the rect height (20 leftmost bits)
+        // 20 bits for the stroke width (20 leftmost bits)
         // 23 bits counting the number of points in the drawing (max 65536)
-        // 4 bits for the starting cap
-        // 4 bits for the ending cap
+        // 2 bits for the starting cap
+        // 2 bits for the ending cap
         // 1 bit for whether the drawing is finished
         //
         // Like so:
-        // 000000000000000000000000000WIDTH00000000000000000000000000HEIGHT
-        // 00000000000000000000000000STROKE000000000000000N_POINTSSTRT0ENDF
+        // 0000000000000000000X0000000000000000000Y000000000000000WIDTH0000
+        // 0000000000HEIGHT00000000000000STROKE00000000000N_POINTSSTRT0ENDF
         //
         // Is this grotesquely overcomplicated? Yes.
         let mut key = 0u128;
 
-        // First 96 bits are the literal bits of the three floats.
+        // First 100 bits are the literal bits of the three floats.
         let rect = drawing.points.rect();
         let mut keyf32 = |v: f32| {
-            key |= v.to_bits() as u128;
-            key <<= 32;
+            key |= (v.to_bits() >> 12) as u128;
+            key <<= 20;
         };
-        keyf32(rect.w); // 32
-        keyf32(rect.h); // 64
-        keyf32(drawing.stroke); // 96
+        keyf32(rect.x); // 20
+        keyf32(rect.y); // 40
+        keyf32(rect.w); // 60
+        keyf32(rect.h); // 80
+        keyf32(drawing.stroke); // 100
 
-        // Last 32 bits. We've already shifted the first 96 across by 96.
+        // Last 28 bits. We've already shifted the first 100 across by 100.
         let mut low = 0u32;
         low |= drawing.n_points();
         low <<= 23; // Assume n_points is smaller than 23 bits.
-        low |= drawing.cap_start as u32; // allow 4 bits
-        low <<= 4;
-        low |= drawing.cap_end as u32; // 4 bits
+        low |= drawing.cap_start as u32; // allow 2 bits
+        low <<= 2;
+        low |= drawing.cap_end as u32; // 2 bits
         key |= low as u128;
         key |= drawing.finished as u128; // final single bit
 

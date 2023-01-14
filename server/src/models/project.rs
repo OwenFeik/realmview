@@ -644,7 +644,7 @@ mod sprite {
         fn u8_to_cap(int: u8) -> scene::SpriteCap {
             match int {
                 1 => scene::SpriteCap::Arrow,
-                3 => scene::SpriteCap::Round,
+                2 => scene::SpriteCap::Round,
                 _ => scene::SpriteCap::None,
             }
         }
