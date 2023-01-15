@@ -965,4 +965,23 @@ impl Interactor {
         }
         &[DropdownEvent::Group, DropdownEvent::Ungroup]
     }
+
+    pub fn change_stroke(&mut self, delta: f32) {
+        const COEFF: f32 = -1.0 / (114.0 * 4.0);
+
+        let new = (self.draw_details.stroke() + delta * COEFF).max(0.0);
+        self.draw_details.stroke = Some(new);
+    }
+
+    pub fn change_fog_brush(&mut self, delta: f32) {
+        // Delta is 114 by default on my machine
+        const COEFF: f32 = -1.0 / (114.0 * 2.0);
+
+        let change = delta * COEFF;
+        if change > 0.0 {
+            self.fog_brush += change as u32;
+        } else {
+            self.fog_brush = self.fog_brush.saturating_sub(change.abs() as u32).max(1);
+        }
+    }
 }

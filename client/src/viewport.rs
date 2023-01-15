@@ -2,8 +2,9 @@ use crate::dropdown::Dropdown;
 use crate::scene::{Point, Rect};
 use crate::{
     bridge::{
-        clear_selected_sprite, set_scene_details, set_selected_sprite, update_layers_list, Context,
-        Cursor, Input, Key, KeyboardAction, MouseAction, MouseButton,
+        clear_selected_sprite,
+        event::{Input, Key, KeyboardAction, MouseAction, MouseButton},
+        set_scene_details, set_selected_sprite, update_layers_list, Context, Cursor,
     },
     client::Client,
     interactor::Interactor,
@@ -300,7 +301,7 @@ impl Viewport {
         self.zoom(ZOOM_AMT, None);
     }
 
-    fn handle_scroll(&mut self, at: ViewportPoint, delta: f32, shift: bool, ctrl: bool) {
+    fn handle_scroll(&mut self, at: ViewportPoint, delta: f32, shift: bool, ctrl: bool, alt: bool) {
         const SCROLL_COEFFICIENT: f32 = 0.5;
 
         // We want shift + scroll to scroll horizontally but browsers (Firefox
@@ -311,6 +312,12 @@ impl Viewport {
             self.viewport.x += SCROLL_COEFFICIENT * delta / self.grid_zoom;
         } else if ctrl {
             self.zoom(delta, Some(at));
+        } else if alt {
+            match self.tool {
+                Tool::Draw => self.scene.change_stroke(delta),
+                Tool::Fog => self.scene.change_fog_brush(delta),
+                _ => {}
+            }
         } else {
             self.viewport.y += SCROLL_COEFFICIENT * delta / self.grid_zoom;
         }
@@ -403,7 +410,7 @@ impl Viewport {
                 }
                 Input::Mouse(at, MouseAction::Wheel(delta), _) => {
                     self.cursor_position = Some(at);
-                    self.handle_scroll(at, delta, event.shift, event.ctrl)
+                    self.handle_scroll(at, delta, event.shift, event.ctrl, event.alt)
                 }
                 Input::Keyboard(KeyboardAction::Down, key) => self.handle_key_down(key, event.ctrl),
                 Input::Keyboard(KeyboardAction::Up, _) => (),

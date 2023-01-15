@@ -5,7 +5,6 @@
     project page by default.
 * Warn when saving over changes
 * Keyboard shortcuts on hovering tools
-* Alt-scroll to change stroke
 * Select from selected layer first (possibly)
 * Layer opacity
 * Hide sprite menu when no sprite selected
@@ -23,6 +22,8 @@
 * Hold a button to rotate a sprite
 * Save perms, reload when the same scene is loaded
 * Expose closure macro
+* Visible fog brush
+* Update fog brush and stroke width in menu when changing with scroll wheel 
 
 ## Bugs
 * Undoing creation of a shape moves it to a 0x0 at cursor
