@@ -89,8 +89,8 @@ extern "C" {
 }
 
 pub mod element;
-pub mod input;
 pub mod event;
+pub mod input;
 
 // I want this around for debugging
 #[allow(unused_macros)]

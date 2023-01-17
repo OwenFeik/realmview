@@ -2,11 +2,10 @@ use std::collections::HashMap;
 
 use super::element::Element;
 
-
 struct InputGroup {
     root: Element,
     line: Element,
-    inputs: HashMap<String, Element>
+    inputs: HashMap<String, Element>,
 }
 
 impl InputGroup {
@@ -53,7 +52,7 @@ fn float(min: Option<i32>, max: Option<i32>) -> Element {
         .with_class("form-control")
         .with_attr("type", "number")
         .with_attr("autocomplete", "off");
- 
+
     if let Some(min) = min {
         el.set_attr("min", &min.to_string());
     }
@@ -71,4 +70,3 @@ fn text(text: &str) -> Element {
     el.set_text(text);
     el
 }
-

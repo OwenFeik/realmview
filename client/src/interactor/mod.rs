@@ -1,7 +1,7 @@
 use bincode::serialize;
 use scene::comms::ServerEvent;
 
-use crate::dropdown::DropdownEvent;
+use crate::dom::dropdown::CanvasDropdownEvent;
 use crate::scene::{
     comms::SceneEvent, perms::Perms, Dimension, Id, Layer, Point, Rect, Scene, Sprite, SpriteShape,
     SpriteVisual,
@@ -931,21 +931,21 @@ impl Interactor {
         }
     }
 
-    pub fn handle_dropdown_event(&mut self, event: DropdownEvent) {
+    pub fn handle_dropdown_event(&mut self, event: CanvasDropdownEvent) {
         match event {
-            DropdownEvent::Clone => {
+            CanvasDropdownEvent::Clone => {
                 if let Some(id) = self.selected_id() {
                     self.clone_sprite(id);
                 }
             }
-            DropdownEvent::Delete => {
+            CanvasDropdownEvent::Delete => {
                 if let Some(id) = self.selected_id() {
                     self.remove_sprite(id);
                 }
             }
-            DropdownEvent::Group => self.group_selected(),
-            DropdownEvent::Ungroup => self.ungroup_selected(),
-            DropdownEvent::Layer(layer) => {
+            CanvasDropdownEvent::Group => self.group_selected(),
+            CanvasDropdownEvent::Ungroup => self.ungroup_selected(),
+            CanvasDropdownEvent::Layer(layer) => {
                 if let Some(sprite) = self.selected_id() {
                     self.sprite_layer(sprite, layer)
                 }
@@ -953,17 +953,17 @@ impl Interactor {
         }
     }
 
-    pub fn allowed_options(&self) -> &[DropdownEvent] {
+    pub fn allowed_options(&self) -> &[CanvasDropdownEvent] {
         if self.selected_sprites.len() > 1 {
             if let Some(&id) = self.selected_sprites.first() {
                 if self.scene.sprite_group(id).is_some() {
                     return &[];
                 } else {
-                    return &[DropdownEvent::Ungroup];
+                    return &[CanvasDropdownEvent::Ungroup];
                 }
             }
         }
-        &[DropdownEvent::Group, DropdownEvent::Ungroup]
+        &[CanvasDropdownEvent::Group, CanvasDropdownEvent::Ungroup]
     }
 
     pub fn change_stroke(&mut self, delta: f32) {

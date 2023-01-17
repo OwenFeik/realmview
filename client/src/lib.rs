@@ -5,7 +5,7 @@ pub use scene;
 
 mod bridge;
 mod client;
-mod dropdown;
+mod dom;
 mod interactor;
 mod render;
 mod start;

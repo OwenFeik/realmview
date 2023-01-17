@@ -1,13 +1,12 @@
 use std::rc::Rc;
 
 use parking_lot::Mutex;
+use serde::Serialize;
 
 use crate::{bridge::element::Element, viewport::ViewportPoint};
 
-type Output = Rc<Mutex<Option<DropdownEvent>>>;
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum DropdownEvent {
+#[derive(Clone, Copy, Debug, PartialEq, serde_derive::Serialize)]
+pub enum CanvasDropdownEvent {
     Clone,
     Delete,
     Group,
@@ -15,51 +14,64 @@ pub enum DropdownEvent {
     Ungroup,
 }
 
-struct DropdownItem {
+struct DropdownItem<T: Serialize> {
     element: Element,
-    event: DropdownEvent,
+    value: T,
 }
 
-impl DropdownItem {
-    fn new(label: &str, event: DropdownEvent) -> Self {
+impl<T: Serialize> DropdownItem<T> {
+    fn new(label: &str, value: T) -> Self {
         Self {
-            element: Self::element(label),
-            event,
+            element: item(label),
+            value,
         }
     }
 
-    fn link(label: &str) -> Element {
-        Element::anchor()
-            .with_attr("href", "#")
-            .with_text(label)
-            .with_class("dropdown-item")
-    }
-
-    fn element(label: &str) -> Element {
-        Element::item().with_child(&Self::link(label))
-    }
-
-    fn submenu(label: &str) -> Element {
-        Element::item().with_class("dropend").with_child(
-            &Self::link(label)
-                .with_class("dropdown-toggle")
-                .with_attr("data-bs-toggle", "dropdown")
-        )
+    fn from(value: T) -> Self {
+        Self {
+            element: item(
+                &serde_json::ser::to_string(&value)
+                    .expect("DropdownItem types should serialise properly."),
+            ),
+            value,
+        }
     }
 }
 
-impl Drop for DropdownItem {
+impl<T: Serialize> Drop for DropdownItem<T> {
     fn drop(&mut self) {
         self.element.remove();
     }
 }
 
+fn link(label: &str) -> Element {
+    Element::anchor()
+        .with_attr("href", "#")
+        .with_text(label)
+        .with_class("dropdown-item")
+}
+
+fn item(label: &str) -> Element {
+    Element::item().with_child(&link(label))
+}
+
+fn submenu(label: &str) -> Element {
+    Element::item().with_class("dropend").with_child(
+        &link(label)
+            .with_class("dropdown-toggle")
+            .with_attr("data-bs-toggle", "dropdown"),
+    )
+}
+
+type Output = Rc<Mutex<Option<CanvasDropdownEvent>>>;
+type CanvasItem = DropdownItem<CanvasDropdownEvent>;
+
 pub struct Dropdown {
     element: Element,
     event: Output,
-    items: Vec<DropdownItem>,
+    items: Vec<DropdownItem<CanvasDropdownEvent>>,
     layers_menu: Element,
-    layers: Vec<DropdownItem>,
+    layers: Vec<DropdownItem<CanvasDropdownEvent>>,
 }
 
 impl Dropdown {
@@ -81,16 +93,16 @@ impl Dropdown {
         dropdown.element.add_to_page();
 
         for (label, event) in [
-            ("Clone", DropdownEvent::Clone),
-            ("Delete", DropdownEvent::Delete),
-            ("Group Selection", DropdownEvent::Group),
-            ("Ungroup", DropdownEvent::Ungroup),
+            ("Clone", CanvasDropdownEvent::Clone),
+            ("Delete", CanvasDropdownEvent::Delete),
+            ("Group Selection", CanvasDropdownEvent::Group),
+            ("Ungroup", CanvasDropdownEvent::Ungroup),
         ] {
             dropdown.add_item(dropdown.new_item(label, event));
         }
 
         // Move to layer dropdown
-        let layer_item = DropdownItem::submenu("Move to Layer");
+        let layer_item = submenu("Move to Layer");
         layer_item.append_child(&dropdown.layers_menu);
         dropdown.element.append_child(&layer_item);
 
@@ -103,12 +115,12 @@ impl Dropdown {
         element
     }
 
-    fn add_item(&mut self, item: DropdownItem) {
+    fn add_item(&mut self, item: CanvasItem) {
         self.element.append_child(&item.element);
         self.items.push(item);
     }
 
-    fn new_item(&self, label: &str, event: DropdownEvent) -> DropdownItem {
+    fn new_item(&self, label: &str, event: CanvasDropdownEvent) -> CanvasItem {
         let mut item = DropdownItem::new(label, event);
         let dest = self.event.clone();
         item.element.set_onclick(Box::new(move |_| {
@@ -118,7 +130,7 @@ impl Dropdown {
         item
     }
 
-    pub fn event(&self) -> Option<DropdownEvent> {
+    pub fn event(&self) -> Option<CanvasDropdownEvent> {
         let event = self.event.lock().take();
         if event.is_some() {
             self.hide();
@@ -149,15 +161,15 @@ impl Dropdown {
     pub fn update_layers(&mut self, layers: &[scene::Layer]) {
         self.layers.clear();
         for layer in layers {
-            let item = self.new_item(&layer.title, DropdownEvent::Layer(layer.id));
+            let item = self.new_item(&layer.title, CanvasDropdownEvent::Layer(layer.id));
             self.layers_menu.append_child(&item.element);
             self.layers.push(item);
         }
     }
 
-    pub fn update_options(&self, hide: &[DropdownEvent]) {
+    pub fn update_options(&self, hide: &[CanvasDropdownEvent]) {
         for item in &self.items {
-            if hide.contains(&item.event) {
+            if hide.contains(&item.value) {
                 item.element.hide();
             } else {
                 item.element.show();
