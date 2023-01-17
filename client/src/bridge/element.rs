@@ -1,5 +1,6 @@
 use anyhow::anyhow;
 use wasm_bindgen::{prelude::Closure, JsCast};
+use web_sys::HtmlInputElement;
 
 use super::{create_element, get_body, get_element_by_id};
 use crate::viewport::ViewportPoint;
@@ -42,12 +43,20 @@ impl Element {
         Self::new("a")
     }
 
-    pub fn list() -> Self {
-        Self::new("ul")
+    pub fn input() -> Self {
+        Self::new("input")
     }
 
     pub fn item() -> Self {
         Self::new("li")
+    }
+
+    pub fn list() -> Self {
+        Self::new("ul")
+    }
+
+    pub fn span() -> Self {
+        Self::new("span")
     }
 
     pub fn node(&self) -> &web_sys::Node {
@@ -64,6 +73,11 @@ impl Element {
 
     pub fn remove_class(&self, class: &str) {
         self.element.class_list().remove_1(class).ok();
+    }
+
+    pub fn with_class(self, class: &str) -> Self {
+        self.add_class(class);
+        self
     }
 
     pub fn has_class(&self, class: &str) -> bool {
@@ -99,12 +113,33 @@ impl Element {
             .map_err(|e| anyhow!("Failed to set element attribute: {e:?}."))
     }
 
+    pub fn with_attr(self, name: &str, value: &str) -> Self {
+        self.set_attr(name, value);
+        self
+    }
+
     pub fn set_text(&self, text: &str) {
         self.element.set_inner_text(text);
     }
 
+    pub fn with_text(self, text: &str) -> Self {
+        self.set_text(text);
+        self
+    }
+
     pub fn append_child(&self, child: &Element) {
         self.element.append_child(child.node()).ok();
+    }
+
+    pub fn child(&self, name: &str) -> Element {
+        let el = Element::new(name);
+        self.append_child(&el);
+        el
+    }
+
+    pub fn with_child(self, child: &Element) -> Self {
+        self.append_child(child);
+        self
     }
 
     pub fn set_onclick(&mut self, handler: Box<dyn FnMut(web_sys::Event)>) {
@@ -116,12 +151,32 @@ impl Element {
         self.set_css("top", &format!("{}px", pos.y));
     }
 
+    pub fn value_string(&self) -> String {
+        self.as_input().value()
+    }
+
+    pub fn set_value_string(&self, value: &str) {
+        self.as_input().set_value(value);
+    }
+
+    pub fn value_float(&self) -> f64 {
+        self.as_input().value_as_number()
+    }
+
+    pub fn set_value_float(&self, value: f64) {
+        self.as_input().set_value_as_number(value);
+    }
+
     fn add_event_listener(&mut self, on: &str, handler: Box<dyn FnMut(web_sys::Event)>) {
         let closure = Closure::wrap(handler);
         self.element
             .add_event_listener_with_callback(on, closure.as_ref().unchecked_ref())
             .ok();
         self.listener = Some(closure);
+    }
+
+    fn as_input(&self) -> &HtmlInputElement {
+        self.element.unchecked_ref::<HtmlInputElement>()
     }
 }
 

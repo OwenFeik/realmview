@@ -29,28 +29,22 @@ impl DropdownItem {
     }
 
     fn link(label: &str) -> Element {
-        let link = Element::anchor();
-        link.set_attr("href", "#");
-        link.set_text(label);
-        link.add_class("dropdown-item");
-        link
+        Element::anchor()
+            .with_attr("href", "#")
+            .with_text(label)
+            .with_class("dropdown-item")
     }
 
     fn element(label: &str) -> Element {
-        let link = Self::link(label);
-        let element = Element::item();
-        element.append_child(&link);
-        element
+        Element::item().with_child(&Self::link(label))
     }
 
     fn submenu(label: &str) -> Element {
-        let link = Self::link(label);
-        link.add_class("dropdown-toggle");
-        link.set_attr("data-bs-toggle", "dropdown");
-        let element = Element::item();
-        element.add_class("dropend");
-        element.append_child(&link);
-        element
+        Element::item().with_class("dropend").with_child(
+            &Self::link(label)
+                .with_class("dropdown-toggle")
+                .with_attr("data-bs-toggle", "dropdown")
+        )
     }
 }
 

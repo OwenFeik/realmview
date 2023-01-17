@@ -89,6 +89,7 @@ extern "C" {
 }
 
 pub mod element;
+pub mod input;
 pub mod event;
 
 // I want this around for debugging
