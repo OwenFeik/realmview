@@ -42,6 +42,7 @@
     * Note: `0.10.2`, `0.10.3` found to segfault when building. `0.9.0` known
         working. (`cargo install wasm-pack@0.9.0`)
 * OpenSSL (`apt install libssl-dev` / `yum install openssl-devel`)
+* Sqlite3 (`apt install sqlite3`)
 * Python 3.6
 
 ## Keyboard Shortcuts
