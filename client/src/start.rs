@@ -35,7 +35,7 @@ pub fn start() -> Result<(), JsValue> {
 
     let client = match Client::new() {
         Ok(c) => c,
-        Err(_) => return logged_error("Failed to connect to game."),
+        Err(e) => return logged_error(&format!("Failed to connect to game: {e}")),
     };
 
     let vp = match Viewport::new(client) {

@@ -10,6 +10,7 @@ use web_sys::{
     ProgressEvent, UiEvent, Url, WebGl2RenderingContext, Window,
 };
 
+use crate::dom::element::Element;
 use crate::interactor::details::{SceneDetails, SpriteDetails};
 use crate::render::Renderer;
 use crate::scene::{Id, Layer, Rect, Sprite};
@@ -88,7 +89,6 @@ extern "C" {
     pub fn log_js_value(v: &JsValue);
 }
 
-pub mod element;
 pub mod event;
 pub mod input;
 
@@ -126,14 +126,9 @@ impl Canvas {
 
     /// Create a new canvas element and set it up to fill the screen.
     fn new_element() -> anyhow::Result<Canvas> {
-        let element = {
-            if let Ok(e) = get_element_by_id("canvas") {
-                e
-            } else {
-                create_appended("canvas")?
-            }
-        };
-
+        let element = Element::by_id("canvas")
+            .unwrap_or_else(|| Element::new("canvas").on_page())
+            .element;
         let canvas = match element.dyn_into::<HtmlCanvasElement>() {
             Ok(c) => Canvas::new(c)?,
             Err(_) => return Err(anyhow!("Couldn't cast Element to HtmlCanvas.",)),
@@ -599,25 +594,17 @@ fn window() -> anyhow::Result<Window> {
     }
 }
 
-fn get_document() -> anyhow::Result<Document> {
+pub fn get_document() -> anyhow::Result<Document> {
     match window()?.document() {
         Some(d) => Ok(d),
         None => Err(anyhow!("No Document.")),
     }
 }
 
-fn get_body() -> anyhow::Result<HtmlElement> {
+pub fn get_body() -> anyhow::Result<HtmlElement> {
     match get_document()?.body() {
         Some(b) => Ok(b),
         None => Err(anyhow!("No Body.")),
-    }
-}
-
-fn get_element_by_id(id: &str) -> anyhow::Result<HtmlElement> {
-    if let Some(element) = get_document()?.get_element_by_id(id) {
-        Ok(element.unchecked_into::<HtmlElement>())
-    } else {
-        Err(anyhow!("Element not found."))
     }
 }
 
@@ -663,21 +650,6 @@ pub fn websocket_url() -> anyhow::Result<Option<String>> {
     }
 }
 
-fn create_element(name: &str) -> anyhow::Result<web_sys::HtmlElement> {
-    get_document()?
-        .create_element(name)
-        .map(|e| e.unchecked_into::<web_sys::HtmlElement>())
-        .map_err(|e| anyhow!("Element creation failed: {e:?}."))
-}
-
-fn create_appended(name: &str) -> anyhow::Result<web_sys::HtmlElement> {
-    let element = create_element(name)?;
-    match get_body()?.append_child(&element) {
-        Ok(_) => Ok(element),
-        Err(_) => Err(anyhow!("Failed to append element.")),
-    }
-}
-
 fn get_window_dimensions() -> anyhow::Result<(u32, u32)> {
     let win = window()?;
 
@@ -691,7 +663,7 @@ fn get_window_dimensions() -> anyhow::Result<(u32, u32)> {
 }
 
 fn create_file_upload() -> anyhow::Result<HtmlInputElement> {
-    let element = element::Element::try_new("input")?;
+    let element = Element::try_new("input")?;
 
     element.try_set_attr("type", "file")?;
     element.try_set_attr("accept", "image/*")?;
@@ -710,10 +682,9 @@ pub fn request_animation_frame(f: &Closure<dyn FnMut()>) -> anyhow::Result<()> {
 }
 
 fn set_visible(id: &str, visible: bool) -> anyhow::Result<()> {
-    get_element_by_id(id)?
-        .style()
-        .set_property("display", if visible { "" } else { "none" })
-        .ok();
+    Element::by_id(id)
+        .ok_or(anyhow!("Element not found: {id}."))?
+        .set_css("display", if visible { "" } else { "none" });
     Ok(())
 }
 
@@ -762,17 +733,17 @@ pub fn set_role(role: scene::perms::Role) {
 }
 
 pub fn populate_change_scene(scenes: &[(String, String)], current: &str) -> anyhow::Result<()> {
-    let select = get_element_by_id("scene_menu_change_scene")?;
+    let select = Element::by_id("scene_menu_change_scene").ok_or(anyhow!("Element not found."))?;
     select.set_inner_html("");
 
     for (key, title) in scenes {
-        let opt = create_element("option")?;
-        opt.set_attribute("value", key).ok();
+        let opt = Element::try_new("option")?;
+        opt.set_attr("value", key);
         opt.set_inner_html(title);
-        select.append_child(&opt).ok();
+        select.append_child(&opt);
     }
 
-    let input = select.unchecked_ref::<HtmlInputElement>();
+    let input = select.element.unchecked_ref::<HtmlInputElement>();
     input.set_value(current);
     input.set_disabled(scenes.len() <= 1);
 

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::element::Element;
+use crate::dom::element::Element;
 
 struct InputGroup {
     root: Element,

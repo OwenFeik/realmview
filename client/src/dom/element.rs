@@ -1,8 +1,8 @@
 use anyhow::anyhow;
 use wasm_bindgen::{prelude::Closure, JsCast};
-use web_sys::HtmlInputElement;
+use web_sys::{HtmlElement, HtmlInputElement};
 
-use super::{create_element, get_body, get_element_by_id};
+use crate::bridge::{get_body, get_document};
 use crate::viewport::ViewportPoint;
 
 pub struct Element {
@@ -16,13 +16,20 @@ impl Element {
     }
 
     pub fn try_new(name: &str) -> anyhow::Result<Element> {
-        match create_element(name)?.dyn_into::<web_sys::HtmlElement>() {
-            Ok(e) => Ok(Element {
-                element: e,
-                listener: None,
-            }),
-            Err(_) => Err(anyhow!("Couldn't cast to HtmlElement.")),
-        }
+        let element = get_document()?
+            .create_element(name)
+            .map(|e| e.unchecked_into::<HtmlElement>())
+            .map_err(|e| anyhow!("Element creation failed: {e:?}."))?;
+
+        Ok(Element {
+            element,
+            listener: None,
+        })
+    }
+
+    pub fn on_page(self) -> Self {
+        self.add_to_page();
+        self
     }
 
     pub fn add_to_page(&self) {
@@ -33,8 +40,8 @@ impl Element {
     }
 
     pub fn by_id(id: &str) -> Option<Element> {
-        get_element_by_id(id).ok().map(|element| Self {
-            element,
+        get_document().ok()?.get_element_by_id(id).map(|e| Self {
+            element: e.unchecked_into::<HtmlElement>(),
             listener: None,
         })
     }
@@ -165,6 +172,10 @@ impl Element {
 
     pub fn set_value_float(&self, value: f64) {
         self.as_input().set_value_as_number(value);
+    }
+
+    pub fn set_inner_html(&self, inner_html: &str) {
+        self.element.set_inner_html(inner_html);
     }
 
     fn add_event_listener(&mut self, on: &str, handler: Box<dyn FnMut(web_sys::Event)>) {

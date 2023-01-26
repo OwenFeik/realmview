@@ -28,7 +28,7 @@ impl Client {
         let ws = match websocket_url() {
             Ok(Some(url)) => match WebSocket::new(&url) {
                 Ok(ws) => ws,
-                Err(_) => return Err(anyhow::anyhow!("Failed to open WebSocket.")),
+                Err(e) => return Err(anyhow::anyhow!("Failed to open WebSocket: {e:?}")),
             },
             _ => return Ok(None),
         };

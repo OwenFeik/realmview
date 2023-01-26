@@ -3,7 +3,8 @@ use std::rc::Rc;
 use parking_lot::Mutex;
 use serde::Serialize;
 
-use crate::{bridge::element::Element, viewport::ViewportPoint};
+use super::element::Element;
+use crate::viewport::ViewportPoint;
 
 #[derive(Clone, Copy, Debug, PartialEq, serde_derive::Serialize)]
 pub enum CanvasDropdownEvent {
