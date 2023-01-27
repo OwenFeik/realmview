@@ -66,16 +66,13 @@ impl InputGroup {
 }
 
 fn input_group() -> Element {
-    Element::default()
-        .with_class("input-group")
-        .with_class("input-group-sm")
+    Element::default().with_classes(&["input-group", "input-group-sm"])
 }
 
 fn float(min: Option<i32>, max: Option<i32>) -> Element {
     let el = Element::input()
         .with_class("form-control")
-        .with_attr("type", "number")
-        .with_attr("autocomplete", "off");
+        .with_attrs(&[("type", "number"), ("autocomplete", "off")]);
 
     if let Some(min) = min {
         el.set_attr("min", &min.to_string());
@@ -89,10 +86,9 @@ fn float(min: Option<i32>, max: Option<i32>) -> Element {
 }
 
 fn text(text: &str) -> Element {
-    let el = Element::span();
-    el.add_class("input-group-text");
-    el.set_text(text);
-    el
+    Element::span()
+        .with_class("input-group-text")
+        .with_text(text)
 }
 
 fn select(options: &[(&str, &str)]) -> Element {

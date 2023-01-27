@@ -15,19 +15,18 @@ fn add_to_menu(key: &str, inputs: &Element) {
         .with_attr("id", &heading)
         .with_class("accordion-header")
         .child("button")
-        .with_class("accordion-button")
-        .with_class("shadow-none")
-        .with_class("collapsed")
-        .with_attr("type", "button")
-        .with_attr("data-bs-toggle", "collapse")
-        .with_attr("data-bs-target", &format!("#{collapse}"))
-        .with_attr("aria-expanded", "false")
-        .with_attr("aria-controls", &format!("#{collapse}"))
+        .with_classes(&["accordion-button", "shadow-none", "collapsed"])
+        .with_attrs(&[
+            ("type", "button"),
+            ("data-bs-toggle", "collapse"),
+            ("data-bs-target", &format!("#{collapse}")),
+            ("aria-expanded", "false"),
+            ("aria-controls", &format!("#{collapse}")),
+        ])
         .with_text(key);
     item.child("div")
         .with_attr("id", &collapse)
-        .with_class("accordion-collapse")
-        .with_class("collapse")
+        .with_classes(&["accordion-collapse", "collapse"])
         .with_attr("aria-labelledby", &format!("#{heading}"))
         .with_child(inputs);
 }

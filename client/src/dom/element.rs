@@ -82,8 +82,17 @@ impl Element {
         self.element.class_list().remove_1(class).ok();
     }
 
+    pub fn add_classes(&self, classes: &[&str]) {
+        classes.iter().for_each(|class| self.add_class(class))
+    }
+
     pub fn with_class(self, class: &str) -> Self {
         self.add_class(class);
+        self
+    }
+
+    pub fn with_classes(self, classes: &[&str]) -> Self {
+        self.add_classes(classes);
         self
     }
 
@@ -93,13 +102,6 @@ impl Element {
 
     pub fn set_css(&self, property: &str, value: &str) {
         self.try_set_css(property, value).ok();
-    }
-
-    pub fn try_set_css(&self, property: &str, value: &str) -> anyhow::Result<()> {
-        self.element
-            .style()
-            .set_property(property, value)
-            .map_err(|e| anyhow!("Failed to set element CSS: {e:?}."))
     }
 
     pub fn hide(&self) {
@@ -114,14 +116,19 @@ impl Element {
         self.try_set_attr(name, value).ok();
     }
 
-    pub fn try_set_attr(&self, name: &str, value: &str) -> anyhow::Result<()> {
-        self.element
-            .set_attribute(name, value)
-            .map_err(|e| anyhow!("Failed to set element attribute: {e:?}."))
+    pub fn set_attrs(&self, attrs: &[(&str, &str)]) {
+        for (name, value) in attrs {
+            self.set_attr(name, value);
+        }
     }
 
     pub fn with_attr(self, name: &str, value: &str) -> Self {
         self.set_attr(name, value);
+        self
+    }
+
+    pub fn with_attrs(self, attrs: &[(&str, &str)]) -> Self {
+        self.set_attrs(attrs);
         self
     }
 
@@ -201,6 +208,19 @@ impl Element {
 
     fn as_input(&self) -> &HtmlInputElement {
         self.element.unchecked_ref::<HtmlInputElement>()
+    }
+
+    fn try_set_css(&self, property: &str, value: &str) -> anyhow::Result<()> {
+        self.element
+            .style()
+            .set_property(property, value)
+            .map_err(|e| anyhow!("Failed to set element CSS: {e:?}."))
+    }
+
+    fn try_set_attr(&self, name: &str, value: &str) -> anyhow::Result<()> {
+        self.element
+            .set_attribute(name, value)
+            .map_err(|e| anyhow!("Failed to set element attribute: {e:?}."))
     }
 }
 

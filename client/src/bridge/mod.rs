@@ -664,8 +664,8 @@ fn get_window_dimensions() -> anyhow::Result<(u32, u32)> {
 fn create_file_upload() -> anyhow::Result<HtmlInputElement> {
     let element = Element::try_new("input")?;
 
-    element.try_set_attr("type", "file")?;
-    element.try_set_attr("accept", "image/*")?;
+    element.set_attr("type", "file");
+    element.set_attr("accept", "image/*");
 
     element
         .element
