@@ -228,5 +228,7 @@ pub fn start() -> Result<(), JsValue> {
 
     request_animation_frame(g.borrow().as_ref().unwrap()).unwrap();
 
+    // crate::dom::menu::SceneMenu::new();
+
     Ok(())
 }

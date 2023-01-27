@@ -158,16 +158,20 @@ impl Element {
         self.set_css("top", &format!("{}px", pos.y));
     }
 
+    pub fn checked(&self) -> bool {
+        self.as_input().checked()
+    }
+
     pub fn value_string(&self) -> String {
         self.as_input().value()
     }
 
-    pub fn set_value_string(&self, value: &str) {
-        self.as_input().set_value(value);
-    }
-
     pub fn value_float(&self) -> f64 {
         self.as_input().value_as_number()
+    }
+
+    pub fn set_value_string(&self, value: &str) {
+        self.as_input().set_value(value);
     }
 
     pub fn set_value_float(&self, value: f64) {
@@ -176,6 +180,15 @@ impl Element {
 
     pub fn set_inner_html(&self, inner_html: &str) {
         self.element.set_inner_html(inner_html);
+    }
+
+    pub fn set_options(&self, options: &[(&str, &str)]) {
+        self.set_inner_html("");
+        for (key, value) in options {
+            let option = self.child("option");
+            option.set_text(key);
+            option.set_value_string(value);
+        }
     }
 
     fn add_event_listener(&mut self, on: &str, handler: Box<dyn FnMut(web_sys::Event)>) {
