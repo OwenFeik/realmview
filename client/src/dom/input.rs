@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::dom::element::Element;
 
-struct InputGroup {
+pub struct InputGroup {
     root: Element,
     line: Element,
     inputs: HashMap<String, Element>,
