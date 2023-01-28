@@ -83,18 +83,6 @@ pub fn start() -> Result<(), JsValue> {
     change_scene_closure.forget();
 
     let vp_ref = vp.clone();
-    let scene_details_closure = Closure::wrap(Box::new(move |json: String| {
-        if let Ok(details) = serde_json::from_str::<crate::interactor::details::SceneDetails>(&json)
-        {
-            let mut lock = vp_ref.lock();
-            lock.scene.scene_details(details);
-            crate::bridge::set_scene_details(lock.scene.get_scene_details());
-        }
-    }) as Box<dyn FnMut(String)>);
-    expose_closure_string_in("scene_details", &scene_details_closure);
-    scene_details_closure.forget();
-
-    let vp_ref = vp.clone();
     let new_sprite_closure = Closure::wrap(Box::new(
         move |layer: f64, w: f64, h: f64, media_key: String| {
             let texture = crate::render::parse_media_key(&media_key);
@@ -227,8 +215,6 @@ pub fn start() -> Result<(), JsValue> {
     }) as Box<dyn FnMut()>));
 
     request_animation_frame(g.borrow().as_ref().unwrap()).unwrap();
-
-    // crate::dom::menu::SceneMenu::new();
 
     Ok(())
 }

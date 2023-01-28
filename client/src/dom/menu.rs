@@ -1,4 +1,4 @@
-use crate::dom::{element::Element, input::InputGroup};
+use crate::{dom::{element::Element, input::InputGroup}, interactor::details::SceneDetails};
 
 fn add_to_menu(key: &str, inputs: &Element) {
     let el = if let Some(el) = Element::by_id("canvas_menu") {
@@ -36,7 +36,7 @@ pub struct SceneMenu {
 }
 
 impl SceneMenu {
-    pub fn new() -> Self {
+    pub fn new(details: SceneDetails, brush: u32) -> Self {
         let mut inputs = InputGroup::new();
 
         inputs.add_float("Width", Some(0), Some(scene::Scene::MAX_SIZE as i32));
@@ -49,6 +49,52 @@ impl SceneMenu {
 
         add_to_menu("Scene", &inputs.root);
 
-        Self { inputs }
+        let mut menu = Self { inputs };
+        menu.set_details(details, brush);
+        menu
+    }
+    
+    pub fn changed(&mut self) -> bool {
+        self.inputs.handle_change()
+    }
+
+    pub fn width(&self) -> Option<u32> {
+        self.inputs.value_unsigned("Width")
+    }
+
+    pub fn height(&self) -> Option<u32> {
+        self.inputs.value_unsigned("Height")
+    }
+
+    pub fn fog_of_war(&self) -> Option<bool> {
+        self.inputs.value_bool("Fog of War")
+    }
+
+    pub fn set_details(&mut self, details: SceneDetails, brush: u32) {
+        self.inputs.set_value_float("Width", details.w.unwrap_or(scene::Scene::DEFAULT_SIZE) as f64);
+        self.inputs.set_value_float("Height", details.h.unwrap_or(scene::Scene::DEFAULT_SIZE) as f64);
+        self.inputs.set_value_bool("Fog of War", details.fog.unwrap_or(false)); 
+        self.inputs.set_value_float("Brush", brush as f64);
+    }
+
+    pub fn details(&self) -> SceneDetails {
+        SceneDetails {
+            w: self.width(),
+            h: self.height(),
+            fog: self.fog_of_war(),
+            ..Default::default()
+        }
+    }
+
+    pub fn fog_brush(&self) -> u32 {
+        self.inputs.value_unsigned("Brush").unwrap_or(crate::interactor::Interactor::DEFAULT_FOG_BRUSH)
+    }
+
+    pub fn set_fog_brush(&self, brush: u32) {
+        self.inputs.set_value_float("Brush", brush as f64);
+    }
+
+    pub fn scene(&self) -> Option<String> {
+        self.inputs.value_string("Change Scene")
     }
 }

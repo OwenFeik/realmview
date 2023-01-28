@@ -1,10 +1,11 @@
 use crate::dom::dropdown::Dropdown;
+use crate::dom::menu::SceneMenu;
 use crate::scene::{Point, Rect};
 use crate::{
     bridge::{
         clear_selected_sprite,
         event::{Input, Key, KeyboardAction, MouseAction, MouseButton},
-        set_scene_details, set_selected_sprite, update_layers_list, Context, Cursor,
+        set_selected_sprite, update_layers_list, Context, Cursor,
     },
     client::Client,
     interactor::Interactor,
@@ -78,6 +79,9 @@ pub struct Viewport {
     // Canvas context menu
     dropdown: Dropdown,
 
+    // Scene details menu
+    scene_menu: SceneMenu,
+
     // Measured in scene units (tiles)
     viewport: Rect,
 
@@ -102,10 +106,13 @@ impl Viewport {
     const BASE_GRID_ZOOM: f32 = 50.0;
 
     pub fn new(client: Option<Client>) -> anyhow::Result<Self> {
+        let scene = Interactor::new(client);
+        let details = scene.get_scene_details();
         let mut vp = Viewport {
-            scene: Interactor::new(client),
+            scene,
             context: Context::new()?,
             dropdown: Dropdown::new(),
+            scene_menu: SceneMenu::new(details, Interactor::DEFAULT_FOG_BRUSH),
             tool: Tool::Select,
             viewport: Rect {
                 x: 0.0,
@@ -122,7 +129,6 @@ impl Viewport {
 
         vp.update_viewport();
         vp.centre_viewport();
-        set_scene_details(vp.scene.get_scene_details());
 
         Ok(vp)
     }
@@ -315,7 +321,7 @@ impl Viewport {
         } else if alt {
             match self.tool {
                 Tool::Draw => self.scene.change_stroke(delta),
-                Tool::Fog => self.scene.change_fog_brush(delta),
+                Tool::Fog => self.scene_menu.set_fog_brush(self.scene.change_fog_brush(delta)),
                 _ => {}
             }
         } else {
@@ -380,6 +386,11 @@ impl Viewport {
     fn process_ui_events(&mut self) {
         if let Some(event) = self.dropdown.event() {
             self.scene.handle_dropdown_event(event);
+        }
+
+        if self.scene_menu.changed() {
+            self.scene.scene_details(self.scene_menu.details());
+            self.scene.set_fog_brush(self.scene_menu.fog_brush());
         }
 
         let events = match self.context.events() {

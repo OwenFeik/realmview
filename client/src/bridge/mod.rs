@@ -11,7 +11,7 @@ use web_sys::{
 };
 
 use crate::dom::element::Element;
-use crate::interactor::details::{SceneDetails, SpriteDetails};
+use crate::interactor::details::{SpriteDetails};
 use crate::render::Renderer;
 use crate::scene::{Id, Layer, Rect, Sprite};
 
@@ -37,9 +37,6 @@ extern "C" {
     // Clears data from the sprite menu.
     #[wasm_bindgen]
     pub fn clear_selected_sprite();
-
-    #[wasm_bindgen(js_name = set_scene_details)]
-    pub fn _set_scene_details(details_json: String);
 
     // Given a JS array of JsLayerInfo structs and an ID for the currently
     // selected layer, this will update the layer info accordion in the bottom
@@ -451,12 +448,6 @@ impl Context {
 pub fn set_selected_sprite(sprite: SpriteDetails) {
     if let Ok(sprite_json) = serde_json::ser::to_string(&sprite) {
         _set_selected_sprite(sprite_json);
-    }
-}
-
-pub fn set_scene_details(details: SceneDetails) {
-    if let Ok(details_json) = serde_json::to_string(&details) {
-        _set_scene_details(details_json);
     }
 }
 

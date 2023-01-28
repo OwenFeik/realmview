@@ -35,13 +35,6 @@ var RustFuncs = {
     Switch to a new scene if in a game, else a nop.
     */
 
-    scene_details: missing_func,
-    /*
-    function scene_details(details_json: string)
-
-    Update the details of the current scene.
-    */
-
     new_sprite: missing_func,
     /*
     function new_sprite(layer_id: int, w: float, h: float, media_key: string)
@@ -193,9 +186,6 @@ function load_texture(media_key) {
 // scene/menu/sprite/sprite_menu.html
 // function set_selected_sprite(sprite_json: string)
 // function clear_selected_sprite()
-
-// scene/menu/scene/scene_menu.html
-// function set_scene_details(details_json: string)
 
 // scene/game/role.js
 // function update_interface(role: number)

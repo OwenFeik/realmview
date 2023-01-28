@@ -1,9 +1,10 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc, sync::atomic::{AtomicBool, Ordering}};
 
 use crate::dom::element::Element;
 
 pub struct InputGroup {
     pub root: Element,
+    changed: Rc<AtomicBool>,
     line: Element,
     inputs: HashMap<String, Element>,
 }
@@ -15,9 +16,14 @@ impl InputGroup {
         root.append_child(&line);
         InputGroup {
             root,
+            changed: Rc::new(AtomicBool::new(false)),
             line,
             inputs: HashMap::new(),
         }
+    }
+
+    pub fn handle_change(&self) -> bool {
+        self.changed.swap(false, Ordering::Relaxed)
     }
 
     pub fn value_bool(&self, key: &str) -> Option<bool> {
@@ -32,23 +38,43 @@ impl InputGroup {
         self.inputs.get(key).map(|e| e.value_float())
     }
 
+    pub fn value_unsigned(&self, key: &str) -> Option<u32> {
+        self.value_float(key).map(|v| v as u32)
+    }
+
+    pub fn set_value_bool(&self, key: &str, value: bool) {
+        self.inputs.get(key).map(|e| e.set_checked(value));
+    }
+
+    pub fn set_value_float(&self, key: &str, value: f64) {
+        self.inputs.get(key).map(|e| e.set_value_float(value));
+    }
+
     pub fn add_line(&mut self) {
         self.line = input_group().with_class("mt-1");
         self.root.append_child(&self.line);
     }
 
-    fn add_input(&mut self, key: &str, el: Element) {
-        self.line.append_child(&text(key));
-        self.line.append_child(&el);
+    fn add_input(&mut self, key: &str, mut el: Element) {
+        let changed = self.changed.clone();
+        el.set_oninput(Box::new(move |_| {
+            changed.store(true, Ordering::Relaxed);
+        }));
         self.inputs.insert(key.to_string(), el);
     }
 
+    fn add_entry(&mut self, key: &str, el: Element) {
+        self.line.append_child(&text(key));
+        self.line.append_child(&el);
+        self.add_input(key, el);
+    }
+
     pub fn add_float(&mut self, key: &str, min: Option<i32>, max: Option<i32>) {
-        self.add_input(key, float(min, max));
+        self.add_entry(key, float(min, max));
     }
 
     pub fn add_select(&mut self, key: &str, options: &[(&str, &str)]) {
-        self.add_input(key, select(options));
+        self.add_entry(key, select(options));
     }
 
     pub fn add_bool(&mut self, key: &str) {
@@ -61,7 +87,7 @@ impl InputGroup {
             .child("input")
             .with_class("form-check-input")
             .with_attr("type", "checkbox");
-        self.inputs.insert(key.to_string(), input);
+        self.add_input(key, input);
     }
 }
 

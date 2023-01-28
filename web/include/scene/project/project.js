@@ -1,19 +1,12 @@
 window.addEventListener("load", () => {
     const project_select = document.getElementById("project_select");
     const scene_select = document.getElementById("scene_select");
-    const scene_change = document.getElementById("scene_menu_change_scene");
 
     add_default_option(project_select);
     project_select.oninput = e => set_active_project(e.target.value);
 
-    scene_select.disabled = scene_change.disabled = true;
+    scene_select.disabled = true;
     scene_select.oninput = e => set_active_scene(e.target.value);
-
-    const [proj, scene] = url_project_scene();
-    if (proj && scene) {
-        // Only set this if this isn't in a game
-        scene_change.oninput = e => set_active_scene(e.target.value);
-    }
 
     configure_loading_icon_reset();
     load_project_scene();
@@ -195,14 +188,11 @@ function add_scene_entries(select, list, default_option = true) {
 
 function populate_scene_select(list = null, scene_key = null) {
     const scene_select = document.getElementById("scene_select");
-    const scene_change = document.getElementById("scene_menu_change_scene");
 
     update_loading_icon("scene_select_loading", LoadingIconStates.Idle);
 
     if (list) {
         add_scene_entries(scene_select, list);
-        add_scene_entries(scene_change, list, false);
-
         list.forEach(scene => {
             if (scene.scene_key === scene_key) {
                 set_active_scene(scene_key);
@@ -265,13 +255,6 @@ function set_active_scene(scene_key) {
         "/api/scene/load/" + scene_key,
         resp => {
             document.getElementById("scene_select").value = scene_key;
-            let scene_change = document.getElementById(
-                "scene_menu_change_scene"
-            );
-            if (scene_change) {
-                scene_change.value = scene_key;
-            }
-
             set_title("scene", resp.title);
 
             if (resp.success) {

@@ -35,10 +35,6 @@ window.addEventListener("load", () => {
 
     // Hide the launch game tab.
     document.getElementById("launch_game_tab").style.display = "none";
-
-    // Set up the scene switcher
-    const scene_change = document.getElementById("scene_menu_change_scene"); 
-    scene_change.oninput = () => change_scene(scene_change.value); 
 });
 
 function set_up_copy_link_btn() {

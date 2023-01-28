@@ -33,6 +33,8 @@ pub struct Interactor {
 }
 
 impl Interactor {
+    pub const DEFAULT_FOG_BRUSH: u32 = 1;
+
     /// This special ID will not belong to any sprite, and will instead be used
     /// to refer to all currently selected sprites.
     const SELECTION_ID: Id = -1;
@@ -48,7 +50,7 @@ impl Interactor {
                 stroke: Some(Sprite::DEFAULT_STROKE),
                 ..Default::default()
             },
-            fog_brush: 1,
+            fog_brush: Self::DEFAULT_FOG_BRUSH,
             history: history::History::new(client),
             holding: holding::HeldObject::None,
             perms: Perms::new(),
@@ -684,10 +686,9 @@ impl Interactor {
     pub fn replace_scene(&mut self, new: Scene) {
         self.scene = new;
         self.changes.all_change();
-        crate::bridge::set_scene_details(self.get_scene_details());
     }
 
-    pub fn get_scene_details(&mut self) -> details::SceneDetails {
+    pub fn get_scene_details(&self) -> details::SceneDetails {
         details::SceneDetails::from(&self.scene)
     }
 
@@ -973,15 +974,13 @@ impl Interactor {
         self.draw_details.stroke = Some(new);
     }
 
-    pub fn change_fog_brush(&mut self, delta: f32) {
-        // Delta is 114 by default on my machine
-        const COEFF: f32 = -1.0 / (114.0 * 2.0);
-
-        let change = delta * COEFF;
-        if change > 0.0 {
-            self.fog_brush += change as u32;
+    pub fn change_fog_brush(&mut self, delta: f32) -> u32 {
+        if delta.is_sign_positive() {
+            self.fog_brush = 1.max(self.fog_brush - 1);
         } else {
-            self.fog_brush = self.fog_brush.saturating_sub(change.abs() as u32).max(1);
+            self.fog_brush += 1;
         }
+
+        self.fog_brush
     }
 }

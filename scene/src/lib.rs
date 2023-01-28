@@ -44,7 +44,7 @@ pub struct Scene {
 impl Scene {
     pub const FOREGROUND_Z: i32 = 1;
     pub const MAX_SIZE: u32 = 512;
-    const DEFAULT_SIZE: u32 = 32;
+    pub const DEFAULT_SIZE: u32 = 32;
 
     // When creating a clone of this scene for a client, this many IDs will be
     // set aside for use by that client.

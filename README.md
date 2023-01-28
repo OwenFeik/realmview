@@ -23,7 +23,8 @@
 * Save perms, reload when the same scene is loaded
 * Expose closure macro
 * Visible fog brush
-* Update fog brush and stroke width in menu when changing with scroll wheel 
+* Update stroke width in menu when changing with scroll wheel
+* Implement change scene dropdown in Rust
 
 ## Bugs
 * Undoing creation of a shape moves it to a 0x0 at cursor

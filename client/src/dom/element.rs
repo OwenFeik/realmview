@@ -7,7 +7,6 @@ use crate::viewport::ViewportPoint;
 
 pub struct Element {
     pub element: web_sys::HtmlElement,
-    listener: Option<Closure<dyn FnMut(web_sys::Event)>>,
 }
 
 impl Element {
@@ -23,7 +22,6 @@ impl Element {
 
         Ok(Element {
             element,
-            listener: None,
         })
     }
 
@@ -42,7 +40,6 @@ impl Element {
     pub fn by_id(id: &str) -> Option<Element> {
         get_document().ok()?.get_element_by_id(id).map(|e| Self {
             element: e.unchecked_into::<HtmlElement>(),
-            listener: None,
         })
     }
 
@@ -160,6 +157,10 @@ impl Element {
         self.add_event_listener("click", handler);
     }
 
+    pub fn set_oninput(&mut self, handler: Box<dyn FnMut(web_sys::Event)>) {
+        self.add_event_listener("input", handler);
+    }
+
     pub fn set_pos(&self, pos: ViewportPoint) {
         self.set_css("left", &format!("{}px", pos.x));
         self.set_css("top", &format!("{}px", pos.y));
@@ -176,6 +177,10 @@ impl Element {
     pub fn value_float(&self) -> f64 {
         self.as_input().value_as_number()
     }
+
+    pub fn set_checked(&self, value: bool) {
+        self.as_input().set_checked(value);
+    } 
 
     pub fn set_value_string(&self, value: &str) {
         self.as_input().set_value(value);
@@ -203,7 +208,13 @@ impl Element {
         self.element
             .add_event_listener_with_callback(on, closure.as_ref().unchecked_ref())
             .ok();
-        self.listener = Some(closure);
+        
+        // Memory leak. Thought I could work around this by holding a reference
+        // in the Element, but that means that if the Element is dropped the
+        // closure is dropped, with is annoying when chaining with `.child`.
+        // Could maybe work around by having the parent store its children but
+        // that's probably more annoying than a little memory leak.
+        closure.forget();
     }
 
     fn as_input(&self) -> &HtmlInputElement {
@@ -228,7 +239,6 @@ impl Clone for Element {
     fn clone(&self) -> Self {
         Self {
             element: self.element.clone(),
-            listener: None,
         }
     }
 }
