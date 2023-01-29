@@ -18,18 +18,49 @@ function get_colour(id_prefix, callback) {
     let colour = [r, g, b, a].map(v => isNaN(v) ? 0 : v);
     callback(colour);
 }
+
+function toggle_canvas_menu() {
+    let el = document.getElementById("canvas_menu");
+    el.classList.toggle("show");
+    let btn = document.getElementById("canvas_menu_button");
+    if (el.classList.contains("show")) {
+        btn.innerHTML = `Tools {{ bootstrap_icon(chevron-right) }}`;
+    } else {
+        btn.innerHTML = `Tools {{ bootstrap_icon(chevron-left) }}`;
+    }
+}
 </script>
-<div class="accordion" id="canvas_menu">
-  {{ scene/menu/tools/tools_menu.html }}
-  {{ scene/menu/sprite/sprite_menu.html }}
-  {{ scene/menu/layers/layers_list.html }}
+<div
+    class="position-absolute text-end"
+    style="
+        bottom: {{ constant(HOVER_ELEM_INSET) }};
+        right: {{ constant(HOVER_ELEM_INSET) }};
+    "
+>
+    <div class="accordion show" id="canvas_menu">
+        {{ scene/menu/tools/tools_menu.html }}
+        {{ scene/menu/sprite/sprite_menu.html }}
+        {{ scene/menu/layers/layers_list.html }}
+    </div>      
+    <div class="btn-group-vertical">
+        <button
+          id="canvas_menu_button"
+          class="btn btn-primary btn-sm shadow-none mt-2"
+          type="button"
+          onclick="toggle_canvas_menu()"
+        >Tools {{ bootstrap_icon(chevron-right) }}</button>
+    </div>
 </div>
 <style>
 #canvas_menu {
-    bottom: {{ constant(HOVER_ELEM_INSET) }};
     height: auto;
-    position: absolute;
-    right: {{ constant(HOVER_ELEM_INSET) }};
+    position: relative;
+    right: -420px;
     width: 400px;
+    transition: all 0.2s;
+}
+
+#canvas_menu.show {
+    right: 0;
 }
 </style>
