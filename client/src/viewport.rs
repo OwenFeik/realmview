@@ -321,7 +321,9 @@ impl Viewport {
         } else if alt {
             match self.tool {
                 Tool::Draw => self.scene.change_stroke(delta),
-                Tool::Fog => self.scene_menu.set_fog_brush(self.scene.change_fog_brush(delta)),
+                Tool::Fog => self
+                    .scene_menu
+                    .set_fog_brush(self.scene.change_fog_brush(delta)),
                 _ => {}
             }
         } else {

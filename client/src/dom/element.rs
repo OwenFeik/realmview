@@ -20,9 +20,7 @@ impl Element {
             .map(|e| e.unchecked_into::<HtmlElement>())
             .map_err(|e| anyhow!("Element creation failed: {e:?}."))?;
 
-        Ok(Element {
-            element,
-        })
+        Ok(Element { element })
     }
 
     pub fn on_page(self) -> Self {
@@ -180,7 +178,11 @@ impl Element {
 
     pub fn set_checked(&self, value: bool) {
         self.as_input().set_checked(value);
-    } 
+    }
+
+    pub fn toggle_checked(&self) {
+        self.set_checked(!self.checked());
+    }
 
     pub fn set_value_string(&self, value: &str) {
         self.as_input().set_value(value);
@@ -208,7 +210,7 @@ impl Element {
         self.element
             .add_event_listener_with_callback(on, closure.as_ref().unchecked_ref())
             .ok();
-        
+
         // Memory leak. Thought I could work around this by holding a reference
         // in the Element, but that means that if the Element is dropped the
         // closure is dropped, with is annoying when chaining with `.child`.

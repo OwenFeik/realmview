@@ -11,7 +11,7 @@ use web_sys::{
 };
 
 use crate::dom::element::Element;
-use crate::interactor::details::{SpriteDetails};
+use crate::interactor::details::SpriteDetails;
 use crate::render::Renderer;
 use crate::scene::{Id, Layer, Rect, Sprite};
 

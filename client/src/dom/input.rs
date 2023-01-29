@@ -1,6 +1,10 @@
-use std::{collections::HashMap, rc::Rc, sync::atomic::{AtomicBool, Ordering}};
+use std::{
+    collections::HashMap,
+    rc::Rc,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
-use crate::dom::element::Element;
+use super::{element::Element, icon::Icon};
 
 pub struct InputGroup {
     pub root: Element,
@@ -43,11 +47,15 @@ impl InputGroup {
     }
 
     pub fn set_value_bool(&self, key: &str, value: bool) {
-        self.inputs.get(key).map(|e| e.set_checked(value));
+        if let Some(e) = self.inputs.get(key) {
+            e.set_checked(value);
+        }
     }
 
     pub fn set_value_float(&self, key: &str, value: f64) {
-        self.inputs.get(key).map(|e| e.set_value_float(value));
+        if let Some(e) = self.inputs.get(key) {
+            e.set_value_float(value);
+        }
     }
 
     pub fn add_line(&mut self) {
@@ -77,7 +85,7 @@ impl InputGroup {
         self.add_entry(key, select(options));
     }
 
-    pub fn add_bool(&mut self, key: &str) {
+    pub fn add_checkbox(&mut self, key: &str) {
         let el = Element::new("div").with_class("input-group-text");
         self.line.append_child(&text(key));
         self.line.append_child(&el);
@@ -87,6 +95,31 @@ impl InputGroup {
             .child("input")
             .with_class("form-check-input")
             .with_attr("type", "checkbox");
+        self.add_input(key, input);
+    }
+
+    pub fn add_toggle(&mut self, key: &str, mut icon: Icon) {
+        let mut el = Element::new("button")
+            .with_classes(&["btn", "btn-sm", "btn-outline-primary"])
+            .with_attr("type", "button");
+        self.line.append_child(&el);
+
+        // Input element to add to hashmap
+        let input = el
+            .child("input")
+            .with_class("d-none")
+            .with_attr("type", "checkbox");
+
+        // Toggle icon and input when clicked
+        let i = el.child("i").with_class(&icon.class());
+        let input_ref = input.clone();
+        el.set_onclick(Box::new(move |_| {
+            i.remove_class(&icon.class());
+            icon = icon.opposite();
+            i.add_class(&icon.class());
+            input_ref.toggle_checked();
+        }));
+
         self.add_input(key, input);
     }
 }

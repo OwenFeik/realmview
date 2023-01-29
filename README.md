@@ -31,6 +31,7 @@
 * Updating sprite shape via menu is broken
 * Tool selection gets broken when changing stroke
 * When saving a scene, a new project is created
+* Fog of war sometimes doesn't show up
 
 # Documentation
 

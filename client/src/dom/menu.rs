@@ -1,4 +1,7 @@
-use crate::{dom::{element::Element, input::InputGroup}, interactor::details::SceneDetails};
+use crate::{
+    dom::{element::Element, input::InputGroup},
+    interactor::details::SceneDetails,
+};
 
 fn add_to_menu(key: &str, inputs: &Element) {
     let el = if let Some(el) = Element::by_id("canvas_menu") {
@@ -42,7 +45,7 @@ impl SceneMenu {
         inputs.add_float("Width", Some(0), Some(scene::Scene::MAX_SIZE as i32));
         inputs.add_float("Height", Some(0), Some(scene::Scene::MAX_SIZE as i32));
         inputs.add_line();
-        inputs.add_bool("Fog of War");
+        inputs.add_checkbox("Fog of War");
         inputs.add_float("Brush", Some(1), Some(20));
         inputs.add_line();
         inputs.add_select("Change Scene", &[("Test", "SceneKey")]);
@@ -53,7 +56,7 @@ impl SceneMenu {
         menu.set_details(details, brush);
         menu
     }
-    
+
     pub fn changed(&mut self) -> bool {
         self.inputs.handle_change()
     }
@@ -71,9 +74,16 @@ impl SceneMenu {
     }
 
     pub fn set_details(&mut self, details: SceneDetails, brush: u32) {
-        self.inputs.set_value_float("Width", details.w.unwrap_or(scene::Scene::DEFAULT_SIZE) as f64);
-        self.inputs.set_value_float("Height", details.h.unwrap_or(scene::Scene::DEFAULT_SIZE) as f64);
-        self.inputs.set_value_bool("Fog of War", details.fog.unwrap_or(false)); 
+        self.inputs.set_value_float(
+            "Width",
+            details.w.unwrap_or(scene::Scene::DEFAULT_SIZE) as f64,
+        );
+        self.inputs.set_value_float(
+            "Height",
+            details.h.unwrap_or(scene::Scene::DEFAULT_SIZE) as f64,
+        );
+        self.inputs
+            .set_value_bool("Fog of War", details.fog.unwrap_or(false));
         self.inputs.set_value_float("Brush", brush as f64);
     }
 
@@ -87,7 +97,9 @@ impl SceneMenu {
     }
 
     pub fn fog_brush(&self) -> u32 {
-        self.inputs.value_unsigned("Brush").unwrap_or(crate::interactor::Interactor::DEFAULT_FOG_BRUSH)
+        self.inputs
+            .value_unsigned("Brush")
+            .unwrap_or(crate::interactor::Interactor::DEFAULT_FOG_BRUSH)
     }
 
     pub fn set_fog_brush(&self, brush: u32) {
