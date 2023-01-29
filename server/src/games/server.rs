@@ -89,7 +89,9 @@ impl Server {
     }
 
     pub fn drop_client(&mut self, key: &str) {
-        self.clients.remove(key);
+        if let Some(client) = self.clients.get_mut(key) {
+            client.clear_sender();
+        }
     }
 
     pub async fn connect_client(&mut self, key: String, sender: UnboundedSender<Message>) -> bool {

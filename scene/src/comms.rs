@@ -144,6 +144,7 @@ pub struct ClientMessage {
 #[derive(Deserialize, Serialize)]
 pub enum ServerEvent {
     Approval(Id),
+    GameOver,
     Rejection(Id),
     PermsChange(Perms),
     PermsUpdate(PermsEvent),

@@ -22,7 +22,7 @@ pub struct Interactor {
     history: history::History,
     holding: holding::HeldObject,
     perms: Perms,
-    pub scene: Scene,
+    scene: Scene,
     selected_layer: Id,
     selected_sprites: Vec<Id>,
 
@@ -75,6 +75,7 @@ impl Interactor {
     fn process_server_event(&mut self, event: ServerEvent) {
         match event {
             ServerEvent::Approval(id) => self.history.approve_event(id),
+            ServerEvent::GameOver => (),
             ServerEvent::Rejection(id) => {
                 if let Some(event) = self.history.take_event(id) {
                     self.unwind_event(event)

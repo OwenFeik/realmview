@@ -1,6 +1,7 @@
 use std::sync::atomic::AtomicBool;
 use std::{rc::Rc, sync::atomic::Ordering};
 
+use anyhow::anyhow;
 use bincode::{deserialize, serialize};
 use js_sys::{ArrayBuffer, Uint8Array};
 use parking_lot::Mutex;
@@ -10,10 +11,13 @@ use web_sys::{ErrorEvent, MessageEvent, WebSocket};
 use crate::bridge::{flog, log, log_js_value, websocket_url};
 use crate::scene::comms::{ClientEvent, ClientMessage, ServerEvent};
 
+type Events = Rc<Mutex<Vec<ServerEvent>>>;
+type Sock = Rc<Mutex<WebSocket>>;
+
 pub struct Client {
     ready: Rc<AtomicBool>,
-    sock: WebSocket,
-    incoming_events: Rc<Mutex<Vec<ServerEvent>>>,
+    sock: Sock,
+    incoming_events: Events,
 }
 
 /// The `Client` handles sending `ClientMessage`s to the server and receiving
@@ -25,60 +29,18 @@ impl Client {
     /// will return Ok(None). On successfully connection returns
     /// Ok(Some(Client)) on a failed connection returns Err.
     pub fn new() -> anyhow::Result<Option<Client>> {
-        let ws = match websocket_url() {
-            Ok(Some(url)) => match WebSocket::new(&url) {
-                Ok(ws) => ws,
-                Err(e) => return Err(anyhow::anyhow!("Failed to open WebSocket: {e:?}")),
-            },
+        let url = match websocket_url() {
+            Ok(Some(url)) => url,
             _ => return Ok(None),
         };
 
         let ready = Rc::new(AtomicBool::new(false));
         let incoming_events = Rc::new(Mutex::new(Vec::new()));
-
-        // More performant than Blob for small payloads, per the wasm-bindgen
-        // example at
-        // https://rustwasm.github.io/wasm-bindgen/examples/websockets.html
-        ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
-
-        let event_queue = incoming_events.clone();
-        let onmessage =
-            Closure::wrap(
-                Box::new(move |e: MessageEvent| match deserialise_message(e.data()) {
-                    Ok(e) => event_queue.lock().push(e),
-                    Err(s) => flog!("{s}"),
-                }) as Box<dyn FnMut(MessageEvent)>,
-            );
-        ws.set_onmessage(Some(onmessage.as_ref().unchecked_ref()));
-        onmessage.forget();
-
-        let onerror = Closure::wrap(Box::new(move |e: ErrorEvent| {
-            log(&format!("WebSocket error: {:?}", e));
-        }) as Box<dyn FnMut(ErrorEvent)>);
-        ws.set_onerror(Some(onerror.as_ref().unchecked_ref()));
-        onerror.forget();
-
-        let ready_clone = ready.clone();
-        let onopen = Closure::wrap(
-            Box::new(move |_| ready_clone.store(true, Ordering::Relaxed))
-                as Box<dyn FnMut(JsValue)>,
-        );
-        ws.set_onopen(Some(onopen.as_ref().unchecked_ref()));
-        onopen.forget();
-
-        let onclose = Closure::wrap(Box::new(move |_| {
-            web_sys::window()
-                .expect("Missing window.")
-                .location()
-                .set_href("/game_over")
-                .ok();
-        }) as Box<dyn FnMut(JsValue)>);
-        ws.set_onclose(Some(onclose.as_ref().unchecked_ref()));
-        onclose.forget();
+        let sock = connect_websocket(url, ready.clone(), incoming_events.clone())?;
 
         Ok(Some(Client {
             ready,
-            sock: ws,
+            sock,
             incoming_events,
         }))
     }
@@ -94,7 +56,7 @@ impl Client {
     }
 
     fn _send_message(&self, message: &[u8], retry: bool) {
-        if let Err(v) = self.sock.send_with_u8_array(message) {
+        if let Err(v) = self.sock.lock().send_with_u8_array(message) {
             if retry {
                 self._send_message(message, false);
             } else {
@@ -121,13 +83,97 @@ impl Client {
 fn deserialise_message(message: JsValue) -> anyhow::Result<ServerEvent> {
     match message.dyn_into::<ArrayBuffer>() {
         Ok(b) => match deserialize(&Uint8Array::new(&b).to_vec()) {
-            Ok(e) => Ok(e),
-            Err(e) => Err(anyhow::anyhow!(
-                "WebSocket message deserialisation failed: {e}."
-            )),
+            Ok(e) => {
+                if matches!(e, ServerEvent::GameOver) {
+                    redirect_game_over();
+                    Err(anyhow!("Game over."))
+                } else {
+                    Ok(e)
+                }
+            }
+            Err(e) => Err(anyhow!("WebSocket message deserialisation failed: {e}.")),
         },
-        Err(e) => Err(anyhow::anyhow!(
+        Err(e) => Err(anyhow!(
             "WebSocket message could not be cast to ArrayBuffer: {e:?}."
         )),
     }
+}
+
+fn redirect_game_over() {
+    web_sys::window()
+        .expect("Missing window.")
+        .location()
+        .set_href("/game_over")
+        .ok();
+}
+
+fn create_websocket(url: &str, ready: Rc<AtomicBool>, events: Events) -> anyhow::Result<WebSocket> {
+    ready.store(false, Ordering::Relaxed);
+    crate::bridge::flog!("Connecting WebSocket.");
+
+    let ws = match WebSocket::new(url) {
+        Ok(ws) => ws,
+        Err(e) => return Err(anyhow!("Failed to create WebSocket: {e:?}")),
+    };
+
+    // More performant than Blob for small payloads, per the wasm-bindgen
+    // example at
+    // https://rustwasm.github.io/wasm-bindgen/examples/websockets.html
+    ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
+
+    let onmessage =
+        Closure::wrap(
+            Box::new(move |e: MessageEvent| match deserialise_message(e.data()) {
+                Ok(e) => events.lock().push(e),
+                Err(s) => flog!("WebSocket decode error: {s}"),
+            }) as Box<dyn FnMut(MessageEvent)>,
+        );
+    ws.set_onmessage(Some(onmessage.as_ref().unchecked_ref()));
+    onmessage.forget();
+
+    let onerror = Closure::wrap(Box::new(move |e: ErrorEvent| {
+        crate::bridge::flog!("WebSocket error: {e:?}");
+        redirect_game_over();
+    }) as Box<dyn FnMut(ErrorEvent)>);
+    ws.set_onerror(Some(onerror.as_ref().unchecked_ref()));
+    onerror.forget();
+
+    let onopen = Closure::wrap(Box::new(move |_| {
+        crate::bridge::flog!("WebSocket connected.");
+        ready.store(true, Ordering::Relaxed)
+    }) as Box<dyn FnMut(JsValue)>);
+    ws.set_onopen(Some(onopen.as_ref().unchecked_ref()));
+    onopen.forget();
+
+    Ok(ws)
+}
+
+/// Connects a websocket, returning a Mutex to that websocket. In the event
+/// that the socket is closed, this will replace the value in the Mutex with a
+/// new socket, setting ready false in the interim.
+fn connect_websocket(url: String, ready: Rc<AtomicBool>, events: Events) -> anyhow::Result<Sock> {
+    // Mutex on the websocket.
+    let sock = Rc::new(Mutex::new(create_websocket(
+        &url,
+        ready.clone(),
+        events.clone(),
+    )?));
+
+    // Create handler to replace the socket if it closes.
+    let sock_ref = sock.clone();
+    let onclose = Closure::wrap(Box::new(move |_| {
+        crate::bridge::flog!("WebSocket closed. Attemting reconnect.");
+        if let Ok(replacement) = create_websocket(&url, ready.clone(), events.clone()) {
+            let mut lock = sock_ref.lock();
+            *lock = replacement;
+        } else {
+            crate::bridge::flog!("Failed to reconnect. Game over.");
+            redirect_game_over();
+        }
+    }) as Box<dyn FnMut(JsValue)>);
+    sock.lock()
+        .set_onclose(Some(onclose.as_ref().unchecked_ref()));
+    onclose.forget();
+
+    Ok(sock)
 }

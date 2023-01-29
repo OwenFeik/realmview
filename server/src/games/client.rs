@@ -22,6 +22,10 @@ impl Client {
         }
     }
 
+    pub fn clear_sender(&mut self) {
+        self.sender = None;
+    }
+
     pub fn set_sender(&mut self, sender: UnboundedSender<Message>) {
         self.sender = Some(sender);
     }
