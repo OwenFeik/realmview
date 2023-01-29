@@ -25,6 +25,7 @@
 * Visible fog brush
 * Update stroke width in menu when changing with scroll wheel
 * Implement change scene dropdown in Rust
+* Close game when owner leaves
 
 ## Bugs
 * Undoing creation of a shape moves it to a 0x0 at cursor

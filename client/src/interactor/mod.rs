@@ -22,7 +22,7 @@ pub struct Interactor {
     history: history::History,
     holding: holding::HeldObject,
     perms: Perms,
-    scene: Scene,
+    pub scene: Scene,
     selected_layer: Id,
     selected_sprites: Vec<Id>,
 

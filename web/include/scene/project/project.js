@@ -275,12 +275,6 @@ function create_new_project() {
 
 function create_new_scene() {
     set_title("scene", document.getElementById("scene_title").value);
-
-    if (!selected_scene()) {
-        // Already a new scene, don't overwrite.
-        return;
-    }
-
     let proj_id = parseInt(
         document
             .getElementById("project_select")
@@ -364,9 +358,6 @@ function save_project() {
             // Only update if the selected project is unchanged
             if (selected_project() === proj) {
                 update_select("scene_select", resp.title, resp.scene_key);
-                update_select(
-                    "scene_menu_change_scene", resp.title, resp.scene_key
-                );
                 update_select(
                     "project_select",
                     resp.project_title,
