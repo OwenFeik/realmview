@@ -11,8 +11,6 @@
 * Use sprite menu to change texture
 * Place media in directories
 * Manage fog of war by player
-* When the WebSocket is closed, try to reconnect or redirect to a
-    "game ended" page
 * Associate each client with a user. When a user connects a second time,
     terminate that user's other sessions
 * Specify which users are allowed to join the game
@@ -26,6 +24,12 @@
 * Update stroke width in menu when changing with scroll wheel
 * Implement change scene dropdown in Rust
 * Close game when owner leaves
+* Added tokens can't be edited by players
+* Sometimes players can't see all lines 
+* Help menu
+* When disconnected, try and reconnect (while spinning map)
+* Show hide canvas menu
+* Photoshop style stroke changes (maybe)
 
 ## Bugs
 * Undoing creation of a shape moves it to a 0x0 at cursor
@@ -33,6 +37,7 @@
 * Tool selection gets broken when changing stroke
 * When saving a scene, a new project is created
 * Fog of war sometimes doesn't show up
+* Needs to use `wss://` if page is `https://`
 
 # Documentation
 

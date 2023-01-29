@@ -66,6 +66,16 @@ impl Client {
         ws.set_onopen(Some(onopen.as_ref().unchecked_ref()));
         onopen.forget();
 
+        let onclose = Closure::wrap(Box::new(move |_| {
+            web_sys::window()
+                .expect("Missing window.")
+                .location()
+                .set_href("/game_over")
+                .ok();
+        }) as Box<dyn FnMut(JsValue)>);
+        ws.set_onclose(Some(onclose.as_ref().unchecked_ref()));
+        onclose.forget();
+
         Ok(Some(Client {
             ready,
             sock: ws,
