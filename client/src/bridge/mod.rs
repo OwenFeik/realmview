@@ -624,19 +624,22 @@ pub fn websocket_url() -> anyhow::Result<Option<String>> {
         Err(_) => return Err(anyhow!("Failed to read window host.")),
     };
 
-    match loc.pathname() {
-        Ok(path) => {
+    match (loc.pathname(), loc.protocol()) {
+        (Ok(path), Ok(protocol)) => {
             let mut parts = path.split('/').collect::<Vec<&str>>();
             parts.retain(|p| !p.is_empty());
             match parts[..] {
                 ["game", game_key, "client", client_key] => Ok(Some(format!(
-                    "ws://{}/api/game/{}/{}",
-                    &host, game_key, client_key
+                    "{}://{}/api/game/{}/{}",
+                    if protocol.contains('s') { "wss" } else { "ws" },
+                    &host,
+                    game_key,
+                    client_key
                 ))),
                 _ => Ok(None),
             }
         }
-        Err(_) => Err(anyhow!("Failed to read window pathname.")),
+        _ => Err(anyhow!("Failed to read window pathname.")),
     }
 }
 

@@ -28,8 +28,8 @@
 * Sometimes players can't see all lines 
 * Help menu
 * When disconnected, try and reconnect (while spinning map)
-* Show hide canvas menu
 * Photoshop style stroke changes (maybe)
+* Set sprite aspect ratio
 
 ## Bugs
 * Undoing creation of a shape moves it to a 0x0 at cursor
@@ -37,7 +37,6 @@
 * Tool selection gets broken when changing stroke
 * When saving a scene, a new project is created
 * Fog of war sometimes doesn't show up
-* Needs to use `wss://` if page is `https://`
 
 # Documentation
 
