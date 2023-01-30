@@ -976,10 +976,12 @@ impl Interactor {
     }
 
     pub fn change_fog_brush(&mut self, delta: f32) -> u32 {
-        if delta.is_sign_positive() {
-            self.fog_brush = 1.max(self.fog_brush - 1);
-        } else {
-            self.fog_brush += 1;
+        if delta.abs() > f32::EPSILON {
+            if delta.is_sign_positive() {
+                self.fog_brush = 1.max(self.fog_brush - 1);
+            } else {
+                self.fog_brush += 1;
+            }
         }
 
         self.fog_brush

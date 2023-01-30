@@ -56,14 +56,12 @@ pub fn start() -> Result<(), JsValue> {
 
     let vp_ref = vp.clone();
     let load_scene_closure = Closure::wrap(Box::new(move |vp_b64: String| {
-        let s = match base64::decode(vp_b64) {
-            Ok(b) => match bincode::deserialize(&b) {
-                Ok(s) => s,
-                _ => return,
-            },
-            _ => return,
-        };
-        vp_ref.lock().scene.replace_scene(s);
+        if let Ok(bytes) = base64::decode(vp_b64) {
+            if let Ok(scene) = bincode::deserialize(&bytes) {
+                let mut lock = vp_ref.lock();
+                lock.replace_scene(scene);
+            }
+        }
     }) as Box<dyn FnMut(String)>);
     expose_closure_string_in("load_scene", &load_scene_closure);
     load_scene_closure.forget();

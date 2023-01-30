@@ -534,4 +534,12 @@ impl Viewport {
             }
         }
     }
+
+    pub fn replace_scene(&mut self, scene: scene::Scene) {
+        self.scene_menu.set_details(
+            crate::interactor::details::SceneDetails::from(&scene),
+            self.scene.change_fog_brush(0.0),
+        );
+        self.scene.replace_scene(scene);
+    }
 }
