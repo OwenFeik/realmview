@@ -72,7 +72,8 @@ fn page_routes(
                 .untuple_one()
                 .and(serve_game.clone()))
             .or(warp::path("game").and(serve_game))
-            .or(warp::path("game_over").and(warp::fs::file(dir.join("game_over.html")))),
+            .or(warp::path("game_over").and(warp::fs::file(dir.join("game_over.html"))))
+            .or(warp::path("landing").and(warp::fs::file(dir.join("landing.html")))),
     )
 }
 

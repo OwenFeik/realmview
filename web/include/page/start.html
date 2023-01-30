@@ -6,4 +6,7 @@
       ELSE {{ {{ constant(APP_TITLE) }} }}</title>
   </head>
   <body>
-  {{ header({{ IFDEF(LOGGEDIN) {{ loggedin="" }} }}) }}
+  <Header
+    IFDEF(LOGGEDIN) {{ loggedin="" }}
+    IFDEF(REDIRECT) {{ redirect="{{ REDIRECT }}" }}
+  >

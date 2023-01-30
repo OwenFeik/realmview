@@ -1,8 +1,6 @@
 # TODO
 
 ## Features
-* Homepage should be different when logged in. Maybe just redirect to
-    project page by default.
 * Warn when saving over changes
 * Keyboard shortcuts on hovering tools
 * Select from selected layer first (possibly)

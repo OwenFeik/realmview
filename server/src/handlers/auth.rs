@@ -28,10 +28,16 @@ pub fn filter(
     let login = warp::path("login")
         .and(warp::post())
         .and(json_body::<LoginRequest>())
-        .and(with_db(pool))
+        .and(with_db(pool.clone()))
         .and_then(login);
 
-    login.or(logout)
+    let test = warp::path("test")
+        .and(warp::post())
+        .and(with_db(pool))
+        .and(with_session())
+        .and_then(test_session);
+
+    warp::path("auth").and(login.or(logout).or(test))
 }
 
 fn decode_and_check_password(
@@ -137,4 +143,22 @@ async fn end_session(pool: &SqlitePool, session_key: &str) -> anyhow::Result<boo
 async fn logout(pool: SqlitePool, session_key: String) -> Result<impl warp::Reply, Infallible> {
     end_session(&pool, session_key.as_str()).await.ok();
     session_result(true, "Logged out.", StatusCode::OK, None)
+}
+
+async fn test_session(
+    pool: SqlitePool,
+    session_key: String,
+) -> Result<impl warp::Reply, Infallible> {
+    let (success, message) = match User::get_by_session(&pool, &session_key).await {
+        Ok(Some(_user)) => (true, "Session valid."),
+        Ok(None) => (false, "Invalid session."),
+        Err(_) => (false, "Database error."),
+    };
+
+    session_result(
+        success,
+        message,
+        StatusCode::OK,
+        if success { Some(&session_key) } else { None },
+    )
 }

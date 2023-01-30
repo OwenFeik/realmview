@@ -1,3 +1,7 @@
+PREAMBLE {{
+if "LOGGEDIN" in kwargs or "REDIRECT" in kwargs:
+  kwargs["TEST_SESSION"] = True
+}}
 <header>
   <nav class="navbar navbar-expand-sm navbar-dark bg-primary">
     <div class="container-fluid">
@@ -15,7 +19,7 @@
             class="nav-link"
             style="cursor: pointer;"
             onclick="
-              fetch('/api/logout', { method: 'POST' }).then(
+              fetch('/api/auth/logout', { method: 'POST' }).then(
                 () => window.location = '/'
               )
             "
@@ -38,10 +42,21 @@ if (link = document.querySelector(`a[href="${window.location.pathname}"]`)) {
     link.classList.add("active");
 }
 </script>  
-IFDEF(LOGGEDIN) {{
+IFDEF(TEST_SESSION) {{
 <script>
-if (!logged_in) {
-    window.location.href = '/login';
-}
+fetch('/api/auth/test', { method: 'POST' }).then(
+  resp => resp.json().then(body => {
+    IFDEF(REDIRECT) {{
+      if (body.success) {
+        window.location.href = '{{ REDIRECT }}';
+      }
+    }}
+    IFDEF(LOGGEDIN) {{
+      if (!body.success) {
+        window.location.href = '/login';
+      }
+    }}
+  })
+);
 </script>
 }}

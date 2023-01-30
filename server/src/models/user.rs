@@ -27,6 +27,8 @@ impl User {
         Ok(user)
     }
 
+    /// Given a valid session key, return the associated user. None if session
+    /// has expired.
     pub async fn get_by_session(
         pool: &SqlitePool,
         session_key: &str,
@@ -34,7 +36,8 @@ impl User {
         let user = sqlx::query_as(concat!(
             "SELECT u.id, u.username, u.salt, u.hashed_password, ",
             "u.recovery_key, u.created_time FROM users u LEFT JOIN ",
-            "user_sessions us ON us.user = u.id WHERE us.session_key = ?1;"
+            "user_sessions us ON us.user = u.id WHERE us.session_key = ?1",
+            " AND us.end_time IS NULL;"
         ))
         .bind(session_key)
         .fetch_optional(pool)
