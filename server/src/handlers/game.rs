@@ -209,6 +209,7 @@ mod new {
                 scene,
                 pool.clone(),
                 &game_key,
+                games.clone(),
             )));
             games::GameServer::start(server.clone()).await;
             games.write().await.insert(game_key.clone(), server);

@@ -16,6 +16,10 @@ impl Client {
         }
     }
 
+    pub fn active(&self) -> bool {
+        self.sender.is_some()
+    }
+
     pub fn send(&self, message: Message) {
         if let Some(sender) = &self.sender {
             sender.send(message).ok();

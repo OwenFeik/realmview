@@ -45,18 +45,19 @@ pub async fn client_connection(ws: WebSocket, key: String, game: GameRef) {
     while let Some(result) = client_ws_recv.next().await {
         match result {
             Ok(msg) => match deserialize(msg.as_bytes()) {
-                Ok(message) => game.write().await.handle_message(message, &key).await,
+                Ok(message) => {
+                    if !game.write().await.handle_message(message, &key).await {
+                        break;
+                    }
+                }
                 Err(e) => eprintln!("Error parsing ws message: {}", e),
             },
-            Err(e) => {
-                eprintln!("Error receiving ws message: {}", e);
-                break;
-            }
+            Err(_) => break,
         };
     }
 
     game.write().await.drop_client(&key);
-    println!("Dropped client {key}");
+    println!("Client disconnected: {key}");
 }
 
 pub fn generate_game_key() -> anyhow::Result<String> {

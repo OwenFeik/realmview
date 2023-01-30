@@ -18,12 +18,18 @@ pub struct Client {
     ready: Rc<AtomicBool>,
     sock: Sock,
     incoming_events: Events,
+
+    // Count frames and ping server every so often if no events have been sent,
+    // to check game is still live.
+    counter: u32,
 }
 
 /// The `Client` handles sending `ClientMessage`s to the server and receiving
 /// `ServerMessage`s form the server. It opens a `WebSocket` with the server
 /// and listens on this socket, posting messages if `send_message` is used.
 impl Client {
+    const PING_INTERVAL_FRAMES: u32 = 60 * 30; // For 60fps screen, every 30s.
+
     /// If the page URL is /game/GAME_KEY/client/CLIENT_KEY, this will attempt
     /// to connect to the appropriate game websocket. If the URL doesn't match
     /// will return Ok(None). On successfully connection returns
@@ -42,13 +48,19 @@ impl Client {
             ready,
             sock,
             incoming_events,
+            counter: 0,
         }))
     }
 
     // Returns vector of events ordered from newest to oldest.
     // This order is chosen because it allows popping from the end in order to
     // apply events in the correct order.
-    pub fn events(&self) -> Vec<ServerEvent> {
+    pub fn events(&mut self) -> Vec<ServerEvent> {
+        self.counter += 1;
+        if self.counter >= Self::PING_INTERVAL_FRAMES {
+            self.ping();
+        }
+
         let mut events = self.incoming_events.lock();
         let mut ret = Vec::new();
         ret.append(&mut events);
@@ -66,13 +78,15 @@ impl Client {
         }
     }
 
-    pub fn send_message(&self, message: &ClientMessage) {
+    pub fn send_message(&mut self, message: &ClientMessage) {
+        // Reset counter every time a message is sent.
+        self.counter = 0;
         if let Ok(m) = serialize(message) {
             self._send_message(&m, true);
         }
     }
 
-    pub fn ping(&self) {
+    fn ping(&mut self) {
         self.send_message(&ClientMessage {
             id: 0,
             event: ClientEvent::Ping,

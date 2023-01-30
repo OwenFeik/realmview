@@ -7,7 +7,7 @@ use sqlx::{pool::PoolConnection, SqlitePool};
 use tokio::sync::mpsc::UnboundedSender;
 use warp::ws::Message;
 
-use super::{client::Client, Game, GameRef};
+use super::{client::Client, Game, GameRef, Games};
 use crate::{
     models::{Project, SceneRecord},
     scene::{
@@ -23,13 +23,21 @@ pub struct Server {
     clients: HashMap<String, Client>,
     owner: i64,
     game: Game,
+    games: Games,
 }
 
 impl Server {
     const SAVE_INTERVAL: time::Duration = time::Duration::from_secs(10);
-    const INACTIVITY_TIMEOUT: time::Duration = time::Duration::from_secs(1800);
+    const INACTIVITY_TIMEOUT: time::Duration = time::Duration::from_secs(20);
 
-    pub fn new(owner: i64, project: i64, scene: Scene, pool: SqlitePool, key: &str) -> Self {
+    pub fn new(
+        owner: i64,
+        project: i64,
+        scene: Scene,
+        pool: SqlitePool,
+        key: &str,
+        games: Games,
+    ) -> Self {
         Self {
             alive: true,
             pool,
@@ -37,12 +45,19 @@ impl Server {
             clients: HashMap::new(),
             owner,
             game: super::Game::new(project, scene, owner, key),
+            games,
         }
     }
 
-    fn die(&mut self) {
+    async fn die(&mut self) {
         self.alive = false;
-        // TODO properly kill server by closing web sockets &c
+
+        for client in self.clients.values_mut() {
+            client.clear_sender();
+        }
+
+        // Delete this game.
+        self.games.write().await.remove(&self.game.key);
     }
 
     pub async fn start(server: GameRef) {
@@ -73,7 +88,7 @@ impl Server {
 
                         // Drop read lock so we can get a write lock
                         drop(lock);
-                        server.write().await.die();
+                        server.write().await.die().await;
                     }
                 }
             }
@@ -129,6 +144,14 @@ impl Server {
         true
     }
 
+    fn client_active(&self, key: &str) -> bool {
+        if let Some(client) = self.clients.get(key) {
+            client.active()
+        } else {
+            false
+        }
+    }
+
     fn get_client_mut(&mut self, key: &str) -> Option<&mut Client> {
         self.clients.get_mut(key)
     }
@@ -175,9 +198,15 @@ impl Server {
         self.send_to(ServerEvent::Rejection(event_id), client_key);
     }
 
-    pub async fn handle_message(&mut self, message: ClientMessage, from: &str) {
+    /// Handles a message from a client. Returns `true` if all is good, or
+    /// `false` if the client has been dropped and the socket should be closed.
+    pub async fn handle_message(&mut self, message: ClientMessage, from: &str) -> bool {
         // Keep track of last activity. Even a ping will keep the server up.
         self.last_action = time::SystemTime::now();
+
+        if !self.client_active(from) {
+            return false;
+        }
 
         match message.event {
             ClientEvent::Ping => {
@@ -215,6 +244,8 @@ impl Server {
                 }
             }
         };
+
+        true
     }
 
     async fn acquire_conn(&self) -> anyhow::Result<PoolConnection<sqlx::Sqlite>> {

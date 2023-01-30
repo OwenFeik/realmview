@@ -23,8 +23,8 @@ impl History {
         }
     }
 
-    pub fn server_events(&self) -> Option<Vec<ServerEvent>> {
-        self.client.as_ref().map(|client| client.events())
+    pub fn server_events(&mut self) -> Option<Vec<ServerEvent>> {
+        self.client.as_mut().map(|client| client.events())
     }
 
     pub fn take_event(&mut self, id: Id) -> Option<SceneEvent> {
@@ -46,7 +46,7 @@ impl History {
         static EVENT_ID: AtomicI64 = AtomicI64::new(1);
 
         // Queue event to be sent to server
-        if let Some(client) = &self.client {
+        if let Some(client) = &mut self.client {
             let message = ClientMessage {
                 id: EVENT_ID.fetch_add(1, Ordering::Relaxed),
                 event,
