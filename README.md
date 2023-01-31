@@ -33,7 +33,6 @@
 * Updating sprite shape via menu is broken
 * Tool selection gets broken when changing stroke
 * Fog of war sometimes doesn't show up
-* Copy join game link button doesn't work
 
 # Documentation
 

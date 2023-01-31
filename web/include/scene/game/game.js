@@ -41,7 +41,14 @@ function set_up_copy_link_btn() {
     const join_game_link = document.getElementById("join_game_link");
     const btn = document.getElementById("copy_join_game_link_btn");
 
-    btn.onclick = () => navigator.clipboard.writeText(join_game_link.href);
+    if (window.navigator) {
+        btn.onclick = () => window
+            .navigator
+            .clipboard
+            .writeText(join_game_link.href);
+    } else {
+        btn.remove();
+    }
 }
 
 function error_fn(id) {
