@@ -27,6 +27,7 @@
 * Photoshop style stroke changes (maybe)
 * Set sprite aspect ratio
 * Token auras and health bars
+* Backurl for login redirect
 
 ## Bugs
 * Undoing creation of a shape moves it to a 0x0 at cursor
@@ -34,7 +35,6 @@
 * Tool selection gets broken when changing stroke
 * Fog of war sometimes doesn't show up
 * Copy join game link button doesn't work
-* Game page doesn't require logged in
 
 # Documentation
 

@@ -6,7 +6,7 @@ use warp::hyper::StatusCode;
 use warp::Filter;
 
 use super::response::{cookie_result, Binary};
-use super::{current_time, json_body, with_db, with_session};
+use super::{current_time, json_body, parse_cookie, with_db, with_session};
 use crate::crypto::{check_password, from_hex_string, generate_salt, to_hex_string};
 use crate::models::User;
 
@@ -34,7 +34,7 @@ pub fn filter(
     let test = warp::path("test")
         .and(warp::post())
         .and(with_db(pool))
-        .and(with_session())
+        .and(warp::header::optional("Cookie"))
         .and_then(test_session);
 
     warp::path("auth").and(login.or(logout).or(test))
@@ -147,18 +147,26 @@ async fn logout(pool: SqlitePool, session_key: String) -> Result<impl warp::Repl
 
 async fn test_session(
     pool: SqlitePool,
-    session_key: String,
+    cookie: Option<String>,
 ) -> Result<impl warp::Reply, Infallible> {
-    let (success, message) = match User::get_by_session(&pool, &session_key).await {
-        Ok(Some(_user)) => (true, "Session valid."),
-        Ok(None) => (false, "Invalid session."),
-        Err(_) => (false, "Database error."),
+    let (session_key, message) = if let Some(cookies) = cookie {
+        if let Some(session_key) = parse_cookie(cookies, "session_key") {
+            match User::get_by_session(&pool, &session_key).await {
+                Ok(Some(_user)) => (Some(session_key), "Session valid."),
+                Ok(None) => (None, "Invalid session."),
+                Err(_) => (None, "Database error."),
+            }
+        } else {
+            (None, "No session key.")
+        }
+    } else {
+        (None, "No cookie.")
     };
 
     session_result(
-        success,
+        session_key.is_some(),
         message,
         StatusCode::OK,
-        if success { Some(&session_key) } else { None },
+        session_key.as_deref(),
     )
 }
