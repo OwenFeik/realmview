@@ -393,6 +393,16 @@ impl Viewport {
         if self.scene_menu.changed() {
             self.scene.scene_details(self.scene_menu.details());
             self.scene.set_fog_brush(self.scene_menu.fog_brush());
+
+            let selected_scene = self.scene_menu.scene();
+            if selected_scene != self.scene.scene_key() {
+                if let Some(scene_key) = selected_scene {
+                    // Handling is different depending on whether we're online.
+                    if !self.scene.change_scene(scene_key.clone()) {
+                        crate::bridge::set_active_scene(&scene_key);
+                    }
+                }
+            }
         }
 
         let events = match self.context.events() {
@@ -472,7 +482,10 @@ impl Viewport {
 
     pub fn animation_frame(&mut self) {
         self.process_ui_events();
-        self.scene.process_server_events();
+        if let Some((list, scene)) = self.scene.process_server_events() {
+            self.set_scene_list(list);
+            self.scene_menu.set_scene(Some(scene));
+        }
         self.update_viewport();
         if self.redraw_needed
             || self.context.load_texture_queue()
@@ -541,5 +554,10 @@ impl Viewport {
             self.scene.change_fog_brush(0.0),
         );
         self.scene.replace_scene(scene);
+    }
+
+    pub fn set_scene_list(&mut self, scenes: Vec<(String, String)>) {
+        self.scene_menu.set_scene_list(scenes);
+        self.scene_menu.set_scene(self.scene.scene_key());
     }
 }

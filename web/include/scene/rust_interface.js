@@ -67,18 +67,7 @@ var RustFuncs = {
     new_layer: missing_func,
     /*
     function new_layer()
-
-    Creates a new untitled layer at the top of the scene.
-    */
-
-    remove_layer: missing_func,
-    /*
-    function remove_layer(layer_id: number)
-
-    Removes the specified layer from the scene.
-    */
-
-    move_layer: missing_func,
+crate::bridge::
     /*
     function move_layer(layer_id: number, up: bool)
 
@@ -141,6 +130,13 @@ var RustFuncs = {
 
     Sets the size of the fog of war brush, in tiles.
     */
+
+    set_scene_list: missing_func,
+    /*
+    function set_scene_list(scene_list_json: string)
+
+    Sets the list of available scenes, input format [[Title, Key]]
+    */
 };
 
 // Array of callbacks to be performed when a given closure is available.
@@ -189,6 +185,9 @@ function load_texture(media_key) {
 
 // scene/game/role.js
 // function update_interface(role: number)
+
+// scene/project/project.js
+// function set_active_scene(scene_key: string)
 
 // End :: Externs
 

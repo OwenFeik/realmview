@@ -204,6 +204,15 @@ pub fn start() -> Result<(), JsValue> {
     expose_closure_f64("set_fog_brush", &set_fog_brush_closure);
     set_fog_brush_closure.forget();
 
+    let vp_ref = vp.clone();
+    let set_scene_list_closure = Closure::wrap(Box::new(move |json: String| {
+        if let Some(scenes) = parse_json::<Vec<(String, String)>>(&json) {
+            vp_ref.lock().set_scene_list(scenes);
+        }
+    }) as Box<dyn FnMut(String)>);
+    expose_closure_string_in("set_scene_list", &set_scene_list_closure);
+    set_scene_list_closure.forget();
+
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
 

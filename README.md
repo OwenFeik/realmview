@@ -20,7 +20,6 @@
 * Expose closure macro
 * Visible fog brush
 * Update stroke width in menu when changing with scroll wheel
-* Implement change scene dropdown in Rust
 * Close game when owner leaves
 * Added tokens can't be edited by players
 * Sometimes players can't see all lines 
@@ -34,6 +33,8 @@
 * Updating sprite shape via menu is broken
 * Tool selection gets broken when changing stroke
 * Fog of war sometimes doesn't show up
+* Copy join game link button doesn't work
+* Game page doesn't require logged in
 
 # Documentation
 

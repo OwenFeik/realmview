@@ -28,7 +28,7 @@ pub struct Server {
 
 impl Server {
     const SAVE_INTERVAL: time::Duration = time::Duration::from_secs(10);
-    const INACTIVITY_TIMEOUT: time::Duration = time::Duration::from_secs(20);
+    const INACTIVITY_TIMEOUT: time::Duration = time::Duration::from_secs(1800);
 
     pub fn new(
         owner: i64,
@@ -315,7 +315,7 @@ impl Server {
                         current = scene.scene_key.clone();
                     }
 
-                    (scene.scene_key, scene.title)
+                    (scene.title, scene.scene_key)
                 })
                 .collect();
             Ok(ServerEvent::SceneList(scenes, current))

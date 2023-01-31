@@ -34,6 +34,10 @@ extern "C" {
     #[wasm_bindgen(js_name = set_selected_sprite)]
     fn _set_selected_sprite(sprite_json: String);
 
+    // Load and set as active scene by scene key
+    #[wasm_bindgen]
+    pub fn set_active_scene(scene_key: &str);
+
     // Clears data from the sprite menu.
     #[wasm_bindgen]
     pub fn clear_selected_sprite();
@@ -723,22 +727,4 @@ pub fn set_role(role: scene::perms::Role) {
 
     // Fog tool, editor only
     set_visible("tool_radio_fog_label", role.editor()).ok();
-}
-
-pub fn populate_change_scene(scenes: &[(String, String)], current: &str) -> anyhow::Result<()> {
-    let select = Element::by_id("scene_menu_change_scene").ok_or(anyhow!("Element not found."))?;
-    select.set_inner_html("");
-
-    for (key, title) in scenes {
-        let opt = Element::try_new("option")?;
-        opt.set_attr("value", key);
-        opt.set_inner_html(title);
-        select.append_child(&opt);
-    }
-
-    let input = select.element.unchecked_ref::<HtmlInputElement>();
-    input.set_value(current);
-    input.set_disabled(scenes.len() <= 1);
-
-    Ok(())
 }

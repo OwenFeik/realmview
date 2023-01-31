@@ -196,12 +196,12 @@ impl Element {
         self.element.set_inner_html(inner_html);
     }
 
-    pub fn set_options(&self, options: &[(&str, &str)]) {
+    pub fn set_options<T: AsRef<str>>(&self, options: &[(T, T)]) {
         self.set_inner_html("");
         for (key, value) in options {
             let option = self.child("option");
-            option.set_text(key);
-            option.set_value_string(value);
+            option.set_text(key.as_ref());
+            option.set_value_string(value.as_ref());
         }
     }
 

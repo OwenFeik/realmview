@@ -63,16 +63,28 @@ impl Interactor {
         }
     }
 
-    pub fn process_server_events(&mut self) {
+    pub fn scene_key(&self) -> Option<String> {
+        self.scene.key.clone()
+    }
+
+    pub fn process_server_events(&mut self) -> Option<(Vec<(String, String)>, String)> {
+        let mut ret = None;
         if let Some(events) = self.history.server_events() {
             for event in events {
-                self.process_server_event(event);
+                let result = self.process_server_event(event);
+                if result.is_some() {
+                    ret = result;
+                }
                 self.changes.sprite_change();
             }
         }
+        ret
     }
 
-    fn process_server_event(&mut self, event: ServerEvent) {
+    fn process_server_event(
+        &mut self,
+        event: ServerEvent,
+    ) -> Option<(Vec<(String, String)>, String)> {
         match event {
             ServerEvent::Approval(id) => self.history.approve_event(id),
             ServerEvent::GameOver => (),
@@ -100,7 +112,7 @@ impl Interactor {
                 }
             }
             ServerEvent::SceneList(scenes, current) => {
-                crate::bridge::populate_change_scene(&scenes, &current).ok();
+                return Some((scenes, current));
             }
             ServerEvent::SceneUpdate(scene_event) => {
                 self.changes.layer_change_if(scene_event.is_layer());
@@ -110,7 +122,9 @@ impl Interactor {
                 self.user = id;
                 self.update_role();
             }
-        }
+        };
+
+        None
     }
 
     fn unwind_event(&mut self, event: SceneEvent) {
@@ -675,8 +689,10 @@ impl Interactor {
         self.changes.all_change();
     }
 
-    pub fn change_scene(&mut self, scene_key: String) {
-        self.history.change_scene(scene_key);
+    /// Returns true if the scene change can be effected by the client, else
+    /// false.
+    pub fn change_scene(&mut self, scene_key: String) -> bool {
+        self.history.change_scene(scene_key)
     }
 
     fn replace_perms(&mut self, new: Perms) {
@@ -685,6 +701,7 @@ impl Interactor {
     }
 
     pub fn replace_scene(&mut self, new: Scene) {
+        self.selected_sprites.clear();
         self.scene = new;
         self.changes.all_change();
     }

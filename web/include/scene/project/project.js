@@ -197,7 +197,9 @@ function populate_scene_select(list = null, scene_key = null) {
             if (scene.scene_key === scene_key) {
                 set_active_scene(scene_key);
             }
-        });    
+        });
+
+        submit_scene_list();
     }
 
     update_url_project_scene();
@@ -365,11 +367,28 @@ function save_project() {
                     resp.project_id
                 );
                 update_url_project_scene();
+                submit_scene_list();
             }
 
             upload_thumbnail();
         },
         null,
         "save_project_loading"
+    );
+}
+
+function submit_scene_list() {
+    const select = document.getElementById("scene_select");
+
+    let scene_list = [];
+    select.childNodes.forEach(child => {
+        if (child.value) {
+            scene_list.push([child.innerText, child.value]);
+        }
+    });
+
+    call_when_ready(
+        'set_scene_list',
+        () => RustFuncs.set_scene_list(JSON.stringify(scene_list))
     );
 }

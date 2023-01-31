@@ -48,7 +48,7 @@ impl SceneMenu {
         inputs.add_checkbox("Fog of War");
         inputs.add_float("Brush", Some(1), Some(20));
         inputs.add_line();
-        inputs.add_select("Change Scene", &[("Test", "SceneKey")]);
+        inputs.add_select("Change Scene", &[]);
 
         add_to_menu("Scene", &inputs.root);
 
@@ -85,6 +85,7 @@ impl SceneMenu {
         self.inputs
             .set_value_bool("Fog of War", details.fog.unwrap_or(false));
         self.inputs.set_value_float("Brush", brush as f64);
+        self.set_scene(details.key);
     }
 
     pub fn details(&self) -> SceneDetails {
@@ -108,5 +109,18 @@ impl SceneMenu {
 
     pub fn scene(&self) -> Option<String> {
         self.inputs.value_string("Change Scene")
+    }
+
+    pub fn set_scene(&self, scene: Option<String>) {
+        self.inputs
+            .set_value_string("Change Scene", &scene.unwrap_or_default());
+    }
+
+    pub fn set_scene_list(&mut self, scenes: Vec<(String, String)>) {
+        let selected = self.scene();
+        self.inputs.set_options("Change Scene", &scenes);
+        if let Some(key) = selected {
+            self.inputs.set_value_string("Change Scene", &key);
+        }
     }
 }

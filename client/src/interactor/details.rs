@@ -7,6 +7,7 @@ use scene::{
 #[serde(default)]
 pub struct SceneDetails {
     pub id: Option<Id>,
+    pub key: Option<String>,
     pub title: Option<String>,
     pub w: Option<u32>,
     pub h: Option<u32>,
@@ -17,6 +18,7 @@ impl SceneDetails {
     pub fn from(scene: &Scene) -> Self {
         SceneDetails {
             id: scene.id,
+            key: scene.key.clone(),
             title: scene.title.clone(),
             w: Some(scene.w()),
             h: Some(scene.h()),

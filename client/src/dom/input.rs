@@ -52,9 +52,21 @@ impl InputGroup {
         }
     }
 
+    pub fn set_value_string(&self, key: &str, value: &str) {
+        if let Some(e) = self.inputs.get(key) {
+            e.set_value_string(value);
+        }
+    }
+
     pub fn set_value_float(&self, key: &str, value: f64) {
         if let Some(e) = self.inputs.get(key) {
             e.set_value_float(value);
+        }
+    }
+
+    pub fn set_options<T: AsRef<str>>(&self, key: &str, options: &[(T, T)]) {
+        if let Some(e) = self.inputs.get(key) {
+            e.set_options(options);
         }
     }
 

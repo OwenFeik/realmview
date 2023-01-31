@@ -222,8 +222,9 @@ impl History {
         }
     }
 
-    pub fn change_scene(&mut self, scene_key: String) {
+    pub fn change_scene(&mut self, scene_key: String) -> bool {
         self.issue_message(ClientEvent::SceneChange(scene_key));
+        self.client.is_some()
     }
 
     pub fn erase_item(&mut self, id_to_erase: Id) {

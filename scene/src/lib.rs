@@ -33,6 +33,7 @@ pub struct Scene {
     canon: bool,
     next_id: Id,
     pub id: Option<Id>,
+    pub key: Option<String>,
     pub layers: Vec<Layer>,
     pub removed_layers: Vec<Layer>,
     pub title: Option<String>,
@@ -706,6 +707,7 @@ impl Default for Scene {
     fn default() -> Self {
         Self {
             id: None,
+            key: None,
             next_id: 4,
             canon: false,
             layers: vec![

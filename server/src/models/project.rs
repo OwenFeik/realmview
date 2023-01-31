@@ -387,6 +387,7 @@ mod scene_record {
 
             let mut scene = scene::Scene::new_with_layers(layers);
             scene.id = Some(self.id);
+            scene.key = Some(self.scene_key.clone());
             scene.title = Some(self.title.clone());
             scene.project = Some(self.project);
             scene.fog = scene::Fog::from_bytes(self.w, self.h, &self.fog);
