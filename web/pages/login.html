@@ -4,3 +4,10 @@
     <FormField id="password" type="password" minlength="8" max_length="256">
   </Form text="Don't have an account? <a href='/register'>Register</a>.">
 </Page>
+<script>
+let backurl = new URL(window.location).searchParams.get("backurl");
+if (backurl) {
+  const form = document.querySelector("form");
+  form.setAttribute("data-redirect", backurl);
+}
+</script>
