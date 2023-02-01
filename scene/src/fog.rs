@@ -116,6 +116,10 @@ impl Fog {
     }
 
     pub fn rect_occluded(&self, rect: crate::Rect) -> bool {
+        if !self.active {
+            return false;
+        }
+
         let x0 = rect.x.floor().max(0.0) as u32;
         let y0 = rect.y.floor().max(0.0) as u32;
         let x1 = (rect.x + rect.w).max(0.0) as u32;
@@ -209,6 +213,10 @@ impl Fog {
     }
 
     pub fn nearest_clear(&self, x: u32, y: u32) -> (u32, u32) {
+        if !self.active {
+            return (x, y);
+        }
+
         let mut tiles = vec![(x, y)];
         let add_tile = |tiles: &mut Vec<(u32, u32)>, p: (u32, u32)| {
             if !tiles.contains(&p) {

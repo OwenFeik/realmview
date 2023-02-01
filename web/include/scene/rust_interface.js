@@ -67,7 +67,18 @@ var RustFuncs = {
     new_layer: missing_func,
     /*
     function new_layer()
-crate::bridge::
+
+    Creates a new layer.
+    */
+
+    remove_layer: missing_func,
+    /*
+    function remove_layer(layer_id: number)
+
+    Deletes the layer with the specified ID.
+    */
+
+    move_layer: missing_func,
     /*
     function move_layer(layer_id: number, up: bool)
 
@@ -147,7 +158,7 @@ const queued = {};
 
 // Allow exposure of closures with references to the relevant structs.
 function expose_closure(name, closure) {
-    if (RustFuncs[name] !== missing_func) {
+    if (RustFuncs[name] !== missing_func && RustFuncs[name] !== undefined) {
         console.error(`Attempted to rebind exposed closure "${name}".`);
         return;
     }
