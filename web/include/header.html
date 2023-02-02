@@ -30,16 +30,28 @@ if "LOGGEDIN" in kwargs or "REDIRECT" in kwargs:
   </nav>
 </header>
 <script>
+// Redirect to HTTPS
+if (
+  window.location.protocol == 'http:'
+  && window.location.host == 'rv.feik.xyz'
+) {
+  window.location.href = (
+    'https://'
+    + window.location.host
+    + window.location.pathname
+  );
+}
+
 const REGEX = /session_key=[\dA-Z]+/;
 let logged_in = document.cookie.match(REGEX);
 
 // Hide logged in pages
 document.querySelectorAll('.logged-' + (logged_in ? 'out' : 'in'))
-    .forEach(el => el.classList.add("d-none"));
+  .forEach(el => el.classList.add("d-none"));
 
 // Highlight the current page
 if (link = document.querySelector(`a[href="${window.location.pathname}"]`)) {
-    link.classList.add("active");
+  link.classList.add("active");
 }
 </script>  
 IFDEF(TEST_SESSION) {{
