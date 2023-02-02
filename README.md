@@ -2,7 +2,6 @@
 
 ## Features
 * Warn when saving over changes
-* Keyboard shortcuts on hovering tools
 * Select from selected layer first (possibly)
 * Layer opacity
 * Hide sprite menu when no sprite selected
@@ -48,27 +47,6 @@
 * OpenSSL (`apt install libssl-dev` / `yum install openssl-devel`)
 * Sqlite3 (`apt install sqlite3`)
 * Python 3.6
-
-## Keyboard Shortcuts
-
-| Key    | Tool          |
-| ------ | ------------- |
-| Space  | Pan           |
-| Escape | `D` then `Q`  |
-| `A`    | Select all    |
-| `C`    | Copy          |
-| `D`    | Deselect      |
-| `E`    | Ellipse       |
-| `F`    | Freehand draw |
-| `L`    | Line draw     |
-| `Q`    | Select        |
-| `R`    | Rectangle     |
-| `V`    | Paste         |
-| `W`    | Edit fog      |
-| `Y`    | Redo          |
-| `Z`    | Undo          |
-| `+`    | Zoom in       |
-| `-`    | Zoom out      |
 
 ## Moving Sprites
 

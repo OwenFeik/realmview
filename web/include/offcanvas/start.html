@@ -1,0 +1,28 @@
+PREAMBLE {{
+if "ID" not in kwargs:
+  kwargs["ID"] = kwargs["TITLE"].replace(' ', '_').lower()
+}}
+<div
+  class="offcanvas offcanvas-start"
+  tabindex="-2"
+  id="{{ ID }}_offcanvas"
+  aria-labelledby="{{ ID }}_offcanvas_label"
+>
+  <div class="offcanvas-header">
+      <h2 class="offcanvas-title" id="{{ ID }}_offcanvas_label">
+        {{ TITLE }}
+        IFDEF(HREF) {{
+          <a
+          href="{{ HREF }}"
+          target="_blank"
+          ><Icon name="box-arrow-up-right"></a>
+        }}
+      </h2>
+      <button
+        type="button"
+        class="btn-close text-reset"
+        data-bs-dismiss="offcanvas"
+        aria-label="Close"
+      ></button>
+  </div>
+  <div class="offcanvas-body">

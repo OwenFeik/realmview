@@ -10,7 +10,10 @@ fn add_to_menu(key: &str, inputs: &Element) {
         return;
     };
 
-    let item = el.child("div").with_class("accordion-item");
+    let item = el
+        .child("div")
+        .with_attr("id", &format!("{}_menu", key.to_lowercase()))
+        .with_class("accordion-item");
     let prefix = format!("menu_{}", key.to_lowercase());
     let heading = format!("{}_heading", &prefix);
     let collapse = format!("{}_collapse", &prefix);

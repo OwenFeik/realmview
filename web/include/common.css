@@ -1,3 +1,11 @@
+/* Utility classes */
+
+.monospace {
+    font-family: monospace;
+    font-weight: bold;
+}
+
+/* End utility classes */
 /* For loading_icon.html */
 .loading-icon > * {
     display: none;
