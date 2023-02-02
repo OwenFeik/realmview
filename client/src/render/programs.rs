@@ -1109,3 +1109,25 @@ fn m4_scale(m: &mut [f32; 16], sx: f32, sy: f32, sz: f32) {
     m[10] *= sz;
     m[11] *= sz;
 }
+
+fn m4_rotatez(m: &mut [f32; 16], theta: f32) {
+    let m00 = m[0];
+    let m01 = m[1];
+    let m02 = m[2];
+    let m03 = m[3];
+    let m10 = m[4];
+    let m11 = m[5];
+    let m12 = m[6];
+    let m13 = m[7];
+    let c = theta.cos();
+    let s = theta.sin();
+
+    m[0] = c * m00 + s * m10;
+    m[1] = c * m01 + s * m11;
+    m[2] = c * m02 + s * m12;
+    m[3] = c * m03 + s * m13;
+    m[4] = c * m10 - s * m00;
+    m[5] = c * m11 - s * m01;
+    m[6] = c * m12 - s * m02;
+    m[7] = c * m13 - s * m03;
+}
