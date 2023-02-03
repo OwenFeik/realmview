@@ -22,7 +22,6 @@
 * Close game when owner leaves
 * Added tokens can't be edited by players
 * Sometimes players can't see all lines 
-* Help menu
 * Photoshop style stroke changes (maybe)
 * Set sprite aspect ratio
 * Token auras and health bars
