@@ -2,6 +2,7 @@ use anyhow::anyhow;
 use wasm_bindgen::{prelude::Closure, JsCast};
 use web_sys::{HtmlElement, HtmlInputElement};
 
+use super::icon::Icon;
 use crate::bridge::{get_body, get_document};
 use crate::viewport::ViewportPoint;
 
@@ -151,6 +152,10 @@ impl Element {
         self
     }
 
+    pub fn icon(&self, icon: Icon) -> Element {
+        self.child("i").with_class(&icon.class())
+    }
+
     pub fn set_onclick(&mut self, handler: Box<dyn FnMut(web_sys::Event)>) {
         self.add_event_listener("click", handler);
     }
@@ -196,6 +201,10 @@ impl Element {
         self.element.set_inner_html(inner_html);
     }
 
+    pub fn clear(&self) {
+        self.set_inner_html("");
+    }
+
     pub fn set_options<T: AsRef<str>>(&self, options: &[(T, T)]) {
         self.set_inner_html("");
         for (key, value) in options {
@@ -203,6 +212,10 @@ impl Element {
             option.set_text(key.as_ref());
             option.set_value_string(value.as_ref());
         }
+    }
+
+    pub fn set_enabled(&self, enabled: bool) {
+        self.as_input().set_disabled(!enabled);
     }
 
     fn add_event_listener(&mut self, on: &str, handler: Box<dyn FnMut(web_sys::Event)>) {

@@ -1,5 +1,5 @@
 use crate::dom::dropdown::Dropdown;
-use crate::dom::menu::SceneMenu;
+use crate::dom::menu::Menu;
 use crate::scene::{Point, Rect};
 use crate::{
     bridge::{
@@ -79,8 +79,8 @@ pub struct Viewport {
     // Canvas context menu
     dropdown: Dropdown,
 
-    // Scene details menu
-    scene_menu: SceneMenu,
+    // Canvas tools menu
+    menu: Menu,
 
     // Measured in scene units (tiles)
     viewport: Rect,
@@ -112,7 +112,7 @@ impl Viewport {
             scene,
             context: Context::new()?,
             dropdown: Dropdown::new(),
-            scene_menu: SceneMenu::new(details, Interactor::DEFAULT_FOG_BRUSH),
+            menu: Menu::new(),
             tool: Tool::Select,
             viewport: Rect {
                 x: 0.0,
@@ -126,6 +126,11 @@ impl Viewport {
             grabbed_at: None,
             redraw_needed: true,
         };
+
+        vp.menu
+            .scene
+            .set_details(details, Interactor::DEFAULT_FOG_BRUSH);
+        vp.menu.layers.update(vp.scene.layers());
 
         vp.update_viewport();
         vp.centre_viewport();
@@ -322,7 +327,8 @@ impl Viewport {
             match self.tool {
                 Tool::Draw => self.scene.change_stroke(delta),
                 Tool::Fog => self
-                    .scene_menu
+                    .menu
+                    .scene
                     .set_fog_brush(self.scene.change_fog_brush(delta)),
                 _ => {}
             }
@@ -390,11 +396,11 @@ impl Viewport {
             self.scene.handle_dropdown_event(event);
         }
 
-        if self.scene_menu.changed() {
-            self.scene.scene_details(self.scene_menu.details());
-            self.scene.set_fog_brush(self.scene_menu.fog_brush());
+        if self.menu.scene.changed() {
+            self.scene.scene_details(self.menu.scene.details());
+            self.scene.set_fog_brush(self.menu.scene.fog_brush());
 
-            let selected_scene = self.scene_menu.scene();
+            let selected_scene = self.menu.scene.scene();
             if selected_scene != self.scene.scene_key() {
                 if let Some(scene_key) = selected_scene {
                     // Handling is different depending on whether we're online.
@@ -484,7 +490,7 @@ impl Viewport {
         self.process_ui_events();
         if let Some((list, scene)) = self.scene.process_server_events() {
             self.set_scene_list(list);
-            self.scene_menu.set_scene(Some(scene));
+            self.menu.scene.set_scene(Some(scene));
         }
         self.update_viewport();
         if self.redraw_needed
@@ -549,7 +555,7 @@ impl Viewport {
     }
 
     pub fn replace_scene(&mut self, scene: scene::Scene) {
-        self.scene_menu.set_details(
+        self.menu.scene.set_details(
             crate::interactor::details::SceneDetails::from(&scene),
             self.scene.change_fog_brush(0.0),
         );
@@ -557,7 +563,7 @@ impl Viewport {
     }
 
     pub fn set_scene_list(&mut self, scenes: Vec<(String, String)>) {
-        self.scene_menu.set_scene_list(scenes);
-        self.scene_menu.set_scene(self.scene.scene_key());
+        self.menu.scene.set_scene_list(scenes);
+        self.menu.scene.set_scene(self.scene.scene_key());
     }
 }
