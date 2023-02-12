@@ -517,6 +517,7 @@ mod layer {
 
 mod sprite {
     use anyhow::anyhow;
+    use scene::Colour;
     use sqlx::{Row, SqliteConnection};
 
     use crate::models::Media;
@@ -579,10 +580,10 @@ mod sprite {
                     .visual
                     .drawing()
                     .map(|p| p.points.data.iter().flat_map(|f| f.to_be_bytes()).collect()),
-                r: sprite.visual.colour().map(|c| c[0]),
-                g: sprite.visual.colour().map(|c| c[1]),
-                b: sprite.visual.colour().map(|c| c[2]),
-                a: sprite.visual.colour().map(|c| c[3]),
+                r: sprite.visual.colour().map(|c| c.r()),
+                g: sprite.visual.colour().map(|c| c.g()),
+                b: sprite.visual.colour().map(|c| c.b()),
+                a: sprite.visual.colour().map(|c| c.a()),
                 drawing_type: sprite
                     .visual
                     .drawing()
@@ -591,7 +592,7 @@ mod sprite {
                 cap_end,
             };
 
-            if let Some([r, g, b, a]) = sprite.visual.colour() {
+            if let Some(Colour([r, g, b, a])) = sprite.visual.colour() {
                 record.r = Some(r);
                 record.g = Some(g);
                 record.b = Some(b);
@@ -661,7 +662,7 @@ mod sprite {
                             .collect(),
                     ),
                     stroke: self.stroke?,
-                    colour: [self.r?, self.g?, self.b?, self.a?],
+                    colour: Colour([self.r?, self.g?, self.b?, self.a?]),
                     cap_start: Self::u8_to_cap(self.cap_start?),
                     cap_end: Self::u8_to_cap(self.cap_end?),
                     finished: true,
@@ -675,7 +676,7 @@ mod sprite {
                 Some(scene::SpriteVisual::Solid {
                     shape: Self::u8_to_shape(self.shape?),
                     stroke: self.stroke?,
-                    colour: [self.r?, self.g?, self.b?, self.a?],
+                    colour: Colour([self.r?, self.g?, self.b?, self.a?]),
                 })
             }
         }

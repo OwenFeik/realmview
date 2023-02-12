@@ -3,7 +3,37 @@ use serde_derive::{Deserialize, Serialize};
 use super::{comms::SceneEvent, Dimension, Id, Point, PointVector, Rect};
 use crate::rect::determine_unit_size;
 
-pub type Colour = [f32; 4];
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct Colour(pub [f32; 4]);
+
+impl Colour {
+    pub const DEFAULT: Colour = Colour([1.0, 0.0, 1.0, 1.0]);
+
+    pub fn r(&self) -> f32 {
+        self.0[0]
+    }
+
+    pub fn g(&self) -> f32 {
+        self.0[1]
+    }
+
+    pub fn b(&self) -> f32 {
+        self.0[2]
+    }
+
+    pub fn a(&self) -> f32 {
+        self.0[3]
+    }
+
+    pub fn raw(self) -> [f32; 4] {
+        self.0
+    }
+
+    pub fn with_opacity(mut self, opacity: f32) -> Self {
+        self.0[3] = opacity;
+        self
+    }
+}
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub enum Shape {
@@ -106,7 +136,7 @@ impl Default for Drawing {
         Self {
             points: PointVector::from(vec![0.0, 0.0]),
             drawing_type: Self::DEFAULT_TYPE,
-            colour: Sprite::DEFAULT_COLOUR,
+            colour: Colour::DEFAULT,
             stroke: Sprite::DEFAULT_STROKE,
             cap_start: Cap::Round,
             cap_end: Cap::Round,
@@ -197,14 +227,13 @@ impl Sprite {
     // Width of lines for sprites which are drawings
     pub const DEFAULT_STROKE: f32 = 0.2;
     pub const SOLID_STROKE: f32 = 0.0;
-    pub const DEFAULT_COLOUR: Colour = [1.0, 0.0, 1.0, 1.0];
     pub const DEFAULT_WIDTH: f32 = 1.0;
     pub const DEFAULT_HEIGHT: f32 = 1.0;
 
     // Minimum size of a sprite dimension; too small and sprites can be lost.
     const MIN_SIZE: f32 = 0.25;
     const DEFAULT_VISUAL: Visual = Visual::Solid {
-        colour: Self::DEFAULT_COLOUR,
+        colour: Colour::DEFAULT,
         shape: Shape::Rectangle,
         stroke: Self::SOLID_STROKE,
     };
@@ -484,7 +513,7 @@ fn round_to_nearest(d: f32, n: f32) -> f32 {
 
 #[cfg(test)]
 mod test {
-    use super::{round_dimension, Cap, Drawing, DrawingType, Sprite, Visual};
+    use super::{round_dimension, Cap, Colour, Drawing, DrawingType, Sprite, Visual};
     use crate::{rect::float_eq, Point, PointVector, Rect};
 
     #[test]
@@ -550,7 +579,7 @@ mod test {
                     .to_vec(),
                 },
                 drawing_type: DrawingType::Freehand,
-                colour: [0.7002602, 0.9896201, 0.7272567, 1.0],
+                colour: Colour([0.7002602, 0.9896201, 0.7272567, 1.0]),
                 stroke: 0.2,
                 cap_start: Cap::Round,
                 cap_end: Cap::None,

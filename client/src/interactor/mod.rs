@@ -867,7 +867,7 @@ impl Interactor {
             let event = self.scene.sprites_layer(&self.selected_sprites, layer);
             self.scene_event(event);
         } else {
-            let opt = self.scene.sprite_layer(sprite, layer);
+            let opt = self.scene.set_sprite_layer(sprite, layer);
             self.scene_option(opt);
         }
     }
@@ -885,6 +885,36 @@ impl Interactor {
     pub fn sprite_rect(&mut self, sprite: Id, rect: Rect) {
         let opt = self.scene.sprite(sprite).map(|s| s.set_rect(rect));
         self.scene_option(opt);
+    }
+
+    pub fn sprite_aura(&mut self, id: Id) {
+        const DEFAULT_RADIUS: f32 = 2.0;
+
+        if let Some((visual, rect)) = self.sprite_ref(id).map(|s| {
+            (
+                SpriteVisual::Solid {
+                    shape: SpriteShape::Ellipse,
+                    stroke: Sprite::SOLID_STROKE,
+                    colour: self.draw_details.colour().with_opacity(0.4),
+                },
+                Rect {
+                    x: s.rect.x - DEFAULT_RADIUS,
+                    y: s.rect.y - DEFAULT_RADIUS,
+                    w: DEFAULT_RADIUS * 2.0 + s.rect.w,
+                    h: DEFAULT_RADIUS * 2.0 + s.rect.h,
+                },
+            )
+        }) {
+            if let Some(aura) = self.new_sprite_at(
+                Some(visual),
+                Some(self.scene.first_background_layer()),
+                rect,
+            ) {
+                self.clear_selection();
+                self.select(aura);
+                self.scene.group_sprites(&[id, aura]);
+            }
+        }
     }
 
     fn selected_id(&self) -> Option<Id> {
@@ -938,7 +968,7 @@ impl Interactor {
     }
 
     fn group_selected(&mut self) {
-        let event = self.scene.group_sprites(self.selected_sprites.clone());
+        let event = self.scene.group_sprites(&self.selected_sprites);
         self.scene_event(event);
     }
 
@@ -953,6 +983,11 @@ impl Interactor {
 
     pub fn handle_dropdown_event(&mut self, event: CanvasDropdownEvent) {
         match event {
+            CanvasDropdownEvent::Aura => {
+                if let Some(id) = self.selected_id() {
+                    self.sprite_aura(id);
+                }
+            }
             CanvasDropdownEvent::Clone => {
                 if let Some(id) = self.selected_id() {
                     self.clone_sprite(id);

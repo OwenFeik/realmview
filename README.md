@@ -24,7 +24,7 @@
 * Sometimes players can't see all lines 
 * Photoshop style stroke changes (maybe)
 * Set sprite aspect ratio
-* Token auras and health bars
+* Token health bars
 
 ## Bugs
 * Undoing creation of a shape moves it to a 0x0 at cursor

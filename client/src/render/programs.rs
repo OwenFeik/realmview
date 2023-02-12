@@ -488,7 +488,8 @@ impl DrawingRenderer {
     ) {
         self.update_grid_size(grid_size);
         if let Some(mesh) = self.get_drawing(id, drawing) {
-            self.renderer.draw(mesh, drawing.colour, viewport, position);
+            self.renderer
+                .draw(mesh, drawing.colour.raw(), viewport, position);
         } else if self.add_drawing(id, drawing).is_ok() {
             self.draw_drawing(id, drawing, viewport, position, grid_size);
         }
@@ -961,10 +962,16 @@ impl SpriteRenderer {
             } => {
                 if *stroke == 0.0 {
                     self.solid_renderer
-                        .draw_shape(*shape, *colour, viewport, position)
+                        .draw_shape(*shape, colour.raw(), viewport, position)
                 } else {
                     self.hollow_renderer.draw_shape(
-                        sprite.id, *shape, *colour, *stroke, viewport, position, grid_size,
+                        sprite.id,
+                        *shape,
+                        colour.raw(),
+                        *stroke,
+                        viewport,
+                        position,
+                        grid_size,
                     );
                 }
             }

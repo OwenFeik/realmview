@@ -155,7 +155,7 @@ impl SpriteDetails {
     }
 
     pub fn colour(&self) -> Colour {
-        self.colour.unwrap_or(Sprite::DEFAULT_COLOUR)
+        self.colour.unwrap_or(Colour::DEFAULT)
     }
 
     pub fn common(&mut self, sprite: &Sprite) {

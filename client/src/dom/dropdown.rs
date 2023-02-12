@@ -8,6 +8,7 @@ use crate::viewport::ViewportPoint;
 
 #[derive(Clone, Copy, Debug, PartialEq, serde_derive::Serialize)]
 pub enum CanvasDropdownEvent {
+    Aura,
     Clone,
     Delete,
     Group,
@@ -94,6 +95,7 @@ impl Dropdown {
         dropdown.element.add_to_page();
 
         for (label, event) in [
+            ("Add aura", CanvasDropdownEvent::Aura),
             ("Clone", CanvasDropdownEvent::Clone),
             ("Delete", CanvasDropdownEvent::Delete),
             ("Group Selection", CanvasDropdownEvent::Group),

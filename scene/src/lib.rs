@@ -257,10 +257,10 @@ impl Scene {
         self.groups.iter().find(|g| g.includes(id))
     }
 
-    pub fn group_sprites(&mut self, sprites: Vec<Id>) -> SceneEvent {
+    pub fn group_sprites(&mut self, sprites: &[Id]) -> SceneEvent {
         let mut events = Vec::new();
 
-        for &sprite in &sprites {
+        for &sprite in sprites {
             if let Some(group) = self.sprite_group(sprite) {
                 if let Some(group) = self.group(group.id) {
                     events.push(group.remove(sprite));
@@ -268,10 +268,10 @@ impl Scene {
             }
         }
 
-        let new_group = Group::new(self.next_id(), sprites.clone());
+        let new_group = Group::new(self.next_id(), sprites.to_owned());
         events.push(SceneEvent::GroupNew(new_group.id));
 
-        for id in sprites {
+        for &id in sprites {
             events.push(SceneEvent::GroupAdd(new_group.id, id));
         }
 
@@ -406,7 +406,7 @@ impl Scene {
         None
     }
 
-    pub fn sprite_layer(&mut self, sprite: Id, layer: Id) -> Option<SceneEvent> {
+    pub fn set_sprite_layer(&mut self, sprite: Id, layer: Id) -> Option<SceneEvent> {
         let mut s = None;
         let mut from_id = None;
         for l in &mut self.layers {
@@ -429,12 +429,12 @@ impl Scene {
         SceneEvent::EventSet(
             sprites
                 .iter()
-                .filter_map(|id| self.sprite_layer(*id, layer))
+                .filter_map(|id| self.set_sprite_layer(*id, layer))
                 .collect::<Vec<SceneEvent>>(),
         )
     }
 
-    fn get_sprite_layer(&self, sprite: Id) -> Option<Id> {
+    pub fn get_sprite_layer(&self, sprite: Id) -> Option<Id> {
         self.layers
             .iter()
             .find(|l| l.sprite_ref(sprite).is_some())
@@ -453,6 +453,13 @@ impl Scene {
 
     pub fn first_layer(&self) -> Id {
         self.layers.get(0).map(|l| l.id).unwrap_or(0)
+    }
+
+    pub fn first_background_layer(&self) -> Id {
+        self.layers
+            .iter()
+            .find_map(|l| if l.z < 0 { Some(l.id) } else { None })
+            .unwrap_or(0)
     }
 
     pub fn apply_event(&mut self, event: SceneEvent) -> bool {
@@ -586,7 +593,7 @@ impl Scene {
                 );
 
                 if old_layer_accurate {
-                    self.sprite_layer(id, new_layer).is_some()
+                    self.set_sprite_layer(id, new_layer).is_some()
                 } else {
                     false
                 }
@@ -681,7 +688,7 @@ impl Scene {
             SceneEvent::SpriteNew(s, _) => self.remove_sprite(s.id),
             SceneEvent::SpriteLayer(id, old_layer, new_layer) => {
                 if self.layer_ref(new_layer)?.sprite_ref(id).is_some() {
-                    self.sprite_layer(id, old_layer)
+                    self.set_sprite_layer(id, old_layer)
                 } else {
                     None
                 }
