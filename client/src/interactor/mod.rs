@@ -627,6 +627,11 @@ impl Interactor {
     }
 
     #[must_use]
+    pub fn selected_layer(&self) -> Id {
+        self.selected_layer
+    }
+
+    #[must_use]
     pub fn selections(&mut self) -> Vec<Rect> {
         let mut selections = vec![];
 

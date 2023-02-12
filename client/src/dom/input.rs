@@ -104,9 +104,11 @@ impl InputGroup {
             &format!("{}_toggle", key),
             Icon::Edit,
             Icon::Ok,
-            Box::new(move |vp, disabled| {
-                el.set_enabled(!disabled);
-                if disabled {
+            Box::new(move |vp, enabled| {
+                el.set_enabled(enabled);
+
+                // Save value when disabling.
+                if !enabled {
                     action(vp, el.value_string());
                 }
             }),
@@ -177,7 +179,7 @@ impl InputGroup {
         let input_ref = input.clone();
         let vp_ref = self.vp.clone();
         el.set_onclick(Box::new(move |_| {
-            let value = input_ref.checked();
+            let value = !input_ref.checked(); // Initially true
 
             let (from, to) = if value { (a, b) } else { (b, a) };
             i.remove_class(&from.class());
@@ -197,6 +199,21 @@ impl InputGroup {
         let vp = self.vp.clone();
         el.set_onclick(Box::new(move |_| {
             action(vp.clone());
+        }));
+
+        self.line.append_child(&el);
+    }
+
+    pub fn add_radio(&mut self, key: &str, selected: bool, action: Box<dyn Fn(VpRef)>) {
+        let el = self.line.child("div").with_class("input-group-text");
+        let mut input = el
+            .child("input")
+            .with_classes(&["form-check-input", "mt-0"])
+            .with_attrs(&[("name", key), ("type", "radio")]);
+        input.set_checked(selected);
+        let vp_ref = self.vp.clone();
+        input.set_oninput(Box::new(move |_| {
+            action(vp_ref.clone());
         }));
     }
 }

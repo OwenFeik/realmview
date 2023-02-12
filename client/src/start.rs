@@ -8,9 +8,9 @@ use parking_lot::Mutex;
 use wasm_bindgen::prelude::*;
 
 use crate::bridge::{
-    expose_closure, expose_closure_f64, expose_closure_f64_bool, expose_closure_f64_f64,
-    expose_closure_f64_string, expose_closure_f64x3_string, expose_closure_string_in,
-    expose_closure_string_out, flog, log, request_animation_frame,
+    expose_closure_f64, expose_closure_f64_f64, expose_closure_f64_string,
+    expose_closure_f64x3_string, expose_closure_string_in, expose_closure_string_out, flog, log,
+    request_animation_frame,
 };
 use crate::client::Client;
 use crate::dom::menu::Menu;
@@ -134,48 +134,6 @@ pub fn start() -> Result<(), JsValue> {
     }) as Box<dyn FnMut(f64, String)>);
     expose_closure_f64_string("sprite_details", &sprite_details_closure);
     sprite_details_closure.forget();
-
-    let vp_ref = vp.clone();
-    let rename_layer_closure = Closure::wrap(Box::new(move |id: f64, title: String| {
-        vp_ref.lock().scene.rename_layer(id as i64, title);
-    }) as Box<dyn FnMut(f64, String)>);
-    expose_closure_f64_string("rename_layer", &rename_layer_closure);
-    rename_layer_closure.forget();
-
-    let vp_ref = vp.clone();
-    let layer_visibility_closure = Closure::wrap(Box::new(move |id: f64, visible: bool| {
-        vp_ref.lock().scene.set_layer_visible(id as i64, visible);
-    }) as Box<dyn FnMut(f64, bool)>);
-    expose_closure_f64_bool("layer_visible", &layer_visibility_closure);
-    layer_visibility_closure.forget();
-
-    let vp_ref = vp.clone();
-    let layer_locked_closure = Closure::wrap(Box::new(move |id: f64, locked: bool| {
-        vp_ref.lock().scene.set_layer_locked(id as i64, locked);
-    }) as Box<dyn FnMut(f64, bool)>);
-    expose_closure_f64_bool("layer_locked", &layer_locked_closure);
-    layer_locked_closure.forget();
-
-    let vp_ref = vp.clone();
-    let new_layer_closure = Closure::wrap(Box::new(move || {
-        vp_ref.lock().scene.new_layer();
-    }) as Box<dyn FnMut()>);
-    expose_closure("new_layer", &new_layer_closure);
-    new_layer_closure.forget();
-
-    let vp_ref = vp.clone();
-    let remove_layer_closure = Closure::wrap(Box::new(move |id: f64| {
-        vp_ref.lock().scene.remove_layer(id as i64);
-    }) as Box<dyn FnMut(f64)>);
-    expose_closure_f64("remove_layer", &remove_layer_closure);
-    remove_layer_closure.forget();
-
-    let vp_ref = vp.clone();
-    let move_layer_closure = Closure::wrap(Box::new(move |id: f64, up: bool| {
-        vp_ref.lock().scene.move_layer(id as i64, up);
-    }) as Box<dyn FnMut(f64, bool)>);
-    expose_closure_f64_bool("move_layer", &move_layer_closure);
-    move_layer_closure.forget();
 
     let vp_ref = vp.clone();
     let select_layer_closure = Closure::wrap(Box::new(move |id: f64| {

@@ -138,12 +138,18 @@ impl Viewport {
         self.menu()
             .scene
             .set_details(details, Interactor::DEFAULT_FOG_BRUSH);
-        let layers = self.scene.layer_info();
-        self.menu().layers.update(&layers);
+        self.update_layers_menu();
     }
 
     fn menu(&mut self) -> &mut Menu {
         self.menu.as_mut().unwrap()
+    }
+
+    fn update_layers_menu(&mut self) {
+        let selected = self.scene.selected_layer();
+        let layers = self.scene.layer_info();
+        self.menu().layers.update(selected, &layers);
+        self.dropdown.update_layers(self.scene.layers());
     }
 
     fn update_cursor(&self, new: Option<Cursor>) {
@@ -495,9 +501,7 @@ impl Viewport {
         }
 
         if self.scene.changes.handle_layer_change() {
-            self.dropdown.update_layers(self.scene.layers());
-            let layers = self.scene.layer_info();
-            self.menu().layers.update(&layers);
+            self.update_layers_menu();
         }
 
         if self.scene.changes.handle_selected_change() {

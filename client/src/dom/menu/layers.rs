@@ -1,8 +1,3 @@
-use std::{
-    rc::Rc,
-    sync::atomic::{AtomicBool, Ordering},
-};
-
 use scene::{Id, Layer};
 
 use crate::{
@@ -35,7 +30,6 @@ impl LayerInfo {
 pub struct LayersMenu {
     root: Element,
     list: Element,
-    new: Rc<AtomicBool>,
     vp: VpRef,
 }
 
@@ -43,39 +37,29 @@ impl LayersMenu {
     pub fn new(vp: VpRef) -> Self {
         let root = Element::default();
 
-        let new = Rc::new(AtomicBool::new(false));
-        let mut button = root
-            .child("button")
-            .with_classes(&["btn", "btn-primary", "btn-sm"])
-            .with_attr("type", "button");
-        button.child("span").set_text("Add");
-        button.icon(Icon::Plus);
-        let new_ref = new.clone();
-        button.set_onclick(Box::new(move |_| {
-            new_ref.store(true, Ordering::Relaxed);
-        }));
-
         let list = root
             .child("ul")
             .with_classes(&["list-unstyled", "mb-0", "pt-1"]);
 
-        Self {
-            root,
-            list,
-            new,
-            vp,
-        }
+        let mut button = root
+            .child("button")
+            .with_classes(&["btn", "btn-primary", "btn-sm", "mt-1"])
+            .with_attr("type", "button");
+        button.child("span").set_text("Add");
+        button.icon(Icon::Plus);
+        let vp_ref = vp.clone();
+        button.set_onclick(Box::new(move |_| {
+            vp_ref.lock().scene.new_layer();
+        }));
+
+        Self { root, list, vp }
     }
 
     pub fn root(&self) -> &Element {
         &self.root
     }
 
-    pub fn new_layer(&self) -> bool {
-        self.new.swap(false, Ordering::Relaxed)
-    }
-
-    pub fn update(&self, layers: &[LayerInfo]) {
+    pub fn update(&self, selected: Id, layers: &[LayerInfo]) {
         self.list.clear();
         let mut background = false;
         for layer in layers {
@@ -85,7 +69,18 @@ impl LayersMenu {
             }
 
             let mut input = InputGroup::new(self.vp.clone());
+            input.root.add_class("mt-1");
+            self.list.append_child(&input.root);
+
             let id = layer.id;
+            input.add_radio(
+                "selected-layer",
+                id == selected,
+                Box::new(move |vp| {
+                    vp.lock().scene.select_layer(id);
+                }),
+            );
+
             input.add_toggle_string(
                 "Title",
                 false,
@@ -108,10 +103,20 @@ impl LayersMenu {
                     vp.lock().scene.set_layer_visible(id, !visible);
                 }),
             );
-            // input.add_toggle("Up", Icon::Up, Icon::Up, Box::new(|_| {}));
-            // input.add_toggle("Down", Icon::Down, Icon::Down, Box::new(|_| {}));
-            input.root.add_class("mt-1");
-            self.list.append_child(&input.root);
+
+            input.add_button(
+                Icon::Up,
+                Box::new(move |vp| vp.lock().scene.move_layer(id, true)),
+            );
+            input.add_button(
+                Icon::Down,
+                Box::new(move |vp| vp.lock().scene.move_layer(id, false)),
+            );
+
+            input.add_button(
+                Icon::Trash,
+                Box::new(move |vp| vp.lock().scene.remove_layer(id)),
+            );
         }
     }
 }

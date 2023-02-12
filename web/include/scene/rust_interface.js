@@ -43,48 +43,6 @@ var RustFuncs = {
     texture if necessary.
     */
 
-    rename_layer: missing_func,
-    /*
-    function rename_layer(layer_id: number, new_title: string)
-    
-    Renames the layer with local ID layer_id to the provided title.
-    */
-
-    layer_visible: missing_func,
-    /*
-    function layer_visible(layer_id: number, visible: bool)
-
-    Sets visibility for the specified layer.
-    */
-
-    layer_locked: missing_func,
-    /*
-    function layer_locked(layer_id: number, locked: bool)
-
-    Sets locked status for the specified layer.
-    */
-
-    new_layer: missing_func,
-    /*
-    function new_layer()
-
-    Creates a new layer.
-    */
-
-    remove_layer: missing_func,
-    /*
-    function remove_layer(layer_id: number)
-
-    Deletes the layer with the specified ID.
-    */
-
-    move_layer: missing_func,
-    /*
-    function move_layer(layer_id: number, up: bool)
-
-    Moves the specified layer up or down.
-    */
-
     select_layer: missing_func,
     /*
     function select_layer(layer_id: number)
