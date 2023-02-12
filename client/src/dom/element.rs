@@ -226,7 +226,7 @@ impl Element {
 
         // Memory leak. Thought I could work around this by holding a reference
         // in the Element, but that means that if the Element is dropped the
-        // closure is dropped, with is annoying when chaining with `.child`.
+        // closure is dropped, which is annoying when chaining with `.child`.
         // Could maybe work around by having the parent store its children but
         // that's probably more annoying than a little memory leak.
         closure.forget();

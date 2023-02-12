@@ -5,7 +5,7 @@ use crate::{
     bridge::{
         clear_selected_sprite,
         event::{Input, Key, KeyboardAction, MouseAction, MouseButton},
-        set_selected_sprite, update_layers_list, Context, Cursor,
+        set_selected_sprite, Context, Cursor,
     },
     client::Client,
     interactor::Interactor,
@@ -80,7 +80,7 @@ pub struct Viewport {
     dropdown: Dropdown,
 
     // Canvas tools menu
-    menu: Menu,
+    menu: Option<Menu>,
 
     // Measured in scene units (tiles)
     viewport: Rect,
@@ -107,12 +107,11 @@ impl Viewport {
 
     pub fn new(client: Option<Client>) -> anyhow::Result<Self> {
         let scene = Interactor::new(client);
-        let details = scene.get_scene_details();
         let mut vp = Viewport {
             scene,
             context: Context::new()?,
             dropdown: Dropdown::new(),
-            menu: Menu::new(),
+            menu: None,
             tool: Tool::Select,
             viewport: Rect {
                 x: 0.0,
@@ -127,15 +126,24 @@ impl Viewport {
             redraw_needed: true,
         };
 
-        vp.menu
-            .scene
-            .set_details(details, Interactor::DEFAULT_FOG_BRUSH);
-        vp.menu.layers.update(vp.scene.layers());
-
         vp.update_viewport();
         vp.centre_viewport();
 
         Ok(vp)
+    }
+
+    pub fn add_menu(&mut self, menu: Menu) {
+        self.menu = Some(menu);
+        let details = self.scene.get_scene_details();
+        self.menu()
+            .scene
+            .set_details(details, Interactor::DEFAULT_FOG_BRUSH);
+        let layers = self.scene.layer_info();
+        self.menu().layers.update(&layers);
+    }
+
+    fn menu(&mut self) -> &mut Menu {
+        self.menu.as_mut().unwrap()
     }
 
     fn update_cursor(&self, new: Option<Cursor>) {
@@ -326,10 +334,10 @@ impl Viewport {
         } else if alt {
             match self.tool {
                 Tool::Draw => self.scene.change_stroke(delta),
-                Tool::Fog => self
-                    .menu
-                    .scene
-                    .set_fog_brush(self.scene.change_fog_brush(delta)),
+                Tool::Fog => {
+                    let fog_brush = self.scene.change_fog_brush(delta);
+                    self.menu().scene.set_fog_brush(fog_brush)
+                }
                 _ => {}
             }
         } else {
@@ -394,21 +402,6 @@ impl Viewport {
     fn process_ui_events(&mut self) {
         if let Some(event) = self.dropdown.event() {
             self.scene.handle_dropdown_event(event);
-        }
-
-        if self.menu.scene.changed() {
-            self.scene.scene_details(self.menu.scene.details());
-            self.scene.set_fog_brush(self.menu.scene.fog_brush());
-
-            let selected_scene = self.menu.scene.scene();
-            if selected_scene != self.scene.scene_key() {
-                if let Some(scene_key) = selected_scene {
-                    // Handling is different depending on whether we're online.
-                    if !self.scene.change_scene(scene_key.clone()) {
-                        crate::bridge::set_active_scene(&scene_key);
-                    }
-                }
-            }
         }
 
         let events = match self.context.events() {
@@ -490,7 +483,7 @@ impl Viewport {
         self.process_ui_events();
         if let Some((list, scene)) = self.scene.process_server_events() {
             self.set_scene_list(list);
-            self.menu.scene.set_scene(Some(scene));
+            self.menu().scene.set_scene(Some(scene));
         }
         self.update_viewport();
         if self.redraw_needed
@@ -503,7 +496,8 @@ impl Viewport {
 
         if self.scene.changes.handle_layer_change() {
             self.dropdown.update_layers(self.scene.layers());
-            update_layers_list(self.scene.layers());
+            let layers = self.scene.layer_info();
+            self.menu().layers.update(&layers);
         }
 
         if self.scene.changes.handle_selected_change() {
@@ -555,15 +549,17 @@ impl Viewport {
     }
 
     pub fn replace_scene(&mut self, scene: scene::Scene) {
-        self.menu.scene.set_details(
+        let brush = self.scene.change_fog_brush(0.0);
+        self.menu().scene.set_details(
             crate::interactor::details::SceneDetails::from(&scene),
-            self.scene.change_fog_brush(0.0),
+            brush,
         );
         self.scene.replace_scene(scene);
     }
 
     pub fn set_scene_list(&mut self, scenes: Vec<(String, String)>) {
-        self.menu.scene.set_scene_list(scenes);
-        self.menu.scene.set_scene(self.scene.scene_key());
+        self.menu().scene.set_scene_list(scenes);
+        let scene_key = self.scene.scene_key();
+        self.menu().scene.set_scene(scene_key);
     }
 }

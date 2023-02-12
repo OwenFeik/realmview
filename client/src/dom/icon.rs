@@ -1,3 +1,5 @@
+use super::element::Element;
+
 #[derive(Clone, Copy, Debug)]
 pub enum Icon {
     Down,
@@ -27,6 +29,10 @@ impl Icon {
             Icon::Trash => "trash3",
         };
         format!("bi-{suf}")
+    }
+
+    pub fn element(&self) -> Element {
+        Element::new("i").with_class(&self.class())
     }
 
     pub fn opposite(&self) -> Self {

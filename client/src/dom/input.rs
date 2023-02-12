@@ -1,33 +1,28 @@
-use std::{
-    collections::HashMap,
-    rc::Rc,
-    sync::atomic::{AtomicBool, Ordering},
-};
+use std::{collections::HashMap, rc::Rc};
+
+use parking_lot::Mutex;
 
 use super::{element::Element, icon::Icon};
+use crate::{start::VpRef, viewport::Viewport};
 
 pub struct InputGroup {
     pub root: Element,
-    changed: Rc<AtomicBool>,
+    vp: Rc<Mutex<Viewport>>,
     line: Element,
     inputs: HashMap<String, Element>,
 }
 
 impl InputGroup {
-    pub fn new() -> InputGroup {
+    pub fn new(vp: Rc<Mutex<Viewport>>) -> InputGroup {
         let root = Element::default();
         let line = input_group();
         root.append_child(&line);
         InputGroup {
             root,
-            changed: Rc::new(AtomicBool::new(false)),
+            vp,
             line,
             inputs: HashMap::new(),
         }
-    }
-
-    pub fn handle_change(&self) -> bool {
-        self.changed.swap(false, Ordering::Relaxed)
     }
 
     pub fn value_bool(&self, key: &str) -> Option<bool> {
@@ -75,11 +70,7 @@ impl InputGroup {
         self.root.append_child(&self.line);
     }
 
-    fn add_input(&mut self, key: &str, mut el: Element) {
-        let changed = self.changed.clone();
-        el.set_oninput(Box::new(move |_| {
-            changed.store(true, Ordering::Relaxed);
-        }));
+    fn add_input(&mut self, key: &str, el: Element) {
         self.inputs.insert(key.to_string(), el);
     }
 
@@ -93,8 +84,14 @@ impl InputGroup {
         self.add_entry(key, string());
     }
 
-    pub fn add_toggle_string(&mut self, key: &str, label: bool) {
+    pub fn add_toggle_string(
+        &mut self,
+        key: &str,
+        label: bool,
+        action: Box<dyn Fn(VpRef, String)>,
+    ) {
         let el = string();
+        el.set_enabled(false);
 
         if label {
             self.add_entry(key, el.clone());
@@ -103,40 +100,70 @@ impl InputGroup {
             self.add_input(key, el.clone());
         }
 
-        self.toggle(
+        self.add_toggle(
+            &format!("{}_toggle", key),
             Icon::Edit,
             Icon::Ok,
-            Some(Box::new(move |active| {
-                el.set_enabled(active);
-            })),
+            Box::new(move |vp, disabled| {
+                el.set_enabled(!disabled);
+                if disabled {
+                    action(vp, el.value_string());
+                }
+            }),
         );
     }
 
-    pub fn add_float(&mut self, key: &str, min: Option<i32>, max: Option<i32>) {
-        self.add_entry(key, float(min, max));
+    pub fn add_float(
+        &mut self,
+        key: &str,
+        min: Option<i32>,
+        max: Option<i32>,
+        action: Box<dyn Fn(VpRef, f32)>,
+    ) {
+        let mut el = float(min, max);
+        let el_ref = el.clone();
+        let vp_ref = self.vp.clone();
+        el.set_oninput(Box::new(move |_| {
+            action(vp_ref.clone(), el_ref.value_float() as f32);
+        }));
+        self.add_entry(key, el);
     }
 
-    pub fn add_select(&mut self, key: &str, options: &[(&str, &str)]) {
-        self.add_entry(key, select(options));
+    pub fn add_select(
+        &mut self,
+        key: &str,
+        options: &[(&str, &str)],
+        action: Box<dyn Fn(VpRef, String)>,
+    ) {
+        let mut el = select(options);
+        let el_ref = el.clone();
+        let vp_ref = self.vp.clone();
+        el.set_oninput(Box::new(move |_| {
+            action(vp_ref.clone(), el_ref.value_string());
+        }));
+        self.add_entry(key, el);
     }
 
-    pub fn add_checkbox(&mut self, key: &str) {
+    pub fn add_checkbox(&mut self, key: &str, action: Box<dyn Fn(VpRef, bool)>) {
         let el = Element::new("div").with_class("input-group-text");
         self.line.append_child(&text(key));
         self.line.append_child(&el);
-        let input = el
+        let mut input = el
             .child("div")
             .with_class("form-check")
             .child("input")
             .with_class("form-check-input")
             .with_attr("type", "checkbox");
+        let input_ref = input.clone();
+        let vp_ref = self.vp.clone();
+        input.set_oninput(Box::new(move |_| {
+            action(vp_ref.clone(), input_ref.checked())
+        }));
         self.add_input(key, input);
     }
 
-    fn toggle(&self, a: Icon, b: Icon, action: Option<Box<dyn Fn(bool)>>) -> Element {
-        let mut el = Element::new("button")
-            .with_classes(&["btn", "btn-sm", "btn-outline-primary"])
-            .with_attr("type", "button");
+    pub fn add_toggle(&mut self, key: &str, a: Icon, b: Icon, action: Box<dyn Fn(VpRef, bool)>) {
+        let mut el = button();
         self.line.append_child(&el);
 
         // Input element to add to hashmap
@@ -148,6 +175,7 @@ impl InputGroup {
         // Toggle icon and input when clicked
         let i = el.child("i").with_class(&a.class());
         let input_ref = input.clone();
+        let vp_ref = self.vp.clone();
         el.set_onclick(Box::new(move |_| {
             let value = input_ref.checked();
 
@@ -156,16 +184,20 @@ impl InputGroup {
             i.add_class(&to.class());
             input_ref.toggle_checked();
 
-            if let Some(action) = &action {
-                action(value);
-            }
+            action(vp_ref.clone(), value);
         }));
 
-        input
+        self.add_input(key, input);
     }
 
-    pub fn add_toggle(&mut self, key: &str, icon: Icon) {
-        self.add_input(key, self.toggle(icon, icon.opposite(), None));
+    pub fn add_button(&mut self, icon: Icon, action: Box<dyn Fn(VpRef)>) {
+        let mut el = button();
+        el.child("i").with_class(&icon.class());
+
+        let vp = self.vp.clone();
+        el.set_onclick(Box::new(move |_| {
+            action(vp.clone());
+        }));
     }
 }
 
@@ -207,4 +239,10 @@ fn select(options: &[(&str, &str)]) -> Element {
     el.add_class("form-select");
     el.set_options(options);
     el
+}
+
+fn button() -> Element {
+    Element::new("button")
+        .with_classes(&["btn", "btn-sm", "btn-outline-primary"])
+        .with_attr("type", "button")
 }

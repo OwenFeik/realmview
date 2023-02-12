@@ -1,32 +1,70 @@
 use crate::dom::element::Element;
 use crate::dom::input::InputGroup;
 use crate::interactor::details::SceneDetails;
+use crate::start::VpRef;
 
 pub struct SceneMenu {
     inputs: InputGroup,
 }
 
 impl SceneMenu {
-    pub fn new() -> Self {
-        let mut inputs = InputGroup::new();
+    pub fn new(vp: VpRef) -> Self {
+        let mut inputs = InputGroup::new(vp);
 
-        inputs.add_float("Width", Some(0), Some(scene::Scene::MAX_SIZE as i32));
-        inputs.add_float("Height", Some(0), Some(scene::Scene::MAX_SIZE as i32));
+        inputs.add_float(
+            "Width",
+            Some(0),
+            Some(scene::Scene::MAX_SIZE as i32),
+            Box::new(|vp, w| {
+                vp.lock().scene.scene_details(SceneDetails {
+                    w: Some(w as u32),
+                    ..Default::default()
+                });
+            }),
+        );
+        inputs.add_float(
+            "Height",
+            Some(0),
+            Some(scene::Scene::MAX_SIZE as i32),
+            Box::new(|vp, h| {
+                vp.lock().scene.scene_details(SceneDetails {
+                    h: Some(h as u32),
+                    ..Default::default()
+                });
+            }),
+        );
         inputs.add_line();
-        inputs.add_checkbox("Fog of War");
-        inputs.add_float("Brush", Some(1), Some(20));
+        inputs.add_checkbox(
+            "Fog of War",
+            Box::new(|vp, active| {
+                vp.lock().scene.scene_details(SceneDetails {
+                    fog: Some(active),
+                    ..Default::default()
+                });
+            }),
+        );
+        inputs.add_float(
+            "Brush",
+            Some(1),
+            Some(20),
+            Box::new(|vp, brush| {
+                vp.lock().scene.set_fog_brush(brush as u32);
+            }),
+        );
         inputs.add_line();
-        inputs.add_select("Change Scene", &[]);
+        inputs.add_select(
+            "Change Scene",
+            &[],
+            Box::new(|_vp, key| {
+                crate::bridge::set_active_scene(&key);
+            }),
+        );
 
         Self { inputs }
     }
 
     pub fn root(&self) -> &Element {
         &self.inputs.root
-    }
-
-    pub fn changed(&mut self) -> bool {
-        self.inputs.handle_change()
     }
 
     pub fn width(&self) -> Option<u32> {

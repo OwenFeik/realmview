@@ -2,7 +2,6 @@ use std::rc::Rc;
 
 use anyhow::anyhow;
 use js_sys::Array;
-use serde_derive::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{
@@ -13,7 +12,7 @@ use web_sys::{
 use crate::dom::element::Element;
 use crate::interactor::details::SpriteDetails;
 use crate::render::Renderer;
-use crate::scene::{Id, Layer, Rect, Sprite};
+use crate::scene::{Rect, Sprite};
 
 #[wasm_bindgen]
 extern "C" {
@@ -41,13 +40,6 @@ extern "C" {
     // Clears data from the sprite menu.
     #[wasm_bindgen]
     pub fn clear_selected_sprite();
-
-    // Given a JS array of JsLayerInfo structs and an ID for the currently
-    // selected layer, this will update the layer info accordion in the bottom
-    // right of the scene and the sprite dropdown "Move to layer" option with
-    // this collection of layers.
-    #[wasm_bindgen(js_name = update_layers_list)]
-    fn _update_layers_list(layer_info: Array, selected: Id);
 
     // Expose closures
     #[wasm_bindgen]
@@ -453,42 +445,6 @@ pub fn set_selected_sprite(sprite: SpriteDetails) {
     if let Ok(sprite_json) = serde_json::ser::to_string(&sprite) {
         _set_selected_sprite(sprite_json);
     }
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct JsLayerInfo {
-    pub id: Id,
-    pub title: String,
-    pub z: f64,
-    pub visible: bool,
-    pub locked: bool,
-    pub n_sprites: f64,
-}
-
-impl JsLayerInfo {
-    fn from(layer: &Layer) -> Self {
-        JsLayerInfo {
-            id: layer.id,
-            title: layer.title.clone(),
-            z: layer.z as f64,
-            visible: layer.visible,
-            locked: layer.locked,
-            n_sprites: layer.sprites.len() as f64,
-        }
-    }
-
-    fn js_value_from(layer: &Layer) -> JsValue {
-        // Safe to unwrap as this type is known to be deserialisable.
-        JsValue::from_serde(&Self::from(layer)).unwrap()
-    }
-}
-
-fn layer_info(layers: &[Layer]) -> Array {
-    layers.iter().map(JsLayerInfo::js_value_from).collect()
-}
-
-pub fn update_layers_list(layers: &[Layer]) {
-    _update_layers_list(layer_info(layers), layers.get(0).map(|l| l.id).unwrap_or(0));
 }
 
 #[derive(Debug)]

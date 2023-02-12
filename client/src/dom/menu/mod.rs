@@ -1,7 +1,10 @@
 use super::element::Element;
+use crate::start::VpRef;
 
 mod layers;
 mod scene;
+
+pub use layers::LayerInfo;
 
 fn add_to_menu(key: &str, inputs: &Element) {
     let el = if let Some(el) = Element::by_id("canvas_menu") {
@@ -45,10 +48,10 @@ pub struct Menu {
 }
 
 impl Menu {
-    pub fn new() -> Self {
+    pub fn new(vp: VpRef) -> Self {
         let menu = Self {
-            layers: layers::LayersMenu::new(),
-            scene: scene::SceneMenu::new(),
+            layers: layers::LayersMenu::new(vp.clone()),
+            scene: scene::SceneMenu::new(vp),
         };
 
         add_to_menu("Layers", menu.layers.root());

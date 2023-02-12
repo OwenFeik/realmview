@@ -2,6 +2,7 @@ use bincode::serialize;
 use scene::comms::ServerEvent;
 
 use crate::dom::dropdown::CanvasDropdownEvent;
+use crate::dom::menu::LayerInfo;
 use crate::scene::{
     comms::SceneEvent, perms::Perms, Dimension, Id, Layer, Point, Rect, Scene, Sprite, SpriteShape,
     SpriteVisual,
@@ -763,6 +764,10 @@ impl Interactor {
         let opt = self.scene.move_layer(layer, up);
         self.scene_option(opt);
         self.changes.all_change();
+    }
+
+    pub fn layer_info(&self) -> Vec<LayerInfo> {
+        self.scene.layers.iter().map(LayerInfo::from).collect()
     }
 
     fn new_sprite_common(

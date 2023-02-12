@@ -13,7 +13,10 @@ use crate::bridge::{
     expose_closure_string_out, flog, log, request_animation_frame,
 };
 use crate::client::Client;
+use crate::dom::menu::Menu;
 use crate::viewport::{Tool, Viewport};
+
+pub type VpRef = Rc<Mutex<Viewport>>;
 
 fn logged_error<T>(error_message: &str) -> Result<T, JsValue> {
     log(error_message);
@@ -42,6 +45,8 @@ pub fn start() -> Result<(), JsValue> {
         Ok(s) => Rc::new(Mutex::new(s)),
         Err(_) => return logged_error("Failed to create viewport."),
     };
+
+    vp.lock().add_menu(Menu::new(vp.clone()));
 
     // This closure acquires the lock on the Viewport, then exports the scene
     // as a binary blob. This allows the front end to pull out the binary
