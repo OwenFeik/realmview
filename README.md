@@ -39,13 +39,16 @@
 
 ### Build Requirements
 
+* Make (`apt install make`)
 * Rust Nightly (`rustup default nightly`)
 * `wasm-pack` (`cargo install wasm-pack`)
+    * Requires `pkg-config` (`apt install pkg-config`)
+    * Requires OpenSSL (`apt install libssl-dev` / `yum install openssl-devel`)
     * Note: `0.10.2`, `0.10.3` found to segfault when building. `0.9.0` known
         working. (`cargo install wasm-pack@0.9.0`)
-* OpenSSL (`apt install libssl-dev` / `yum install openssl-devel`)
 * Sqlite3 (`apt install sqlite3`)
-* Python 3.6
+* Python 3.6 or greater.
+    * `urllib3` (`python3 -m pip install urllib3`)
 
 ## Moving Sprites
 
