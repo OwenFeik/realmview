@@ -1,10 +1,13 @@
-use super::element::Element;
-use crate::start::VpRef;
+use ::scene::Id;
 
+pub use self::dropdown::CanvasDropdownEvent;
+pub use self::layers::LayerInfo;
+use super::element::Element;
+use crate::{interactor::details::SceneDetails, start::VpRef, viewport::ViewportPoint};
+
+mod dropdown;
 mod layers;
 mod scene;
-
-pub use layers::LayerInfo;
 
 fn add_to_menu(key: &str, inputs: &Element) {
     let el = if let Some(el) = Element::by_id("canvas_menu") {
@@ -43,13 +46,15 @@ fn add_to_menu(key: &str, inputs: &Element) {
 }
 
 pub struct Menu {
-    pub layers: self::layers::LayersMenu,
-    pub scene: self::scene::SceneMenu,
+    dropdown: dropdown::Dropdown,
+    layers: layers::LayersMenu,
+    scene: scene::SceneMenu,
 }
 
 impl Menu {
     pub fn new(vp: VpRef) -> Self {
         let menu = Self {
+            dropdown: dropdown::Dropdown::new(),
             layers: layers::LayersMenu::new(vp.clone()),
             scene: scene::SceneMenu::new(vp),
         };
@@ -57,5 +62,38 @@ impl Menu {
         add_to_menu("Layers", menu.layers.root());
         add_to_menu("Scene", menu.scene.root());
         menu
+    }
+
+    pub fn show_dropdown(&self, at: ViewportPoint) {
+        self.dropdown.show(at);
+    }
+
+    pub fn hide_dropdown(&self) {
+        self.dropdown.hide();
+    }
+
+    pub fn dropdown_event(&mut self) -> Option<dropdown::CanvasDropdownEvent> {
+        self.dropdown.event()
+    }
+
+    pub fn set_scene_details(&mut self, details: SceneDetails) {
+        self.scene.set_details(details);
+    }
+
+    pub fn set_scene(&mut self, key: Option<String>) {
+        self.scene.set_scene(key);
+    }
+
+    pub fn set_scene_list(&mut self, list: Vec<(String, String)>) {
+        self.scene.set_scene_list(list);
+    }
+
+    pub fn set_fog_brush(&mut self, brush: u32) {
+        self.scene.set_fog_brush(brush);
+    }
+
+    pub fn set_layer_info(&mut self, selected: Id, layers: &[LayerInfo]) {
+        self.layers.update(selected, layers);
+        self.dropdown.update_layers(layers);
     }
 }

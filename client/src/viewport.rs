@@ -1,4 +1,3 @@
-use crate::dom::dropdown::Dropdown;
 use crate::dom::menu::Menu;
 use crate::scene::{Point, Rect};
 use crate::{
@@ -76,10 +75,7 @@ pub struct Viewport {
     // WebGL rendering context wrapper
     context: Context,
 
-    // Canvas context menu
-    dropdown: Dropdown,
-
-    // Canvas tools menu
+    // Menu UI
     menu: Option<Menu>,
 
     // Measured in scene units (tiles)
@@ -110,7 +106,6 @@ impl Viewport {
         let mut vp = Viewport {
             scene,
             context: Context::new()?,
-            dropdown: Dropdown::new(),
             menu: None,
             tool: Tool::Select,
             viewport: Rect {
@@ -135,9 +130,8 @@ impl Viewport {
     pub fn add_menu(&mut self, menu: Menu) {
         self.menu = Some(menu);
         let details = self.scene.get_scene_details();
-        self.menu()
-            .scene
-            .set_details(details, Interactor::DEFAULT_FOG_BRUSH);
+        self.menu().set_scene_details(details);
+        self.menu().set_fog_brush(Interactor::DEFAULT_FOG_BRUSH);
         self.update_layers_menu();
     }
 
@@ -148,8 +142,7 @@ impl Viewport {
     fn update_layers_menu(&mut self) {
         let selected = self.scene.selected_layer();
         let layers = self.scene.layer_info();
-        self.menu().layers.update(selected, &layers);
-        self.dropdown.update_layers(self.scene.layers());
+        self.menu().set_layer_info(selected, &layers);
     }
 
     fn update_cursor(&self, new: Option<Cursor>) {
@@ -241,12 +234,12 @@ impl Viewport {
                     _ => (),
                 };
 
-                self.dropdown.hide();
+                self.menu().hide_dropdown();
                 self.mouse_down = Some(true);
             }
             MouseButton::Right => {
                 if self.scene.select_at(self.scene_point(at), ctrl) {
-                    self.dropdown.show(at);
+                    self.menu().show_dropdown(at);
                 } else {
                     self.grab(at)
                 }
@@ -342,7 +335,7 @@ impl Viewport {
                 Tool::Draw => self.scene.change_stroke(delta),
                 Tool::Fog => {
                     let fog_brush = self.scene.change_fog_brush(delta);
-                    self.menu().scene.set_fog_brush(fog_brush)
+                    self.menu().set_fog_brush(fog_brush);
                 }
                 _ => {}
             }
@@ -406,7 +399,7 @@ impl Viewport {
     }
 
     fn process_ui_events(&mut self) {
-        if let Some(event) = self.dropdown.event() {
+        if let Some(event) = self.menu().dropdown_event() {
             self.scene.handle_dropdown_event(event);
         }
 
@@ -489,7 +482,7 @@ impl Viewport {
         self.process_ui_events();
         if let Some((list, scene)) = self.scene.process_server_events() {
             self.set_scene_list(list);
-            self.menu().scene.set_scene(Some(scene));
+            self.menu().set_scene(Some(scene));
         }
         self.update_viewport();
         if self.redraw_needed
@@ -510,7 +503,6 @@ impl Viewport {
             } else {
                 clear_selected_sprite();
             }
-            self.dropdown.update_options(self.scene.allowed_options());
         }
     }
 
@@ -553,17 +545,14 @@ impl Viewport {
     }
 
     pub fn replace_scene(&mut self, scene: scene::Scene) {
-        let brush = self.scene.change_fog_brush(0.0);
-        self.menu().scene.set_details(
-            crate::interactor::details::SceneDetails::from(&scene),
-            brush,
-        );
+        self.menu()
+            .set_scene_details(crate::interactor::details::SceneDetails::from(&scene));
         self.scene.replace_scene(scene);
     }
 
     pub fn set_scene_list(&mut self, scenes: Vec<(String, String)>) {
-        self.menu().scene.set_scene_list(scenes);
+        self.menu().set_scene_list(scenes);
         let scene_key = self.scene.scene_key();
-        self.menu().scene.set_scene(scene_key);
+        self.menu().set_scene(scene_key);
     }
 }

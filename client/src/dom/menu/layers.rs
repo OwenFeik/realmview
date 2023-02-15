@@ -6,12 +6,12 @@ use crate::{
 };
 
 pub struct LayerInfo {
-    id: Id,
-    title: String,
-    z: i32,
-    visible: bool,
-    locked: bool,
-    n_sprites: usize,
+    pub id: Id,
+    pub title: String,
+    pub z: i32,
+    pub visible: bool,
+    pub locked: bool,
+    pub n_sprites: usize,
 }
 
 impl LayerInfo {

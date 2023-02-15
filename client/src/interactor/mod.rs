@@ -1,7 +1,7 @@
 use bincode::serialize;
 use scene::comms::ServerEvent;
 
-use crate::dom::dropdown::CanvasDropdownEvent;
+use crate::dom::menu::CanvasDropdownEvent;
 use crate::dom::menu::LayerInfo;
 use crate::scene::{
     comms::SceneEvent, perms::Perms, Dimension, Id, Layer, Point, Rect, Scene, Sprite, SpriteShape,

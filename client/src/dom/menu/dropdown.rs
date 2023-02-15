@@ -3,8 +3,8 @@ use std::rc::Rc;
 use parking_lot::Mutex;
 use serde::Serialize;
 
-use super::element::Element;
-use crate::viewport::ViewportPoint;
+use super::LayerInfo;
+use crate::{dom::element::Element, viewport::ViewportPoint};
 
 #[derive(Clone, Copy, Debug, PartialEq, serde_derive::Serialize)]
 pub enum CanvasDropdownEvent {
@@ -161,7 +161,7 @@ impl Dropdown {
         self.set_visible(false);
     }
 
-    pub fn update_layers(&mut self, layers: &[scene::Layer]) {
+    pub fn update_layers(&mut self, layers: &[LayerInfo]) {
         self.layers.clear();
         for layer in layers {
             let item = self.new_item(&layer.title, CanvasDropdownEvent::Layer(layer.id));

@@ -79,7 +79,7 @@ impl SceneMenu {
         self.inputs.value_bool("Fog of War")
     }
 
-    pub fn set_details(&mut self, details: SceneDetails, brush: u32) {
+    pub fn set_details(&mut self, details: SceneDetails) {
         self.inputs.set_value_float(
             "Width",
             details.w.unwrap_or(scene::Scene::DEFAULT_SIZE) as f64,
@@ -90,8 +90,11 @@ impl SceneMenu {
         );
         self.inputs
             .set_value_bool("Fog of War", details.fog.unwrap_or(false));
-        self.inputs.set_value_float("Brush", brush as f64);
         self.set_scene(details.key);
+    }
+
+    pub fn set_brush(&mut self, brush: u32) {
+        self.inputs.set_value_float("Brush", brush as f64);
     }
 
     pub fn details(&self) -> SceneDetails {
