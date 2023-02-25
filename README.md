@@ -32,6 +32,7 @@
 * Tool selection gets broken when changing stroke
 * Fog of war sometimes doesn't show up
 * Remove sprites is forbidden; should be able to remove own sprites
+* Crashes when resizing grid
 
 # Documentation
 
