@@ -427,15 +427,23 @@ impl Interactor {
         self.clear_held_selection();
         if self.draw_details.shape.is_some() {
             self.new_held_shape(self.draw_details.shape.unwrap(), at, !alt, ephemeral);
-        } else if let Some(id) = self.new_sprite_at(
-            Some(self.draw_details.drawing()),
-            None,
-            Rect::at(at, Sprite::DEFAULT_WIDTH, Sprite::DEFAULT_HEIGHT),
-        ) {
-            self.history.start_move_group();
+        } else {
+            let visual = self.draw_details.drawing();
+            let drawing_id = self.scene.start_drawing();
+            if let SpriteVisual::Drawing { drawing, .. } = &mut visual {
+                *drawing = drawing_id;
+            }
 
-            self.holding = holding::HeldObject::Drawing(id);
-            self.holding.set_ephemeral(ephemeral);
+            if let Some(sprite_id) = self.new_sprite_at(
+                Some(visual),
+                None,
+                Rect::at(at, Sprite::DEFAULT_WIDTH, Sprite::DEFAULT_HEIGHT),
+            ) {
+                self.history.start_move_group();
+
+                self.holding = holding::HeldObject::Drawing(drawing_id, sprite_id);
+                self.holding.set_ephemeral(ephemeral);
+            }
         }
     }
 
@@ -480,11 +488,9 @@ impl Interactor {
     pub fn drag(&mut self, at: Point) {
         let holding = self.holding.value();
         match holding {
-            holding::HeldObject::Drawing(id) => {
-                if let Some(Some(event)) = self.scene.sprite(id).map(|s| s.add_drawing_point(at)) {
-                    self.changes.sprite_change();
-                    self.scene_event(event);
-                }
+            holding::HeldObject::Drawing(d, s) => {
+                let opt = self.scene.add_drawing_point(d, at);
+                self.scene_option(opt);
             }
             holding::HeldObject::Ephemeral(..) | holding::HeldObject::None => {}
             holding::HeldObject::Marquee(from) => {
@@ -572,22 +578,15 @@ impl Interactor {
         self.changes.sprite_selected_change();
     }
 
-    fn finish_draw(&mut self, id: Id) {
-        if let Some(sprite) = self.scene.sprite(id) {
-            // If this was just a single click, no line drawn, just remove it
-            if sprite.n_drawing_points() == 1 {
-                self.remove_sprite(id);
-            } else {
-                let opt = sprite.finish_drawing();
-                self.scene_option(opt);
-                self.history.end_move_group();
-            }
-        }
+    fn finish_draw(&mut self, drawing: Id, sprite: Id) {
+        let opt = self.scene.finish_drawing(drawing, sprite);
+        self.scene_option(opt);
+        self.history.end_move_group();
     }
 
     pub fn release(&mut self, alt: bool, ctrl: bool) {
         match &self.holding {
-            &holding::HeldObject::Drawing(id) => self.finish_draw(id),
+            &holding::HeldObject::Drawing(drawing, sprite) => self.finish_draw(drawing, sprite),
             holding::HeldObject::Ephemeral(held) => {
                 if let Some(id) = held.held_id() {
                     self.remove_sprite(id);

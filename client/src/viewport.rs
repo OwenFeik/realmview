@@ -176,11 +176,11 @@ impl Viewport {
         match draw_tool {
             DrawTool::Ellipse => deets.shape = Some(scene::SpriteShape::Ellipse),
             DrawTool::Freehand => {
-                deets.drawing_type = Some(scene::SpriteDrawingType::Freehand);
+                deets.drawing_mode = Some(scene::DrawingMode::Freehand);
                 deets.cap_end = Some(scene::SpriteCap::Round);
             }
             DrawTool::Line => {
-                deets.drawing_type = Some(scene::SpriteDrawingType::Line);
+                deets.drawing_mode = Some(scene::DrawingMode::Line);
                 deets.cap_end = Some(scene::SpriteCap::Arrow);
             }
             DrawTool::Rectangle => deets.shape = Some(scene::SpriteShape::Rectangle),

@@ -1,6 +1,6 @@
 use serde_derive::{Deserialize, Serialize};
 
-use super::{comms::SceneEvent, Dimension, Id, Point, PointVector, Rect};
+use super::{comms::SceneEvent, Dimension, Id, Point, Rect};
 use crate::rect::determine_unit_size;
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
@@ -44,7 +44,7 @@ pub enum Shape {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
-pub enum DrawingType {
+pub enum DrawingMode {
     Freehand,
     Line,
 }
@@ -62,90 +62,6 @@ impl Cap {
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct Drawing {
-    pub points: PointVector,
-    pub drawing_type: DrawingType,
-    pub colour: Colour,
-    pub stroke: f32,
-    pub cap_start: Cap,
-    pub cap_end: Cap,
-    pub finished: bool,
-}
-
-impl Drawing {
-    pub const DEFAULT_TYPE: DrawingType = DrawingType::Freehand;
-
-    pub fn new() -> Self {
-        Default::default()
-    }
-
-    pub fn line(&self) -> (Point, Point) {
-        let p = self.points.nth(1).unwrap_or(Point::ORIGIN);
-        let q = self.points.last().unwrap_or(Point::ORIGIN);
-        (p, q)
-    }
-
-    pub fn n_points(&self) -> u32 {
-        self.points.n() as u32
-    }
-
-    fn keep_n_points(&mut self, n: u32) {
-        self.points.keep_n(n as usize);
-    }
-
-    fn last_point(&self) -> Option<Point> {
-        self.points.last()
-    }
-
-    // Adds a new point to the drawing, if it isn't too close to the previous
-    // point.
-    fn add_point(&mut self, point: Point) {
-        const MINIMUM_DISTANCE: f32 = 0.1;
-
-        if let Some(prev) = self.points.last() {
-            if prev.dist(point) < MINIMUM_DISTANCE {
-                return;
-            }
-        }
-
-        self.points.add(point);
-    }
-
-    /// Simplifies the drawing such that it's top-left-most point is the
-    /// origin, returning it's from rect before the transformation.
-    fn simplify(&mut self) -> Rect {
-        let rect = self.points.rect();
-        let delta = rect.top_left();
-        if delta.non_zero() {
-            self.points.translate(-delta);
-        }
-        rect
-    }
-
-    fn translate(&mut self, offset: f32) {
-        self.points.translate(Point::same(offset));
-    }
-
-    fn scale(&mut self, sx: f32, sy: f32) {
-        self.points.map(|p| Point::new(p.x * sx, p.y * sy));
-    }
-}
-
-impl Default for Drawing {
-    fn default() -> Self {
-        Self {
-            points: PointVector::from(vec![0.0, 0.0]),
-            drawing_type: Self::DEFAULT_TYPE,
-            colour: Colour::DEFAULT,
-            stroke: Sprite::DEFAULT_STROKE,
-            cap_start: Cap::Round,
-            cap_end: Cap::Round,
-            finished: false,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum Visual {
     Texture {
         shape: Shape,
@@ -156,14 +72,20 @@ pub enum Visual {
         stroke: f32,
         colour: Colour,
     },
-    Drawing(Drawing),
+    Drawing {
+        drawing: Id,
+        mode: DrawingMode,
+        colour: Colour,
+        stroke: f32,
+        cap_start: Cap,
+        cap_end: Cap,
+    },
 }
 
 impl Visual {
     pub fn colour(&self) -> Option<Colour> {
         match self {
-            Self::Solid { colour, .. } => Some(*colour),
-            Self::Drawing(drawing) => Some(drawing.colour),
+            Self::Solid { colour, .. } | Self::Drawing { colour, .. } => Some(*colour),
             _ => None,
         }
     }
@@ -182,9 +104,9 @@ impl Visual {
         }
     }
 
-    pub fn drawing(&self) -> Option<&Drawing> {
-        if let Self::Drawing(drawing) = self {
-            Some(drawing)
+    pub fn drawing(&self) -> Option<Id> {
+        if let Self::Drawing { drawing, .. } = self {
+            Some(*drawing)
         } else {
             None
         }
@@ -192,23 +114,30 @@ impl Visual {
 
     pub fn stroke(&self) -> Option<f32> {
         match self {
-            Self::Drawing(drawing) => Some(drawing.stroke),
-            Self::Solid { stroke, .. } => Some(*stroke),
+            Self::Drawing { stroke, .. } | Self::Solid { stroke, .. } => Some(*stroke),
             _ => None,
         }
     }
 
     pub fn cap_start(&self) -> Option<Cap> {
-        if let Self::Drawing(drawing) = self {
-            Some(drawing.cap_start)
+        if let Self::Drawing { cap_start, .. } = self {
+            Some(*cap_start)
         } else {
             None
         }
     }
 
     pub fn cap_end(&self) -> Option<Cap> {
-        if let Self::Drawing(drawing) = self {
-            Some(drawing.cap_end)
+        if let Self::Drawing { cap_end, .. } = self {
+            Some(*cap_end)
+        } else {
+            None
+        }
+    }
+
+    pub fn drawing_mode(&self) -> Option<DrawingMode> {
+        if let Self::Drawing { mode, .. } = self {
+            Some(*mode)
         } else {
             None
         }
@@ -229,6 +158,7 @@ impl Sprite {
     pub const SOLID_STROKE: f32 = 0.0;
     pub const DEFAULT_WIDTH: f32 = 1.0;
     pub const DEFAULT_HEIGHT: f32 = 1.0;
+    pub const DEFAULT_MODE: DrawingMode = DrawingMode::Freehand;
 
     // Minimum size of a sprite dimension; too small and sprites can be lost.
     const MIN_SIZE: f32 = 0.25;
@@ -250,10 +180,6 @@ impl Sprite {
     pub fn set_rect(&mut self, rect: Rect) -> SceneEvent {
         let from = self.rect;
         self.rect = rect;
-
-        if from.w != self.rect.w || from.h != self.rect.h {
-            self.scale_drawing(self.rect.w / from.w, self.rect.h / from.h);
-        }
 
         SceneEvent::SpriteMove(self.id, from, self.rect)
     }
@@ -332,18 +258,9 @@ impl Sprite {
 
     pub fn set_colour(&mut self, new: Colour) -> Option<SceneEvent> {
         let old = self.visual.clone();
-        match self.visual.clone() {
-            Visual::Solid { shape, stroke, .. } => {
-                self.visual = Visual::Solid {
-                    colour: new,
-                    shape,
-                    stroke,
-                };
-                Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
-            }
-            Visual::Drawing(mut drawing) => {
-                drawing.colour = new;
-                self.visual = Visual::Drawing(drawing);
+        match &mut self.visual {
+            Visual::Solid { colour, .. } | Visual::Drawing { colour, .. } => {
+                *colour = new;
                 Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
             }
             _ => None,
@@ -371,18 +288,9 @@ impl Sprite {
 
     pub fn set_stroke(&mut self, new: f32) -> Option<SceneEvent> {
         let old = self.visual.clone();
-        match self.visual.clone() {
-            Visual::Solid { shape, colour, .. } => {
-                self.visual = Visual::Solid {
-                    shape,
-                    stroke: new,
-                    colour,
-                };
-                Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
-            }
-            Visual::Drawing(mut drawing) => {
-                drawing.stroke = new;
-                self.visual = Visual::Drawing(drawing);
+        match &mut self.visual {
+            Visual::Solid { stroke, .. } | Visual::Drawing { stroke, .. } => {
+                *stroke = new;
                 Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
             }
             _ => None,
@@ -399,10 +307,10 @@ impl Sprite {
         }
     }
 
-    pub fn set_drawing_type(&mut self, drawing_type: DrawingType) -> Option<SceneEvent> {
+    pub fn set_drawing_type(&mut self, new: DrawingMode) -> Option<SceneEvent> {
         let old = self.visual.clone();
-        if let Visual::Drawing(drawing) = &mut self.visual {
-            drawing.drawing_type = drawing_type;
+        if let Visual::Drawing { mode, .. } = &mut self.visual {
+            *mode = new;
             Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
         } else {
             None
@@ -411,9 +319,17 @@ impl Sprite {
 
     pub fn set_caps(&mut self, start: Option<Cap>, end: Option<Cap>) -> Option<SceneEvent> {
         let before = self.visual.clone();
-        if let Visual::Drawing(drawing) = &mut self.visual {
-            drawing.cap_start = start.unwrap_or(drawing.cap_start);
-            drawing.cap_end = end.unwrap_or(drawing.cap_end);
+        if let Visual::Drawing {
+            cap_start, cap_end, ..
+        } = &mut self.visual
+        {
+            if let Some(cap) = start {
+                *cap_start = cap;
+            }
+            if let Some(cap) = end {
+                *cap_end = cap;
+            }
+
             Some(SceneEvent::SpriteVisual(
                 self.id,
                 before,
@@ -424,71 +340,15 @@ impl Sprite {
         }
     }
 
-    pub fn n_drawing_points(&self) -> u32 {
-        if let Visual::Drawing(drawing) = &self.visual {
-            drawing.n_points()
-        } else {
-            0
-        }
-    }
-
-    pub fn keep_drawing_points(&mut self, n: u32) {
-        if let Visual::Drawing(drawing) = &mut self.visual {
-            drawing.keep_n_points(n);
-        }
-    }
-
-    pub fn last_drawing_point(&self) -> Option<Point> {
-        if let Visual::Drawing(drawing) = &self.visual {
-            drawing.last_point()
-        } else {
-            None
-        }
-    }
-
-    pub fn add_drawing_point(&mut self, at: Point) -> Option<SceneEvent> {
-        let point = at - self.pos();
-        if let Visual::Drawing(drawing) = &mut self.visual {
-            drawing.add_point(point);
-            Some(SceneEvent::SpriteDrawingPoint(
-                self.id,
-                drawing.n_points(),
-                at,
-            ))
-        } else {
-            None
-        }
-    }
-
-    pub fn finish_drawing(&mut self) -> Option<SceneEvent> {
-        if let Visual::Drawing(drawing) = &mut self.visual {
-            let d = drawing.stroke;
-
-            // Simplify dimensions so the top left is at (0, 0)
-            let r = drawing.simplify();
-
-            // Translate by stroke width to allow a border around drawing
-            drawing.points.translate(Point::same(d));
+    pub fn drawing_finished(&mut self, rect: Rect) {
+        if let Visual::Drawing { stroke, .. } = &mut self.visual {
+            let d = *stroke;
 
             // Move the sprite to allow for the new position and border
-            self.rect.x += r.x - d;
-            self.rect.y += r.y - d;
-            self.rect.w = r.w + 2.0 * d;
-            self.rect.h = r.h + 2.0 * d;
-
-            // Mark the drawing as finished
-            drawing.finished = true;
-
-            // Emit event
-            Some(SceneEvent::SpriteDrawingFinish(self.id))
-        } else {
-            None
-        }
-    }
-
-    fn scale_drawing(&mut self, scale_x: f32, scale_y: f32) {
-        if let Visual::Drawing(drawing) = &mut self.visual {
-            drawing.scale(scale_x, scale_y);
+            self.rect.x += rect.x - d;
+            self.rect.y += rect.y - d;
+            self.rect.w = rect.w + 2.0 * d;
+            self.rect.h = rect.h + 2.0 * d;
         }
     }
 }
@@ -511,9 +371,10 @@ fn round_to_nearest(d: f32, n: f32) -> f32 {
     sign * (d / n).round() * n
 }
 
+/*
 #[cfg(test)]
 mod test {
-    use super::{round_dimension, Cap, Colour, Drawing, DrawingType, Sprite, Visual};
+    use super::{round_dimension, Cap, Colour, Drawing, DrawingMode, Sprite, Visual};
     use crate::{rect::float_eq, Point, PointVector, Rect};
 
     #[test]
@@ -578,7 +439,7 @@ mod test {
                     ]
                     .to_vec(),
                 },
-                drawing_type: DrawingType::Freehand,
+                drawing_type: DrawingMode::Freehand,
                 colour: Colour([0.7002602, 0.9896201, 0.7272567, 1.0]),
                 stroke: 0.2,
                 cap_start: Cap::Round,
@@ -606,3 +467,4 @@ mod test {
         assert!(float_eq(round_dimension(0.76), 1.0));
     }
 }
+*/

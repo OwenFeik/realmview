@@ -1,7 +1,4 @@
-use scene::{
-    comms::SceneEvent, Colour, Dimension, Id, Scene, Sprite, SpriteDrawing, SpriteShape,
-    SpriteVisual,
-};
+use scene::{comms::SceneEvent, Colour, Dimension, Id, Scene, Sprite, SpriteShape, SpriteVisual};
 
 #[derive(Debug, Default, serde_derive::Deserialize, serde_derive::Serialize)]
 #[serde(default)]
@@ -67,7 +64,7 @@ pub struct SpriteDetails {
     pub stroke: Option<f32>,
     pub colour: Option<Colour>,
     pub texture: Option<Id>,
-    pub drawing_type: Option<scene::SpriteDrawingType>,
+    pub drawing_mode: Option<scene::DrawingMode>,
     pub cap_start: Option<scene::SpriteCap>,
     pub cap_end: Option<scene::SpriteCap>,
 }
@@ -84,7 +81,7 @@ impl SpriteDetails {
             stroke: sprite.visual.stroke(),
             colour: sprite.visual.colour(),
             texture: sprite.visual.texture(),
-            drawing_type: sprite.visual.drawing().map(|d| d.drawing_type),
+            drawing_mode: sprite.visual.drawing_mode(),
             cap_start: sprite.visual.cap_start(),
             cap_end: sprite.visual.cap_end(),
         }
@@ -97,14 +94,14 @@ impl SpriteDetails {
             self.stroke()
         };
 
-        SpriteVisual::Drawing(SpriteDrawing {
-            drawing_type: self.drawing_type(),
+        SpriteVisual::Drawing {
+            drawing: 0,
+            mode: self.drawing_mode(),
             colour: self.colour(),
             cap_start: self.cap_start(),
             cap_end: self.cap_end(),
             stroke,
-            ..Default::default()
-        })
+        }
     }
 
     pub fn update_from(&mut self, other: &Self) {
@@ -141,8 +138,8 @@ impl SpriteDetails {
             self.texture = other.texture;
         }
 
-        if other.drawing_type.is_some() {
-            self.drawing_type = other.drawing_type;
+        if other.drawing_mode.is_some() {
+            self.drawing_mode = other.drawing_mode;
         }
 
         if other.cap_start.is_some() {
@@ -191,10 +188,8 @@ impl SpriteDetails {
             self.texture = None;
         }
 
-        if self.drawing_type.is_some()
-            && self.drawing_type != sprite.visual.drawing().map(|d| d.drawing_type)
-        {
-            self.drawing_type = None;
+        if self.drawing_mode.is_some() && self.drawing_mode != sprite.visual.drawing_mode() {
+            self.drawing_mode = None;
         }
 
         if self.cap_start.is_some() && self.cap_start != sprite.visual.cap_start() {
@@ -248,7 +243,7 @@ impl SpriteDetails {
             }
         }
 
-        if let Some(drawing_type) = self.drawing_type {
+        if let Some(drawing_type) = self.drawing_mode {
             if let Some(event) = sprite.set_drawing_type(drawing_type) {
                 events.push(event);
             }
@@ -269,9 +264,8 @@ impl SpriteDetails {
         self.stroke.unwrap_or(Sprite::DEFAULT_STROKE)
     }
 
-    fn drawing_type(&self) -> scene::SpriteDrawingType {
-        self.drawing_type
-            .unwrap_or(scene::SpriteDrawing::DEFAULT_TYPE)
+    fn drawing_mode(&self) -> scene::DrawingMode {
+        self.drawing_mode.unwrap_or(scene::Sprite::DEFAULT_MODE)
     }
 
     fn cap_start(&self) -> scene::SpriteCap {

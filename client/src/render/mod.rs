@@ -48,9 +48,15 @@ impl Renderer {
         self.sprite_renderer.load_image(image)
     }
 
-    pub fn draw_sprite(&mut self, sprite: &Sprite, viewport: Rect, grid_size: f32) {
+    pub fn draw_sprite(
+        &mut self,
+        sprite: &Sprite,
+        drawing: Option<&scene::Drawing>,
+        viewport: Rect,
+        grid_size: f32,
+    ) {
         self.sprite_renderer
-            .draw_sprite(sprite, viewport, grid_size);
+            .draw_sprite(sprite, viewport, grid_size, drawing);
     }
 
     pub fn draw_outline(

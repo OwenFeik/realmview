@@ -393,7 +393,12 @@ impl DrawingRenderer {
         })
     }
 
-    fn create_key(drawing: &scene::SpriteDrawing) -> u128 {
+    fn create_key(
+        drawing: &scene::Drawing,
+        stroke: f32,
+        cap_start: scene::SpriteCap,
+        cap_end: scene::SpriteCap,
+    ) -> u128 {
         // Key format is a u128 with the following structure:
         //
         // 20 bits for the rect x (20 leftmost bits)
@@ -423,48 +428,58 @@ impl DrawingRenderer {
         keyf32(rect.y); // 40
         keyf32(rect.w); // 60
         keyf32(rect.h); // 80
-        keyf32(drawing.stroke); // 100
+        keyf32(stroke); // 100
 
         // Last 28 bits. We've already shifted the first 100 across by 100.
         let mut low = 0u32;
         low |= drawing.n_points();
         low <<= 23; // Assume n_points is smaller than 23 bits.
-        low |= drawing.cap_start as u32; // allow 2 bits
+        low |= cap_start as u32; // allow 2 bits
         low <<= 2;
-        low |= drawing.cap_end as u32; // 2 bits
+        low |= cap_end as u32; // 2 bits
         key |= low as u128;
         key |= drawing.finished as u128; // final single bit
 
         key
     }
 
-    fn add_drawing(&mut self, id: scene::Id, drawing: &scene::SpriteDrawing) -> anyhow::Result<()> {
-        let points = match drawing.drawing_type {
-            scene::SpriteDrawingType::Freehand => super::shapes::freehand(
-                &drawing.points,
-                drawing.stroke,
-                drawing.cap_start,
-                drawing.cap_end,
-                self.grid_size,
-            ),
-            scene::SpriteDrawingType::Line => super::shapes::line(
-                drawing.line(),
-                drawing.stroke,
-                drawing.cap_start,
-                drawing.cap_end,
-                self.grid_size,
-            ),
+    fn add_drawing(
+        &mut self,
+        id: scene::Id,
+        drawing_mode: scene::DrawingMode,
+        drawing: &scene::Drawing,
+        stroke: f32,
+        cap_start: scene::SpriteCap,
+        cap_end: scene::SpriteCap,
+    ) -> anyhow::Result<()> {
+        let points = match drawing_mode {
+            scene::DrawingMode::Freehand => {
+                super::shapes::freehand(&drawing.points, stroke, cap_start, cap_end, self.grid_size)
+            }
+            scene::DrawingMode::Line => {
+                super::shapes::line(drawing.line(), stroke, cap_start, cap_end, self.grid_size)
+            }
         };
 
         let mut mesh = Mesh::new(&self.gl, &self.renderer.program, &points)?;
         mesh.set_transforms(false, true);
-        self.drawings.insert(id, (Self::create_key(drawing), mesh));
+        self.drawings.insert(
+            id,
+            (Self::create_key(drawing, stroke, cap_start, cap_end), mesh),
+        );
         Ok(())
     }
 
-    fn get_drawing(&self, id: scene::Id, drawing: &scene::SpriteDrawing) -> Option<&Mesh> {
+    fn get_drawing(
+        &self,
+        id: scene::Id,
+        drawing: &scene::Drawing,
+        stroke: f32,
+        start: scene::SpriteCap,
+        end: scene::SpriteCap,
+    ) -> Option<&Mesh> {
         if let Some((key, mesh)) = self.drawings.get(&id) {
-            if Self::create_key(drawing) == *key {
+            if Self::create_key(drawing, stroke, start, end) == *key {
                 return Some(mesh);
             }
         }
@@ -481,17 +496,26 @@ impl DrawingRenderer {
     pub fn draw_drawing(
         &mut self,
         id: scene::Id,
-        drawing: &scene::SpriteDrawing,
+        mode: scene::DrawingMode,
+        drawing: &scene::Drawing,
+        stroke: f32,
+        start: scene::SpriteCap,
+        end: scene::SpriteCap,
+        colour: scene::Colour,
         viewport: Rect,
         position: Rect,
         grid_size: f32,
     ) {
         self.update_grid_size(grid_size);
-        if let Some(mesh) = self.get_drawing(id, drawing) {
-            self.renderer
-                .draw(mesh, drawing.colour.raw(), viewport, position);
-        } else if self.add_drawing(id, drawing).is_ok() {
-            self.draw_drawing(id, drawing, viewport, position, grid_size);
+        if let Some(mesh) = self.get_drawing(id, drawing, stroke, start, end) {
+            self.renderer.draw(mesh, colour.raw(), viewport, position);
+        } else if self
+            .add_drawing(id, mode, drawing, stroke, start, end)
+            .is_ok()
+        {
+            self.draw_drawing(
+                id, mode, drawing, stroke, start, end, colour, viewport, position, grid_size,
+            );
         }
     }
 }
@@ -951,7 +975,13 @@ impl SpriteRenderer {
         self.texture_library.load_image(image)
     }
 
-    pub fn draw_sprite(&mut self, sprite: &scene::Sprite, viewport: Rect, grid_size: f32) {
+    pub fn draw_sprite(
+        &mut self,
+        sprite: &scene::Sprite,
+        viewport: Rect,
+        grid_size: f32,
+        drawing: Option<&scene::Drawing>,
+    ) {
         let position = sprite.rect * grid_size;
         match &sprite.visual {
             scene::SpriteVisual::Solid {
@@ -981,9 +1011,25 @@ impl SpriteRenderer {
                 viewport,
                 position,
             ),
-            scene::SpriteVisual::Drawing(drawing) => self
-                .drawing_renderer
-                .draw_drawing(sprite.id, drawing, viewport, position, grid_size),
+            scene::SpriteVisual::Drawing {
+                mode,
+                colour,
+                stroke,
+                cap_start,
+                cap_end,
+                ..
+            } => self.drawing_renderer.draw_drawing(
+                sprite.id,
+                *mode,
+                drawing.unwrap(),
+                *stroke,
+                *cap_start,
+                *cap_end,
+                *colour,
+                viewport,
+                position,
+                grid_size,
+            ),
         }
     }
 }
