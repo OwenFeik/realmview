@@ -62,7 +62,6 @@ CREATE TABLE IF NOT EXISTS layers (
 
 CREATE TABLE IF NOT EXISTS sprites (
     id INTEGER NOT NULL,
-    scene INTEGER REFERENCES scenes(id) ON DELETE CASCADE NOT NULL,
     layer INTEGER NOT NULL,
     x REAL NOT NULL,
     y REAL NOT NULL,
@@ -72,14 +71,21 @@ CREATE TABLE IF NOT EXISTS sprites (
     shape INTEGER,
     stroke REAL,
     media_key CHAR(16) REFERENCES media(media_key) ON DELETE SET NULL,
-    points BLOB, -- Vec<f32>, big endian encoded
     r REAL,
     g REAL,
     b REAL,
     a REAL,
+    drawing INTEGER REFERENCES drawings(id) ON DELETE SET NULL,
     drawing_type INTEGER,
     cap_start INTEGER,
     cap_end INTEGER,
+    UNIQUE(id, scene)
+);
+
+CREATE TABLE IF NOT EXISTS drawings (
+    id INTEGER NOT NULL,
+    scene INTEGER REFERENCES scenes(id) ON DELETE CASCADE NOT NULL,
+    points BLOB, -- Vec<f32>, big endian encoded
     UNIQUE(id, scene)
 );
 

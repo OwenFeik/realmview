@@ -542,11 +542,11 @@ mod sprite {
         shape: Option<u8>,
         stroke: Option<f32>,
         media_key: Option<String>,
-        points: Option<Vec<u8>>,
         r: Option<f32>,
         g: Option<f32>,
         b: Option<f32>,
         a: Option<f32>,
+        drawing: Option<i64>,
         drawing_type: Option<u8>,
         cap_start: Option<u8>,
         cap_end: Option<u8>,
@@ -554,11 +554,11 @@ mod sprite {
 
     impl SpriteRecord {
         fn from_sprite(sprite: &scene::Sprite, layer: i64, scene: i64) -> Self {
-            let (cap_start, cap_end) = if let scene::SpriteVisual::Drawing(drawing) = &sprite.visual
+            let (cap_start, cap_end) = if let scene::SpriteVisual::Drawing { cap_start, cap_end, .. } = &sprite.visual
             {
                 (
-                    Some(Self::cap_to_u8(drawing.cap_start)),
-                    Some(Self::cap_to_u8(drawing.cap_end)),
+                    Some(Self::cap_to_u8(*cap_start)),
+                    Some(Self::cap_to_u8(*cap_end)),
                 )
             } else {
                 (None, None)
@@ -576,18 +576,15 @@ mod sprite {
                 shape: sprite.visual.shape().map(Self::shape_to_u8),
                 stroke: sprite.visual.stroke(),
                 media_key: sprite.visual.texture().map(Media::id_to_key),
-                points: sprite
-                    .visual
-                    .drawing()
-                    .map(|p| p.points.data.iter().flat_map(|f| f.to_be_bytes()).collect()),
+                drawing: sprite.visual.drawing(),
                 r: sprite.visual.colour().map(|c| c.r()),
                 g: sprite.visual.colour().map(|c| c.g()),
                 b: sprite.visual.colour().map(|c| c.b()),
                 a: sprite.visual.colour().map(|c| c.a()),
                 drawing_type: sprite
                     .visual
-                    .drawing()
-                    .map(|d| Self::drawing_type_to_u8(d.drawing_type)),
+                    .drawing_mode()
+                    .map(|d| Self::drawing_mode_to_u8(d)),
                 cap_start,
                 cap_end,
             };
@@ -620,18 +617,18 @@ mod sprite {
             }
         }
 
-        fn drawing_type_to_u8(drawing_type: scene::SpriteDrawingType) -> u8 {
+        fn drawing_mode_to_u8(drawing_type: scene::DrawingMode) -> u8 {
             match drawing_type {
-                scene::SpriteDrawingType::Freehand => 1,
-                scene::SpriteDrawingType::Line => 2,
+                scene::DrawingMode::Freehand => 1,
+                scene::DrawingMode::Line => 2,
             }
         }
 
-        fn u8_to_drawing_type(int: u8) -> scene::SpriteDrawingType {
+        fn u8_to_drawing_mode(int: u8) -> scene::DrawingMode {
             match int {
-                1 => scene::SpriteDrawingType::Freehand,
-                2 => scene::SpriteDrawingType::Line,
-                _ => scene::SpriteDrawingType::Freehand,
+                1 => scene::DrawingMode::Freehand,
+                2 => scene::DrawingMode::Line,
+                _ => scene::DrawingMode::Freehand,
             }
         }
 
@@ -652,21 +649,15 @@ mod sprite {
         }
 
         fn visual(&self) -> Option<scene::SpriteVisual> {
-            if let Some(points) = &self.points {
-                Some(scene::SpriteVisual::Drawing(scene::SpriteDrawing {
-                    drawing_type: Self::u8_to_drawing_type(self.drawing_type?),
-                    points: scene::PointVector::from(
-                        points
-                            .chunks_exact(32 / 8)
-                            .map(|b| f32::from_be_bytes([b[0], b[1], b[2], b[3]]))
-                            .collect(),
-                    ),
+            if let Some(drawing) = self.drawing {
+                Some(scene::SpriteVisual::Drawing {
+                    mode: Self::u8_to_drawing_mode(self.drawing_type?),
+                    drawing: self.drawing?,
                     stroke: self.stroke?,
                     colour: Colour([self.r?, self.g?, self.b?, self.a?]),
                     cap_start: Self::u8_to_cap(self.cap_start?),
                     cap_end: Self::u8_to_cap(self.cap_end?),
-                    finished: true,
-                }))
+                })
             } else if let Some(key) = &self.media_key {
                 Some(scene::SpriteVisual::Texture {
                     shape: Self::u8_to_shape(self.shape?),
@@ -698,7 +689,7 @@ mod sprite {
             sqlx::query(
                 r#"
                 INSERT INTO sprites (
-                    id, scene, layer, x, y, w, h, z, shape, stroke, media_key, points, r, g, b, a, drawing_type, cap_start, cap_end
+                    id, scene, layer, x, y, w, h, z, shape, stroke, media_key, r, g, b, a, drawing, drawing_type, cap_start, cap_end
                 ) VALUES (
                     ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19
                 ) RETURNING id;
@@ -715,11 +706,11 @@ mod sprite {
             .bind(record.shape)
             .bind(record.stroke)
             .bind(record.media_key)
-            .bind(record.points)
             .bind(record.r)
             .bind(record.g)
             .bind(record.b)
             .bind(record.a)
+            .bind(record.drawing)
             .bind(record.drawing_type)
             .bind(record.cap_start)
             .bind(record.cap_end)
@@ -763,6 +754,32 @@ mod sprite {
                 .fetch_all(conn)
                 .await
                 .map_err(|e| anyhow::anyhow!("Failed to load sprite list: {e}."))
+        }
+    }
+}
+
+mod drawing {
+    use sqlx::SqliteConnection;
+
+    #[derive(sqlx::FromRow)]
+    pub struct DrawingRecord {
+        id: i64,
+        scene: i64,
+        points: Vec<u8>,
+    }
+
+    impl DrawingRecord {
+        fn drawing(&self) -> scene::Drawing {
+            scene::Drawing {
+                id: self.id,
+                points: scene::PointVector::from(
+                self.points
+                    .chunks_exact(32 / 8)
+                    .map(|b| f32::from_be_bytes([b[0], b[1], b[2], b[3]]))
+                    .collect(),
+                ),
+                finished: true
+            }
         }
     }
 }

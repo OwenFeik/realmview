@@ -1,6 +1,9 @@
 # TODO
 
 ## Features
+* Save drawings when saving the scene
+    * Check which drawings are in use and only save those. Remove drawings not in
+        use.
 * Warn when saving over changes
 * Select from selected layer first (possibly)
 * Layer opacity

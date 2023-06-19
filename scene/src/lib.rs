@@ -471,6 +471,10 @@ impl Scene {
         self.sprite_drawings.insert(id, drawing);
     }
 
+    pub fn get_drawing(&self, id: Id) -> Option<&Drawing> {
+        self.sprite_drawings.get(&id)
+    }
+
     pub fn start_drawing(&mut self) -> Id {
         let id = self.next_id();
         self.create_drawing(id);
