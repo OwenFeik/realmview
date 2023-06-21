@@ -1,4 +1,4 @@
-use scene::{comms::SceneEvent, Colour, Dimension, Id, Scene, Sprite, SpriteShape, SpriteVisual};
+use scene::{comms::SceneEvent, Colour, Dimension, Id, Scene, Sprite, Shape, SpriteVisual};
 
 #[derive(Debug, Default, serde_derive::Deserialize, serde_derive::Serialize)]
 #[serde(default)]
@@ -60,7 +60,7 @@ pub struct SpriteDetails {
     pub y: Option<f32>,
     pub w: Option<f32>,
     pub h: Option<f32>,
-    pub shape: Option<SpriteShape>,
+    pub shape: Option<Shape>,
     pub stroke: Option<f32>,
     pub colour: Option<Colour>,
     pub texture: Option<Id>,

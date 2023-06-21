@@ -218,21 +218,21 @@ fn hollow_rectangle(rect: Rect) -> Vec<f32> {
     dst.data
 }
 
-pub fn shape(shape: scene::SpriteShape) -> Vec<f32> {
+pub fn shape(shape: scene::Shape) -> Vec<f32> {
     match shape {
-        scene::SpriteShape::Ellipse => circle(),
-        scene::SpriteShape::Hexagon => ngon(6),
-        scene::SpriteShape::Rectangle => rectangle(),
-        scene::SpriteShape::Triangle => ngon(3),
+        scene::Shape::Ellipse => circle(),
+        scene::Shape::Hexagon => ngon(6),
+        scene::Shape::Rectangle => rectangle(),
+        scene::Shape::Triangle => ngon(3),
     }
 }
 
-pub fn hollow_shape(shape: scene::SpriteShape, rect: Rect) -> Vec<f32> {
+pub fn hollow_shape(shape: scene::Shape, rect: Rect) -> Vec<f32> {
     match shape {
-        scene::SpriteShape::Ellipse => hollow_ngon(CIRCLE_EDGES, rect),
-        scene::SpriteShape::Hexagon => hollow_ngon(6, rect),
-        scene::SpriteShape::Rectangle => hollow_rectangle(rect),
-        scene::SpriteShape::Triangle => hollow_ngon(3, rect),
+        scene::Shape::Ellipse => hollow_ngon(CIRCLE_EDGES, rect),
+        scene::Shape::Hexagon => hollow_ngon(6, rect),
+        scene::Shape::Rectangle => hollow_rectangle(rect),
+        scene::Shape::Triangle => hollow_ngon(3, rect),
     }
 }
 

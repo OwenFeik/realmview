@@ -94,7 +94,7 @@ pub fn start() -> Result<(), JsValue> {
             lock.scene.new_sprite_at(
                 Some(scene::SpriteVisual::Texture {
                     id: texture,
-                    shape: scene::SpriteShape::Rectangle,
+                    shape: scene::Shape::Rectangle,
                 }),
                 Some(layer as i64),
                 scene::Rect::at(at, w as f32, h as f32),

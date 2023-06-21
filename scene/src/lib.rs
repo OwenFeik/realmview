@@ -11,9 +11,7 @@ pub use group::Group;
 pub use layer::Layer;
 pub use point::{Point, PointVector};
 pub use rect::{Dimension, Rect};
-pub use sprite::{
-    Cap as SpriteCap, Colour, DrawingMode, Shape as SpriteShape, Sprite, Visual as SpriteVisual,
-};
+pub use sprite::{Cap, Colour, DrawingMode, Shape, Sprite, Visual as SpriteVisual,};
 
 pub mod comms;
 pub mod perms;

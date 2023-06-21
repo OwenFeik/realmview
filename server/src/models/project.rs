@@ -599,21 +599,21 @@ mod sprite {
             record
         }
 
-        fn shape_to_u8(shape: scene::SpriteShape) -> u8 {
+        fn shape_to_u8(shape: scene::Shape) -> u8 {
             match shape {
-                scene::SpriteShape::Ellipse => 1,
-                scene::SpriteShape::Hexagon => 2,
-                scene::SpriteShape::Triangle => 3,
-                scene::SpriteShape::Rectangle => 4,
+                scene::Shape::Ellipse => 1,
+                scene::Shape::Hexagon => 2,
+                scene::Shape::Triangle => 3,
+                scene::Shape::Rectangle => 4,
             }
         }
 
-        fn u8_to_shape(int: u8) -> scene::SpriteShape {
+        fn u8_to_shape(int: u8) -> scene::Shape {
             match int {
-                1 => scene::SpriteShape::Ellipse,
-                2 => scene::SpriteShape::Hexagon,
-                3 => scene::SpriteShape::Triangle,
-                _ => scene::SpriteShape::Rectangle,
+                1 => scene::Shape::Ellipse,
+                2 => scene::Shape::Hexagon,
+                3 => scene::Shape::Triangle,
+                _ => scene::Shape::Rectangle,
             }
         }
 

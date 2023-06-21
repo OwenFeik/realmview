@@ -1,11 +1,35 @@
 use std::rc::Rc;
 
+use scene::{Cap, Colour, Drawing, DrawingMode, Fog, Id, Rect, Shape, Sprite, Scene};
 use web_sys::{HtmlImageElement, WebGl2RenderingContext};
-
-use crate::scene::{Rect, Sprite};
 
 mod programs;
 mod shapes;
+
+pub struct ViewInfo {
+    viewport: Rect,
+    grid_size: f32
+}
+
+pub trait Renderer {
+    fn clear(&mut self);
+
+    fn draw_grid(&mut self, vp: ViewInfo, dimensions: Rect);
+
+    fn draw_fog(&mut self, vp: ViewInfo, fog: &Fog, transparent: bool);
+
+    fn draw_solid(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour);
+
+    fn draw_outline(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour, stroke: f32);
+
+    fn draw_texture(&mut self, vp: ViewInfo, position: Rect, shape: Shape, texture: Id);
+
+    fn draw_drawing(&mut self, vp: ViewInfo, position: Rect, drawing: Drawing, mode: DrawingMode, colour: Colour, stroke: f32,  start: Cap, end: Cap);
+
+    fn draw_scene(scene: &Scene) {
+        
+    }
+}
 
 pub struct Renderer {
     sprite_renderer: programs::SpriteRenderer,
@@ -88,7 +112,7 @@ impl Renderer {
     }
 }
 
-/// Parses a 16 digit hexadecimal media key string into an Id, reutrning 0
+/// Parses a 16 digit hexadecimal media key string into an Id, returning 0
 /// on failure.
 pub fn parse_media_key(key: &str) -> scene::Id {
     if key.len() != 16 {

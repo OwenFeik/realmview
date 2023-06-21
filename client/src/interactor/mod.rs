@@ -4,7 +4,7 @@ use scene::comms::ServerEvent;
 use crate::dom::menu::CanvasDropdownEvent;
 use crate::dom::menu::LayerInfo;
 use crate::scene::{
-    comms::SceneEvent, perms::Perms, Dimension, Id, Layer, Point, Rect, Scene, Sprite, SpriteShape,
+    comms::SceneEvent, perms::Perms, Dimension, Id, Layer, Point, Rect, Scene, Sprite, Shape,
     SpriteVisual,
 };
 use crate::{bridge::Cursor, client::Client};
@@ -654,13 +654,8 @@ impl Interactor {
     }
 
     #[must_use]
-    pub fn dimensions(&self) -> Rect {
-        Rect {
-            x: 0.0,
-            y: 0.0,
-            w: self.scene.w() as f32,
-            h: self.scene.h() as f32,
-        }
+    pub fn dimensions(&self) -> (u32, u32) {
+        (self.scene.w(), self.scene.h())
     }
 
     #[must_use]
@@ -813,7 +808,7 @@ impl Interactor {
 
     pub fn new_held_shape(
         &mut self,
-        shape: SpriteShape,
+        shape: Shape,
         at: Point,
         snap_to_grid: bool,
         ephemeral: bool,
@@ -902,7 +897,7 @@ impl Interactor {
         if let Some((visual, rect)) = self.sprite_ref(id).map(|s| {
             (
                 SpriteVisual::Solid {
-                    shape: SpriteShape::Ellipse,
+                    shape: Shape::Ellipse,
                     stroke: Sprite::SOLID_STROKE,
                     colour: self.draw_details.colour().with_opacity(0.4),
                 },

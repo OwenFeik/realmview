@@ -9,7 +9,7 @@ use web_sys::{
 };
 
 use crate::bridge::{log, Gl};
-use crate::scene::{Point, Rect, SpriteShape};
+use crate::scene::{Point, Rect, Shape};
 
 type Colour = [f32; 4];
 
@@ -260,7 +260,7 @@ impl Mesh {
     fn from_sprite_shape(
         gl: &Gl,
         program: &WebGlProgram,
-        shape: SpriteShape,
+        shape: Shape,
     ) -> anyhow::Result<Self> {
         Self::new(gl, program, &super::shapes::shape(shape))
     }
@@ -309,19 +309,19 @@ struct Shapes {
 impl Shapes {
     fn new(gl: &Gl, program: &WebGlProgram) -> anyhow::Result<Self> {
         Ok(Shapes {
-            ellipse: Mesh::from_sprite_shape(gl, program, SpriteShape::Ellipse)?,
-            hexagon: Mesh::from_sprite_shape(gl, program, SpriteShape::Hexagon)?,
-            rectangle: Mesh::from_sprite_shape(gl, program, SpriteShape::Rectangle)?,
-            triangle: Mesh::from_sprite_shape(gl, program, SpriteShape::Triangle)?,
+            ellipse: Mesh::from_sprite_shape(gl, program, Shape::Ellipse)?,
+            hexagon: Mesh::from_sprite_shape(gl, program, Shape::Hexagon)?,
+            rectangle: Mesh::from_sprite_shape(gl, program, Shape::Rectangle)?,
+            triangle: Mesh::from_sprite_shape(gl, program, Shape::Triangle)?,
         })
     }
 
-    fn shape(&self, shape: SpriteShape) -> &Mesh {
+    fn shape(&self, shape: Shape) -> &Mesh {
         match shape {
-            SpriteShape::Ellipse => &self.ellipse,
-            SpriteShape::Hexagon => &self.hexagon,
-            SpriteShape::Rectangle => &self.rectangle,
-            SpriteShape::Triangle => &self.triangle,
+            Shape::Ellipse => &self.ellipse,
+            Shape::Hexagon => &self.hexagon,
+            Shape::Rectangle => &self.rectangle,
+            Shape::Triangle => &self.triangle,
         }
     }
 }
@@ -371,7 +371,7 @@ impl SolidRenderer {
         );
     }
 
-    pub fn draw_shape(&self, shape: SpriteShape, colour: Colour, viewport: Rect, position: Rect) {
+    pub fn draw_shape(&self, shape: Shape, colour: Colour, viewport: Rect, position: Rect) {
         self.draw(self.shapes.shape(shape), colour, viewport, position);
     }
 }
@@ -540,7 +540,7 @@ impl HollowRenderer {
     fn add_shape(
         &mut self,
         id: scene::Id,
-        shape: scene::SpriteShape,
+        shape: scene::Shape,
         stroke: f32,
         viewport: Rect,
         position: Rect,
@@ -581,7 +581,7 @@ impl HollowRenderer {
     pub fn draw_shape(
         &mut self,
         id: scene::Id,
-        shape: scene::SpriteShape,
+        shape: scene::Shape,
         colour: Colour,
         stroke: f32,
         viewport: Rect,
@@ -608,7 +608,7 @@ struct TextureShapeRenderer {
 }
 
 impl TextureShapeRenderer {
-    fn new(gl: Rc<Gl>, shape: SpriteShape) -> anyhow::Result<Self> {
+    fn new(gl: Rc<Gl>, shape: Shape) -> anyhow::Result<Self> {
         let program = create_program(
             &gl,
             include_str!("shaders/solid.vert"),
@@ -655,25 +655,25 @@ pub struct TextureRenderer {
 impl TextureRenderer {
     pub fn new(gl: Rc<Gl>) -> anyhow::Result<Self> {
         Ok(TextureRenderer {
-            ellipse: TextureShapeRenderer::new(gl.clone(), SpriteShape::Ellipse)?,
-            hexagon: TextureShapeRenderer::new(gl.clone(), SpriteShape::Hexagon)?,
-            rectangle: TextureShapeRenderer::new(gl.clone(), SpriteShape::Rectangle)?,
-            triangle: TextureShapeRenderer::new(gl, SpriteShape::Triangle)?,
+            ellipse: TextureShapeRenderer::new(gl.clone(), Shape::Ellipse)?,
+            hexagon: TextureShapeRenderer::new(gl.clone(), Shape::Hexagon)?,
+            rectangle: TextureShapeRenderer::new(gl.clone(), Shape::Rectangle)?,
+            triangle: TextureShapeRenderer::new(gl, Shape::Triangle)?,
         })
     }
 
     pub fn draw_texture(
         &self,
-        shape: SpriteShape,
+        shape: Shape,
         texture: &WebGlTexture,
         viewport: Rect,
         position: Rect,
     ) {
         match shape {
-            SpriteShape::Ellipse => self.ellipse.draw_texture(texture, viewport, position),
-            SpriteShape::Hexagon => self.hexagon.draw_texture(texture, viewport, position),
-            SpriteShape::Rectangle => self.rectangle.draw_texture(texture, viewport, position),
-            SpriteShape::Triangle => self.triangle.draw_texture(texture, viewport, position),
+            Shape::Ellipse => self.ellipse.draw_texture(texture, viewport, position),
+            Shape::Hexagon => self.hexagon.draw_texture(texture, viewport, position),
+            Shape::Rectangle => self.rectangle.draw_texture(texture, viewport, position),
+            Shape::Triangle => self.triangle.draw_texture(texture, viewport, position),
         }
     }
 }

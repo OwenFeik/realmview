@@ -174,7 +174,7 @@ impl Viewport {
 
         let mut deets: crate::interactor::details::SpriteDetails = Default::default();
         match draw_tool {
-            DrawTool::Ellipse => deets.shape = Some(scene::SpriteShape::Ellipse),
+            DrawTool::Ellipse => deets.shape = Some(scene::Shape::Ellipse),
             DrawTool::Freehand => {
                 deets.drawing_mode = Some(scene::DrawingMode::Freehand);
                 deets.cap_end = Some(scene::SpriteCap::Round);
@@ -183,7 +183,7 @@ impl Viewport {
                 deets.drawing_mode = Some(scene::DrawingMode::Line);
                 deets.cap_end = Some(scene::SpriteCap::Arrow);
             }
-            DrawTool::Rectangle => deets.shape = Some(scene::SpriteShape::Rectangle),
+            DrawTool::Rectangle => deets.shape = Some(scene::Shape::Rectangle),
         }
 
         self.scene.update_draw_details(deets);

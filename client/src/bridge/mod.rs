@@ -415,24 +415,6 @@ impl Context {
         self.gl.clear(Gl::COLOR_BUFFER_BIT);
     }
 
-    pub fn draw_grid(&mut self, vp: Rect, dims: Rect, grid_size: f32) {
-        self.renderer.render_grid(vp, dims, grid_size);
-    }
-
-    pub fn draw_fog(&mut self, vp: Rect, grid_size: f32, fog: &scene::Fog, editor: bool) {
-        self.renderer.render_fog(vp, grid_size, fog, editor);
-    }
-
-    pub fn draw_sprites(&mut self, vp: Rect, sprites: &[Sprite], grid_size: f32) {
-        for sprite in sprites.iter() {
-            self.renderer.draw_sprite(sprite, vp, grid_size);
-        }
-    }
-
-    pub fn draw_outline(&mut self, vp: Rect, outline: Rect) {
-        self.renderer.draw_outline(vp, outline);
-    }
-
     pub fn set_cursor(&self, cursor: Cursor) {
         cursor.set_for(&self.canvas.element).ok();
     }
