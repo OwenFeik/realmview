@@ -31,7 +31,7 @@ pub trait Renderer {
     }
 }
 
-pub struct Renderer {
+pub struct WebGlRenderer {
     sprite_renderer: programs::SpriteRenderer,
 
     // To render outlines &c
@@ -44,28 +44,14 @@ pub struct Renderer {
     fog_renderer: programs::FogRenderer,
 }
 
-impl Renderer {
+impl WebGlRenderer {
     pub fn new(gl: Rc<WebGl2RenderingContext>) -> anyhow::Result<Self> {
-        Ok(Renderer {
+        Ok(Self {
             sprite_renderer: programs::SpriteRenderer::new(gl.clone())?,
             line_renderer: programs::LineRenderer::new(gl.clone())?,
             grid_renderer: programs::GridRenderer::new(gl.clone())?,
             fog_renderer: programs::FogRenderer::new(gl)?,
         })
-    }
-
-    pub fn render_grid(&mut self, vp: Rect, dims: Rect, grid_size: f32) {
-        self.grid_renderer.render_grid(vp, dims, grid_size);
-    }
-
-    pub fn render_fog(&mut self, vp: Rect, grid_size: f32, fog: &scene::Fog, transparent: bool) {
-        let colour = if transparent {
-            [0.0, 0.0, 0.0, 0.5]
-        } else {
-            [0.0, 0.0, 0.0, 1.0]
-        };
-
-        self.fog_renderer.render_fog(vp, grid_size, fog, colour);
     }
 
     pub fn load_image(&mut self, image: &HtmlImageElement) -> scene::Id {
@@ -81,6 +67,26 @@ impl Renderer {
     ) {
         self.sprite_renderer
             .draw_sprite(sprite, viewport, grid_size, drawing);
+    }
+}
+
+impl Renderer for WebGlRenderer {
+    fn draw_grid(&mut self, vp: ViewInfo, dimensions: Rect) {
+        self.grid_renderer.render_grid(vp.viewport, dimensions, vp.grid_size);
+    }
+
+    fn draw_fog(&mut self, vp: ViewInfo, fog: &Fog, transparent: bool) {
+        let colour = if transparent {
+            [0.0, 0.0, 0.0, 0.5]
+        } else {
+            [0.0, 0.0, 0.0, 1.0]
+        };
+
+        self.fog_renderer.render_fog(vp.viewport, vp.grid_size, fog, colour);
+    }
+
+    fn draw_solid(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour) {
+        
     }
 
     pub fn draw_outline(
