@@ -428,7 +428,7 @@ impl Interactor {
         if self.draw_details.shape.is_some() {
             self.new_held_shape(self.draw_details.shape.unwrap(), at, !alt, ephemeral);
         } else {
-            let visual = self.draw_details.drawing();
+            let mut visual = self.draw_details.drawing();
             let drawing_id = self.scene.start_drawing();
             if let SpriteVisual::Drawing { drawing, .. } = &mut visual {
                 *drawing = drawing_id;

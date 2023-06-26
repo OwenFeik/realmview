@@ -376,7 +376,7 @@ impl SolidRenderer {
     }
 }
 
-struct DrawingRenderer {
+pub struct DrawingRenderer {
     gl: Rc<Gl>,
     grid_size: f32,
     drawings: HashMap<scene::Id, (u128, Mesh)>,
@@ -396,8 +396,8 @@ impl DrawingRenderer {
     fn create_key(
         drawing: &scene::Drawing,
         stroke: f32,
-        cap_start: scene::SpriteCap,
-        cap_end: scene::SpriteCap,
+        cap_start: scene::Cap,
+        cap_end: scene::Cap,
     ) -> u128 {
         // Key format is a u128 with the following structure:
         //
@@ -449,8 +449,8 @@ impl DrawingRenderer {
         drawing_mode: scene::DrawingMode,
         drawing: &scene::Drawing,
         stroke: f32,
-        cap_start: scene::SpriteCap,
-        cap_end: scene::SpriteCap,
+        cap_start: scene::Cap,
+        cap_end: scene::Cap,
     ) -> anyhow::Result<()> {
         let points = match drawing_mode {
             scene::DrawingMode::Freehand => {
@@ -475,8 +475,8 @@ impl DrawingRenderer {
         id: scene::Id,
         drawing: &scene::Drawing,
         stroke: f32,
-        start: scene::SpriteCap,
-        end: scene::SpriteCap,
+        start: scene::Cap,
+        end: scene::Cap,
     ) -> Option<&Mesh> {
         if let Some((key, mesh)) = self.drawings.get(&id) {
             if Self::create_key(drawing, stroke, start, end) == *key {
@@ -499,8 +499,8 @@ impl DrawingRenderer {
         mode: scene::DrawingMode,
         drawing: &scene::Drawing,
         stroke: f32,
-        start: scene::SpriteCap,
-        end: scene::SpriteCap,
+        start: scene::Cap,
+        end: scene::Cap,
         colour: scene::Colour,
         viewport: Rect,
         position: Rect,
@@ -953,21 +953,13 @@ impl FogRenderer {
 }
 
 pub struct SpriteRenderer {
-    texture_library: TextureManager,
-    solid_renderer: SolidRenderer,
-    texture_renderer: TextureRenderer,
-    hollow_renderer: HollowRenderer,
-    drawing_renderer: DrawingRenderer,
+
 }
 
 impl SpriteRenderer {
     pub fn new(gl: Rc<Gl>) -> anyhow::Result<Self> {
         Ok(Self {
-            texture_library: TextureManager::new(gl.clone())?,
-            solid_renderer: SolidRenderer::new(gl.clone())?,
-            texture_renderer: TextureRenderer::new(gl.clone())?,
-            hollow_renderer: HollowRenderer::new(gl.clone())?,
-            drawing_renderer: DrawingRenderer::new(gl)?,
+
         })
     }
 

@@ -2,12 +2,13 @@ use std::f32::consts::{PI, TAU};
 
 use crate::scene::{Point, PointVector, Rect};
 
+const RADIUS: f32 = 0.5;
 const CIRCLE_EDGES: u32 = 64;
 
-// Returns points for a regular polygon with n edges.
-//
-// Note the resultant shape will be oriented with the first vertex at the
-// top center of the tile, i.e. a 4gon is a diamond and not a square.
+/// Adds points for a regular polygon with n edges.
+///
+/// Note the resultant shape will be oriented with the first vertex at the
+/// top center of the tile, i.e. a 4gon is a diamond and not a square.
 fn add_ngon(dst: &mut PointVector, n: u32, c: Point, r: f32) {
     let dt = TAU / n as f32;
 
@@ -19,6 +20,23 @@ fn add_ngon(dst: &mut PointVector, n: u32, c: Point, r: f32) {
             dst.add_tri(p, q, c);
         }
         prev = Some(q);
+    }
+}
+
+/// Adds points for a regular polygon outline with n edges. 
+///
+/// Note the resultant shape will be oriented with the first vertex at the
+/// top center of the tile, i.e. a 4gon is a diamond and not a square.
+fn add_ngon_outline(dst: &mut PointVector, n: u32, rect: Rect) {
+    let dt = TAU / n as f32;
+
+    let c = rect.centre();
+    let r = Point::new(rect.w, rect.h);
+
+    for i in 0..n {
+        let theta = i as f32 * dt;
+        let q = c + Point::trig(theta) * r;
+        dst.add(q);
     }
 }
 
@@ -66,12 +84,12 @@ fn add_semicircle(dst: &mut PointVector, c: Point, r: f32, start: f32) {
 
 /// Draws a line cap at a given point, in a direction, at a size given by
 /// stroke.
-fn add_cap(dst: &mut PointVector, cap: scene::SpriteCap, at: Point, direction: f32, stroke: f32) {
+fn add_cap(dst: &mut PointVector, cap: scene::Cap, at: Point, direction: f32, stroke: f32) {
     const ARROWHEAD_MULTIPLIER: f32 = 4.0;
 
     let theta = direction;
     match cap {
-        scene::SpriteCap::Arrow => {
+        scene::Cap::Arrow => {
             let r = ARROWHEAD_MULTIPLIER * stroke / 2.0;
             let left = theta - PI / 2.0;
             let right = theta + PI / 2.0;
@@ -82,8 +100,8 @@ fn add_cap(dst: &mut PointVector, cap: scene::SpriteCap, at: Point, direction: f
                 at + Point::trig(theta) * r * 2.0,
             );
         }
-        scene::SpriteCap::Round => add_semicircle(dst, at, stroke / 2.0, direction - PI / 2.0),
-        scene::SpriteCap::None => dst.add_tri(at, at, at),
+        scene::Cap::Round => add_semicircle(dst, at, stroke / 2.0, direction - PI / 2.0),
+        scene::Cap::None => dst.add_tri(at, at, at),
     }
 }
 
@@ -95,8 +113,8 @@ fn add_line(
     dst: &mut PointVector,
     points: &PointVector,
     stroke: f32,
-    cap_start: scene::SpriteCap,
-    cap_end: scene::SpriteCap,
+    cap_start: scene::Cap,
+    cap_end: scene::Cap,
 ) {
     const CIRCLE_EDGES: u32 = 32;
 
@@ -173,15 +191,24 @@ fn add_line(
 }
 
 pub fn ngon(n: u32) -> Vec<f32> {
-    const R: f32 = 0.5;
     let mut coords = PointVector::sized(n * 3);
-    add_ngon(&mut coords, n, Point::same(R), R);
+    add_ngon(&mut coords, n, Point::same(RADIUS), RADIUS);
     coords.data
 }
 
 pub fn hollow_ngon(n: u32, rect: Rect) -> Vec<f32> {
     let mut coords = PointVector::sized(n * 2 * 3);
     add_hollow_ngon(&mut coords, n, rect);
+    coords.data
+}
+
+fn ngon_outline(n: u32) -> Vec<f32> {
+    let mut coords = PointVector::sized(n);
+    add_ngon_outline(
+        &mut coords,
+        n,
+        Rect { x: RADIUS, y: RADIUS, w: 2 * RADIUS, h: 2 * RADIUS}
+    );
     coords.data
 }
 
@@ -236,11 +263,19 @@ pub fn hollow_shape(shape: scene::Shape, rect: Rect) -> Vec<f32> {
     }
 }
 
+pub fn outline_shape(shape: scene::Shape, at: Point) {
+    match shape {
+        scene::Shape::Ellipse => ngon_outline(CIRCLE_EDGES),
+        scene::Shape::Hexagon => ngon_outline(6),
+        scene::Shape::Rectangle => 
+    }
+}
+
 pub fn line(
     (p, q): (Point, Point),
     stroke: f32,
-    cap_start: scene::SpriteCap,
-    cap_end: scene::SpriteCap,
+    cap_start: scene::Cap,
+    cap_end: scene::Cap,
     scale: f32,
 ) -> Vec<f32> {
     let mut coords = PointVector::new();
@@ -258,8 +293,8 @@ pub fn line(
 pub fn freehand(
     points: &PointVector,
     stroke: f32,
-    cap_start: scene::SpriteCap,
-    cap_end: scene::SpriteCap,
+    cap_start: scene::Cap,
+    cap_end: scene::Cap,
     scale: f32,
 ) -> Vec<f32> {
     let mut coords = PointVector::new();

@@ -65,8 +65,8 @@ pub struct SpriteDetails {
     pub colour: Option<Colour>,
     pub texture: Option<Id>,
     pub drawing_mode: Option<scene::DrawingMode>,
-    pub cap_start: Option<scene::SpriteCap>,
-    pub cap_end: Option<scene::SpriteCap>,
+    pub cap_start: Option<scene::Cap>,
+    pub cap_end: Option<scene::Cap>,
 }
 
 impl SpriteDetails {
@@ -268,11 +268,11 @@ impl SpriteDetails {
         self.drawing_mode.unwrap_or(scene::Sprite::DEFAULT_MODE)
     }
 
-    fn cap_start(&self) -> scene::SpriteCap {
-        self.cap_start.unwrap_or(scene::SpriteCap::DEFAULT_START)
+    fn cap_start(&self) -> scene::Cap {
+        self.cap_start.unwrap_or(scene::Cap::DEFAULT_START)
     }
 
-    fn cap_end(&self) -> scene::SpriteCap {
-        self.cap_end.unwrap_or(scene::SpriteCap::DEFAULT_END)
+    fn cap_end(&self) -> scene::Cap {
+        self.cap_end.unwrap_or(scene::Cap::DEFAULT_END)
     }
 }

@@ -32,22 +32,24 @@ pub trait Renderer {
 }
 
 pub struct WebGlRenderer {
-    sprite_renderer: programs::SpriteRenderer,
-
-    // To render outlines &c
+    texture_library: programs::TextureManager,
+    solid_renderer: programs::SolidRenderer,
+    texture_renderer: programs::TextureRenderer,
+    hollow_renderer: programs::HollowRenderer,
+    drawing_renderer: programs::DrawingRenderer,
     line_renderer: programs::LineRenderer,
-
-    // To render map grid
     grid_renderer: programs::GridRenderer,
-
-    // To render fog of war
     fog_renderer: programs::FogRenderer,
 }
 
 impl WebGlRenderer {
     pub fn new(gl: Rc<WebGl2RenderingContext>) -> anyhow::Result<Self> {
         Ok(Self {
-            sprite_renderer: programs::SpriteRenderer::new(gl.clone())?,
+            texture_library: programs::TextureManager::new(gl.clone())?,
+            solid_renderer: programs::SolidRenderer::new(gl.clone())?,
+            texture_renderer: programs::TextureRenderer::new(gl.clone())?,
+            hollow_renderer: programs::HollowRenderer::new(gl.clone())?,
+            drawing_renderer: programs::DrawingRenderer::new(gl)?,
             line_renderer: programs::LineRenderer::new(gl.clone())?,
             grid_renderer: programs::GridRenderer::new(gl.clone())?,
             fog_renderer: programs::FogRenderer::new(gl)?,
@@ -86,19 +88,13 @@ impl Renderer for WebGlRenderer {
     }
 
     fn draw_solid(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour) {
-        
+        self.solid_renderer.draw_shape(shape, colour, vp.viewport, position);        
     }
 
-    pub fn draw_outline(
-        &mut self,
-        Rect {
-            x: vp_x,
-            y: vp_y,
-            w: vp_w,
-            h: vp_h,
-        }: Rect,
-        Rect { x, y, w, h }: Rect,
-    ) {
+// TODO outlines of various shapes.
+    fn draw_outline(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour, stroke: f32) {
+        let Rect { x, y, w, h } = position;
+        let Rect { x: vp_x, y: vp_y, w: vp_w, h: vp_h } = vp.viewport;
         self.line_renderer.scale_and_load_points(
             &mut [
                 x - vp_x,

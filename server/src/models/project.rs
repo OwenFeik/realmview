@@ -632,19 +632,19 @@ mod sprite {
             }
         }
 
-        fn cap_to_u8(cap: scene::SpriteCap) -> u8 {
+        fn cap_to_u8(cap: scene::Cap) -> u8 {
             match cap {
-                scene::SpriteCap::Arrow => 1,
-                scene::SpriteCap::Round => 2,
-                scene::SpriteCap::None => u8::MAX,
+                scene::Cap::Arrow => 1,
+                scene::Cap::Round => 2,
+                scene::Cap::None => u8::MAX,
             }
         }
 
-        fn u8_to_cap(int: u8) -> scene::SpriteCap {
+        fn u8_to_cap(int: u8) -> scene::Cap {
             match int {
-                1 => scene::SpriteCap::Arrow,
-                2 => scene::SpriteCap::Round,
-                _ => scene::SpriteCap::None,
+                1 => scene::Cap::Arrow,
+                2 => scene::Cap::Round,
+                _ => scene::Cap::None,
             }
         }
 
