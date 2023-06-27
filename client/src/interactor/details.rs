@@ -1,4 +1,4 @@
-use scene::{comms::SceneEvent, Colour, Dimension, Id, Scene, Sprite, Shape, SpriteVisual};
+use scene::{comms::SceneEvent, Colour, Dimension, Id, Scene, Shape, Sprite, SpriteVisual};
 
 #[derive(Debug, Default, serde_derive::Deserialize, serde_derive::Serialize)]
 #[serde(default)]

@@ -12,7 +12,7 @@ use web_sys::{
 use crate::dom::element::Element;
 use crate::interactor::details::SpriteDetails;
 use crate::render::Renderer;
-use crate::scene::{Rect, Sprite};
+use crate::render::WebGlRenderer;
 
 #[wasm_bindgen]
 extern "C" {
@@ -341,7 +341,7 @@ pub struct Context {
     canvas: Canvas,
 
     // Wrapper around OpenGL Rendering functions
-    renderer: Renderer,
+    renderer: WebGlRenderer,
 
     // A JS Array which the front end pushes uploaded images to. The Context
     // then loads any images waiting in the queue before rendering each frame.
@@ -352,7 +352,7 @@ pub struct Context {
 impl Context {
     pub fn new() -> anyhow::Result<Context> {
         let canvas = Canvas::new_element()?;
-        let renderer = Renderer::new(canvas.gl.clone())?;
+        let renderer = WebGlRenderer::new(canvas.gl.clone())?;
         let ctx = Context {
             gl: canvas.gl.clone(),
             canvas,
@@ -410,13 +410,12 @@ impl Context {
         true
     }
 
-    pub fn clear(&self, vp: Rect) {
-        self.gl.viewport(0, 0, vp.w as i32, vp.h as i32);
-        self.gl.clear(Gl::COLOR_BUFFER_BIT);
-    }
-
     pub fn set_cursor(&self, cursor: Cursor) {
         cursor.set_for(&self.canvas.element).ok();
+    }
+
+    pub fn renderer(&mut self) -> &mut WebGlRenderer {
+        &mut self.renderer
     }
 }
 
@@ -432,17 +431,20 @@ pub enum Cursor {
     Auto,
     Default,
     None,
+
     // Links and status
     ContextMenu,
     Help,
     Pointer,
     Progress,
     Wait,
+
     // Selection
     Cell,
     Crosshair,
     Text,
     VerticalText,
+
     // Drag and drop
     Alias,
     Copy,
@@ -451,6 +453,7 @@ pub enum Cursor {
     NotAllowed,
     Grab,
     Grabbing,
+
     // Resizing and scrolling
     AltScroll,
     ColResize,
@@ -467,6 +470,7 @@ pub enum Cursor {
     NsResize,
     NeswResize,
     NwseResize,
+
     // Zooming
     ZoomIn,
     ZoomOut,

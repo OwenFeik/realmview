@@ -23,7 +23,7 @@ fn add_ngon(dst: &mut PointVector, n: u32, c: Point, r: f32) {
     }
 }
 
-/// Adds points for a regular polygon outline with n edges. 
+/// Adds points for a regular polygon outline with n edges.
 ///
 /// Note the resultant shape will be oriented with the first vertex at the
 /// top center of the tile, i.e. a 4gon is a diamond and not a square.
@@ -190,37 +190,6 @@ fn add_line(
     }
 }
 
-pub fn ngon(n: u32) -> Vec<f32> {
-    let mut coords = PointVector::sized(n * 3);
-    add_ngon(&mut coords, n, Point::same(RADIUS), RADIUS);
-    coords.data
-}
-
-pub fn hollow_ngon(n: u32, rect: Rect) -> Vec<f32> {
-    let mut coords = PointVector::sized(n * 2 * 3);
-    add_hollow_ngon(&mut coords, n, rect);
-    coords.data
-}
-
-fn ngon_outline(n: u32) -> Vec<f32> {
-    let mut coords = PointVector::sized(n);
-    add_ngon_outline(
-        &mut coords,
-        n,
-        Rect { x: RADIUS, y: RADIUS, w: 2 * RADIUS, h: 2 * RADIUS}
-    );
-    coords.data
-}
-
-pub fn circle() -> Vec<f32> {
-    ngon(CIRCLE_EDGES)
-}
-
-pub fn rectangle() -> Vec<f32> {
-    const RECTANGLE: &[f32] = &[0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0];
-    RECTANGLE.to_owned()
-}
-
 fn hollow_rectangle(rect: Rect) -> Vec<f32> {
     let mut dst = PointVector::new();
 
@@ -245,29 +214,65 @@ fn hollow_rectangle(rect: Rect) -> Vec<f32> {
     dst.data
 }
 
+fn shape_edges(shape: scene::Shape) -> u32 {
+    match shape {
+        scene::Shape::Ellipse => CIRCLE_EDGES,
+        scene::Shape::Hexagon => 6,
+        scene::Shape::Rectangle => 4,
+        scene::Shape::Triangle => 3,
+    }
+}
+
+fn ngon_outline(n: u32, rect: Rect) -> Vec<f32> {
+    let mut coords = PointVector::sized(n);
+    add_ngon_outline(&mut coords, n, rect);
+    coords.data
+}
+
+/// Return a polygon with n edges which fits in a 1*1 square, centred at
+/// (0.5, 0.5).
+pub fn ngon(n: u32) -> Vec<f32> {
+    let mut coords = PointVector::sized(n * 3);
+    add_ngon(&mut coords, n, Point::same(RADIUS), RADIUS);
+    coords.data
+}
+
+pub fn hollow_ngon(n: u32, rect: Rect) -> Vec<f32> {
+    let mut coords = PointVector::sized(n * 2 * 3);
+    add_hollow_ngon(&mut coords, n, rect);
+    coords.data
+}
+
+pub fn circle() -> Vec<f32> {
+    ngon(CIRCLE_EDGES)
+}
+
+pub fn rectangle() -> Vec<f32> {
+    const RECTANGLE: &[f32] = &[0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0];
+    RECTANGLE.to_owned()
+}
+
 pub fn shape(shape: scene::Shape) -> Vec<f32> {
     match shape {
-        scene::Shape::Ellipse => circle(),
-        scene::Shape::Hexagon => ngon(6),
         scene::Shape::Rectangle => rectangle(),
-        scene::Shape::Triangle => ngon(3),
+        _ => ngon(shape_edges(shape)),
     }
 }
 
 pub fn hollow_shape(shape: scene::Shape, rect: Rect) -> Vec<f32> {
     match shape {
-        scene::Shape::Ellipse => hollow_ngon(CIRCLE_EDGES, rect),
-        scene::Shape::Hexagon => hollow_ngon(6, rect),
         scene::Shape::Rectangle => hollow_rectangle(rect),
-        scene::Shape::Triangle => hollow_ngon(3, rect),
+        _ => hollow_ngon(shape_edges(shape), rect),
     }
 }
 
-pub fn outline_shape(shape: scene::Shape, at: Point) {
+pub fn outline_shape(shape: scene::Shape, rect: Rect) -> Vec<f32> {
     match shape {
-        scene::Shape::Ellipse => ngon_outline(CIRCLE_EDGES),
-        scene::Shape::Hexagon => ngon_outline(6),
-        scene::Shape::Rectangle => 
+        scene::Shape::Rectangle => {
+            let Rect { x, y, w, h } = rect;
+            vec![x, y, x + w, y, x + w, y + h, x, y + h]
+        }
+        _ => ngon_outline(shape_edges(shape), rect),
     }
 }
 

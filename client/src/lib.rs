@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 #![feature(drain_filter)]
+#![feature(let_chains)]
 
 pub use scene;
 

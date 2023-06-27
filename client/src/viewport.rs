@@ -1,4 +1,5 @@
 use crate::dom::menu::Menu;
+use crate::render::Renderer;
 use crate::scene::{Point, Rect};
 use crate::{
     bridge::{
@@ -211,9 +212,9 @@ impl Viewport {
     }
 
     fn centre_viewport(&mut self) {
-        let scene_size = self.scene.dimensions();
-        self.viewport.x = (scene_size.w / 2.0 - self.viewport.w / 2.0).round();
-        self.viewport.y = (scene_size.h / 2.0 - self.viewport.h / 2.0).round();
+        let (w, h) = self.scene.dimensions();
+        self.viewport.x = (w as f32 / 2.0 - self.viewport.w / 2.0).round();
+        self.viewport.y = (h as f32 / 2.0 - self.viewport.h / 2.0).round();
         self.redraw_needed = true;
     }
 
@@ -440,42 +441,38 @@ impl Viewport {
     }
 
     fn redraw(&mut self) {
-        let vp = Rect::scaled_from(self.viewport, self.grid_zoom);
+        let vp = crate::render::ViewInfo {
+            viewport: Rect::scaled_from(self.viewport, self.grid_zoom),
+            grid_size: self.grid_zoom,
+        };
 
-        self.context.clear(vp);
+        let renderer = self.context.renderer();
+
+        renderer.clear(vp);
 
         let mut background_drawn = false;
         for layer in self.scene.layers().iter().rev() {
             if !background_drawn && layer.z >= 0 {
-                self.context
-                    .draw_grid(vp, self.scene.dimensions(), self.grid_zoom);
+                renderer.draw_grid(vp, self.scene.dimensions());
                 background_drawn = true;
             }
 
             if layer.visible {
-                self.context
-                    .draw_sprites(vp, &layer.sprites, self.grid_zoom);
+                for sprite in &layer.sprites {
+                    renderer.draw_sprite(sprite);
+                }
             }
         }
 
         if !background_drawn {
-            self.context
-                .draw_grid(vp, self.scene.dimensions(), self.grid_zoom);
+            renderer.draw_grid(vp, self.scene.dimensions());
         }
 
         if self.scene.fog().active {
-            self.context.draw_fog(
-                vp,
-                self.grid_zoom,
-                self.scene.fog(),
-                self.scene.role.editor(),
-            );
+            renderer.draw_fog(vp, self.scene.fog(), self.scene.role.editor());
         }
 
-        for rect in self.scene.selections() {
-            self.context
-                .draw_outline(vp, Rect::scaled_from(rect, self.grid_zoom));
-        }
+        renderer.draw_outlines(vp, &self.scene.selections());
     }
 
     pub fn animation_frame(&mut self) {

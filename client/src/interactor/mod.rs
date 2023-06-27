@@ -4,7 +4,7 @@ use scene::comms::ServerEvent;
 use crate::dom::menu::CanvasDropdownEvent;
 use crate::dom::menu::LayerInfo;
 use crate::scene::{
-    comms::SceneEvent, perms::Perms, Dimension, Id, Layer, Point, Rect, Scene, Sprite, Shape,
+    comms::SceneEvent, perms::Perms, Dimension, Id, Layer, Point, Rect, Scene, Shape, Sprite,
     SpriteVisual,
 };
 use crate::{bridge::Cursor, client::Client};
@@ -806,13 +806,7 @@ impl Interactor {
         self.new_sprite_common(visual, layer, Some(at))
     }
 
-    pub fn new_held_shape(
-        &mut self,
-        shape: Shape,
-        at: Point,
-        snap_to_grid: bool,
-        ephemeral: bool,
-    ) {
+    pub fn new_held_shape(&mut self, shape: Shape, at: Point, snap_to_grid: bool, ephemeral: bool) {
         self.clear_held_selection();
         let at = Rect::at(if snap_to_grid { at.round() } else { at }, 0.0, 0.0);
         if let Some(id) = self.new_sprite_at(

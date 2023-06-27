@@ -31,7 +31,7 @@ fn test_sprite_drawing() {
                 colour: crate::Colour([0.0, 255.0, 0.0, 255.0]),
                 stroke: crate::Sprite::DEFAULT_STROKE,
                 cap_start: crate::SpriteCap::Arrow,
-                cap_end: crate::SpriteCap::Round
+                cap_end: crate::SpriteCap::Round,
             }),
             client.first_layer(),
         )

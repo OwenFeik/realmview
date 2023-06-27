@@ -1,37 +1,88 @@
 use std::rc::Rc;
 
-use scene::{Cap, Colour, Drawing, DrawingMode, Fog, Id, Rect, Shape, Sprite, Scene};
+use scene::{Cap, Colour, Drawing, DrawingMode, Fog, Id, Point, Rect, Scene, Shape, Sprite};
 use web_sys::{HtmlImageElement, WebGl2RenderingContext};
 
 mod programs;
 mod shapes;
 
+#[derive(Clone, Copy)]
 pub struct ViewInfo {
     viewport: Rect,
-    grid_size: f32
+    grid_size: f32,
 }
 
 pub trait Renderer {
-    fn clear(&mut self);
+    fn clear(&mut self, vp: ViewInfo);
 
-    fn draw_grid(&mut self, vp: ViewInfo, dimensions: Rect);
+    fn draw_grid(&mut self, vp: ViewInfo, dimensions: (u32, u32));
 
     fn draw_fog(&mut self, vp: ViewInfo, fog: &Fog, transparent: bool);
 
     fn draw_solid(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour);
 
-    fn draw_outline(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour, stroke: f32);
+    fn draw_outline(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour);
 
     fn draw_texture(&mut self, vp: ViewInfo, position: Rect, shape: Shape, texture: Id);
 
-    fn draw_drawing(&mut self, vp: ViewInfo, position: Rect, drawing: Drawing, mode: DrawingMode, colour: Colour, stroke: f32,  start: Cap, end: Cap);
+    fn draw_drawing(
+        &mut self,
+        vp: ViewInfo,
+        position: Rect,
+        drawing: Drawing,
+        mode: DrawingMode,
+        colour: Colour,
+        stroke: f32,
+        start: Cap,
+        end: Cap,
+    );
 
-    fn draw_scene(scene: &Scene) {
-        
+    fn draw_outlines(&mut self, vp: ViewInfo, outlines: &[Rect]) {
+        const PALE_BLUE_OUTLINE: Colour = Colour([0.5, 0.5, 1.0, 0.9]);
+
+        for rect in outlines {
+            self.draw_outline(
+                vp,
+                rect.scaled(vp.grid_size),
+                Shape::Rectangle,
+                PALE_BLUE_OUTLINE,
+            );
+        }
     }
+
+    fn draw_sprite(&mut self, vp: ViewInfo, sprite: &Sprite, drawing: Option<Drawing>) {
+        let position = sprite.rect;
+        match sprite.visual {
+            scene::SpriteVisual::Texture { shape, id } => {
+                self.draw_texture(vp, position, shape, id)
+            }
+            scene::SpriteVisual::Solid {
+                shape,
+                stroke,
+                colour,
+            } => self.draw_solid(vp, position, shape, colour),
+            scene::SpriteVisual::Drawing {
+                drawing: id,
+                mode,
+                colour,
+                stroke,
+                cap_start,
+                cap_end,
+            } => {
+                if let Some(drawing) = drawing {
+                    self.draw_drawing(
+                        vp, position, drawing, mode, colour, stroke, cap_start, cap_end,
+                    );
+                }
+            }
+        }
+    }
+
+    fn draw_scene(scene: &Scene) {}
 }
 
 pub struct WebGlRenderer {
+    gl: Rc<WebGl2RenderingContext>,
     texture_library: programs::TextureManager,
     solid_renderer: programs::SolidRenderer,
     texture_renderer: programs::TextureRenderer,
@@ -45,6 +96,7 @@ pub struct WebGlRenderer {
 impl WebGlRenderer {
     pub fn new(gl: Rc<WebGl2RenderingContext>) -> anyhow::Result<Self> {
         Ok(Self {
+            gl: gl.clone(),
             texture_library: programs::TextureManager::new(gl.clone())?,
             solid_renderer: programs::SolidRenderer::new(gl.clone())?,
             texture_renderer: programs::TextureRenderer::new(gl.clone())?,
@@ -57,24 +109,21 @@ impl WebGlRenderer {
     }
 
     pub fn load_image(&mut self, image: &HtmlImageElement) -> scene::Id {
-        self.sprite_renderer.load_image(image)
-    }
-
-    pub fn draw_sprite(
-        &mut self,
-        sprite: &Sprite,
-        drawing: Option<&scene::Drawing>,
-        viewport: Rect,
-        grid_size: f32,
-    ) {
-        self.sprite_renderer
-            .draw_sprite(sprite, viewport, grid_size, drawing);
+        self.texture_library.load_image(image)
     }
 }
 
 impl Renderer for WebGlRenderer {
-    fn draw_grid(&mut self, vp: ViewInfo, dimensions: Rect) {
-        self.grid_renderer.render_grid(vp.viewport, dimensions, vp.grid_size);
+    fn clear(&mut self, vp: ViewInfo) {
+        programs::clear_canvas(
+            &self.gl,
+            vp.viewport.w * vp.grid_size,
+            vp.viewport.h * vp.grid_size,
+        );
+    }
+
+    fn draw_grid(&mut self, vp: ViewInfo, dimensions: (u32, u32)) {
+        self.grid_renderer.render_grid(vp, dimensions);
     }
 
     fn draw_fog(&mut self, vp: ViewInfo, fog: &Fog, transparent: bool) {
@@ -84,33 +133,56 @@ impl Renderer for WebGlRenderer {
             [0.0, 0.0, 0.0, 1.0]
         };
 
-        self.fog_renderer.render_fog(vp.viewport, vp.grid_size, fog, colour);
+        self.fog_renderer
+            .render_fog(vp.viewport, vp.grid_size, fog, colour);
     }
 
     fn draw_solid(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour) {
-        self.solid_renderer.draw_shape(shape, colour, vp.viewport, position);        
+        self.solid_renderer
+            .draw_shape(shape, colour.raw(), vp.viewport, position);
     }
 
-// TODO outlines of various shapes.
-    fn draw_outline(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour, stroke: f32) {
-        let Rect { x, y, w, h } = position;
-        let Rect { x: vp_x, y: vp_y, w: vp_w, h: vp_h } = vp.viewport;
-        self.line_renderer.scale_and_load_points(
-            &mut [
-                x - vp_x,
-                y - vp_y,
-                x - vp_x + w,
-                y - vp_y,
-                x - vp_x + w,
-                y - vp_y + h,
-                x - vp_x,
-                y - vp_y + h,
-            ],
-            vp_w,
-            vp_h,
-        );
+    fn draw_outline(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour) {
+        let Rect {
+            x: vp_x,
+            y: vp_y,
+            w: vp_w,
+            h: vp_h,
+        } = vp.viewport;
+        let mut points = shapes::outline_shape(shape, position.translate(-Point::new(vp_x, vp_y)));
         self.line_renderer
-            .render_line_loop(Some([0.5, 0.5, 1.0, 0.9]));
+            .scale_and_load_points(&mut points, vp_w, vp_h);
+        self.line_renderer.render_line_loop(Some(colour.raw()));
+    }
+
+    fn draw_texture(&mut self, vp: ViewInfo, position: Rect, shape: Shape, texture: Id) {
+        let texture = self.texture_library.get_texture(texture);
+        self.texture_renderer
+            .draw_texture(shape, texture, vp.viewport, position);
+    }
+
+    fn draw_drawing(
+        &mut self,
+        vp: ViewInfo,
+        position: Rect,
+        drawing: Drawing,
+        mode: DrawingMode,
+        colour: Colour,
+        stroke: f32,
+        start: Cap,
+        end: Cap,
+    ) {
+        self.drawing_renderer.draw_drawing(
+            mode,
+            &drawing,
+            stroke,
+            start,
+            end,
+            colour,
+            vp.viewport,
+            position,
+            vp.grid_size,
+        );
     }
 }
 

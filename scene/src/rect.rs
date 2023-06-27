@@ -46,6 +46,10 @@ impl Rect {
         rect
     }
 
+    pub fn scaled(self, factor: f32) -> Rect {
+        self * factor
+    }
+
     #[must_use]
     pub fn dimension(&self, dimension: Dimension, value: f32) -> Rect {
         let mut rect = *self;

@@ -8,6 +8,7 @@ use web_sys::{
     HtmlImageElement, WebGlBuffer, WebGlProgram, WebGlShader, WebGlTexture, WebGlUniformLocation,
 };
 
+use super::ViewInfo;
 use crate::bridge::{log, Gl};
 use crate::scene::{Point, Rect, Shape};
 
@@ -257,11 +258,7 @@ impl Mesh {
         self.translate = translate;
     }
 
-    fn from_sprite_shape(
-        gl: &Gl,
-        program: &WebGlProgram,
-        shape: Shape,
-    ) -> anyhow::Result<Self> {
+    fn from_sprite_shape(gl: &Gl, program: &WebGlProgram, shape: Shape) -> anyhow::Result<Self> {
         Self::new(gl, program, &super::shapes::shape(shape))
     }
 
@@ -495,7 +492,6 @@ impl DrawingRenderer {
 
     pub fn draw_drawing(
         &mut self,
-        id: scene::Id,
         mode: scene::DrawingMode,
         drawing: &scene::Drawing,
         stroke: f32,
@@ -507,6 +503,7 @@ impl DrawingRenderer {
         grid_size: f32,
     ) {
         self.update_grid_size(grid_size);
+        let id = drawing.id;
         if let Some(mesh) = self.get_drawing(id, drawing, stroke, start, end) {
             self.renderer.draw(mesh, colour.raw(), viewport, position);
         } else if self
@@ -514,7 +511,7 @@ impl DrawingRenderer {
             .is_ok()
         {
             self.draw_drawing(
-                id, mode, drawing, stroke, start, end, colour, viewport, position, grid_size,
+                mode, drawing, stroke, start, end, colour, viewport, position, grid_size,
             );
         }
     }
@@ -766,7 +763,7 @@ impl LineRenderer {
 pub struct GridRenderer {
     line_renderer: LineRenderer,
     current_vp: Option<Rect>,
-    current_grid_rect: Option<Rect>,
+    current_grid_dims: Option<(u32, u32)>,
     current_grid_size: Option<f32>,
     current_line_count: Option<i32>,
 }
@@ -776,13 +773,13 @@ impl GridRenderer {
         Ok(GridRenderer {
             line_renderer: LineRenderer::new(gl)?,
             current_vp: None,
-            current_grid_rect: None,
+            current_grid_dims: None,
             current_grid_size: None,
             current_line_count: None,
         })
     }
 
-    pub fn create_grid(&mut self, vp: Rect, dims: Rect, grid_size: f32) {
+    pub fn create_grid(&mut self, vp: Rect, dims: (u32, u32), grid_size: f32) {
         let mut verticals = Vec::new();
         let mut horizontals = Vec::new();
 
@@ -793,8 +790,9 @@ impl GridRenderer {
         let w = vp.w;
         let h = vp.h;
 
-        let sw = dims.w;
-        let sh = dims.h;
+        let (sw, sh) = dims;
+        let sw = sw as f32;
+        let sh = sh as f32;
 
         // Horizontal and vertical line start and endpoints, to ensure that we
         // render only the tiles that are part of the scene as part of the
@@ -853,19 +851,19 @@ impl GridRenderer {
         verticals.append(&mut horizontals);
         self.line_renderer.load_points(&verticals);
         self.current_vp = Some(vp);
-        self.current_grid_rect = Some(dims);
+        self.current_grid_dims = Some(dims);
         self.current_grid_size = Some(grid_size);
         self.current_line_count = Some(verticals.len() as i32 / 2);
     }
 
-    pub fn render_grid(&mut self, vp: Rect, dims: Rect, grid_size: f32) {
+    pub fn render_grid(&mut self, vp: ViewInfo, dimensions: (u32, u32)) {
         if self.current_vp.is_none()
-            || self.current_vp.unwrap() != vp
-            || self.current_grid_rect.is_none()
-            || self.current_grid_rect.unwrap() != dims
-            || self.current_grid_size != Some(grid_size)
+            || self.current_vp.unwrap() != vp.viewport
+            || self.current_grid_dims.is_none()
+            || self.current_grid_dims.unwrap() != dimensions
+            || self.current_grid_size != Some(vp.grid_size)
         {
-            self.create_grid(vp, dims, grid_size);
+            self.create_grid(vp.viewport, dimensions, vp.grid_size);
         }
 
         self.line_renderer.render_lines(None);
@@ -952,78 +950,9 @@ impl FogRenderer {
     }
 }
 
-pub struct SpriteRenderer {
-
-}
-
-impl SpriteRenderer {
-    pub fn new(gl: Rc<Gl>) -> anyhow::Result<Self> {
-        Ok(Self {
-
-        })
-    }
-
-    pub fn load_image(&mut self, image: &HtmlImageElement) -> scene::Id {
-        self.texture_library.load_image(image)
-    }
-
-    pub fn draw_sprite(
-        &mut self,
-        sprite: &scene::Sprite,
-        viewport: Rect,
-        grid_size: f32,
-        drawing: Option<&scene::Drawing>,
-    ) {
-        let position = sprite.rect * grid_size;
-        match &sprite.visual {
-            scene::SpriteVisual::Solid {
-                colour,
-                shape,
-                stroke,
-                ..
-            } => {
-                if *stroke == 0.0 {
-                    self.solid_renderer
-                        .draw_shape(*shape, colour.raw(), viewport, position)
-                } else {
-                    self.hollow_renderer.draw_shape(
-                        sprite.id,
-                        *shape,
-                        colour.raw(),
-                        *stroke,
-                        viewport,
-                        position,
-                        grid_size,
-                    );
-                }
-            }
-            scene::SpriteVisual::Texture { id, shape } => self.texture_renderer.draw_texture(
-                *shape,
-                self.texture_library.get_texture(*id),
-                viewport,
-                position,
-            ),
-            scene::SpriteVisual::Drawing {
-                mode,
-                colour,
-                stroke,
-                cap_start,
-                cap_end,
-                ..
-            } => self.drawing_renderer.draw_drawing(
-                sprite.id,
-                *mode,
-                drawing.unwrap(),
-                *stroke,
-                *cap_start,
-                *cap_end,
-                *colour,
-                viewport,
-                position,
-                grid_size,
-            ),
-        }
-    }
+pub fn clear_canvas(gl: &Gl, vp_w: f32, vp_h: f32) {
+    gl.viewport(0, 0, vp_w as i32, vp_h as i32);
+    gl.clear(Gl::COLOR_BUFFER_BIT);
 }
 
 fn create_shader(gl: &Gl, src: &str, stype: u32) -> anyhow::Result<WebGlShader> {

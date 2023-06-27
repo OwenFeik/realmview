@@ -554,15 +554,18 @@ mod sprite {
 
     impl SpriteRecord {
         fn from_sprite(sprite: &scene::Sprite, layer: i64, scene: i64) -> Self {
-            let (cap_start, cap_end) = if let scene::SpriteVisual::Drawing { cap_start, cap_end, .. } = &sprite.visual
-            {
-                (
-                    Some(Self::cap_to_u8(*cap_start)),
-                    Some(Self::cap_to_u8(*cap_end)),
-                )
-            } else {
-                (None, None)
-            };
+            let (cap_start, cap_end) =
+                if let scene::SpriteVisual::Drawing {
+                    cap_start, cap_end, ..
+                } = &sprite.visual
+                {
+                    (
+                        Some(Self::cap_to_u8(*cap_start)),
+                        Some(Self::cap_to_u8(*cap_end)),
+                    )
+                } else {
+                    (None, None)
+                };
 
             let mut record = Self {
                 id: sprite.id,
@@ -773,12 +776,12 @@ mod drawing {
             scene::Drawing {
                 id: self.id,
                 points: scene::PointVector::from(
-                self.points
-                    .chunks_exact(32 / 8)
-                    .map(|b| f32::from_be_bytes([b[0], b[1], b[2], b[3]]))
-                    .collect(),
+                    self.points
+                        .chunks_exact(32 / 8)
+                        .map(|b| f32::from_be_bytes([b[0], b[1], b[2], b[3]]))
+                        .collect(),
                 ),
-                finished: true
+                finished: true,
             }
         }
     }
