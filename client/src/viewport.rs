@@ -441,32 +441,15 @@ impl Viewport {
     }
 
     fn redraw(&mut self) {
-        let vp = crate::render::ViewInfo {
-            viewport: Rect::scaled_from(self.viewport, self.grid_zoom),
-            grid_size: self.grid_zoom,
-        };
+        let vp = crate::render::ViewInfo::new(
+            Rect::scaled_from(self.viewport, self.grid_zoom),
+            self.grid_zoom
+        );
 
         let renderer = self.context.renderer();
 
         renderer.clear(vp);
-
-        let mut background_drawn = false;
-        for layer in self.scene.layers().iter().rev() {
-            if !background_drawn && layer.z >= 0 {
-                renderer.draw_grid(vp, self.scene.dimensions());
-                background_drawn = true;
-            }
-
-            if layer.visible {
-                for sprite in &layer.sprites {
-                    renderer.draw_sprite(sprite);
-                }
-            }
-        }
-
-        if !background_drawn {
-            renderer.draw_grid(vp, self.scene.dimensions());
-        }
+        renderer.draw_scene(vp, self.scene.scene());
 
         if self.scene.fog().active {
             renderer.draw_fog(vp, self.scene.fog(), self.scene.role.editor());

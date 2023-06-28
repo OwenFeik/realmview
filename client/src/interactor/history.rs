@@ -161,7 +161,7 @@ impl History {
     }
 
     fn group_moves_drawing(&mut self, last: SceneEvent) {
-        let sprite = if let SceneEvent::SpriteDrawingFinish(drawing, sprite) = last {
+        let sprite = if let SceneEvent::SpriteDrawingFinish(_drawing, sprite) = last {
             sprite
         } else {
             return;

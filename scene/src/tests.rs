@@ -30,8 +30,8 @@ fn test_sprite_drawing() {
                 mode: crate::DrawingMode::Freehand,
                 colour: crate::Colour([0.0, 255.0, 0.0, 255.0]),
                 stroke: crate::Sprite::DEFAULT_STROKE,
-                cap_start: crate::SpriteCap::Arrow,
-                cap_end: crate::SpriteCap::Round,
+                cap_start: crate::Cap::Arrow,
+                cap_end: crate::Cap::Round,
             }),
             client.first_layer(),
         )

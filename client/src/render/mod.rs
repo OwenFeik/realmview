@@ -12,6 +12,15 @@ pub struct ViewInfo {
     grid_size: f32,
 }
 
+impl ViewInfo {
+    pub fn new(viewport: Rect, grid_size: f32) -> Self {
+        Self {
+            viewport,
+            grid_size,
+        }
+    }
+}
+
 pub trait Renderer {
     fn clear(&mut self, vp: ViewInfo);
 
@@ -21,6 +30,8 @@ pub trait Renderer {
 
     fn draw_solid(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour);
 
+    fn draw_hollow(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour, stroke: f32);
+
     fn draw_outline(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour);
 
     fn draw_texture(&mut self, vp: ViewInfo, position: Rect, shape: Shape, texture: Id);
@@ -29,7 +40,7 @@ pub trait Renderer {
         &mut self,
         vp: ViewInfo,
         position: Rect,
-        drawing: Drawing,
+        drawing: &Drawing,
         mode: DrawingMode,
         colour: Colour,
         stroke: f32,
@@ -50,19 +61,25 @@ pub trait Renderer {
         }
     }
 
-    fn draw_sprite(&mut self, vp: ViewInfo, sprite: &Sprite, drawing: Option<Drawing>) {
+    fn draw_sprite(&mut self, vp: ViewInfo, sprite: &Sprite, drawing: Option<&Drawing>) {
         let position = sprite.rect;
         match sprite.visual {
             scene::SpriteVisual::Texture { shape, id } => {
                 self.draw_texture(vp, position, shape, id)
             }
-            scene::SpriteVisual::Solid {
+            scene::SpriteVisual::Shape {
                 shape,
                 stroke,
                 colour,
-            } => self.draw_solid(vp, position, shape, colour),
+            } => {
+                if stroke <= f32::EPSILON {
+                    self.draw_solid(vp, position, shape, colour);                    
+                } else {
+                    self.draw_hollow(vp, position, shape, colour, stroke);
+                }
+            }
             scene::SpriteVisual::Drawing {
-                drawing: id,
+                drawing: _id,
                 mode,
                 colour,
                 stroke,
@@ -78,7 +95,28 @@ pub trait Renderer {
         }
     }
 
-    fn draw_scene(scene: &Scene) {}
+    fn draw_scene(&mut self, vp: ViewInfo, scene: &Scene, ) {
+        let dimensions = (scene.w(), scene.h());
+        
+        let mut background_drawn = false;
+        for layer in scene.layers.iter().rev() {
+            if !background_drawn && layer.z >= 0 {
+                self.draw_grid(vp, dimensions);
+                background_drawn = true;
+            }
+
+            if layer.visible {
+                for sprite in &layer.sprites {
+                    let drawing = sprite.visual.drawing().and_then(|id| scene.get_drawing(id));
+                    self.draw_sprite(vp, sprite, drawing);
+                }
+            }
+        }
+
+        if !background_drawn {
+            self.draw_grid(vp, dimensions);
+        }
+    }
 }
 
 pub struct WebGlRenderer {
@@ -101,7 +139,7 @@ impl WebGlRenderer {
             solid_renderer: programs::SolidRenderer::new(gl.clone())?,
             texture_renderer: programs::TextureRenderer::new(gl.clone())?,
             hollow_renderer: programs::HollowRenderer::new(gl.clone())?,
-            drawing_renderer: programs::DrawingRenderer::new(gl)?,
+            drawing_renderer: programs::DrawingRenderer::new(gl.clone())?,
             line_renderer: programs::LineRenderer::new(gl.clone())?,
             grid_renderer: programs::GridRenderer::new(gl.clone())?,
             fog_renderer: programs::FogRenderer::new(gl)?,
@@ -142,6 +180,10 @@ impl Renderer for WebGlRenderer {
             .draw_shape(shape, colour.raw(), vp.viewport, position);
     }
 
+    fn draw_hollow(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour, stroke: f32) {
+        self.hollow_renderer.draw_shape(0, shape, colour.raw(), stroke, vp.viewport, position, vp.grid_size);
+    }
+
     fn draw_outline(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour) {
         let Rect {
             x: vp_x,
@@ -165,7 +207,7 @@ impl Renderer for WebGlRenderer {
         &mut self,
         vp: ViewInfo,
         position: Rect,
-        drawing: Drawing,
+        drawing: &Drawing,
         mode: DrawingMode,
         colour: Colour,
         stroke: f32,
@@ -174,7 +216,7 @@ impl Renderer for WebGlRenderer {
     ) {
         self.drawing_renderer.draw_drawing(
             mode,
-            &drawing,
+            drawing,
             stroke,
             start,
             end,

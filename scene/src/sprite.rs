@@ -67,7 +67,7 @@ pub enum Visual {
         shape: Shape,
         id: Id,
     },
-    Solid {
+    Shape {
         shape: Shape,
         stroke: f32,
         colour: Colour,
@@ -85,7 +85,7 @@ pub enum Visual {
 impl Visual {
     pub fn colour(&self) -> Option<Colour> {
         match self {
-            Self::Solid { colour, .. } | Self::Drawing { colour, .. } => Some(*colour),
+            Self::Shape { colour, .. } | Self::Drawing { colour, .. } => Some(*colour),
             _ => None,
         }
     }
@@ -99,7 +99,7 @@ impl Visual {
 
     pub fn shape(&self) -> Option<Shape> {
         match self {
-            Self::Solid { shape, .. } | Self::Texture { id: _, shape } => Some(*shape),
+            Self::Shape { shape, .. } | Self::Texture { id: _, shape } => Some(*shape),
             _ => None,
         }
     }
@@ -114,7 +114,7 @@ impl Visual {
 
     pub fn stroke(&self) -> Option<f32> {
         match self {
-            Self::Drawing { stroke, .. } | Self::Solid { stroke, .. } => Some(*stroke),
+            Self::Drawing { stroke, .. } | Self::Shape { stroke, .. } => Some(*stroke),
             _ => None,
         }
     }
@@ -162,7 +162,7 @@ impl Sprite {
 
     // Minimum size of a sprite dimension; too small and sprites can be lost.
     const MIN_SIZE: f32 = 0.25;
-    const DEFAULT_VISUAL: Visual = Visual::Solid {
+    const DEFAULT_VISUAL: Visual = Visual::Shape {
         colour: Colour::DEFAULT,
         shape: Shape::Rectangle,
         stroke: Self::SOLID_STROKE,
@@ -259,7 +259,7 @@ impl Sprite {
     pub fn set_colour(&mut self, new: Colour) -> Option<SceneEvent> {
         let old = self.visual.clone();
         match &mut self.visual {
-            Visual::Solid { colour, .. } | Visual::Drawing { colour, .. } => {
+            Visual::Shape { colour, .. } | Visual::Drawing { colour, .. } => {
                 *colour = new;
                 Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
             }
@@ -270,8 +270,8 @@ impl Sprite {
     pub fn set_shape(&mut self, new: Shape) -> Option<SceneEvent> {
         let old = self.visual.clone();
         match self.visual.clone() {
-            Visual::Solid { colour, stroke, .. } => {
-                self.visual = Visual::Solid {
+            Visual::Shape { colour, stroke, .. } => {
+                self.visual = Visual::Shape {
                     colour,
                     shape: new,
                     stroke,
@@ -289,7 +289,7 @@ impl Sprite {
     pub fn set_stroke(&mut self, new: f32) -> Option<SceneEvent> {
         let old = self.visual.clone();
         match &mut self.visual {
-            Visual::Solid { stroke, .. } | Visual::Drawing { stroke, .. } => {
+            Visual::Shape { stroke, .. } | Visual::Drawing { stroke, .. } => {
                 *stroke = new;
                 Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
             }

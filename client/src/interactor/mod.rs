@@ -488,7 +488,7 @@ impl Interactor {
     pub fn drag(&mut self, at: Point) {
         let holding = self.holding.value();
         match holding {
-            holding::HeldObject::Drawing(d, s) => {
+            holding::HeldObject::Drawing(d, _sprite) => {
                 let opt = self.scene.add_drawing_point(d, at);
                 self.scene_option(opt);
             }
@@ -618,6 +618,11 @@ impl Interactor {
         }
 
         self.holding = holding::HeldObject::None;
+    }
+
+    #[must_use]
+    pub fn scene(&self) -> &Scene {
+        &self.scene
     }
 
     #[must_use]
@@ -810,7 +815,7 @@ impl Interactor {
         self.clear_held_selection();
         let at = Rect::at(if snap_to_grid { at.round() } else { at }, 0.0, 0.0);
         if let Some(id) = self.new_sprite_at(
-            Some(SpriteVisual::Solid {
+            Some(SpriteVisual::Shape {
                 colour: self.draw_details.colour(),
                 shape,
                 stroke: self.draw_details.stroke(),
@@ -890,7 +895,7 @@ impl Interactor {
 
         if let Some((visual, rect)) = self.sprite_ref(id).map(|s| {
             (
-                SpriteVisual::Solid {
+                SpriteVisual::Shape {
                     shape: Shape::Ellipse,
                     stroke: Sprite::SOLID_STROKE,
                     colour: self.draw_details.colour().with_opacity(0.4),

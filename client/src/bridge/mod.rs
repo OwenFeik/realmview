@@ -11,7 +11,6 @@ use web_sys::{
 
 use crate::dom::element::Element;
 use crate::interactor::details::SpriteDetails;
-use crate::render::Renderer;
 use crate::render::WebGlRenderer;
 
 #[wasm_bindgen]

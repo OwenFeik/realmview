@@ -36,6 +36,8 @@ pub struct Scene {
     sprite_drawings: HashMap<Id, Drawing>,
     pub id: Option<Id>,
     pub key: Option<String>,
+
+    /// Layers in the scene. Sorted Highest to lowest.
     pub layers: Vec<Layer>,
     pub removed_layers: Vec<Layer>,
     pub title: Option<String>,

@@ -4,13 +4,18 @@ use crate::bridge::Cursor;
 
 #[derive(Clone, Debug)]
 pub enum HeldObject {
-    Anchor(Id, i32, i32, Rect), // (sprite, dx, dy, starting_rect)
-    Drawing(Id, Id),            // (drawing, sprite)
+    /// (sprite, dx, dy, starting_rect)
+    Anchor(Id, i32, i32, Rect), 
+
+    /// (drawing, sprite)
+    Drawing(Id, Id),
     Ephemeral(Box<HeldObject>),
     Marquee(Point),
     None,
     Selection(Point),
-    Sprite(Id, Point, Rect), // (sprite, delta, starting_rect)
+
+    /// (sprite, delta, starting_rect)
+    Sprite(Id, Point, Rect),
 }
 
 impl HeldObject {

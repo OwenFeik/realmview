@@ -655,7 +655,7 @@ mod sprite {
             if let Some(drawing) = self.drawing {
                 Some(scene::SpriteVisual::Drawing {
                     mode: Self::u8_to_drawing_mode(self.drawing_type?),
-                    drawing: self.drawing?,
+                    drawing,
                     stroke: self.stroke?,
                     colour: Colour([self.r?, self.g?, self.b?, self.a?]),
                     cap_start: Self::u8_to_cap(self.cap_start?),
@@ -667,7 +667,7 @@ mod sprite {
                     id: Media::key_to_id(key).ok()?,
                 })
             } else {
-                Some(scene::SpriteVisual::Solid {
+                Some(scene::SpriteVisual::Shape {
                     shape: Self::u8_to_shape(self.shape?),
                     stroke: self.stroke?,
                     colour: Colour([self.r?, self.g?, self.b?, self.a?]),
@@ -772,7 +772,27 @@ mod drawing {
     }
 
     impl DrawingRecord {
-        fn drawing(&self) -> scene::Drawing {
+        fn from_drawing(drawing: &scene::Drawing, scene: i64) -> Self {
+             Self {
+                id: drawing.id,
+                scene,
+                points: drawing.points.data.iter().flat_map(|f| f.to_be_bytes()).collect()
+            }
+        }
+
+        pub async fn save(conn: &mut SqliteConnection, drawing: &scene::Drawing, scene: i64) -> anyhow::Result<()> {
+            let record = Self::from_drawing(drawing, scene);
+            sqlx::query("INSERT INTO drawings (id, scene, points) VALUES (?1, ?2, ?3);")
+                .bind(drawing.id)
+                .bind(scene)
+                .bind(record.points)
+                .execute(conn)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to create drawing record: {e}"))
+                .map(|_| ())
+        }
+
+        pub fn drawing(&self) -> scene::Drawing {
             scene::Drawing {
                 id: self.id,
                 points: scene::PointVector::from(
