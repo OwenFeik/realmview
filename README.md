@@ -28,6 +28,8 @@
 * Photoshop style stroke changes (maybe)
 * Set sprite aspect ratio
 * Token health bars
+* Better database abstraction
+* Rendered grid is not properly scaled
 
 ## Bugs
 * Undoing creation of a shape moves it to a 0x0 at cursor

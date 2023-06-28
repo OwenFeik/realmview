@@ -1,6 +1,7 @@
 use anyhow::anyhow;
 use sqlx::{Row, SqliteConnection};
 
+use self::drawing::DrawingRecord;
 use self::group::GroupRecord;
 use self::layer::LayerRecord;
 pub use self::scene_record::SceneRecord;
@@ -160,6 +161,8 @@ impl Project {
             }
         }
 
+        DrawingRecord::update_scene_drawings(conn, &scene).await?;
+
         GroupRecord::delete_scene_groups(conn, s.id).await?;
         for group in &scene.groups {
             if !group.empty() {
@@ -249,7 +252,7 @@ mod scene_record {
     use anyhow::anyhow;
     use sqlx::{Row, SqliteConnection};
 
-    use super::{layer::LayerRecord, sprite::SpriteRecord, RECORD_KEY_LENGTH};
+    use super::{layer::LayerRecord, sprite::SpriteRecord, RECORD_KEY_LENGTH, drawing::DrawingRecord};
     use crate::crypto;
 
     #[derive(sqlx::FromRow)]
@@ -379,13 +382,19 @@ mod scene_record {
                 }
             }
 
+            let drawings = super::drawing::DrawingRecord::load_scene_drawings(conn, self.id)
+                .await?
+                .iter()
+                .map(DrawingRecord::drawing)
+                .collect::<Vec<scene::Drawing>>();
+
             let groups = super::group::GroupRecord::load_scene_groups(conn, self.id)
                 .await?
                 .iter()
                 .map(|gr| gr.to_group())
                 .collect();
 
-            let mut scene = scene::Scene::new_with_layers(layers);
+            let mut scene = scene::Scene::new_with(layers, drawings);
             scene.id = Some(self.id);
             scene.key = Some(self.scene_key.clone());
             scene.title = Some(self.title.clone());
@@ -790,6 +799,69 @@ mod drawing {
                 .await
                 .map_err(|e| anyhow::anyhow!("Failed to create drawing record: {e}"))
                 .map(|_| ())
+        }
+
+        pub async fn delete(conn: &mut SqliteConnection, id: i64, scene: i64) -> anyhow::Result<()> {
+            sqlx::query("DELETE FROM drawings WHERE id = ?1 AND scene = ?2;")
+                .bind(id)
+                .bind(scene)
+                .execute(conn)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to delete drawing record: {e}"))
+                .map(|_| ())
+        }
+
+        pub async fn delete_other_than(conn: &mut SqliteConnection, scene: i64, keep_ids: &[i64]) -> anyhow::Result<()> {
+            // Safe to string format this because IDs are ints.
+            let in_clause = keep_ids
+                .iter()
+                .map(i64::to_string)
+                .collect::<Vec<String>>()
+                .join(", ");
+            
+            let query = format!(
+                "DELETE FROM drawings WHERE scene = ?1 AND id NOT IN ({in_clause});"
+            );
+            
+            sqlx::query(&query)
+                .bind(scene)
+                .execute(conn)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to delete unneeded drawings: {e}"))
+                .map(|_| ())
+        }
+
+        pub async fn update_scene_drawings(conn: &mut SqliteConnection, scene: &scene::Scene) -> anyhow::Result<()> {
+            let Some(scene_id) = scene.id else {
+                return Err(anyhow::anyhow!("Scene missing ID when updating drawings."));
+            };
+
+            let mut drawings_in_use = Vec::new();
+
+            for layer in &scene.layers {
+                for sprite in &layer.sprites {
+                    if let Some(id) = sprite.visual.drawing() {
+                        drawings_in_use.push(id);
+                    }                    
+                }
+            }
+            
+            Self::delete_other_than(conn, scene.id.unwrap(), &drawings_in_use).await?;
+
+            for drawing in scene.get_drawings() {
+                Self::delete(conn, drawing.id, scene_id).await?;
+                Self::save(conn, drawing, scene_id).await?;
+            }
+
+            Ok(())
+        }
+
+        pub async fn load_scene_drawings(conn: &mut SqliteConnection, scene: i64) -> anyhow::Result<Vec<DrawingRecord>> {
+            sqlx::query_as("SELECT * FROM drawings WHERE scene = ?1")
+                .bind(scene)
+                .fetch_all(conn)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to load scene drawings: {e}"))
         }
 
         pub fn drawing(&self) -> scene::Drawing {

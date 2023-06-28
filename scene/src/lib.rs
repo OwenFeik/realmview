@@ -88,16 +88,31 @@ impl Scene {
                 max_id = max_id.max(s.id);
             }
         }
+
+        for d in self.sprite_drawings.values() {
+            max_id = max_id.max(d.id);
+        }
+
+        for g in &self.groups {
+            max_id = max_id.max(g.id);
+        }
+
         self.next_id = max_id + 1;
     }
 
-    pub fn new_with_layers(layers: Vec<Layer>) -> Self {
+    pub fn new_with(layers: Vec<Layer>, drawings: Vec<Drawing>) -> Self {
         let mut scene = Self {
             layers,
             ..Default::default()
         };
+
+        for drawing in drawings {
+            scene.sprite_drawings.insert(drawing.id, drawing);
+        }
+
         scene.minimise_next_id();
         scene.sort_layers();
+
         scene
     }
 
@@ -473,6 +488,10 @@ impl Scene {
 
     pub fn get_drawing(&self, id: Id) -> Option<&Drawing> {
         self.sprite_drawings.get(&id)
+    }
+
+    pub fn get_drawings(&self) -> Vec<&Drawing> {
+        self.sprite_drawings.values().collect::<Vec<&Drawing>>()
     }
 
     pub fn start_drawing(&mut self) -> Id {
