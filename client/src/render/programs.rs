@@ -950,11 +950,6 @@ impl FogRenderer {
     }
 }
 
-pub fn clear_canvas(gl: &Gl, vp_w: f32, vp_h: f32) {
-    gl.viewport(0, 0, vp_w as i32, vp_h as i32);
-    gl.clear(Gl::COLOR_BUFFER_BIT);
-}
-
 fn create_shader(gl: &Gl, src: &str, stype: u32) -> anyhow::Result<WebGlShader> {
     let shader = match gl.create_shader(stype) {
         Some(s) => s,

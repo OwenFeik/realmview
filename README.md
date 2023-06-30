@@ -29,7 +29,6 @@
 * Set sprite aspect ratio
 * Token health bars
 * Better database abstraction
-* Rendered grid is not properly scaled
 
 ## Bugs
 * Undoing creation of a shape moves it to a 0x0 at cursor
@@ -38,6 +37,7 @@
 * Fog of war sometimes doesn't show up
 * Remove sprites is forbidden; should be able to remove own sprites
 * Crashes when resizing grid
+* Drawings render from (0, 0) and moving drawings is broken.
 
 # Documentation
 

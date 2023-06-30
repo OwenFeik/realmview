@@ -153,11 +153,8 @@ impl WebGlRenderer {
 
 impl Renderer for WebGlRenderer {
     fn clear(&mut self, vp: ViewInfo) {
-        programs::clear_canvas(
-            &self.gl,
-            vp.viewport.w * vp.grid_size,
-            vp.viewport.h * vp.grid_size,
-        );
+        self.gl.viewport(0, 0, vp.viewport.w as i32, vp.viewport.h as i32);
+        self.gl.clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
     }
 
     fn draw_grid(&mut self, vp: ViewInfo, dimensions: (u32, u32)) {
