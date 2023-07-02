@@ -73,7 +73,7 @@ impl Default for Drawing {
     fn default() -> Self {
         Self {
             id: 0,
-            points: PointVector::from(vec![0.0, 0.0]),
+            points: PointVector::new(),
             finished: false,
         }
     }

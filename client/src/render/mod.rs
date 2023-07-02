@@ -1,6 +1,8 @@
 use std::rc::Rc;
 
-use scene::{Cap, Colour, Drawing, DrawingMode, Fog, Id, Point, Rect, Scene, Shape, Sprite};
+use scene::{
+    Cap, Colour, Drawing, DrawingMode, Fog, Id, Outline, Point, Rect, Scene, Shape, Sprite,
+};
 use web_sys::{HtmlImageElement, WebGl2RenderingContext};
 
 mod programs;
@@ -22,20 +24,84 @@ impl ViewInfo {
 }
 
 pub trait Renderer {
+    /// Clear the canvas.
+    ///
+    /// * `vp` Viewport position and dimensions, tile size in pixels.
     fn clear(&mut self, vp: ViewInfo);
 
+    /// Draw a grid of a given size. Assume (0, 0) in scene space is the top
+    /// left corner of the grid and each tile should be the size given the the
+    /// `ViewInfo`.
+    ///
+    /// * `vp`         Viewport position and dimensions, tile size in pixels.
+    /// * `dimensions` `(width, height)` of grid.
     fn draw_grid(&mut self, vp: ViewInfo, dimensions: (u32, u32));
 
+    /// Render scene fog over the grid. This should be called after all sprites
+    /// and the grid are rendered. The size of the fog should be the same size
+    /// as the size passed to `draw_grid`. If `transparent` is false, the fog
+    /// will be rendered opaque, otherwise it will have transparency.
+    ///
+    /// * `vp`          Viewport position and dimensions, tile size in pixels.
+    /// * `fog`         Reference to scene's `Fog` struct.
+    /// * `transparent` `false` to render fog as opaque.
     fn draw_fog(&mut self, vp: ViewInfo, fog: &Fog, transparent: bool);
 
+    /// Draw a solid shape of a given colour onto the grid at a given position.
+    ///
+    /// * `vp`       Viewport position and dimensions, tile size in pixels.
+    /// * `position` Position and dimensions of the shape, in scene units.
+    /// * `shape`    Shape to draw.
+    /// * `colour`   Colour to draw shape in. May be transparent.
     fn draw_solid(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour);
 
-    fn draw_hollow(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour, stroke: f32);
+    /// Draw a hollow shape of a given colour with a given stroke width onto
+    /// the grid at a given position.
+    ///
+    /// * `vp`       Viewport position and dimensions, tile size in pixels.
+    /// * `position` Position and dimensions of the shape, in scene units.
+    /// * `shape`    Shape to draw.
+    /// * `colour`   Colour to draw shape in. May be transparent.
+    /// * `stroke`   Width of the border of the hollow shape in scene units.
+    fn draw_hollow(
+        &mut self,
+        vp: ViewInfo,
+        position: Rect,
+        shape: Shape,
+        colour: Colour,
+        stroke: f32,
+    );
 
+    /// Draw a one-pixel in a given shape at a given position.
+    ///
+    /// * `vp`       Viewport position and dimensions, tile size in pixels.
+    /// * `position` Position and dimensions of the shape, in scene units.
+    /// * `shape`    Shape to outline.
+    /// * `colour`   Colour to draw outline in. May be transparent.
     fn draw_outline(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour);
 
+    /// Draw a texture from the texture library at a given position and bounded
+    /// by a given shape. If the texture is missing from the library, the
+    /// default missing texture will be rendered instead.
+    ///
+    /// * `vp`       Viewport position and dimensions, tile size in pixels.
+    /// * `position` Position and dimensions of the shape, in scene units.
+    /// * `shape`    Shape to form bounds of the texture.
+    /// * `texture`  ID of the texture to render.
     fn draw_texture(&mut self, vp: ViewInfo, position: Rect, shape: Shape, texture: Id);
 
+    /// Draw a drawing at a given position. Start cap will be rendered pointing
+    /// away from the angle formed by the first two points and end cap will be
+    /// rendered pointing in the angle formed by the last two points.
+    ///
+    /// * `vp`       Viewport position and dimensions, tile size in pixels.
+    /// * `position` Bounding box of the drawing.
+    /// * `drawing`  Drawing to render in bounding box.
+    /// * `mode`     If `Line`, a line from first to last, else all points.
+    /// * `colour`   Colour to render line in.
+    /// * `stroke`   Width of line, in scene units.
+    /// * `start`    Cap to render at start of line.
+    /// * `end`      Cap to render at end of line.
     fn draw_drawing(
         &mut self,
         vp: ViewInfo,
@@ -48,19 +114,26 @@ pub trait Renderer {
         end: Cap,
     );
 
-    fn draw_outlines(&mut self, vp: ViewInfo, outlines: &[Rect]) {
+    /// Draw a collection of rectangular outlines onto the canvas.
+    ///
+    /// * `vp`       Viewport position and dimensions, tile size in pixels.
+    /// * `outlines` Outlines to draw onto the grid.
+    fn draw_outlines(&mut self, vp: ViewInfo, outlines: &[Outline]) {
         const PALE_BLUE_OUTLINE: Colour = Colour([0.5, 0.5, 1.0, 0.9]);
 
-        for rect in outlines {
-            self.draw_outline(
-                vp,
-                rect.scaled(vp.grid_size),
-                Shape::Rectangle,
-                PALE_BLUE_OUTLINE,
-            );
+        for &Outline { rect, shape } in outlines {
+            self.draw_outline(vp, rect.scaled(vp.grid_size), shape, PALE_BLUE_OUTLINE);
         }
     }
 
+    /// Draw a sprite onto the grid, using the appropriate primitives. Places
+    /// the sprite at the scene position indicated by its `rect` field. If the
+    /// sprite has a `Visual::Drawing` and `drawing` is `None`, nothing will be
+    /// rendered.
+    ///
+    /// * `vp`      Viewport position and dimensions, tile size in pixels.
+    /// * `sprite`  Sprite to draw onto the grid.
+    /// * `drawing` Drawing which is the sprite's visual, if applicable.
     fn draw_sprite(&mut self, vp: ViewInfo, sprite: &Sprite, drawing: Option<&Drawing>) {
         let position = sprite.rect;
         match sprite.visual {
@@ -73,7 +146,7 @@ pub trait Renderer {
                 colour,
             } => {
                 if stroke <= f32::EPSILON {
-                    self.draw_solid(vp, position, shape, colour);                    
+                    self.draw_solid(vp, position, shape, colour);
                 } else {
                     self.draw_hollow(vp, position, shape, colour, stroke);
                 }
@@ -95,9 +168,14 @@ pub trait Renderer {
         }
     }
 
-    fn draw_scene(&mut self, vp: ViewInfo, scene: &Scene, ) {
+    /// Draw a view of `scene` onto the canvas, with viewport dimensions and
+    /// tile size as specified by `vp`.
+    ///
+    /// * `vp`    Viewport position and dimensions, tile size in pixels.
+    /// * `scene` Scene to render view of.
+    fn draw_scene(&mut self, vp: ViewInfo, scene: &Scene) {
         let dimensions = (scene.w(), scene.h());
-        
+
         let mut background_drawn = false;
         for layer in scene.layers.iter().rev() {
             if !background_drawn && layer.z >= 0 {
@@ -153,7 +231,8 @@ impl WebGlRenderer {
 
 impl Renderer for WebGlRenderer {
     fn clear(&mut self, vp: ViewInfo) {
-        self.gl.viewport(0, 0, vp.viewport.w as i32, vp.viewport.h as i32);
+        self.gl
+            .viewport(0, 0, vp.viewport.w as i32, vp.viewport.h as i32);
         self.gl.clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
     }
 
@@ -177,8 +256,23 @@ impl Renderer for WebGlRenderer {
             .draw_shape(shape, colour.raw(), vp.viewport, position);
     }
 
-    fn draw_hollow(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour, stroke: f32) {
-        self.hollow_renderer.draw_shape(0, shape, colour.raw(), stroke, vp.viewport, position, vp.grid_size);
+    fn draw_hollow(
+        &mut self,
+        vp: ViewInfo,
+        position: Rect,
+        shape: Shape,
+        colour: Colour,
+        stroke: f32,
+    ) {
+        self.hollow_renderer.draw_shape(
+            0,
+            shape,
+            colour.raw(),
+            stroke,
+            vp.viewport,
+            position,
+            vp.grid_size,
+        );
     }
 
     fn draw_outline(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour) {
@@ -211,6 +305,7 @@ impl Renderer for WebGlRenderer {
         start: Cap,
         end: Cap,
     ) {
+        crate::bridge::flog!("drawing: {:?}, at {:?}", drawing.points.rect(), position);
         self.drawing_renderer.draw_drawing(
             mode,
             drawing,

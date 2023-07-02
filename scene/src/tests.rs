@@ -40,5 +40,5 @@ fn test_sprite_drawing() {
 
     let event = client.add_drawing_point(drawing, Point::same(1.0)).unwrap();
     assert!(server.apply_event(event));
-    assert!(server.get_drawing(drawing).unwrap().n_points() == 2);
+    assert!(server.get_drawing(drawing).unwrap().n_points() == 1);
 }

@@ -37,7 +37,7 @@
 * Fog of war sometimes doesn't show up
 * Remove sprites is forbidden; should be able to remove own sprites
 * Crashes when resizing grid
-* Drawings render from (0, 0) and moving drawings is broken.
+* Hollow shapes when rendered with opacity have overlapping triangles visible.
 
 # Documentation
 

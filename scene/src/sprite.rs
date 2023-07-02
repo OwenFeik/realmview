@@ -144,6 +144,20 @@ impl Visual {
     }
 }
 
+pub struct Outline {
+    pub rect: Rect,
+    pub shape: Shape,
+}
+
+impl Outline {
+    pub fn rect(rect: Rect) -> Self {
+        Self {
+            rect,
+            shape: Shape::Rectangle,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Sprite {
     pub id: Id,
@@ -341,14 +355,24 @@ impl Sprite {
     }
 
     pub fn drawing_finished(&mut self, rect: Rect) {
-        if let Visual::Drawing { stroke, .. } = &mut self.visual {
-            let d = *stroke;
+        if let Visual::Drawing { .. } = &mut self.visual {
+            self.rect = rect;
+        }
+    }
 
-            // Move the sprite to allow for the new position and border
-            self.rect.x += rect.x - d;
-            self.rect.y += rect.y - d;
-            self.rect.w = rect.w + 2.0 * d;
-            self.rect.h = rect.h + 2.0 * d;
+    pub fn outline(&mut self) -> Outline {
+        let rect = self.rect;
+        match self.visual {
+            Visual::Texture { shape, .. } | Visual::Shape { shape, .. } => Outline { rect, shape },
+            Visual::Drawing { stroke, .. } => Outline {
+                rect: Rect {
+                    x: self.rect.x - stroke,
+                    y: self.rect.y - stroke,
+                    w: self.rect.w + stroke * 2.0,
+                    h: self.rect.h + stroke * 2.0,
+                },
+                shape: Shape::Rectangle,
+            },
         }
     }
 }
@@ -371,93 +395,10 @@ fn round_to_nearest(d: f32, n: f32) -> f32 {
     sign * (d / n).round() * n
 }
 
-/*
 #[cfg(test)]
 mod test {
-    use super::{round_dimension, Cap, Colour, Drawing, DrawingMode, Sprite, Visual};
-    use crate::{rect::float_eq, Point, PointVector, Rect};
-
-    #[test]
-    fn test_simplify() {
-        let mut drawing = Drawing::new();
-        drawing.add_point(Point::same(-1.0));
-        drawing.add_point(Point::same(0.0));
-        drawing.add_point(Point::same(2.0));
-        drawing.simplify();
-        drawing.translate(0.5);
-        assert_eq!(
-            drawing.points,
-            PointVector::from(vec![1.5, 1.5, 0.5, 0.5, 1.5, 1.5, 3.5, 3.5])
-        );
-    }
-
-    // Debugging issue where sprites with square caps jump a little when
-    // finishing some of the time. Turns out this is a visual bug, the logic
-    // for finishing drawings is unaffected by cap style.
-    #[test]
-    fn test_finish_drawing() {
-        let mut a = Sprite {
-            id: 1,
-            rect: Rect {
-                x: 12.93541,
-                y: 31.636553,
-                w: 1.0,
-                h: 1.0,
-            },
-            z: 1,
-            visual: Visual::Drawing(Drawing {
-                points: PointVector {
-                    data: [
-                        0.0,
-                        0.0,
-                        -0.34547806,
-                        -0.12562943,
-                        -0.5967331,
-                        -0.21985054,
-                        -0.7851753,
-                        -0.28266335,
-                        -1.0050259,
-                        -0.37688446,
-                        -1.2248745,
-                        -0.502512,
-                        -1.350502,
-                        -0.5339203,
-                        -1.601759,
-                        -0.6909542,
-                        -1.7587929,
-                        -0.78517723,
-                        -1.9786434,
-                        -0.87939644,
-                        -2.104271,
-                        -0.94221115,
-                        -2.2298985,
-                        -1.0364323,
-                        -2.3555279,
-                        -1.0678387,
-                        -2.4811554,
-                        -1.099247,
-                    ]
-                    .to_vec(),
-                },
-                drawing_type: DrawingMode::Freehand,
-                colour: Colour([0.7002602, 0.9896201, 0.7272567, 1.0]),
-                stroke: 0.2,
-                cap_start: Cap::Round,
-                cap_end: Cap::None,
-                finished: false,
-            }),
-        };
-
-        let mut b = a.clone();
-        b.set_caps(None, Some(Cap::Round));
-
-        a.finish_drawing();
-        b.finish_drawing();
-
-        if let (Visual::Drawing(a), Visual::Drawing(b)) = (a.visual, b.visual) {
-            assert_eq!(a.points.data, b.points.data);
-        }
-    }
+    use super::round_dimension;
+    use crate::rect::float_eq;
 
     #[test]
     fn test_round_dimension() {
@@ -467,4 +408,3 @@ mod test {
         assert!(float_eq(round_dimension(0.76), 1.0));
     }
 }
-*/

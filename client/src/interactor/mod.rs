@@ -1,5 +1,6 @@
 use bincode::serialize;
 use scene::comms::ServerEvent;
+use scene::Outline;
 
 use crate::dom::menu::CanvasDropdownEvent;
 use crate::dom::menu::LayerInfo;
@@ -437,7 +438,7 @@ impl Interactor {
             if let Some(sprite_id) = self.new_sprite_at(
                 Some(visual),
                 None,
-                Rect::at(at, Sprite::DEFAULT_WIDTH, Sprite::DEFAULT_HEIGHT),
+                Rect::at(Point::ORIGIN, Sprite::DEFAULT_WIDTH, Sprite::DEFAULT_HEIGHT),
             ) {
                 self.history.start_move_group();
 
@@ -636,24 +637,24 @@ impl Interactor {
     }
 
     #[must_use]
-    pub fn selections(&mut self) -> Vec<Rect> {
+    pub fn selections(&mut self) -> Vec<Outline> {
         let mut selections = vec![];
 
         for id in &self.selected_sprites {
-            if let Some(s) = self.scene.sprite(*id) {
-                selections.push(s.rect);
+            if let Some(sprite) = self.scene.sprite(*id) {
+                selections.push(sprite.outline());
             }
         }
 
         // Don't want a 1*1 square showing while the user draws lines.
         if !matches!(self.holding, holding::HeldObject::Drawing(..)) {
             if let Some(sprite) = self.held_sprite() {
-                selections.push(sprite.rect);
+                selections.push(sprite.outline());
             }
         }
 
         if let Some(rect) = self.selection_marquee {
-            selections.push(rect);
+            selections.push(Outline::rect(rect));
         }
         selections
     }
