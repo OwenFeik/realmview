@@ -252,7 +252,9 @@ mod scene_record {
     use anyhow::anyhow;
     use sqlx::{Row, SqliteConnection};
 
-    use super::{layer::LayerRecord, sprite::SpriteRecord, RECORD_KEY_LENGTH, drawing::DrawingRecord};
+    use super::{
+        drawing::DrawingRecord, layer::LayerRecord, sprite::SpriteRecord, RECORD_KEY_LENGTH,
+    };
     use crate::crypto;
 
     #[derive(sqlx::FromRow)]
@@ -593,10 +595,7 @@ mod sprite {
                 g: sprite.visual.colour().map(|c| c.g()),
                 b: sprite.visual.colour().map(|c| c.b()),
                 a: sprite.visual.colour().map(|c| c.a()),
-                drawing_type: sprite
-                    .visual
-                    .drawing_mode()
-                    .map(|d| Self::drawing_mode_to_u8(d)),
+                drawing_type: sprite.visual.drawing_mode().map(Self::drawing_mode_to_u8),
                 cap_start,
                 cap_end,
             };
@@ -782,14 +781,23 @@ mod drawing {
 
     impl DrawingRecord {
         fn from_drawing(drawing: &scene::Drawing, scene: i64) -> Self {
-             Self {
+            Self {
                 id: drawing.id,
                 scene,
-                points: drawing.points.data.iter().flat_map(|f| f.to_be_bytes()).collect()
+                points: drawing
+                    .points
+                    .data
+                    .iter()
+                    .flat_map(|f| f.to_be_bytes())
+                    .collect(),
             }
         }
 
-        pub async fn save(conn: &mut SqliteConnection, drawing: &scene::Drawing, scene: i64) -> anyhow::Result<()> {
+        pub async fn save(
+            conn: &mut SqliteConnection,
+            drawing: &scene::Drawing,
+            scene: i64,
+        ) -> anyhow::Result<()> {
             let record = Self::from_drawing(drawing, scene);
             sqlx::query("INSERT INTO drawings (id, scene, points) VALUES (?1, ?2, ?3);")
                 .bind(drawing.id)
@@ -801,7 +809,11 @@ mod drawing {
                 .map(|_| ())
         }
 
-        pub async fn delete(conn: &mut SqliteConnection, id: i64, scene: i64) -> anyhow::Result<()> {
+        pub async fn delete(
+            conn: &mut SqliteConnection,
+            id: i64,
+            scene: i64,
+        ) -> anyhow::Result<()> {
             sqlx::query("DELETE FROM drawings WHERE id = ?1 AND scene = ?2;")
                 .bind(id)
                 .bind(scene)
@@ -811,18 +823,21 @@ mod drawing {
                 .map(|_| ())
         }
 
-        pub async fn delete_other_than(conn: &mut SqliteConnection, scene: i64, keep_ids: &[i64]) -> anyhow::Result<()> {
+        pub async fn delete_other_than(
+            conn: &mut SqliteConnection,
+            scene: i64,
+            keep_ids: &[i64],
+        ) -> anyhow::Result<()> {
             // Safe to string format this because IDs are ints.
             let in_clause = keep_ids
                 .iter()
                 .map(i64::to_string)
                 .collect::<Vec<String>>()
                 .join(", ");
-            
-            let query = format!(
-                "DELETE FROM drawings WHERE scene = ?1 AND id NOT IN ({in_clause});"
-            );
-            
+
+            let query =
+                format!("DELETE FROM drawings WHERE scene = ?1 AND id NOT IN ({in_clause});");
+
             sqlx::query(&query)
                 .bind(scene)
                 .execute(conn)
@@ -831,7 +846,10 @@ mod drawing {
                 .map(|_| ())
         }
 
-        pub async fn update_scene_drawings(conn: &mut SqliteConnection, scene: &scene::Scene) -> anyhow::Result<()> {
+        pub async fn update_scene_drawings(
+            conn: &mut SqliteConnection,
+            scene: &scene::Scene,
+        ) -> anyhow::Result<()> {
             let Some(scene_id) = scene.id else {
                 return Err(anyhow::anyhow!("Scene missing ID when updating drawings."));
             };
@@ -842,10 +860,10 @@ mod drawing {
                 for sprite in &layer.sprites {
                     if let Some(id) = sprite.visual.drawing() {
                         drawings_in_use.push(id);
-                    }                    
+                    }
                 }
             }
-            
+
             Self::delete_other_than(conn, scene.id.unwrap(), &drawings_in_use).await?;
 
             for drawing in scene.get_drawings() {
@@ -856,7 +874,10 @@ mod drawing {
             Ok(())
         }
 
-        pub async fn load_scene_drawings(conn: &mut SqliteConnection, scene: i64) -> anyhow::Result<Vec<DrawingRecord>> {
+        pub async fn load_scene_drawings(
+            conn: &mut SqliteConnection,
+            scene: i64,
+        ) -> anyhow::Result<Vec<DrawingRecord>> {
             sqlx::query_as("SELECT * FROM drawings WHERE scene = ?1")
                 .bind(scene)
                 .fetch_all(conn)

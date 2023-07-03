@@ -31,7 +31,7 @@ fn add_ngon_outline(dst: &mut PointVector, n: u32, rect: Rect) {
     let dt = TAU / n as f32;
 
     let c = rect.centre();
-    let r = Point::new(rect.w, rect.h);
+    let r = Point::new(rect.w / 2.0, rect.h / 2.0);
 
     for i in 0..n {
         let theta = i as f32 * dt;

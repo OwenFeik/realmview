@@ -505,7 +505,8 @@ impl DrawingRenderer {
         self.update_grid_size(grid_size);
         let id = drawing.id;
         if let Some(mesh) = self.get_drawing(id, drawing, stroke, start, end) {
-            self.renderer.draw(mesh, colour.raw(), viewport, position * grid_size);
+            self.renderer
+                .draw(mesh, colour.raw(), viewport, position * grid_size);
         } else if self
             .add_drawing(id, mode, drawing, stroke, start, end)
             .is_ok()

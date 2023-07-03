@@ -253,7 +253,7 @@ impl Renderer for WebGlRenderer {
 
     fn draw_solid(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour) {
         self.solid_renderer
-            .draw_shape(shape, colour.raw(), vp.viewport, position);
+            .draw_shape(shape, colour.raw(), vp.viewport, position * vp.grid_size);
     }
 
     fn draw_hollow(
@@ -270,7 +270,7 @@ impl Renderer for WebGlRenderer {
             colour.raw(),
             stroke,
             vp.viewport,
-            position,
+            position * vp.grid_size,
             vp.grid_size,
         );
     }
@@ -305,7 +305,6 @@ impl Renderer for WebGlRenderer {
         start: Cap,
         end: Cap,
     ) {
-        crate::bridge::flog!("drawing: {:?}, at {:?}", drawing.points.rect(), position);
         self.drawing_renderer.draw_drawing(
             mode,
             drawing,
