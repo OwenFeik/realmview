@@ -16,7 +16,7 @@ impl SceneMenu {
             Some(0),
             Some(scene::Scene::MAX_SIZE as i32),
             Box::new(|vp, w| {
-                vp.lock().scene.scene_details(SceneDetails {
+                vp.scene.scene_details(SceneDetails {
                     w: Some(w as u32),
                     ..Default::default()
                 });
@@ -27,7 +27,7 @@ impl SceneMenu {
             Some(0),
             Some(scene::Scene::MAX_SIZE as i32),
             Box::new(|vp, h| {
-                vp.lock().scene.scene_details(SceneDetails {
+                vp.scene.scene_details(SceneDetails {
                     h: Some(h as u32),
                     ..Default::default()
                 });
@@ -37,7 +37,7 @@ impl SceneMenu {
         inputs.add_checkbox(
             "Fog of War",
             Box::new(|vp, active| {
-                vp.lock().scene.scene_details(SceneDetails {
+                vp.scene.scene_details(SceneDetails {
                     fog: Some(active),
                     ..Default::default()
                 });
@@ -48,7 +48,7 @@ impl SceneMenu {
             Some(1),
             Some(20),
             Box::new(|vp, brush| {
-                vp.lock().scene.set_fog_brush(brush as u32);
+                vp.scene.set_fog_brush(brush as u32);
             }),
         );
         inputs.add_line();

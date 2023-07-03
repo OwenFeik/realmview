@@ -9,6 +9,10 @@ mod dropdown;
 mod layers;
 mod scene;
 
+fn id(key: &str) -> String {
+    format!("#{key}")
+}
+
 fn add_to_menu(key: &str, inputs: &Element) {
     let el = if let Some(el) = Element::by_id("canvas_menu") {
         el
@@ -23,8 +27,8 @@ fn add_to_menu(key: &str, inputs: &Element) {
         .with_attr("id", &format!("{}_menu", key.to_lowercase()))
         .with_class("accordion-item");
     let prefix = format!("menu_{}", key.to_lowercase());
-    let heading = format!("{}_heading", &prefix);
-    let collapse = format!("{}_collapse", &prefix);
+    let heading = &format!("{}_heading", &prefix);
+    let collapse = &format!("{}_collapse", &prefix);
     item.child("h2")
         .with_attr("id", &heading)
         .with_class("accordion-header")
@@ -33,15 +37,15 @@ fn add_to_menu(key: &str, inputs: &Element) {
         .with_attrs(&[
             ("type", "button"),
             ("data-bs-toggle", "collapse"),
-            ("data-bs-target", &format!("#{collapse}")),
+            ("data-bs-target", &id(collapse)),
             ("aria-expanded", "false"),
-            ("aria-controls", &format!("#{collapse}")),
+            ("aria-controls", &id(collapse)),
         ])
         .with_text(key);
     item.child("div")
-        .with_attr("id", &collapse)
+        .with_attr("id", collapse)
         .with_classes(&["accordion-collapse", "collapse"])
-        .with_attr("aria-labelledby", &format!("#{heading}"))
+        .with_attr("aria-labelledby", &id(heading))
         .with_child(inputs);
 }
 

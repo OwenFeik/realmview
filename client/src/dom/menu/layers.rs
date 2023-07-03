@@ -85,7 +85,7 @@ impl LayersMenu {
                 "Title",
                 false,
                 Box::new(move |vp, title| {
-                    vp.lock().scene.rename_layer(id, title);
+                    vp.scene.rename_layer(id, title);
                 }),
             );
             input.set_value_string("Title", &layer.title);
@@ -93,30 +93,24 @@ impl LayersMenu {
             let locked = layer.locked;
             input.add_button(
                 if locked { Icon::Lock } else { Icon::Unlock },
-                Box::new(move |vp| vp.lock().scene.set_layer_locked(id, !locked)),
+                Box::new(move |vp| vp.scene.set_layer_locked(id, !locked)),
             );
 
             let visible = layer.visible;
             input.add_button(
                 if visible { Icon::Eye } else { Icon::EyeSlash },
                 Box::new(move |vp| {
-                    vp.lock().scene.set_layer_visible(id, !visible);
+                    vp.scene.set_layer_visible(id, !visible);
                 }),
             );
 
-            input.add_button(
-                Icon::Up,
-                Box::new(move |vp| vp.lock().scene.move_layer(id, true)),
-            );
+            input.add_button(Icon::Up, Box::new(move |vp| vp.scene.move_layer(id, true)));
             input.add_button(
                 Icon::Down,
-                Box::new(move |vp| vp.lock().scene.move_layer(id, false)),
+                Box::new(move |vp| vp.scene.move_layer(id, false)),
             );
 
-            input.add_button(
-                Icon::Trash,
-                Box::new(move |vp| vp.lock().scene.remove_layer(id)),
-            );
+            input.add_button(Icon::Trash, Box::new(move |vp| vp.scene.remove_layer(id)));
         }
     }
 }

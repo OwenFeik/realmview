@@ -1,19 +1,19 @@
-use std::{collections::HashMap, rc::Rc};
-
-use parking_lot::Mutex;
+use std::collections::HashMap;
 
 use super::{element::Element, icon::Icon};
 use crate::{start::VpRef, viewport::Viewport};
 
+type Handler<T> = Box<dyn Fn(&mut Viewport, T)>;
+
 pub struct InputGroup {
     pub root: Element,
-    vp: Rc<Mutex<Viewport>>,
+    vp: VpRef,
     line: Element,
     inputs: HashMap<String, Element>,
 }
 
 impl InputGroup {
-    pub fn new(vp: Rc<Mutex<Viewport>>) -> InputGroup {
+    pub fn new(vp: VpRef) -> InputGroup {
         let root = Element::default();
         let line = input_group();
         root.append_child(&line);
@@ -88,7 +88,7 @@ impl InputGroup {
         &mut self,
         key: &str,
         label: bool,
-        action: Box<dyn Fn(VpRef, String)>,
+        action: Box<dyn Fn(&mut Viewport, String)>,
     ) {
         let el = string();
         el.set_enabled(false);
@@ -120,13 +120,13 @@ impl InputGroup {
         key: &str,
         min: Option<i32>,
         max: Option<i32>,
-        action: Box<dyn Fn(VpRef, f32)>,
+        action: Box<dyn Fn(&mut Viewport, f32)>,
     ) {
         let mut el = float(min, max);
         let el_ref = el.clone();
         let vp_ref = self.vp.clone();
         el.set_oninput(Box::new(move |_| {
-            action(vp_ref.clone(), el_ref.value_float() as f32);
+            action(&mut vp_ref.lock(), el_ref.value_float() as f32);
         }));
         self.add_entry(key, el);
     }
@@ -135,18 +135,18 @@ impl InputGroup {
         &mut self,
         key: &str,
         options: &[(&str, &str)],
-        action: Box<dyn Fn(VpRef, String)>,
+        action: Box<dyn Fn(&mut Viewport, String)>,
     ) {
         let mut el = select(options);
         let el_ref = el.clone();
         let vp_ref = self.vp.clone();
         el.set_oninput(Box::new(move |_| {
-            action(vp_ref.clone(), el_ref.value_string());
+            action(&mut vp_ref.lock(), el_ref.value_string());
         }));
         self.add_entry(key, el);
     }
 
-    pub fn add_checkbox(&mut self, key: &str, action: Box<dyn Fn(VpRef, bool)>) {
+    pub fn add_checkbox(&mut self, key: &str, action: Handler<bool>) {
         let el = Element::new("div").with_class("input-group-text");
         self.line.append_child(&text(key));
         self.line.append_child(&el);
@@ -159,12 +159,12 @@ impl InputGroup {
         let input_ref = input.clone();
         let vp_ref = self.vp.clone();
         input.set_oninput(Box::new(move |_| {
-            action(vp_ref.clone(), input_ref.checked())
+            action(&mut vp_ref.lock(), input_ref.checked())
         }));
         self.add_input(key, input);
     }
 
-    pub fn add_toggle(&mut self, key: &str, a: Icon, b: Icon, action: Box<dyn Fn(VpRef, bool)>) {
+    pub fn add_toggle(&mut self, key: &str, a: Icon, b: Icon, action: Handler<bool>) {
         let mut el = button();
         self.line.append_child(&el);
 
@@ -186,20 +186,18 @@ impl InputGroup {
             i.add_class(&to.class());
             input_ref.toggle_checked();
 
-            action(vp_ref.clone(), value);
+            action(&mut vp_ref.lock(), value);
         }));
 
         self.add_input(key, input);
     }
 
-    pub fn add_button(&mut self, icon: Icon, action: Box<dyn Fn(VpRef)>) {
+    pub fn add_button(&mut self, icon: Icon, action: Box<dyn Fn(&mut Viewport)>) {
         let mut el = button();
         el.child("i").with_class(&icon.class());
 
         let vp = self.vp.clone();
-        el.set_onclick(Box::new(move |_| {
-            action(vp.clone());
-        }));
+        el.set_onclick(Box::new(move |_| action(&mut vp.lock())));
 
         self.line.append_child(&el);
     }
