@@ -5,6 +5,7 @@ pub use self::layers::LayerInfo;
 use super::element::Element;
 use crate::{interactor::details::SceneDetails, start::VpRef, viewport::ViewportPoint};
 
+mod drawing;
 mod dropdown;
 mod layers;
 mod scene;
@@ -53,6 +54,7 @@ pub struct Menu {
     dropdown: dropdown::Dropdown,
     layers: layers::LayersMenu,
     scene: scene::SceneMenu,
+    drawing: drawing::DrawingMenu,
 }
 
 impl Menu {
@@ -60,11 +62,13 @@ impl Menu {
         let menu = Self {
             dropdown: dropdown::Dropdown::new(),
             layers: layers::LayersMenu::new(vp.clone()),
-            scene: scene::SceneMenu::new(vp),
+            scene: scene::SceneMenu::new(vp.clone()),
+            drawing: drawing::DrawingMenu::new(vp),
         };
 
         add_to_menu("Layers", menu.layers.root());
         add_to_menu("Scene", menu.scene.root());
+        add_to_menu("Draw", menu.drawing.root());
         menu
     }
 

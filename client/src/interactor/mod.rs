@@ -967,6 +967,11 @@ impl Interactor {
         self.selection_effect(|s| Some(s.move_by(delta)));
     }
 
+    #[must_use]
+    pub fn get_draw_details(&mut self) -> &details::SpriteDetails {
+        &self.draw_details
+    }
+
     pub fn update_draw_details(&mut self, details: details::SpriteDetails) {
         self.draw_details.update_from(&details);
     }

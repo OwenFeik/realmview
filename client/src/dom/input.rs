@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
 use scene::Colour;
+use wasm_bindgen::JsCast;
+use web_sys::HtmlInputElement;
 
 use super::{element::Element, icon::Icon};
 use crate::{start::VpRef, viewport::Viewport};
@@ -42,6 +44,10 @@ impl InputGroup {
 
     pub fn value_unsigned(&self, key: &str) -> Option<u32> {
         self.value_float(key).map(|v| v as u32)
+    }
+
+    pub fn value_colour(&self, key: &str) -> Option<Colour> {
+        self.value_string(key).and_then(|hex| hex_to_colour(&hex))
     }
 
     pub fn set_value_bool(&self, key: &str, value: bool) {
@@ -87,12 +93,7 @@ impl InputGroup {
         self.add_entry(key, string());
     }
 
-    pub fn add_toggle_string(
-        &mut self,
-        key: &str,
-        label: bool,
-        action: Box<dyn Fn(&mut Viewport, String)>,
-    ) {
+    pub fn add_toggle_string(&mut self, key: &str, label: bool, action: ValueHandler<String>) {
         let el = string();
         el.set_enabled(false);
 
@@ -123,7 +124,7 @@ impl InputGroup {
         key: &str,
         min: Option<i32>,
         max: Option<i32>,
-        action: Box<dyn Fn(&mut Viewport, f32)>,
+        action: ValueHandler<f32>,
     ) {
         let mut el = float(min, max);
         let el_ref = el.clone();
@@ -138,7 +139,7 @@ impl InputGroup {
         &mut self,
         key: &str,
         options: &[(&str, &str)],
-        action: Box<dyn Fn(&mut Viewport, String)>,
+        action: ValueHandler<String>,
     ) {
         let mut el = select(options);
         let el_ref = el.clone();
@@ -221,22 +222,17 @@ impl InputGroup {
     pub fn add_colour(&mut self, key: &str, action: ValueHandler<Colour>) {
         let mut input = colour();
 
-        let input_ref = input.clone();
-        self.line.append_child(&input);
-
         let vp_ref = self.vp.clone();
         input.set_oninput(Box::new(move |evt| {
             evt.target().map(|target| {
-                crate::bridge::flog!("{:?}", target);
+                let hex = target.unchecked_ref::<HtmlInputElement>().value();
+                if let Some(colour) = hex_to_colour(&hex) {
+                    action(&mut vp_ref.lock(), colour);
+                }
             });
-
-            // TODO add a number input to use as alpha value here.
-            if let Some(colour) = hex_to_colour(&input_ref.value_string(), 1.0) {
-                action(&mut vp_ref.lock(), colour);
-            }
         }));
 
-        self.add_input(key, input);
+        self.add_entry(key, input);
     }
 }
 
@@ -308,15 +304,16 @@ fn hex_to_num(hex: &str) -> Option<f32> {
         .map(|int| (int as f32) / 255.0)
 }
 
-fn hex_to_colour(hex: &str, alpha: f32) -> Option<Colour> {
+fn hex_to_colour(hex: &str) -> Option<Colour> {
+    const ALPHA: f32 = 1.0;
     match hex.len() {
         6 => Some(Colour([
             hex_to_num(&hex[0..=1])?,
             hex_to_num(&hex[2..=3])?,
             hex_to_num(&hex[4..=5])?,
-            alpha,
+            ALPHA,
         ])),
-        7 => hex_to_colour(&hex[1..], alpha),
+        7 => hex_to_colour(&hex[1..]),
         _ => None,
     }
 }
