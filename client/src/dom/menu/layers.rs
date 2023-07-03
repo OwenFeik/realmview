@@ -76,9 +76,7 @@ impl LayersMenu {
             input.add_radio(
                 "selected-layer",
                 id == selected,
-                Box::new(move |vp| {
-                    vp.lock().scene.select_layer(id);
-                }),
+                Box::new(move |vp| vp.scene.select_layer(id)),
             );
 
             input.add_toggle_string(

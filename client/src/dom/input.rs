@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 
+use scene::Colour;
+
 use super::{element::Element, icon::Icon};
 use crate::{start::VpRef, viewport::Viewport};
 
-type Handler<T> = Box<dyn Fn(&mut Viewport, T)>;
+type Handler = Box<dyn Fn(&mut Viewport)>;
+type ValueHandler<T> = Box<dyn Fn(&mut Viewport, T)>;
 
 pub struct InputGroup {
     pub root: Element,
@@ -146,7 +149,7 @@ impl InputGroup {
         self.add_entry(key, el);
     }
 
-    pub fn add_checkbox(&mut self, key: &str, action: Handler<bool>) {
+    pub fn add_checkbox(&mut self, key: &str, action: ValueHandler<bool>) {
         let el = Element::new("div").with_class("input-group-text");
         self.line.append_child(&text(key));
         self.line.append_child(&el);
@@ -164,7 +167,7 @@ impl InputGroup {
         self.add_input(key, input);
     }
 
-    pub fn add_toggle(&mut self, key: &str, a: Icon, b: Icon, action: Handler<bool>) {
+    pub fn add_toggle(&mut self, key: &str, a: Icon, b: Icon, action: ValueHandler<bool>) {
         let mut el = button();
         self.line.append_child(&el);
 
@@ -192,7 +195,7 @@ impl InputGroup {
         self.add_input(key, input);
     }
 
-    pub fn add_button(&mut self, icon: Icon, action: Box<dyn Fn(&mut Viewport)>) {
+    pub fn add_button(&mut self, icon: Icon, action: Handler) {
         let mut el = button();
         el.child("i").with_class(&icon.class());
 
@@ -202,7 +205,7 @@ impl InputGroup {
         self.line.append_child(&el);
     }
 
-    pub fn add_radio(&mut self, key: &str, selected: bool, action: Box<dyn Fn(VpRef)>) {
+    pub fn add_radio(&mut self, key: &str, selected: bool, action: Handler) {
         let el = self.line.child("div").with_class("input-group-text");
         let mut input = el
             .child("input")
@@ -211,7 +214,16 @@ impl InputGroup {
         input.set_checked(selected);
         let vp_ref = self.vp.clone();
         input.set_oninput(Box::new(move |_| {
-            action(vp_ref.clone());
+            action(&mut vp_ref.lock());
+        }));
+    }
+
+    pub fn add_colour(&mut self, key: &str, action: ValueHandler<Colour>) {
+        let mut input = colour();
+        self.line.append_child(&input);
+        let vp_ref = self.vp.clone();
+        input.set_oninput(Box::new(move |_| {
+            action(&mut vp_ref.lock(), Colour([0.0, 0.0, 0.0, 0.0]))
         }));
     }
 }
@@ -260,4 +272,10 @@ fn button() -> Element {
     Element::new("button")
         .with_classes(&["btn", "btn-sm", "btn-outline-primary"])
         .with_attr("type", "button")
+}
+
+fn colour() -> Element {
+    Element::input()
+        .with_class("form-control")
+        .with_attr("type", "color")
 }
