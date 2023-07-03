@@ -29,6 +29,10 @@ impl Colour {
         self.0
     }
 
+    pub fn arr(&self) -> &[f32; 4] {
+        &self.0
+    }
+
     pub fn with_opacity(mut self, opacity: f32) -> Self {
         self.0[3] = opacity;
         self

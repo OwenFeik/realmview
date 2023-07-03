@@ -5,7 +5,6 @@ pub use self::layers::LayerInfo;
 use super::element::Element;
 use crate::{interactor::details::SceneDetails, start::VpRef, viewport::ViewportPoint};
 
-mod drawing;
 mod dropdown;
 mod layers;
 mod scene;

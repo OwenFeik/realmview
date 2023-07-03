@@ -220,11 +220,23 @@ impl InputGroup {
 
     pub fn add_colour(&mut self, key: &str, action: ValueHandler<Colour>) {
         let mut input = colour();
+
+        let input_ref = input.clone();
         self.line.append_child(&input);
+
         let vp_ref = self.vp.clone();
-        input.set_oninput(Box::new(move |_| {
-            action(&mut vp_ref.lock(), Colour([0.0, 0.0, 0.0, 0.0]))
+        input.set_oninput(Box::new(move |evt| {
+            evt.target().map(|target| {
+                crate::bridge::flog!("{:?}", target);
+            });
+
+            // TODO add a number input to use as alpha value here.
+            if let Some(colour) = hex_to_colour(&input_ref.value_string(), 1.0) {
+                action(&mut vp_ref.lock(), colour);
+            }
         }));
+
+        self.add_input(key, input);
     }
 }
 
@@ -278,4 +290,33 @@ fn colour() -> Element {
     Element::input()
         .with_class("form-control")
         .with_attr("type", "color")
+}
+
+fn colour_to_hex(colour: Colour) -> String {
+    format!(
+        "#{:02X}{:02X}{:02X}",
+        (colour.r() * 255.0) as u32,
+        (colour.g() * 255.0) as u32,
+        (colour.b() * 255.0) as u32
+    )
+}
+
+fn hex_to_num(hex: &str) -> Option<f32> {
+    const RADIX: u32 = 16;
+    i32::from_str_radix(hex, RADIX)
+        .ok()
+        .map(|int| (int as f32) / 255.0)
+}
+
+fn hex_to_colour(hex: &str, alpha: f32) -> Option<Colour> {
+    match hex.len() {
+        6 => Some(Colour([
+            hex_to_num(&hex[0..=1])?,
+            hex_to_num(&hex[2..=3])?,
+            hex_to_num(&hex[4..=5])?,
+            alpha,
+        ])),
+        7 => hex_to_colour(&hex[1..], alpha),
+        _ => None,
+    }
 }

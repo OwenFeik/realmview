@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use js_sys::Float32Array;
-use scene::PointVector;
+use scene::{PointVector, Colour};
 use wasm_bindgen::{closure::Closure, JsCast};
 use web_sys::{
     HtmlImageElement, WebGlBuffer, WebGlProgram, WebGlShader, WebGlTexture, WebGlUniformLocation,
@@ -11,8 +11,6 @@ use web_sys::{
 use super::ViewInfo;
 use crate::bridge::{log, Gl};
 use crate::scene::{Point, Rect, Shape};
-
-type Colour = [f32; 4];
 
 // 0 is the default and what is used here
 const GL_TEXTURE_DETAIL_LEVEL: i32 = 0;
@@ -352,7 +350,7 @@ impl SolidRenderer {
     fn prepare_draw(&self, colour: Colour) {
         self.gl.use_program(Some(&self.program));
         self.gl
-            .uniform4fv_with_f32_array(Some(&self.colour_location), &colour);
+            .uniform4fv_with_f32_array(Some(&self.colour_location), colour.arr());
     }
 
     fn draw(&self, shape: &Mesh, colour: Colour, viewport: Rect, position: Rect) {
@@ -506,7 +504,7 @@ impl DrawingRenderer {
         let id = drawing.id;
         if let Some(mesh) = self.get_drawing(id, drawing, stroke, start, end) {
             self.renderer
-                .draw(mesh, colour.raw(), viewport, position * grid_size);
+                .draw(mesh, colour, viewport, position * grid_size);
         } else if self
             .add_drawing(id, mode, drawing, stroke, start, end)
             .is_ok()
@@ -741,7 +739,7 @@ impl LineRenderer {
         gl.vertex_attrib_pointer_with_i32(self.position_location, 2, Gl::FLOAT, false, 0, 0);
         gl.uniform4fv_with_f32_array(
             Some(&self.colour_location),
-            &colour.unwrap_or([0.5, 0.5, 0.5, 0.75]),
+            &colour.map(Colour::raw).unwrap_or([0.5, 0.5, 0.5, 0.75]),
         );
     }
 

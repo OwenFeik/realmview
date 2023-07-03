@@ -241,11 +241,11 @@ impl Renderer for WebGlRenderer {
     }
 
     fn draw_fog(&mut self, vp: ViewInfo, fog: &Fog, transparent: bool) {
-        let colour = if transparent {
+        let colour = Colour(if transparent {
             [0.0, 0.0, 0.0, 0.5]
         } else {
             [0.0, 0.0, 0.0, 1.0]
-        };
+        });
 
         self.fog_renderer
             .render_fog(vp.viewport, vp.grid_size, fog, colour);
@@ -253,7 +253,7 @@ impl Renderer for WebGlRenderer {
 
     fn draw_solid(&mut self, vp: ViewInfo, position: Rect, shape: Shape, colour: Colour) {
         self.solid_renderer
-            .draw_shape(shape, colour.raw(), vp.viewport, position * vp.grid_size);
+            .draw_shape(shape, colour, vp.viewport, position * vp.grid_size);
     }
 
     fn draw_hollow(
@@ -267,7 +267,7 @@ impl Renderer for WebGlRenderer {
         self.hollow_renderer.draw_shape(
             0,
             shape,
-            colour.raw(),
+            colour,
             stroke,
             vp.viewport,
             position * vp.grid_size,
@@ -285,7 +285,7 @@ impl Renderer for WebGlRenderer {
         let mut points = shapes::outline_shape(shape, position.translate(-Point::new(vp_x, vp_y)));
         self.line_renderer
             .scale_and_load_points(&mut points, vp_w, vp_h);
-        self.line_renderer.render_line_loop(Some(colour.raw()));
+        self.line_renderer.render_line_loop(Some(colour));
     }
 
     fn draw_texture(&mut self, vp: ViewInfo, position: Rect, shape: Shape, texture: Id) {
