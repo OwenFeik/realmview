@@ -205,6 +205,8 @@ impl Element {
         self.set_inner_html("");
     }
 
+    /// Replace body of this element (assumed a select input) with a list of
+    /// option elements specified by the (label, value) pairs provided.
     pub fn set_options<T: AsRef<str>>(&self, options: &[(T, T)]) {
         self.set_inner_html("");
         for (key, value) in options {

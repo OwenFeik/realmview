@@ -54,7 +54,6 @@ pub struct Menu {
     dropdown: dropdown::Dropdown,
     layers: layers::LayersMenu,
     scene: scene::SceneMenu,
-    drawing: drawing::DrawingMenu,
 }
 
 impl Menu {
@@ -63,12 +62,11 @@ impl Menu {
             dropdown: dropdown::Dropdown::new(),
             layers: layers::LayersMenu::new(vp.clone()),
             scene: scene::SceneMenu::new(vp.clone()),
-            drawing: drawing::DrawingMenu::new(vp),
         };
 
         add_to_menu("Layers", menu.layers.root());
         add_to_menu("Scene", menu.scene.root());
-        add_to_menu("Draw", menu.drawing.root());
+        add_to_menu("Draw", &drawing::menu(vp));
         menu
     }
 

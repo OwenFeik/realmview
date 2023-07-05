@@ -234,6 +234,32 @@ impl InputGroup {
 
         self.add_entry(key, input);
     }
+
+    pub fn add_icon_radio(&mut self, key: &str, icons: &[Icon], action: ValueHandler<u32>) {
+        let el = self
+            .line
+            .child("div")
+            .with_class("btn-group")
+            .with_attr("role", "group");
+
+        let action_ref = std::rc::Rc::new(action);
+
+        let name = format!("{key}_radio");
+        for (i, icon) in icons.iter().enumerate() {
+            let id = format!("{key}_option_{i}");
+            let mut input = el
+                .child("input")
+                .with_attrs(&[("id", &id), ("type", "radio"), ("name", &name)])
+                .with_class("btn-check");
+            el.child("label")
+                .with_attr("for", &id)
+                .with_classes(&["btn", "btn-sm", "btn-outline-primary"])
+                .with_child(&icon.element());
+            let vp_ref = self.vp.clone();
+            let action_ref = action_ref.clone();
+            input.set_oninput(Box::new(move |_| action_ref(&mut vp_ref.lock(), i as u32)));
+        }
+    }
 }
 
 fn input_group() -> Element {
