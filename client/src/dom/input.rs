@@ -42,6 +42,10 @@ impl InputGroup {
         self.inputs.get(key).map(|e| e.value_float())
     }
 
+    pub fn value_f32(&self, key: &str) -> Option<f32> {
+        self.value_float(key).map(|v| v.min(f32::MAX as f64) as f32)
+    }
+
     pub fn value_unsigned(&self, key: &str) -> Option<u32> {
         self.value_float(key).map(|v| v as u32)
     }
@@ -62,9 +66,15 @@ impl InputGroup {
         }
     }
 
-    pub fn set_value_float(&self, key: &str, value: f64) {
+    pub fn set_value_float(&self, key: &str, value: f32) {
         if let Some(e) = self.inputs.get(key) {
-            e.set_value_float(value);
+            e.set_value_float(value as f64);
+        }
+    }
+
+    pub fn set_value_colour(&self, key: &str, value: Colour) {
+        if let Some(e) = self.inputs.get(key) {
+            e.set_value_string(&colour_to_hex(value));
         }
     }
 
@@ -119,38 +129,46 @@ impl InputGroup {
         );
     }
 
-    pub fn add_float(
+    pub fn add_float(&mut self, key: &str, min: Option<i32>, max: Option<i32>) {
+        self.add_entry(key, float(min, max));
+    }
+
+    pub fn add_float_handler(
         &mut self,
         key: &str,
         min: Option<i32>,
         max: Option<i32>,
         action: ValueHandler<f32>,
     ) {
-        let mut el = float(min, max);
+        self.add_float(key, min, max);
+        let el = self.inputs.get_mut(key).unwrap();
         let el_ref = el.clone();
         let vp_ref = self.vp.clone();
         el.set_oninput(Box::new(move |_| {
             action(&mut vp_ref.lock(), el_ref.value_float() as f32);
         }));
-        self.add_entry(key, el);
     }
 
-    pub fn add_select(
+    pub fn add_select(&mut self, key: &str, options: &[(&str, &str)]) {
+        self.add_entry(key, select(options));
+    }
+
+    pub fn add_select_handler(
         &mut self,
         key: &str,
         options: &[(&str, &str)],
         action: ValueHandler<String>,
     ) {
-        let mut el = select(options);
+        self.add_select(key, options);
+        let el = self.inputs.get_mut(key).unwrap();
         let el_ref = el.clone();
         let vp_ref = self.vp.clone();
         el.set_oninput(Box::new(move |_| {
             action(&mut vp_ref.lock(), el_ref.value_string());
         }));
-        self.add_entry(key, el);
     }
 
-    pub fn add_checkbox(&mut self, key: &str, action: ValueHandler<bool>) {
+    pub fn add_checkbox(&mut self, key: &str) {
         let el = Element::new("div").with_class("input-group-text");
         self.line.append_child(&text(key));
         self.line.append_child(&el);
@@ -160,12 +178,17 @@ impl InputGroup {
             .child("input")
             .with_class("form-check-input")
             .with_attr("type", "checkbox");
+        self.add_input(key, input);
+    }
+
+    pub fn add_checkbox_handler(&mut self, key: &str, action: ValueHandler<bool>) {
+        self.add_checkbox(key);
+        let input = self.inputs.get_mut(key).unwrap();
         let input_ref = input.clone();
         let vp_ref = self.vp.clone();
         input.set_oninput(Box::new(move |_| {
             action(&mut vp_ref.lock(), input_ref.checked())
         }));
-        self.add_input(key, input);
     }
 
     pub fn add_toggle(&mut self, key: &str, a: Icon, b: Icon, action: ValueHandler<bool>) {
@@ -219,9 +242,13 @@ impl InputGroup {
         }));
     }
 
-    pub fn add_colour(&mut self, key: &str, action: ValueHandler<Colour>) {
-        let mut input = colour();
+    pub fn add_colour(&mut self, key: &str) {
+        self.add_entry(key, colour());
+    }
 
+    pub fn add_colour_handler(&mut self, key: &str, action: ValueHandler<Colour>) {
+        self.add_colour(key);
+        let mut input = self.inputs.get_mut(key).unwrap();
         let vp_ref = self.vp.clone();
         input.set_oninput(Box::new(move |evt| {
             evt.target().map(|target| {
@@ -231,11 +258,9 @@ impl InputGroup {
                 }
             });
         }));
-
-        self.add_entry(key, input);
     }
 
-    pub fn add_icon_radio(&mut self, key: &str, icons: &[Icon], action: ValueHandler<u32>) {
+    pub fn add_icon_radio_handler(&mut self, key: &str, icons: &[Icon], action: ValueHandler<u32>) {
         let el = self
             .line
             .child("div")

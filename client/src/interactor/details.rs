@@ -52,7 +52,7 @@ impl SceneDetails {
     }
 }
 
-#[derive(Debug, Default, serde_derive::Deserialize, serde_derive::Serialize)]
+#[derive(Clone, Debug, Default, serde_derive::Deserialize, serde_derive::Serialize)]
 #[serde(default)]
 pub struct SpriteDetails {
     pub id: Id,

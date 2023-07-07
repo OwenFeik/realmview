@@ -19,7 +19,6 @@ pub struct Interactor {
     pub changes: changes::Changes,
     pub role: scene::perms::Role,
     copied: Option<Vec<Sprite>>,
-    draw_details: details::SpriteDetails,
     fog_brush: u32,
     history: history::History,
     holding: holding::HeldObject,
@@ -48,10 +47,6 @@ impl Interactor {
             changes: changes::Changes::new(),
             role: scene::perms::Role::Owner,
             copied: None,
-            draw_details: details::SpriteDetails {
-                stroke: Some(Sprite::DEFAULT_STROKE),
-                ..Default::default()
-            },
             fog_brush: Self::DEFAULT_FOG_BRUSH,
             history: history::History::new(client),
             holding: holding::HeldObject::None,
@@ -424,12 +419,18 @@ impl Interactor {
         self.changes.sprite_change();
     }
 
-    pub fn start_draw(&mut self, at: Point, ephemeral: bool, alt: bool) {
+    pub fn start_draw(
+        &mut self,
+        at: Point,
+        ephemeral: bool,
+        alt: bool,
+        details: details::SpriteDetails,
+    ) {
         self.clear_held_selection();
-        if self.draw_details.shape.is_some() {
-            self.new_held_shape(self.draw_details.shape.unwrap(), at, !alt, ephemeral);
+        if details.shape.is_some() {
+            self.new_held_shape(details.shape.unwrap(), at, !alt, ephemeral, details);
         } else {
-            let mut visual = self.draw_details.drawing();
+            let mut visual = details.drawing();
             let drawing_id = self.scene.start_drawing();
             if let SpriteVisual::Drawing { drawing, .. } = &mut visual {
                 *drawing = drawing_id;
@@ -812,14 +813,21 @@ impl Interactor {
         self.new_sprite_common(visual, layer, Some(at))
     }
 
-    pub fn new_held_shape(&mut self, shape: Shape, at: Point, snap_to_grid: bool, ephemeral: bool) {
+    pub fn new_held_shape(
+        &mut self,
+        shape: Shape,
+        at: Point,
+        snap_to_grid: bool,
+        ephemeral: bool,
+        details: details::SpriteDetails,
+    ) {
         self.clear_held_selection();
         let at = Rect::at(if snap_to_grid { at.round() } else { at }, 0.0, 0.0);
         if let Some(id) = self.new_sprite_at(
             Some(SpriteVisual::Shape {
-                colour: self.draw_details.colour(),
+                colour: details.colour(),
                 shape,
-                stroke: self.draw_details.stroke(),
+                stroke: details.stroke(),
             }),
             Some(self.selected_layer),
             at,
@@ -891,7 +899,7 @@ impl Interactor {
         self.scene_option(opt);
     }
 
-    pub fn sprite_aura(&mut self, id: Id) {
+    pub fn sprite_aura(&mut self, id: Id, colour: scene::Colour) {
         const DEFAULT_RADIUS: f32 = 2.0;
 
         if let Some((visual, rect)) = self.sprite_ref(id).map(|s| {
@@ -899,7 +907,7 @@ impl Interactor {
                 SpriteVisual::Shape {
                     shape: Shape::Ellipse,
                     stroke: Sprite::SOLID_STROKE,
-                    colour: self.draw_details.colour().with_opacity(0.4),
+                    colour: colour.with_opacity(0.4),
                 },
                 Rect {
                     x: s.rect.x - DEFAULT_RADIUS,
@@ -967,15 +975,6 @@ impl Interactor {
         self.selection_effect(|s| Some(s.move_by(delta)));
     }
 
-    #[must_use]
-    pub fn get_draw_details(&mut self) -> &details::SpriteDetails {
-        &self.draw_details
-    }
-
-    pub fn update_draw_details(&mut self, details: details::SpriteDetails) {
-        self.draw_details.update_from(&details);
-    }
-
     fn group_selected(&mut self) {
         let event = self.scene.group_sprites(&self.selected_sprites);
         self.scene_event(event);
@@ -990,11 +989,15 @@ impl Interactor {
         }
     }
 
-    pub fn handle_dropdown_event(&mut self, event: CanvasDropdownEvent) {
+    pub fn handle_dropdown_event(
+        &mut self,
+        event: CanvasDropdownEvent,
+        details: details::SpriteDetails,
+    ) {
         match event {
             CanvasDropdownEvent::Aura => {
                 if let Some(id) = self.selected_id() {
-                    self.sprite_aura(id);
+                    self.sprite_aura(id, details.colour());
                 }
             }
             CanvasDropdownEvent::Clone => {
@@ -1028,13 +1031,6 @@ impl Interactor {
             }
         }
         &[CanvasDropdownEvent::Group, CanvasDropdownEvent::Ungroup]
-    }
-
-    pub fn change_stroke(&mut self, delta: f32) {
-        const COEFF: f32 = -1.0 / (114.0 * 4.0);
-
-        let new = (self.draw_details.stroke() + delta * COEFF).max(0.0);
-        self.draw_details.stroke = Some(new);
     }
 
     pub fn change_fog_brush(&mut self, delta: f32) -> u32 {

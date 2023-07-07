@@ -11,7 +11,7 @@ impl SceneMenu {
     pub fn new(vp: VpRef) -> Self {
         let mut inputs = InputGroup::new(vp);
 
-        inputs.add_float(
+        inputs.add_float_handler(
             "Width",
             Some(0),
             Some(scene::Scene::MAX_SIZE as i32),
@@ -22,7 +22,7 @@ impl SceneMenu {
                 });
             }),
         );
-        inputs.add_float(
+        inputs.add_float_handler(
             "Height",
             Some(0),
             Some(scene::Scene::MAX_SIZE as i32),
@@ -34,7 +34,7 @@ impl SceneMenu {
             }),
         );
         inputs.add_line();
-        inputs.add_checkbox(
+        inputs.add_checkbox_handler(
             "Fog of War",
             Box::new(|vp, active| {
                 vp.scene.scene_details(SceneDetails {
@@ -43,7 +43,7 @@ impl SceneMenu {
                 });
             }),
         );
-        inputs.add_float(
+        inputs.add_float_handler(
             "Brush",
             Some(1),
             Some(20),
@@ -52,7 +52,7 @@ impl SceneMenu {
             }),
         );
         inputs.add_line();
-        inputs.add_select(
+        inputs.add_select_handler(
             "Change Scene",
             &[],
             Box::new(|_vp, key| {
@@ -82,11 +82,11 @@ impl SceneMenu {
     pub fn set_details(&mut self, details: SceneDetails) {
         self.inputs.set_value_float(
             "Width",
-            details.w.unwrap_or(scene::Scene::DEFAULT_SIZE) as f64,
+            details.w.unwrap_or(scene::Scene::DEFAULT_SIZE) as f32,
         );
         self.inputs.set_value_float(
             "Height",
-            details.h.unwrap_or(scene::Scene::DEFAULT_SIZE) as f64,
+            details.h.unwrap_or(scene::Scene::DEFAULT_SIZE) as f32,
         );
         self.inputs
             .set_value_bool("Fog of War", details.fog.unwrap_or(false));
@@ -94,7 +94,7 @@ impl SceneMenu {
     }
 
     pub fn set_brush(&mut self, brush: u32) {
-        self.inputs.set_value_float("Brush", brush as f64);
+        self.inputs.set_value_float("Brush", brush as f32);
     }
 
     pub fn details(&self) -> SceneDetails {
@@ -113,7 +113,7 @@ impl SceneMenu {
     }
 
     pub fn set_fog_brush(&self, brush: u32) {
-        self.inputs.set_value_float("Brush", brush as f64);
+        self.inputs.set_value_float("Brush", brush as f32);
     }
 
     pub fn scene(&self) -> Option<String> {
