@@ -4,8 +4,10 @@
 * Warn when saving over changes
 * Select from selected layer first (possibly)
 * Layer opacity
-* Hide sprite menu when no sprite selected
-* Use sprite menu to change texture
+* Sprite menu changes
+    * Hide when no sprite selected
+    * Use to change texture
+    * Move sprite rust
 * Place media in directories
 * Manage fog of war by player
 * Associate each client with a user. When a user connects a second time,
