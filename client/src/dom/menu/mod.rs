@@ -31,7 +31,7 @@ fn add_to_menu(key: &str, inputs: &Element) {
     let heading = &format!("{}_heading", &prefix);
     let collapse = &format!("{}_collapse", &prefix);
     item.child("h2")
-        .with_attr("id", &heading)
+        .with_attr("id", heading)
         .with_class("accordion-header")
         .child("button")
         .with_classes(&["accordion-button", "shadow-none", "collapsed"])
@@ -63,13 +63,25 @@ impl Menu {
             dropdown: dropdown::Dropdown::new(),
             layers: layers::LayersMenu::new(vp.clone()),
             scene: scene::SceneMenu::new(vp.clone()),
-            draw: draw::DrawMenu::new(vp.clone()),
+            draw: draw::DrawMenu::new(vp),
         };
 
         add_to_menu("Layers", menu.layers.root());
         add_to_menu("Scene", menu.scene.root());
         add_to_menu("Draw", menu.draw.root());
         menu
+    }
+
+    pub fn get_draw_details(&self) -> crate::interactor::details::SpriteDetails {
+        self.draw.details()
+    }
+
+    pub fn handle_stroke_change(&mut self, delta: f32) {
+        self.draw.change_stroke(delta);
+    }
+
+    pub fn set_draw_tool(&mut self, draw_tool: crate::viewport::DrawTool) {
+        self.draw.set_draw_tool(draw_tool);
     }
 
     pub fn show_dropdown(&self, at: ViewportPoint) {

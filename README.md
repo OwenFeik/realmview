@@ -39,9 +39,9 @@
 * Remove sprites is forbidden; should be able to remove own sprites
 * Crashes when resizing grid
 * Hollow shapes when rendered with opacity have overlapping triangles visible.
-* Draw menu is broken; wrong tools selected.
 * Add to scene button is broken; `selected_layer` is undefined.
 * Resizing drawings is broken.
+* Saving drawings is broken.
 
 # Documentation
 

@@ -2,21 +2,24 @@ use crate::{
     dom::{element::Element, icon::Icon, input::InputGroup},
     interactor::details::SpriteDetails,
     start::VpRef,
+    viewport::DrawTool,
 };
 
 pub struct DrawMenu {
     inputs: InputGroup,
+    tool: DrawTool,
 }
 
 impl DrawMenu {
     const COLOUR: &str = "Colour";
     const OPACITY: &str = "Opacity";
+    const DRAW_TOOL: &str = "draw_tool";
     const CAP_START: &str = "Start";
     const CAP_END: &str = "End";
     const STROKE: &str = "Stroke";
 
     pub fn new(vp: VpRef) -> Self {
-        let mut inputs = InputGroup::new(vp.clone());
+        let mut inputs = InputGroup::new(vp);
 
         let details = SpriteDetails {
             stroke: Some(scene::Sprite::DEFAULT_STROKE),
@@ -55,37 +58,33 @@ impl DrawMenu {
         inputs.add_line();
 
         inputs.add_icon_radio_handler(
-            "draw_tool",
+            Self::DRAW_TOOL,
             &[Icon::Brush, Icon::Line, Icon::Square, Icon::Circle],
-            Box::new(|vp, idx| {
-                let shape = match idx {
-                    2 => Some(scene::Shape::Rectangle),
-                    3 => Some(scene::Shape::Ellipse),
-                    _ => None,
-                };
-                let drawing_mode = match idx {
-                    0 => Some(scene::DrawingMode::Freehand),
-                    1 => Some(scene::DrawingMode::Line),
-                    _ => None,
-                };
-
-                vp.scene.update_draw_details(SpriteDetails {
-                    shape,
-                    drawing_mode,
-                    ..Default::default()
+            Box::new(|vp, icon| {
+                vp.set_draw_tool(match icon {
+                    Icon::Brush => DrawTool::Freehand,
+                    Icon::Line => DrawTool::Line,
+                    Icon::Square => DrawTool::Rectangle,
+                    Icon::Circle => DrawTool::Ellipse,
+                    _ => DrawTool::Freehand,
                 });
-                vp.set_tool(crate::viewport::Tool::Draw);
             }),
         );
+        inputs.set_selected_icon_radio(Self::DRAW_TOOL, Icon::Brush);
 
-        Self { inputs }
+        Self {
+            inputs,
+            tool: DrawTool::Freehand,
+        }
     }
 
     pub fn root(&self) -> &Element {
         &self.inputs.root
     }
 
-    pub fn change_stroke(&mut self, delta: f32) {
+    pub fn change_stroke(&self, delta: f32) {
+        /// This coefficient is based on scroll delta sizes observed in firefox.
+        /// Could maybe be abstracted a bit more.
         const COEFF: f32 = -1.0 / (114.0 * 4.0);
 
         let old = self
@@ -100,6 +99,11 @@ impl DrawMenu {
 
     pub fn details(&self) -> SpriteDetails {
         SpriteDetails {
+            shape: match self.tool {
+                DrawTool::Ellipse => Some(scene::Shape::Ellipse),
+                DrawTool::Rectangle => Some(scene::Shape::Rectangle),
+                DrawTool::Freehand | DrawTool::Line => None,
+            },
             stroke: self.inputs.value_f32(Self::STROKE),
             colour: self
                 .inputs
@@ -115,6 +119,56 @@ impl DrawMenu {
                 .map(|s| str_to_cap(&s)),
             ..Default::default()
         }
+    }
+
+    fn update(&self, details: &SpriteDetails) {
+        if let Some(value) = details.stroke {
+            self.inputs.set_value_float(Self::STROKE, value);
+        }
+
+        if let Some(value) = details.colour {
+            self.inputs.set_value_colour(Self::COLOUR, value);
+            self.inputs.set_value_float(Self::OPACITY, value.a());
+        }
+
+        if let Some(cap) = details.cap_start {
+            self.inputs
+                .set_value_string(Self::CAP_START, cap_to_str(cap));
+        }
+
+        if let Some(cap) = details.cap_end {
+            self.inputs.set_value_string(Self::CAP_END, cap_to_str(cap));
+        }
+    }
+
+    pub fn set_draw_tool(&mut self, draw_tool: DrawTool) {
+        let mut deets: crate::interactor::details::SpriteDetails = Default::default();
+        let icon = match draw_tool {
+            DrawTool::Ellipse => {
+                deets.shape = Some(::scene::Shape::Ellipse);
+                Icon::Circle
+            }
+            DrawTool::Freehand => {
+                deets.shape = None;
+                deets.drawing_mode = Some(::scene::DrawingMode::Freehand);
+                deets.cap_end = Some(::scene::Cap::Round);
+                Icon::Brush
+            }
+            DrawTool::Line => {
+                deets.shape = None;
+                deets.drawing_mode = Some(::scene::DrawingMode::Line);
+                deets.cap_end = Some(::scene::Cap::Arrow);
+                Icon::Line
+            }
+            DrawTool::Rectangle => {
+                deets.shape = Some(::scene::Shape::Rectangle);
+                Icon::Square
+            }
+        };
+
+        self.update(&deets);
+        self.inputs.set_selected_icon_radio(Self::DRAW_TOOL, icon);
+        self.tool = draw_tool;
     }
 }
 

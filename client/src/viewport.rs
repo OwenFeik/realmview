@@ -11,7 +11,7 @@ use crate::{
     interactor::Interactor,
 };
 
-#[derive(Clone, Copy, Debug, serde_derive::Deserialize, serde_derive::Serialize)]
+#[derive(Clone, Copy, Debug)]
 pub enum Tool {
     Draw,
     Fog,
@@ -38,8 +38,7 @@ impl Tool {
     }
 }
 
-#[derive(serde_derive::Serialize)]
-enum DrawTool {
+pub enum DrawTool {
     Ellipse,
     Freehand,
     Line,
@@ -162,7 +161,6 @@ impl Viewport {
 
     pub fn set_tool(&mut self, tool: Tool) {
         if tool.allowed(self.scene.role) {
-            crate::bridge::set_active_tool(tool).ok();
             self.tool = tool;
             self.update_cursor(None);
         } else {
@@ -170,25 +168,9 @@ impl Viewport {
         }
     }
 
-    fn set_draw_tool(&mut self, draw_tool: DrawTool) {
+    pub fn set_draw_tool(&mut self, draw_tool: DrawTool) {
         self.set_tool(Tool::Draw);
-
-        let mut deets: crate::interactor::details::SpriteDetails = Default::default();
-        match draw_tool {
-            DrawTool::Ellipse => deets.shape = Some(scene::Shape::Ellipse),
-            DrawTool::Freehand => {
-                deets.drawing_mode = Some(scene::DrawingMode::Freehand);
-                deets.cap_end = Some(scene::Cap::Round);
-            }
-            DrawTool::Line => {
-                deets.drawing_mode = Some(scene::DrawingMode::Line);
-                deets.cap_end = Some(scene::Cap::Arrow);
-            }
-            DrawTool::Rectangle => deets.shape = Some(scene::Shape::Rectangle),
-        }
-
-        self.scene.update_draw_details(deets);
-        crate::bridge::set_active_draw_tool(draw_tool).ok();
+        self.menu().set_draw_tool(draw_tool);
     }
 
     fn scene_point(&self, at: ViewportPoint) -> Point {
@@ -229,7 +211,11 @@ impl Viewport {
         match button {
             MouseButton::Left => {
                 match self.tool {
-                    Tool::Draw => self.scene.start_draw(self.scene_point(at), ctrl, alt),
+                    Tool::Draw => {
+                        let draw_details = self.menu().get_draw_details();
+                        self.scene
+                            .start_draw(self.scene_point(at), ctrl, alt, draw_details)
+                    }
                     Tool::Pan => self.grab(at),
                     Tool::Select => self.scene.grab(self.scene_point(at), ctrl),
                     _ => (),
@@ -333,7 +319,7 @@ impl Viewport {
             self.zoom(delta, Some(at));
         } else if alt {
             match self.tool {
-                Tool::Draw => self.scene.change_stroke(delta),
+                Tool::Draw => self.menu().handle_stroke_change(delta),
                 Tool::Fog => {
                     let fog_brush = self.scene.change_fog_brush(delta);
                     self.menu().set_fog_brush(fog_brush);
@@ -400,8 +386,10 @@ impl Viewport {
     }
 
     fn process_ui_events(&mut self) {
-        if let Some(event) = self.menu().dropdown_event() {
-            self.scene.handle_dropdown_event(event);
+        let menu = self.menu();
+        if let Some(event) = menu.dropdown_event() {
+            let draw_details = menu.get_draw_details();
+            self.scene.handle_dropdown_event(event, draw_details);
         }
 
         let events = match self.context.events() {
@@ -443,7 +431,7 @@ impl Viewport {
     fn redraw(&mut self) {
         let vp = crate::render::ViewInfo::new(
             Rect::scaled_from(self.viewport, self.grid_zoom),
-            self.grid_zoom
+            self.grid_zoom,
         );
 
         let renderer = self.context.renderer();

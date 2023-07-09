@@ -646,14 +646,6 @@ pub fn set_active_draw_tool(tool: impl serde::Serialize) -> anyhow::Result<()> {
     set_checked(&enum_to_id(tool, ID_PREFIX)?)
 }
 
-pub fn set_active_tool(tool: crate::viewport::Tool) -> anyhow::Result<()> {
-    // Note: this needs to match web/include/scene/menu/tools/tools_menu.html
-    const ID_PREFIX: &str = "tool_radio_";
-    set_checked(&enum_to_id(tool, ID_PREFIX)?)?;
-    set_visible("draw_menu", matches!(tool, crate::viewport::Tool::Draw))?;
-    Ok(())
-}
-
 pub fn set_role(role: scene::perms::Role) {
     set_visible("canvas_menu", !role.spectator()).ok();
     set_visible("show_offcanvas", !role.spectator()).ok();

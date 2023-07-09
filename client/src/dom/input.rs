@@ -78,6 +78,12 @@ impl InputGroup {
         }
     }
 
+    pub fn set_selected_icon_radio(&self, key: &str, icon: Icon) {
+        if let Some(radio) = Element::by_id(&Self::icon_radio_input_id(key, icon)) {
+            radio.set_checked(true);
+        }
+    }
+
     pub fn set_options<T: AsRef<str>>(&self, key: &str, options: &[(T, T)]) {
         if let Some(e) = self.inputs.get(key) {
             e.set_options(options);
@@ -172,7 +178,7 @@ impl InputGroup {
         let el = Element::new("div").with_class("input-group-text");
         self.line.append_child(&text(key));
         self.line.append_child(&el);
-        let mut input = el
+        let input = el
             .child("div")
             .with_class("form-check")
             .child("input")
@@ -248,19 +254,28 @@ impl InputGroup {
 
     pub fn add_colour_handler(&mut self, key: &str, action: ValueHandler<Colour>) {
         self.add_colour(key);
-        let mut input = self.inputs.get_mut(key).unwrap();
+        let input = self.inputs.get_mut(key).unwrap();
         let vp_ref = self.vp.clone();
         input.set_oninput(Box::new(move |evt| {
-            evt.target().map(|target| {
-                let hex = target.unchecked_ref::<HtmlInputElement>().value();
+            if let Some(input) = evt.target() {
+                let hex = input.unchecked_ref::<HtmlInputElement>().value();
                 if let Some(colour) = hex_to_colour(&hex) {
                     action(&mut vp_ref.lock(), colour);
                 }
-            });
+            };
         }));
     }
 
-    pub fn add_icon_radio_handler(&mut self, key: &str, icons: &[Icon], action: ValueHandler<u32>) {
+    fn icon_radio_input_id(key: &str, icon: Icon) -> String {
+        format!("{key}_option_{}", icon.class())
+    }
+
+    pub fn add_icon_radio_handler(
+        &mut self,
+        key: &str,
+        icons: &[Icon],
+        action: ValueHandler<Icon>,
+    ) {
         let el = self
             .line
             .child("div")
@@ -270,8 +285,8 @@ impl InputGroup {
         let action_ref = std::rc::Rc::new(action);
 
         let name = format!("{key}_radio");
-        for (i, icon) in icons.iter().enumerate() {
-            let id = format!("{key}_option_{i}");
+        for &icon in icons {
+            let id = Self::icon_radio_input_id(key, icon);
             let mut input = el
                 .child("input")
                 .with_attrs(&[("id", &id), ("type", "radio"), ("name", &name)])
@@ -282,7 +297,7 @@ impl InputGroup {
                 .with_child(&icon.element());
             let vp_ref = self.vp.clone();
             let action_ref = action_ref.clone();
-            input.set_oninput(Box::new(move |_| action_ref(&mut vp_ref.lock(), i as u32)));
+            input.set_oninput(Box::new(move |_| action_ref(&mut vp_ref.lock(), icon)));
         }
     }
 }

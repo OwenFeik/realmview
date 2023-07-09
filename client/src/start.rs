@@ -14,7 +14,7 @@ use crate::bridge::{
 };
 use crate::client::Client;
 use crate::dom::menu::Menu;
-use crate::viewport::{Tool, Viewport};
+use crate::viewport::Viewport;
 
 pub type VpRef = Rc<Mutex<Viewport>>;
 
@@ -141,24 +141,6 @@ pub fn start() -> Result<(), JsValue> {
     }) as Box<dyn FnMut(f64)>);
     expose_closure_f64("select_layer", &select_layer_closure);
     select_layer_closure.forget();
-
-    let vp_ref = vp.clone();
-    let select_tool_closure = Closure::wrap(Box::new(move |tool: String| {
-        vp_ref
-            .lock()
-            .set_tool(parse_json(&format!("\"{tool}\"")).unwrap_or(Tool::Select));
-    }) as Box<dyn FnMut(String)>);
-    expose_closure_string_in("select_tool", &select_tool_closure);
-    select_tool_closure.forget();
-
-    let vp_ref = vp.clone();
-    let draw_details_closure = Closure::wrap(Box::new(move |json: String| {
-        if let Some(details) = parse_json(&json) {
-            vp_ref.lock().scene.update_draw_details(details);
-        }
-    }) as Box<dyn FnMut(String)>);
-    expose_closure_string_in("draw_details", &draw_details_closure);
-    draw_details_closure.forget();
 
     let vp_ref = vp.clone();
     let set_fog_brush_closure = Closure::wrap(Box::new(move |size: f64| {
