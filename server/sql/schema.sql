@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS layers (
 );
 
 CREATE TABLE IF NOT EXISTS sprites (
-    id INTEGER NOT NULL,
+    id INTEGER NOT NULL, -- Unique in scene, not in table
     scene INTEGER NOT NULL,
     layer INTEGER NOT NULL,
     x REAL NOT NULL,
@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS sprites (
     g REAL,
     b REAL,
     a REAL,
-    drawing INTEGER REFERENCES drawings(id) ON DELETE SET NULL,
+    drawing INTEGER, -- References drawing ID in scene
     drawing_type INTEGER,
     cap_start INTEGER,
     cap_end INTEGER,

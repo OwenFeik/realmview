@@ -3,6 +3,7 @@
         "CARGO_TARGET_DIR": "build/target"
     },
     "[html]": {
-        "editor.tabSize": 2
+        "editor.formatOnSave": false,
+        "editor.tabSize": 2,
     }
 }

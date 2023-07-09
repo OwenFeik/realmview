@@ -1,9 +1,6 @@
 # TODO
 
 ## Features
-* Save drawings when saving the scene
-    * Check which drawings are in use and only save those. Remove drawings not in
-        use.
 * Warn when saving over changes
 * Select from selected layer first (possibly)
 * Layer opacity
@@ -30,6 +27,7 @@
 * Token health bars
 * Better database abstraction
 * One-click jump in to most recent scene.
+* Autosave for editor as well as game.
 
 ## Bugs
 * Undoing creation of a shape moves it to a 0x0 at cursor
@@ -41,7 +39,6 @@
 * Hollow shapes when rendered with opacity have overlapping triangles visible.
 * Add to scene button is broken; `selected_layer` is undefined.
 * Resizing drawings is broken.
-* Saving drawings is broken.
 
 # Documentation
 

@@ -126,7 +126,7 @@ impl Project {
     pub async fn update_scene(
         &self,
         conn: &mut SqliteConnection,
-        scene: scene::Scene,
+        mut scene: scene::Scene,
     ) -> anyhow::Result<SceneRecord> {
         let s = scene_record::SceneRecord::get_or_create(
             conn,
@@ -143,11 +143,15 @@ impl Project {
         )
         .await?;
 
+        scene.id = Some(s.id);
+
         for layer in scene.removed_layers.iter() {
             for sprite in &layer.sprites {
                 SpriteRecord::delete(conn, sprite.id, s.id).await?;
             }
         }
+
+        DrawingRecord::update_scene_drawings(conn, &scene).await?;
 
         for layer in &scene.layers {
             for sprite in &layer.removed_sprites {
@@ -160,8 +164,6 @@ impl Project {
                 SpriteRecord::save(conn, sprite, l.id, s.id).await?;
             }
         }
-
-        DrawingRecord::update_scene_drawings(conn, &scene).await?;
 
         GroupRecord::delete_scene_groups(conn, s.id).await?;
         for group in &scene.groups {
