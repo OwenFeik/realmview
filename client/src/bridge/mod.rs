@@ -658,3 +658,8 @@ pub fn set_role(role: scene::perms::Role) {
     // Fog tool, editor only
     set_visible("tool_radio_fog_label", role.editor()).ok();
 }
+
+/// Random float in \[0, 1.0\] using JS Math.random()
+pub fn rand() -> f32 {
+    js_sys::Math::random() as f32
+}

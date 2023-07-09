@@ -15,6 +15,7 @@ impl SceneMenu {
             "Width",
             Some(0),
             Some(scene::Scene::MAX_SIZE as i32),
+            None,
             Box::new(|vp, w| {
                 vp.scene.scene_details(SceneDetails {
                     w: Some(w as u32),
@@ -26,6 +27,7 @@ impl SceneMenu {
             "Height",
             Some(0),
             Some(scene::Scene::MAX_SIZE as i32),
+            None,
             Box::new(|vp, h| {
                 vp.scene.scene_details(SceneDetails {
                     h: Some(h as u32),
@@ -47,6 +49,7 @@ impl SceneMenu {
             "Brush",
             Some(1),
             Some(20),
+            None,
             Box::new(|vp, brush| {
                 vp.scene.set_fog_brush(brush as u32);
             }),

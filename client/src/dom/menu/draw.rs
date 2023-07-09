@@ -21,39 +21,28 @@ impl DrawMenu {
     pub fn new(vp: VpRef) -> Self {
         let mut inputs = InputGroup::new(vp);
 
-        let details = SpriteDetails {
-            stroke: Some(scene::Sprite::DEFAULT_STROKE),
-            ..Default::default()
-        };
-
         inputs.add_colour(Self::COLOUR);
-        inputs.set_value_colour(Self::COLOUR, details.colour());
+        inputs.set_value_colour(Self::COLOUR, random_bright_colour());
 
-        inputs.add_float(Self::OPACITY, Some(0), Some(100));
-        inputs.set_value_float(Self::OPACITY, details.colour().a());
+        inputs.add_float(Self::OPACITY, Some(0), Some(100), None);
+        inputs.set_value_float(Self::OPACITY, scene::Colour::DEFAULT.a() * 100.0);
 
         inputs.add_line();
 
-        inputs.add_float(Self::STROKE, Some(0), None);
-        inputs.set_value_float(Self::STROKE, details.stroke());
+        inputs.add_float(Self::STROKE, Some(0), None, Some(0.1));
+        inputs.set_value_float(Self::STROKE, scene::Sprite::DEFAULT_STROKE);
 
         inputs.add_checkbox("Solid");
-        inputs.set_value_bool("Solid", details.stroke() == 0.0);
+        inputs.set_value_bool("Solid", false);
 
         inputs.add_line();
 
         const CAP_OPTIONS: &[(&str, &str)] =
             &[("Arrow", "arrow"), ("Round", "round"), ("None", "none")];
         inputs.add_select(Self::CAP_START, CAP_OPTIONS);
-        inputs.set_value_string(
-            Self::CAP_START,
-            cap_to_str(details.cap_start.unwrap_or(scene::Cap::DEFAULT_START)),
-        );
+        inputs.set_value_string(Self::CAP_START, cap_to_str(scene::Cap::DEFAULT_START));
         inputs.add_select(Self::CAP_END, CAP_OPTIONS);
-        inputs.set_value_string(
-            Self::CAP_END,
-            cap_to_str(details.cap_end.unwrap_or(scene::Cap::DEFAULT_END)),
-        );
+        inputs.set_value_string(Self::CAP_END, cap_to_str(scene::Cap::DEFAULT_END));
 
         inputs.add_line();
 
@@ -105,10 +94,14 @@ impl DrawMenu {
                 DrawTool::Freehand | DrawTool::Line => None,
             },
             stroke: self.inputs.value_f32(Self::STROKE),
-            colour: self
-                .inputs
-                .value_colour(Self::COLOUR)
-                .map(|c| c.with_opacity(self.inputs.value_f32(Self::OPACITY).unwrap_or(1.0))),
+            colour: self.inputs.value_colour(Self::COLOUR).map(|c| {
+                c.with_opacity(
+                    self.inputs
+                        .value_f32(Self::OPACITY)
+                        .map(|v| v / 100.0)
+                        .unwrap_or(1.0),
+                )
+            }),
             cap_start: self
                 .inputs
                 .value_string(Self::CAP_START)
@@ -117,6 +110,11 @@ impl DrawMenu {
                 .inputs
                 .value_string(Self::CAP_END)
                 .map(|s| str_to_cap(&s)),
+            drawing_mode: match self.tool {
+                DrawTool::Freehand => Some(scene::DrawingMode::Freehand),
+                DrawTool::Line => Some(scene::DrawingMode::Line),
+                DrawTool::Ellipse | DrawTool::Rectangle => None,
+            },
             ..Default::default()
         }
     }
@@ -186,5 +184,21 @@ fn cap_to_str(cap: scene::Cap) -> &'static str {
         scene::Cap::Arrow => "arrow",
         scene::Cap::None => "none",
         scene::Cap::Round => "round",
+    }
+}
+
+fn is_bright_colour(colour: scene::Colour) -> bool {
+    const THRESHOLD: f32 = 2.0;
+    colour.r() + colour.g() + colour.b() >= THRESHOLD
+}
+
+fn random_bright_colour() -> scene::Colour {
+    use crate::bridge::rand;
+
+    loop {
+        let colour = scene::Colour([rand(), rand(), rand(), 1.0]);
+        if is_bright_colour(colour) {
+            break colour;
+        }
     }
 }

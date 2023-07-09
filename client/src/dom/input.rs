@@ -68,7 +68,7 @@ impl InputGroup {
 
     pub fn set_value_float(&self, key: &str, value: f32) {
         if let Some(e) = self.inputs.get(key) {
-            e.set_value_float(value as f64);
+            e.set_value_float((value as f64 * 100.0).round() / 100.0);
         }
     }
 
@@ -135,8 +135,8 @@ impl InputGroup {
         );
     }
 
-    pub fn add_float(&mut self, key: &str, min: Option<i32>, max: Option<i32>) {
-        self.add_entry(key, float(min, max));
+    pub fn add_float(&mut self, key: &str, min: Option<i32>, max: Option<i32>, step: Option<f32>) {
+        self.add_entry(key, float(min, max, step));
     }
 
     pub fn add_float_handler(
@@ -144,9 +144,10 @@ impl InputGroup {
         key: &str,
         min: Option<i32>,
         max: Option<i32>,
+        step: Option<f32>,
         action: ValueHandler<f32>,
     ) {
-        self.add_float(key, min, max);
+        self.add_float(key, min, max, step);
         let el = self.inputs.get_mut(key).unwrap();
         let el_ref = el.clone();
         let vp_ref = self.vp.clone();
@@ -313,10 +314,14 @@ fn string() -> Element {
         .with_attr("type", "text")
 }
 
-fn float(min: Option<i32>, max: Option<i32>) -> Element {
+fn float(min: Option<i32>, max: Option<i32>, step: Option<f32>) -> Element {
     let el = Element::input()
         .with_class("form-control")
         .with_attrs(&[("type", "number"), ("autocomplete", "off")]);
+
+    if let Some(step) = step {
+        el.set_attr("step", &step.to_string())
+    }
 
     if let Some(min) = min {
         el.set_attr("min", &min.to_string());

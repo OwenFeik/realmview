@@ -163,6 +163,7 @@ impl Viewport {
         if tool.allowed(self.scene.role) {
             self.tool = tool;
             self.update_cursor(None);
+            self.menu().update_tool(tool);
         } else {
             self.set_tool(Tool::Pan);
         }

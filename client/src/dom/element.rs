@@ -42,6 +42,14 @@ impl Element {
         })
     }
 
+    pub fn by_selector(selector: &str) -> Option<Element> {
+        get_document()
+            .ok()?
+            .query_selector(selector)
+            .ok()?
+            .map(Element::from)
+    }
+
     pub fn anchor() -> Self {
         Self::new("a")
     }
@@ -263,5 +271,13 @@ impl Clone for Element {
 impl Default for Element {
     fn default() -> Self {
         Self::new("div")
+    }
+}
+
+impl From<web_sys::Element> for Element {
+    fn from(value: web_sys::Element) -> Self {
+        Element {
+            element: value.unchecked_into::<web_sys::HtmlElement>(),
+        }
     }
 }

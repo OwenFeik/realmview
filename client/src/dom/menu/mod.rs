@@ -14,6 +14,14 @@ fn id(key: &str) -> String {
     format!("#{key}")
 }
 
+fn accordion_id(key: &str) -> String {
+    format!("{}_menu", key.to_lowercase())
+}
+
+fn accordion_collapse_id(key: &str) -> String {
+    format!("menu_{}_collapse", key.to_lowercase())
+}
+
 fn add_to_menu(key: &str, inputs: &Element) {
     let el = if let Some(el) = Element::by_id("canvas_menu") {
         el
@@ -25,11 +33,10 @@ fn add_to_menu(key: &str, inputs: &Element) {
 
     let item = el
         .child("div")
-        .with_attr("id", &format!("{}_menu", key.to_lowercase()))
+        .with_attr("id", &accordion_id(key))
         .with_class("accordion-item");
-    let prefix = format!("menu_{}", key.to_lowercase());
-    let heading = &format!("{}_heading", &prefix);
-    let collapse = &format!("{}_collapse", &prefix);
+    let heading = &format!("menu_{}_heading", key.to_lowercase());
+    let collapse = &accordion_collapse_id(key);
     item.child("h2")
         .with_attr("id", heading)
         .with_class("accordion-header")
@@ -50,6 +57,27 @@ fn add_to_menu(key: &str, inputs: &Element) {
         .with_child(inputs);
 }
 
+fn toggle_accordion_if<F: Fn(&Element) -> bool>(key: &str, condition: F) {
+    let collapse_id = accordion_collapse_id(key);
+    if let Some(collapse) = Element::by_id(&collapse_id) {
+        if condition(&collapse) {
+            if let Some(button) =
+                Element::by_selector(&format!("[data-bs-target='{}']", id(&collapse_id)))
+            {
+                button.element.click();
+            }
+        }
+    }
+}
+
+fn show_accordion(key: &str) {
+    toggle_accordion_if(key, |el| !el.has_class("show"))
+}
+
+fn hide_accordion(key: &str) {
+    toggle_accordion_if(key, |el| el.has_class("show"))
+}
+
 pub struct Menu {
     dropdown: dropdown::Dropdown,
     layers: layers::LayersMenu,
@@ -58,6 +86,8 @@ pub struct Menu {
 }
 
 impl Menu {
+    const DRAW: &str = "Draw";
+
     pub fn new(vp: VpRef) -> Self {
         let menu = Self {
             dropdown: dropdown::Dropdown::new(),
@@ -68,8 +98,15 @@ impl Menu {
 
         add_to_menu("Layers", menu.layers.root());
         add_to_menu("Scene", menu.scene.root());
-        add_to_menu("Draw", menu.draw.root());
+        add_to_menu(Self::DRAW, menu.draw.root());
         menu
+    }
+
+    pub fn update_tool(&self, tool: crate::viewport::Tool) {
+        match tool {
+            crate::viewport::Tool::Draw => show_accordion(Self::DRAW),
+            _ => hide_accordion(Self::DRAW),
+        }
     }
 
     pub fn get_draw_details(&self) -> crate::interactor::details::SpriteDetails {
