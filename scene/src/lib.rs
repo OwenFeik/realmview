@@ -519,6 +519,7 @@ impl Scene {
             if d.n_points() == 1 {
                 return self.remove_sprite(sprite);
             } else {
+                d.finished = true;
                 d.simplify()
             }
         } else {

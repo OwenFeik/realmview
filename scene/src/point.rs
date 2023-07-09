@@ -234,6 +234,11 @@ impl PointVector {
         self.map(|p| p * scale);
     }
 
+    pub fn scale_asymmetric(&mut self, scale_x: f32, scale_y: f32) {
+        let scale = Point::new(scale_x, scale_y);
+        self.map(|p| p * scale);
+    }
+
     pub fn translate(&mut self, delta: Point) {
         self.map(|p| p + delta);
     }

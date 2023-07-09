@@ -300,10 +300,11 @@ pub fn freehand(
     stroke: f32,
     cap_start: scene::Cap,
     cap_end: scene::Cap,
-    scale: f32,
+    scale_x: f32,
+    scale_y: f32,
 ) -> Vec<f32> {
     let mut coords = PointVector::new();
     add_line(&mut coords, points, stroke, cap_start, cap_end);
-    coords.scale(scale);
+    coords.scale_asymmetric(scale_x, scale_y);
     coords.data
 }

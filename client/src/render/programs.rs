@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use js_sys::Float32Array;
-use scene::{PointVector, Colour};
+use scene::{Colour, PointVector};
 use wasm_bindgen::{closure::Closure, JsCast};
 use web_sys::{
     HtmlImageElement, WebGlBuffer, WebGlProgram, WebGlShader, WebGlTexture, WebGlUniformLocation,
@@ -389,6 +389,7 @@ impl DrawingRenderer {
     }
 
     fn create_key(
+        rect: scene::Rect,
         drawing: &scene::Drawing,
         stroke: f32,
         cap_start: scene::Cap,
@@ -396,39 +397,34 @@ impl DrawingRenderer {
     ) -> u128 {
         // Key format is a u128 with the following structure:
         //
-        // 20 bits for the rect x (20 leftmost bits)
-        // 20 bits for the rect y (20 leftmost bits)
-        // 20 bits for the rect width (20 leftmost bits)
-        // 20 bits for the rect height (20 leftmost bits)
-        // 20 bits for the stroke width (20 leftmost bits)
-        // 23 bits counting the number of points in the drawing (max 65536)
+        // 32 bits for the rect width
+        // 32 bits for the rect height
+        // 32 bits for the stroke width
+        // 27 bits counting the number of points in the drawing
         // 2 bits for the starting cap
         // 2 bits for the ending cap
         // 1 bit for whether the drawing is finished
         //
         // Like so:
-        // 0000000000000000000X0000000000000000000Y000000000000000WIDTH0000
-        // 0000000000HEIGHT00000000000000STROKE00000000000N_POINTSSTRT0ENDF
+        // 000000000000000000000000000WIDTH00000000000000000000000000HEIGHT
+        // 00000000000000000000000000STROKE000000000000000N_POINTSSTRT0ENDF
         //
         // Is this grotesquely overcomplicated? Yes.
         let mut key = 0u128;
 
         // First 100 bits are the literal bits of the three floats.
-        let rect = drawing.points.rect();
         let mut keyf32 = |v: f32| {
-            key |= (v.to_bits() >> 12) as u128;
-            key <<= 20;
+            key |= v.to_bits() as u128;
+            key <<= 32;
         };
-        keyf32(rect.x); // 20
-        keyf32(rect.y); // 40
-        keyf32(rect.w); // 60
-        keyf32(rect.h); // 80
-        keyf32(stroke); // 100
+        keyf32(rect.w); // 32
+        keyf32(rect.h); // 64
+        keyf32(stroke); // 96
 
         // Last 28 bits. We've already shifted the first 100 across by 100.
         let mut low = 0u32;
         low |= drawing.n_points();
-        low <<= 23; // Assume n_points is smaller than 23 bits.
+        low <<= 27; // Assume n_points is smaller than 27 bits.
         low |= cap_start as u32; // allow 2 bits
         low <<= 2;
         low |= cap_end as u32; // 2 bits
@@ -441,16 +437,34 @@ impl DrawingRenderer {
     fn add_drawing(
         &mut self,
         id: scene::Id,
+        rect: scene::Rect,
         drawing_mode: scene::DrawingMode,
         drawing: &scene::Drawing,
         stroke: f32,
         cap_start: scene::Cap,
         cap_end: scene::Cap,
     ) -> anyhow::Result<()> {
+        // Before drawing is finished the sprite will always be 1*1. Only after
+        // it is finished do we need to think about it being resized.
+        let points_rect = drawing.points.rect();
+        let (scale_x, scale_y) = if drawing.finished {
+            (
+                self.grid_size * rect.w / points_rect.w,
+                self.grid_size * rect.h / points_rect.h,
+            )
+        } else {
+            (self.grid_size, self.grid_size)
+        };
+
         let points = match drawing_mode {
-            scene::DrawingMode::Freehand => {
-                super::shapes::freehand(&drawing.points, stroke, cap_start, cap_end, self.grid_size)
-            }
+            scene::DrawingMode::Freehand => super::shapes::freehand(
+                &drawing.points,
+                stroke,
+                cap_start,
+                cap_end,
+                scale_x,
+                scale_y,
+            ),
             scene::DrawingMode::Line => {
                 super::shapes::line(drawing.line(), stroke, cap_start, cap_end, self.grid_size)
             }
@@ -460,7 +474,10 @@ impl DrawingRenderer {
         mesh.set_transforms(false, true);
         self.drawings.insert(
             id,
-            (Self::create_key(drawing, stroke, cap_start, cap_end), mesh),
+            (
+                Self::create_key(rect, drawing, stroke, cap_start, cap_end),
+                mesh,
+            ),
         );
         Ok(())
     }
@@ -468,13 +485,14 @@ impl DrawingRenderer {
     fn get_drawing(
         &self,
         id: scene::Id,
+        rect: scene::Rect,
         drawing: &scene::Drawing,
         stroke: f32,
         start: scene::Cap,
         end: scene::Cap,
     ) -> Option<&Mesh> {
         if let Some((key, mesh)) = self.drawings.get(&id) {
-            if Self::create_key(drawing, stroke, start, end) == *key {
+            if Self::create_key(rect, drawing, stroke, start, end) == *key {
                 return Some(mesh);
             }
         }
@@ -502,11 +520,11 @@ impl DrawingRenderer {
     ) {
         self.update_grid_size(grid_size);
         let id = drawing.id;
-        if let Some(mesh) = self.get_drawing(id, drawing, stroke, start, end) {
+        if let Some(mesh) = self.get_drawing(id, position, drawing, stroke, start, end) {
             self.renderer
                 .draw(mesh, colour, viewport, position * grid_size);
         } else if self
-            .add_drawing(id, mode, drawing, stroke, start, end)
+            .add_drawing(id, position, mode, drawing, stroke, start, end)
             .is_ok()
         {
             self.draw_drawing(

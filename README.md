@@ -18,6 +18,7 @@
 * Save perms, reload when the same scene is loaded
 * Expose closure macro
 * Visible fog brush
+* Visible resize anchors
 * Update stroke width in menu when changing with scroll wheel
 * Close game when owner leaves
 * Added tokens can't be edited by players
@@ -38,7 +39,7 @@
 * Crashes when resizing grid
 * Hollow shapes when rendered with opacity have overlapping triangles visible.
 * Add to scene button is broken; `selected_layer` is undefined.
-* Resizing drawings is broken.
+* Drawing outlines are misleading for resize anchors.
 
 # Documentation
 
