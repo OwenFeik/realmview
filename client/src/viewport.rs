@@ -3,9 +3,8 @@ use crate::render::Renderer;
 use crate::scene::{Point, Rect};
 use crate::{
     bridge::{
-        clear_selected_sprite,
         event::{Input, Key, KeyboardAction, MouseAction, MouseButton},
-        set_selected_sprite, Context, Cursor,
+        Context, Cursor,
     },
     client::Client,
     interactor::Interactor,
@@ -467,11 +466,8 @@ impl Viewport {
         }
 
         if self.scene.changes.handle_selected_change() {
-            if let Some(details) = self.scene.selected_details() {
-                set_selected_sprite(details);
-            } else {
-                clear_selected_sprite();
-            }
+            let details = self.scene.selected_details();
+            self.menu().set_sprite_info(details);
         }
     }
 

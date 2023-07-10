@@ -10,7 +10,6 @@ use web_sys::{
 };
 
 use crate::dom::element::Element;
-use crate::interactor::details::SpriteDetails;
 use crate::render::WebGlRenderer;
 
 #[wasm_bindgen]
@@ -28,17 +27,9 @@ extern "C" {
     // Shows or hides the relevant UI elements given a role integer.
     pub fn update_interface(role: i32);
 
-    // Updates the sprite menu to refer to this sprite.
-    #[wasm_bindgen(js_name = set_selected_sprite)]
-    fn _set_selected_sprite(sprite_json: String);
-
     // Load and set as active scene by scene key
     #[wasm_bindgen]
     pub fn set_active_scene(scene_key: &str);
-
-    // Clears data from the sprite menu.
-    #[wasm_bindgen]
-    pub fn clear_selected_sprite();
 
     // Expose closures
     #[wasm_bindgen]
@@ -415,12 +406,6 @@ impl Context {
 
     pub fn renderer(&mut self) -> &mut WebGlRenderer {
         &mut self.renderer
-    }
-}
-
-pub fn set_selected_sprite(sprite: SpriteDetails) {
-    if let Ok(sprite_json) = serde_json::ser::to_string(&sprite) {
-        _set_selected_sprite(sprite_json);
     }
 }
 

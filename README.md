@@ -40,8 +40,10 @@
 * Remove sprites is forbidden; should be able to remove own sprites
 * Crashes when resizing grid
 * Hollow shapes when rendered with opacity have overlapping triangles visible.
+* Hollow shapes have wrong dimensions after resizing window until zoom.
 * Add to scene button is broken; `selected_layer` is undefined.
 * Drawing outlines are misleading for resize anchors.
+* Resizing a drawing increases the line stroke (maybe good?).
 
 # Documentation
 

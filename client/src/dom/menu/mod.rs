@@ -9,6 +9,7 @@ mod draw;
 mod dropdown;
 mod layers;
 mod scene;
+mod sprite;
 
 fn id(key: &str) -> String {
     format!("#{key}")
@@ -83,22 +84,26 @@ pub struct Menu {
     layers: layers::LayersMenu,
     scene: scene::SceneMenu,
     draw: draw::DrawMenu,
+    sprite: sprite::SpriteMenu,
 }
 
 impl Menu {
     const DRAW: &str = "Draw";
+    const SPRITE: &str = "Sprite";
 
     pub fn new(vp: VpRef) -> Self {
         let menu = Self {
             dropdown: dropdown::Dropdown::new(),
             layers: layers::LayersMenu::new(vp.clone()),
             scene: scene::SceneMenu::new(vp.clone()),
-            draw: draw::DrawMenu::new(vp),
+            draw: draw::DrawMenu::new(vp.clone()),
+            sprite: sprite::SpriteMenu::new(vp),
         };
 
         add_to_menu("Layers", menu.layers.root());
         add_to_menu("Scene", menu.scene.root());
         add_to_menu(Self::DRAW, menu.draw.root());
+        add_to_menu(Self::SPRITE, menu.sprite.root());
         menu
     }
 
@@ -152,5 +157,9 @@ impl Menu {
     pub fn set_layer_info(&mut self, selected: Id, layers: &[LayerInfo]) {
         self.layers.update(selected, layers);
         self.dropdown.update_layers(layers);
+    }
+
+    pub fn set_sprite_info(&mut self, details: Option<crate::interactor::details::SpriteDetails>) {
+        self.sprite.set_sprite_info(details);
     }
 }
