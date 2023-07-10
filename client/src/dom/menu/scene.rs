@@ -16,52 +16,39 @@ impl SceneMenu {
             Some(0),
             Some(scene::Scene::MAX_SIZE as i32),
             None,
-            Box::new(|vp, w| {
+            |vp, w| {
                 vp.scene.scene_details(SceneDetails {
                     w: Some(w as u32),
                     ..Default::default()
                 });
-            }),
+            },
         );
         inputs.add_float_handler(
             "Height",
             Some(0),
             Some(scene::Scene::MAX_SIZE as i32),
             None,
-            Box::new(|vp, h| {
+            |vp, h| {
                 vp.scene.scene_details(SceneDetails {
                     h: Some(h as u32),
                     ..Default::default()
                 });
-            }),
+            },
         );
         inputs.add_line();
-        inputs.add_checkbox_handler(
-            "Fog of War",
-            Box::new(|vp, active| {
-                vp.scene.scene_details(SceneDetails {
-                    fog: Some(active),
-                    ..Default::default()
-                });
-            }),
-        );
-        inputs.add_float_handler(
-            "Brush",
-            Some(1),
-            Some(20),
-            None,
-            Box::new(|vp, brush| {
-                vp.scene.set_fog_brush(brush as u32);
-            }),
-        );
+        inputs.add_checkbox_handler("Fog of War", |vp, active| {
+            vp.scene.scene_details(SceneDetails {
+                fog: Some(active),
+                ..Default::default()
+            });
+        });
+        inputs.add_float_handler("Brush", Some(1), Some(20), None, |vp, brush| {
+            vp.scene.set_fog_brush(brush as u32);
+        });
         inputs.add_line();
-        inputs.add_select_handler(
-            "Change Scene",
-            &[],
-            Box::new(|_vp, key| {
-                crate::bridge::set_active_scene(&key);
-            }),
-        );
+        inputs.add_select_handler("Change Scene", &[], |_vp, key| {
+            crate::bridge::set_active_scene(&key);
+        });
 
         Self { inputs }
     }

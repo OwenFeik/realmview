@@ -7,8 +7,8 @@ use web_sys::HtmlInputElement;
 use super::{element::Element, icon::Icon};
 use crate::{start::VpRef, viewport::Viewport};
 
-type Handler = Box<dyn Fn(&mut Viewport)>;
-type ValueHandler<T> = Box<dyn Fn(&mut Viewport, T)>;
+pub trait Handler = Fn(&mut Viewport) + 'static;
+pub trait ValueHandler<T> = Fn(&mut Viewport, T) + 'static;
 
 pub struct InputGroup {
     pub root: Element,
@@ -109,7 +109,12 @@ impl InputGroup {
         self.add_entry(key, string());
     }
 
-    pub fn add_toggle_string(&mut self, key: &str, label: bool, action: ValueHandler<String>) {
+    pub fn add_toggle_string<H: ValueHandler<String>>(
+        &mut self,
+        key: &str,
+        label: bool,
+        action: H,
+    ) {
         let el = string();
         el.set_enabled(false);
 
@@ -124,14 +129,14 @@ impl InputGroup {
             &format!("{}_toggle", key),
             Icon::Edit,
             Icon::Ok,
-            Box::new(move |vp, enabled| {
+            move |vp, enabled| {
                 el.set_enabled(enabled);
 
                 // Save value when disabling.
                 if !enabled {
                     action(vp, el.value_string());
                 }
-            }),
+            },
         );
     }
 
@@ -139,13 +144,13 @@ impl InputGroup {
         self.add_entry(key, float(min, max, step));
     }
 
-    pub fn add_float_handler(
+    pub fn add_float_handler<H: ValueHandler<f32>>(
         &mut self,
         key: &str,
         min: Option<i32>,
         max: Option<i32>,
         step: Option<f32>,
-        action: ValueHandler<f32>,
+        action: H,
     ) {
         self.add_float(key, min, max, step);
         let el = self.inputs.get_mut(key).unwrap();
@@ -160,11 +165,11 @@ impl InputGroup {
         self.add_entry(key, select(options));
     }
 
-    pub fn add_select_handler(
+    pub fn add_select_handler<H: ValueHandler<String>>(
         &mut self,
         key: &str,
         options: &[(&str, &str)],
-        action: ValueHandler<String>,
+        action: H,
     ) {
         self.add_select(key, options);
         let el = self.inputs.get_mut(key).unwrap();
@@ -188,7 +193,7 @@ impl InputGroup {
         self.add_input(key, input);
     }
 
-    pub fn add_checkbox_handler(&mut self, key: &str, action: ValueHandler<bool>) {
+    pub fn add_checkbox_handler<H: ValueHandler<bool>>(&mut self, key: &str, action: H) {
         self.add_checkbox(key);
         let input = self.inputs.get_mut(key).unwrap();
         let input_ref = input.clone();
@@ -198,7 +203,7 @@ impl InputGroup {
         }));
     }
 
-    pub fn add_toggle(&mut self, key: &str, a: Icon, b: Icon, action: ValueHandler<bool>) {
+    pub fn add_toggle<H: ValueHandler<bool>>(&mut self, key: &str, a: Icon, b: Icon, action: H) {
         let mut el = button();
         self.line.append_child(&el);
 
@@ -226,7 +231,7 @@ impl InputGroup {
         self.add_input(key, input);
     }
 
-    pub fn add_button(&mut self, icon: Icon, action: Handler) {
+    pub fn add_button<H: Handler>(&mut self, icon: Icon, action: H) {
         let mut el = button();
         el.child("i").with_class(&icon.class());
 
@@ -236,7 +241,7 @@ impl InputGroup {
         self.line.append_child(&el);
     }
 
-    pub fn add_radio(&mut self, key: &str, selected: bool, action: Handler) {
+    pub fn add_radio<H: Handler>(&mut self, key: &str, selected: bool, action: H) {
         let el = self.line.child("div").with_class("input-group-text");
         let mut input = el
             .child("input")
@@ -253,7 +258,7 @@ impl InputGroup {
         self.add_entry(key, colour());
     }
 
-    pub fn add_colour_handler(&mut self, key: &str, action: ValueHandler<Colour>) {
+    pub fn add_colour_handler<H: ValueHandler<Colour>>(&mut self, key: &str, action: H) {
         self.add_colour(key);
         let input = self.inputs.get_mut(key).unwrap();
         let vp_ref = self.vp.clone();
@@ -271,11 +276,11 @@ impl InputGroup {
         format!("{key}_option_{}", icon.class())
     }
 
-    pub fn add_icon_radio_handler(
+    pub fn add_icon_radio_handler<H: ValueHandler<Icon>>(
         &mut self,
         key: &str,
         icons: &[Icon],
-        action: ValueHandler<Icon>,
+        action: H,
     ) {
         let el = self
             .line

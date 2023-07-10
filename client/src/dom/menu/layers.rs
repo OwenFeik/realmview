@@ -73,42 +73,32 @@ impl LayersMenu {
             self.list.append_child(&input.root);
 
             let id = layer.id;
-            input.add_radio(
-                "selected-layer",
-                id == selected,
-                Box::new(move |vp| vp.scene.select_layer(id)),
-            );
+            input.add_radio("selected-layer", id == selected, move |vp| {
+                vp.scene.select_layer(id)
+            });
 
-            input.add_toggle_string(
-                "Title",
-                false,
-                Box::new(move |vp, title| {
-                    vp.scene.rename_layer(id, title);
-                }),
-            );
+            input.add_toggle_string("Title", false, move |vp, title| {
+                vp.scene.rename_layer(id, title);
+            });
             input.set_value_string("Title", &layer.title);
 
             let locked = layer.locked;
-            input.add_button(
-                if locked { Icon::Lock } else { Icon::Unlock },
-                Box::new(move |vp| vp.scene.set_layer_locked(id, !locked)),
-            );
+            input.add_button(if locked { Icon::Lock } else { Icon::Unlock }, move |vp| {
+                vp.scene.set_layer_locked(id, !locked)
+            });
 
             let visible = layer.visible;
             input.add_button(
                 if visible { Icon::Eye } else { Icon::EyeSlash },
-                Box::new(move |vp| {
+                move |vp| {
                     vp.scene.set_layer_visible(id, !visible);
-                }),
+                },
             );
 
-            input.add_button(Icon::Up, Box::new(move |vp| vp.scene.move_layer(id, true)));
-            input.add_button(
-                Icon::Down,
-                Box::new(move |vp| vp.scene.move_layer(id, false)),
-            );
+            input.add_button(Icon::Up, move |vp| vp.scene.move_layer(id, true));
+            input.add_button(Icon::Down, move |vp| vp.scene.move_layer(id, false));
 
-            input.add_button(Icon::Trash, Box::new(move |vp| vp.scene.remove_layer(id)));
+            input.add_button(Icon::Trash, move |vp| vp.scene.remove_layer(id));
         }
     }
 }

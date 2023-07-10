@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![feature(drain_filter)]
 #![feature(let_chains)]
+#![feature(trait_alias)]
 
 pub use scene;
 

@@ -49,7 +49,7 @@ impl DrawMenu {
         inputs.add_icon_radio_handler(
             Self::DRAW_TOOL,
             &[Icon::Brush, Icon::Line, Icon::Square, Icon::Circle],
-            Box::new(|vp, icon| {
+            |vp, icon| {
                 vp.set_draw_tool(match icon {
                     Icon::Brush => DrawTool::Freehand,
                     Icon::Line => DrawTool::Line,
@@ -57,7 +57,7 @@ impl DrawMenu {
                     Icon::Circle => DrawTool::Ellipse,
                     _ => DrawTool::Freehand,
                 });
-            }),
+            },
         );
         inputs.set_selected_icon_radio(Self::DRAW_TOOL, Icon::Brush);
 
