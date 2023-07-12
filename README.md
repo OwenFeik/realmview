@@ -29,11 +29,11 @@
 * Better database abstraction
 * One-click jump in to most recent scene.
 * Autosave for editor as well as game.
+* Clean up `rust_interface.js`, remove now unused functions.
 
 ## Bugs
 * Undoing creation of a shape moves it to a 0x0 at cursor
 * Updating sprite shape via menu is broken
-* Tool selection gets broken when changing stroke
 * Fog of war sometimes doesn't show up
 * Remove sprites is forbidden; should be able to remove own sprites
 * Crashes when resizing grid

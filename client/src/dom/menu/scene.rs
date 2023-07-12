@@ -54,7 +54,7 @@ impl SceneMenu {
     }
 
     pub fn root(&self) -> &Element {
-        &self.inputs.root
+        self.inputs.root()
     }
 
     pub fn width(&self) -> Option<u32> {

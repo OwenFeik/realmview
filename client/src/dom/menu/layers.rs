@@ -69,8 +69,8 @@ impl LayersMenu {
             }
 
             let mut input = InputGroup::new(self.vp.clone());
-            input.root.add_class("mt-1");
-            self.list.append_child(&input.root);
+            input.root().add_class("mt-1");
+            self.list.append_child(input.root());
 
             let id = layer.id;
             input.add_radio("selected-layer", id == selected, move |vp| {

@@ -164,7 +164,7 @@ impl SpriteMenu {
     }
 
     pub fn root(&self) -> &Element {
-        &self.inputs.root
+        self.inputs.root()
     }
 
     pub fn set_sprite_info(&mut self, details: Option<SpriteDetails>) {

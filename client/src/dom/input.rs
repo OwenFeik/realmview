@@ -9,7 +9,7 @@ pub trait Handler = Fn(&mut Viewport) + 'static;
 pub trait ValueHandler<T> = Fn(&mut Viewport, T) + 'static;
 
 pub struct InputGroup {
-    pub root: Element,
+    root: Element,
     vp: VpRef,
     line: Element,
     inputs: HashMap<String, Element>,
@@ -28,6 +28,10 @@ impl InputGroup {
             line,
             inputs: HashMap::new(),
         }
+    }
+
+    pub fn root(&self) -> &Element {
+        &self.root
     }
 
     pub fn get_bool(&self, key: &str) -> Option<bool> {

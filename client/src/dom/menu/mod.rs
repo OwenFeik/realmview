@@ -10,6 +10,7 @@ mod dropdown;
 mod layers;
 mod scene;
 mod sprite;
+mod tools;
 
 const CAP_OPTIONS: &[(&str, &str)] = &[("Arrow", "arrow"), ("Round", "round"), ("None", "none")];
 
@@ -25,13 +26,11 @@ fn accordion_collapse_id(key: &str) -> String {
     format!("menu_{}_collapse", key.to_lowercase())
 }
 
-fn add_to_menu(key: &str, inputs: &Element) {
-    let el = if let Some(el) = Element::by_id("canvas_menu") {
-        el
-    } else {
-        return;
-    };
+fn menu_element() -> Option<Element> {
+    Element::by_id("canvas_menu")
+}
 
+fn add_accordion(el: &Element, key: &str, inputs: &Element) {
     inputs.add_class("p-2");
 
     let item = el
@@ -87,6 +86,7 @@ pub struct Menu {
     scene: scene::SceneMenu,
     draw: draw::DrawMenu,
     sprite: sprite::SpriteMenu,
+    tools: tools::ToolsMenu,
 }
 
 impl Menu {
@@ -99,13 +99,24 @@ impl Menu {
             layers: layers::LayersMenu::new(vp.clone()),
             scene: scene::SceneMenu::new(vp.clone()),
             draw: draw::DrawMenu::new(vp.clone()),
-            sprite: sprite::SpriteMenu::new(vp),
+            sprite: sprite::SpriteMenu::new(vp.clone()),
+            tools: tools::ToolsMenu::new(vp),
         };
 
-        add_to_menu("Layers", menu.layers.root());
-        add_to_menu("Scene", menu.scene.root());
-        add_to_menu(Self::DRAW, menu.draw.root());
-        add_to_menu(Self::SPRITE, menu.sprite.root());
+        if let Some(el) = menu_element() {
+            el.append_child(
+                &menu
+                    .tools
+                    .root()
+                    .clone()
+                    .with_classes(&["accordion-item", "p-2"]),
+            );
+            add_accordion(&el, "Layers", menu.layers.root());
+            add_accordion(&el, "Scene", menu.scene.root());
+            add_accordion(&el, Self::DRAW, menu.draw.root());
+            add_accordion(&el, Self::SPRITE, menu.sprite.root());
+        }
+
         menu
     }
 
@@ -114,6 +125,8 @@ impl Menu {
             crate::viewport::Tool::Draw => show_accordion(Self::DRAW),
             _ => hide_accordion(Self::DRAW),
         }
+
+        self.tools.update_tool(tool);
     }
 
     pub fn get_draw_details(&self) -> crate::interactor::details::SpriteDetails {

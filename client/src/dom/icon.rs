@@ -2,12 +2,15 @@ use super::element::Element;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Icon {
+    Arrows,
     Brush,
     Circle,
+    Cursor,
     Down,
     Edit,
     Eye,
     EyeSlash,
+    Fog,
     Line,
     Lock,
     Ok,
@@ -21,12 +24,15 @@ pub enum Icon {
 impl Icon {
     pub fn class(&self) -> String {
         let suf = match self {
+            Icon::Arrows => "arrows-move",
             Icon::Brush => "brush",
             Icon::Circle => "circle",
+            Icon::Cursor => "cursor",
             Icon::Down => "chevron-down",
             Icon::Edit => "pencil-square",
             Icon::Eye => "eye",
             Icon::EyeSlash => "eye-slash",
+            Icon::Fog => "cloud-fog2",
             Icon::Line => "slash-lg",
             Icon::Lock => "lock",
             Icon::Ok => "check-circle",

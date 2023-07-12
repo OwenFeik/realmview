@@ -8,9 +8,8 @@ use parking_lot::Mutex;
 use wasm_bindgen::prelude::*;
 
 use crate::bridge::{
-    expose_closure_f64, expose_closure_f64_f64, expose_closure_f64_string,
-    expose_closure_f64x3_string, expose_closure_string_in, expose_closure_string_out, flog, log,
-    request_animation_frame,
+    expose_closure_f64, expose_closure_f64_f64, expose_closure_f64x3_string,
+    expose_closure_string_in, expose_closure_string_out, flog, log, request_animation_frame,
 };
 use crate::client::Client;
 use crate::dom::menu::Menu;
@@ -124,16 +123,6 @@ pub fn start() -> Result<(), JsValue> {
     }) as Box<dyn FnMut(f64, f64)>);
     expose_closure_f64_f64("sprite_layer", &sprite_layer_closure);
     sprite_layer_closure.forget();
-
-    let vp_ref = vp.clone();
-    let sprite_details_closure = Closure::wrap(Box::new(move |id: f64, json: String| {
-        let id = id as i64;
-        if let Some(details) = parse_json(&json) {
-            vp_ref.lock().scene.sprite_details(id, details);
-        }
-    }) as Box<dyn FnMut(f64, String)>);
-    expose_closure_f64_string("sprite_details", &sprite_details_closure);
-    sprite_details_closure.forget();
 
     let vp_ref = vp.clone();
     let select_layer_closure = Closure::wrap(Box::new(move |id: f64| {

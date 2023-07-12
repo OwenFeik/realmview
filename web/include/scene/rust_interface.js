@@ -10,7 +10,7 @@ var RustFuncs = {
 
     Returns the base64 serde encoded form of the current scene.
     */
-    
+
     load_scene: missing_func,
     /*
     function load_scene(scene_encoded: string)
@@ -18,7 +18,7 @@ var RustFuncs = {
     Given a base64 serde encoded scene, parses and sets as active this scene,
     overwriting the current scene.
     */
-    
+
     new_scene: missing_func,
     /*
     function new_scene(project_id: number)
@@ -57,14 +57,6 @@ var RustFuncs = {
     Moves the specified sprite to the specified layer.
     */
 
-    sprite_details: missing_func,
-    /*
-    function sprite_details(sprite_id: number, json: string)
-
-    Given a sprite and a JSON object, update the sprites attributes using the
-    non-null dimensions of the json.
-    */
-
     clone_sprite: missing_func,
     /*
     function clone_sprite(sprite_id: number)
@@ -77,20 +69,6 @@ var RustFuncs = {
     function remove_sprite(sprite_id: number)
 
     Deletes the specified sprite.
-    */
-
-    select_tool: missing_func,
-    /*
-    function select_tool(tool: string)
-
-    Sets the active tool.
-    */
-
-    draw_details: missing_func,
-    /*
-    function draw_details(json: string)
-
-    Updates the details for a new drawing.
     */
 
     set_fog_brush: missing_func,
@@ -168,7 +146,7 @@ function call_when_ready(func_name, callback) {
 
     if (queued[func_name] === undefined) {
         queued[func_name] = [];
-    } 
+    }
 
     queued[func_name].push(callback);
 }
@@ -193,7 +171,7 @@ function change_scene(scene_key) {
     if (scene_key) {
         call_when_ready("change_scene", () => {
             RustFuncs.change_scene(scene_key);
-        });    
+        });
     }
 }
 

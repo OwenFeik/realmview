@@ -63,7 +63,7 @@ impl DrawMenu {
     }
 
     pub fn root(&self) -> &Element {
-        &self.inputs.root
+        self.inputs.root()
     }
 
     pub fn change_stroke(&self, delta: f32) {
