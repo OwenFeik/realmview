@@ -209,8 +209,12 @@ impl Element {
         self.as_input().set_value(value);
     }
 
-    pub fn set_value_float(&self, value: f64) {
-        self.as_input().set_value_as_number(value);
+    pub fn set_value_float(&self, value: f32) {
+        self.as_input().set_value_as_number(value as f64);
+    }
+
+    pub fn clear_value(&self) {
+        self.as_input().set_value("");
     }
 
     pub fn set_inner_html(&self, inner_html: &str) {

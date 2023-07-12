@@ -13,7 +13,6 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     id INTEGER PRIMARY KEY,
     user INTEGER REFERENCES users(id) ON DELETE CASCADE NOT NULL,
     session_key CHAR(64) NOT NULL UNIQUE,
-    active BOOLEAN DEFAULT TRUE NOT NULL,
     start_time INTEGER NOT NULL,
     end_time INTEGER
 );
@@ -71,6 +70,7 @@ CREATE TABLE IF NOT EXISTS sprites (
     z INTEGER NOT NULL,
     shape INTEGER,
     stroke REAL,
+    solid BOOLEAN, 
     media_key CHAR(16) REFERENCES media(media_key) ON DELETE SET NULL,
     r REAL,
     g REAL,

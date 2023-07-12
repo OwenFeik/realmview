@@ -1,7 +1,7 @@
 use serde_derive::{Deserialize, Serialize};
 
 use super::{comms::SceneEvent, Dimension, Id, Point, Rect};
-use crate::rect::determine_unit_size;
+use crate::rect::{determine_unit_size, float_eq};
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Colour(pub [f32; 4]);
@@ -47,6 +47,27 @@ pub enum Shape {
     Triangle,
 }
 
+impl Shape {
+    pub fn from(name: &str) -> Self {
+        match name.to_lowercase().as_str() {
+            "ellipse" => Self::Ellipse,
+            "hexagon" => Self::Hexagon,
+            "rectangle" => Self::Rectangle,
+            "triangle" => Self::Triangle,
+            _ => Self::Rectangle,
+        }
+    }
+
+    pub fn to_str(&self) -> &'static str {
+        match &self {
+            Self::Ellipse => "ellipse",
+            Self::Hexagon => "hexagon",
+            Self::Rectangle => "rectangle",
+            Self::Triangle => "triangle",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub enum DrawingMode {
     Freehand,
@@ -63,6 +84,23 @@ pub enum Cap {
 impl Cap {
     pub const DEFAULT_START: Cap = Cap::Round;
     pub const DEFAULT_END: Cap = Cap::Arrow;
+
+    pub fn from(name: &str) -> Self {
+        match name.to_lowercase().as_str() {
+            "arrow" => Self::Arrow,
+            "round" => Self::Round,
+            "none" => Self::None,
+            _ => Self::None,
+        }
+    }
+
+    pub fn to_str(&self) -> &'static str {
+        match &self {
+            Self::Arrow => "arrow",
+            Self::None => "none",
+            Self::Round => "round",
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -74,6 +112,7 @@ pub enum Visual {
     Shape {
         shape: Shape,
         stroke: f32,
+        solid: bool,
         colour: Colour,
     },
     Drawing {
@@ -87,6 +126,23 @@ pub enum Visual {
 }
 
 impl Visual {
+    pub fn new_shape(colour: Colour, shape: Shape, stroke: f32, solid: bool) -> Self {
+        Visual::Shape {
+            shape,
+            stroke,
+            solid: (solid || float_eq(stroke, Sprite::SOLID_STROKE)),
+            colour,
+        }
+    }
+
+    pub fn is_solid(&self) -> bool {
+        self.solid().unwrap_or(false)
+            || self
+                .stroke()
+                .map(|stroke| float_eq(stroke, Sprite::SOLID_STROKE))
+                .unwrap_or(false)
+    }
+
     pub fn colour(&self) -> Option<Colour> {
         match self {
             Self::Shape { colour, .. } | Self::Drawing { colour, .. } => Some(*colour),
@@ -120,6 +176,14 @@ impl Visual {
         match self {
             Self::Drawing { stroke, .. } | Self::Shape { stroke, .. } => Some(*stroke),
             _ => None,
+        }
+    }
+
+    pub fn solid(&self) -> Option<bool> {
+        if let Self::Shape { solid, .. } = self {
+            Some(*solid)
+        } else {
+            None
         }
     }
 
@@ -184,6 +248,7 @@ impl Sprite {
         colour: Colour::DEFAULT,
         shape: Shape::Rectangle,
         stroke: Self::SOLID_STROKE,
+        solid: false,
     };
 
     pub fn new(id: Id, visual: Option<Visual>) -> Self {
@@ -293,6 +358,7 @@ impl Sprite {
                     colour,
                     shape: new,
                     stroke,
+                    solid: old.is_solid(),
                 };
                 Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
             }
@@ -309,6 +375,17 @@ impl Sprite {
         match &mut self.visual {
             Visual::Shape { stroke, .. } | Visual::Drawing { stroke, .. } => {
                 *stroke = new;
+                Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn set_solid(&mut self, new: bool) -> Option<SceneEvent> {
+        let old = self.visual.clone();
+        match &mut self.visual {
+            Visual::Shape { solid, .. } => {
+                *solid = new;
                 Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
             }
             _ => None,

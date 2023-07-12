@@ -11,6 +11,8 @@ mod layers;
 mod scene;
 mod sprite;
 
+const CAP_OPTIONS: &[(&str, &str)] = &[("Arrow", "arrow"), ("Round", "round"), ("None", "none")];
+
 fn id(key: &str) -> String {
     format!("#{key}")
 }
@@ -161,5 +163,13 @@ impl Menu {
 
     pub fn set_sprite_info(&mut self, details: Option<crate::interactor::details::SpriteDetails>) {
         self.sprite.set_sprite_info(details);
+    }
+
+    pub fn update_selection(&mut self, has_selection: bool) {
+        if has_selection {
+            show_accordion(Self::SPRITE);
+        } else {
+            hide_accordion(Self::SPRITE);
+        }
     }
 }

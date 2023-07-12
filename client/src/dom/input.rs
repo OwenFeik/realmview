@@ -30,56 +30,109 @@ impl InputGroup {
         }
     }
 
-    pub fn value_bool(&self, key: &str) -> Option<bool> {
+    pub fn get_bool(&self, key: &str) -> Option<bool> {
         self.inputs.get(key).map(|e| e.checked())
     }
 
-    pub fn value_string(&self, key: &str) -> Option<String> {
+    pub fn get_string(&self, key: &str) -> Option<String> {
         self.inputs.get(key).map(|e| e.value_string())
     }
 
-    pub fn value_float(&self, key: &str) -> Option<f64> {
+    pub fn get_f64(&self, key: &str) -> Option<f64> {
         self.inputs.get(key).map(|e| e.value_float())
     }
 
-    pub fn value_f32(&self, key: &str) -> Option<f32> {
-        self.value_float(key).map(|v| v.min(f32::MAX as f64) as f32)
+    pub fn get_f32(&self, key: &str) -> Option<f32> {
+        self.get_f64(key).map(|v| v.min(f32::MAX as f64) as f32)
     }
 
-    pub fn value_unsigned(&self, key: &str) -> Option<u32> {
-        self.value_float(key).map(|v| v as u32)
+    pub fn get_u32(&self, key: &str) -> Option<u32> {
+        self.get_f64(key).map(|v| v as u32)
     }
 
-    pub fn value_colour(&self, key: &str) -> Option<Colour> {
+    pub fn get_colour(&self, key: &str) -> Option<Colour> {
         self.inputs.get(key).and_then(Self::colour_input_value)
     }
 
-    pub fn set_value_bool(&self, key: &str, value: bool) {
+    pub fn clear(&self, key: &str) {
+        if let Some(input) = self.inputs.get(key) {
+            input.clear_value();
+        }
+    }
+
+    pub fn set_bool(&self, key: &str, value: bool) {
         if let Some(e) = self.inputs.get(key) {
             e.set_checked(value);
         }
     }
 
-    pub fn set_value_string(&self, key: &str, value: &str) {
+    pub fn set_or_clear_bool(&self, key: &str, value: Option<bool>) {
+        if let Some(value) = value {
+            self.set_bool(key, value);
+        } else {
+            self.set_bool(key, false);
+        }
+    }
+
+    pub fn set_string(&self, key: &str, value: &str) {
         if let Some(e) = self.inputs.get(key) {
             e.set_value_string(value);
         }
     }
 
-    pub fn set_value_float(&self, key: &str, value: f32) {
-        if let Some(e) = self.inputs.get(key) {
-            // Round to 2 decimal places for display.
-            e.set_value_float((value as f64 * 100.0).round() / 100.0);
+    pub fn set_or_clear_string<T>(&self, key: &str, value: Option<T>)
+    where
+        T: AsRef<str>,
+    {
+        if let Some(value) = value {
+            self.set_string(key, value.as_ref());
+        } else {
+            self.clear(key);
         }
     }
 
-    pub fn set_value_colour(&self, key: &str, value: Colour) {
-        if let Some(e) = self.inputs.get(key) {
-            e.set_value_string(&colour_to_hex(value));
-            e.set_attr(Self::OPACITY_ATTR, &(value.a() * 100.0).round().to_string());
+    pub fn set_float(&self, key: &str, value: f32) {
+        if let Some(number_input) = self.inputs.get(key) {
+            // Round to 2 decimal places for display.
+            number_input.set_value_string(&format!("{:.2}", value));
+        }
+    }
 
-            // Trigger opacity input update.
-            e.event("input");
+    pub fn set_or_clear_float(&self, key: &str, value: Option<f32>) {
+        if let Some(value) = value {
+            self.set_float(key, value);
+        } else {
+            self.clear(key);
+        }
+    }
+
+    pub fn set_colour(&self, key: &str, value: Colour) {
+        if let Some(colour_input) = self.inputs.get(key) {
+            let opacity = (value.a() * 100.0).round();
+
+            colour_input.set_value_string(&colour_to_hex(value));
+            colour_input.set_attr(Self::OPACITY_ATTR, &opacity.to_string());
+
+            // Need to find and update the opacity input as it is a separate
+            // element. Order is [colour_input, label, opacity_input] so we can
+            // use colour_input.next_element_sibling.next_element_sibling.
+            if let Some(opacity_input) = colour_input
+                .clone()
+                .raw()
+                .next_element_sibling()
+                .as_ref()
+                .and_then(web_sys::Element::next_element_sibling)
+            {
+                Element::from(opacity_input).set_value_float(opacity);
+            }
+        }
+    }
+
+    pub fn set_or_clear_colour(&self, key: &str, value: Option<Colour>) {
+        if let Some(value) = value {
+            self.set_colour(key, value);
+        } else {
+            self.clear(key);
         }
     }
 
@@ -282,7 +335,7 @@ impl InputGroup {
         // Opacity is handled with a separate float input with sets an
         // attribute on the colour input when its value changes and listens for
         // changes on the colour input to handle system writes.
-        let mut opacity = float(Some(0), Some(100), None);
+        let mut opacity = float(Some(0), Some(100), Some(10.0));
         let colour_ref = colour.clone();
         opacity.set_oninput(Box::new(move |evt| {
             if let Some(input) = evt.target() {
@@ -298,11 +351,12 @@ impl InputGroup {
         colour.set_oninput(Box::new(move |evt| {
             if let Some(target) = evt.target() {
                 let opacity = Self::colour_input_opacity(&Element::from(target));
-                opacity_ref.set_value_float((opacity as f64 * 100.0).round());
+                opacity_ref.set_value_float((opacity * 100.0).round());
             }
         }));
 
         self.add_entry(key, colour);
+        self.line.append_child(&text("Opacity"));
         self.line.append_child(&opacity);
     }
 

@@ -62,6 +62,7 @@ pub struct SpriteDetails {
     pub h: Option<f32>,
     pub shape: Option<Shape>,
     pub stroke: Option<f32>,
+    pub solid: Option<bool>,
     pub colour: Option<Colour>,
     pub texture: Option<Id>,
     pub drawing_mode: Option<scene::DrawingMode>,
@@ -79,6 +80,7 @@ impl SpriteDetails {
             h: Some(sprite.rect.h),
             shape: sprite.visual.shape(),
             stroke: sprite.visual.stroke(),
+            solid: sprite.visual.solid(),
             colour: sprite.visual.colour(),
             texture: sprite.visual.texture(),
             drawing_mode: sprite.visual.drawing_mode(),
@@ -130,6 +132,10 @@ impl SpriteDetails {
             self.stroke = other.stroke;
         }
 
+        if other.solid.is_some() {
+            self.solid = other.solid;
+        }
+
         if other.colour.is_some() {
             self.colour = other.colour;
         }
@@ -178,6 +184,10 @@ impl SpriteDetails {
 
         if self.stroke.is_some() && self.stroke != sprite.visual.stroke() {
             self.stroke = None;
+        }
+
+        if self.solid.is_some() && self.solid != sprite.visual.solid() {
+            self.solid = None;
         }
 
         if self.colour.is_some() && self.colour != sprite.visual.colour() {
@@ -231,6 +241,12 @@ impl SpriteDetails {
             }
         }
 
+        if let Some(solid) = self.solid {
+            if let Some(event) = sprite.set_solid(solid) {
+                events.push(event);
+            }
+        }
+
         if let Some(c) = self.colour {
             if let Some(event) = sprite.set_colour(c) {
                 events.push(event);
@@ -262,6 +278,10 @@ impl SpriteDetails {
 
     pub fn stroke(&self) -> f32 {
         self.stroke.unwrap_or(Sprite::DEFAULT_STROKE)
+    }
+
+    pub fn solid(&self) -> bool {
+        self.solid.unwrap_or(false)
     }
 
     fn drawing_mode(&self) -> scene::DrawingMode {

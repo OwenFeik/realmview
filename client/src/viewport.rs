@@ -468,6 +468,8 @@ impl Viewport {
         if self.scene.changes.handle_selected_change() {
             let details = self.scene.selected_details();
             self.menu().set_sprite_info(details);
+            let has_selection = self.scene.has_selection();
+            self.menu().update_selection(has_selection);
         }
     }
 

@@ -554,6 +554,7 @@ mod sprite {
         z: i64,
         shape: Option<u8>,
         stroke: Option<f32>,
+        solid: Option<bool>,
         media_key: Option<String>,
         r: Option<f32>,
         g: Option<f32>,
@@ -591,6 +592,7 @@ mod sprite {
                 z: sprite.z as i64,
                 shape: sprite.visual.shape().map(Self::shape_to_u8),
                 stroke: sprite.visual.stroke(),
+                solid: sprite.visual.solid(),
                 media_key: sprite.visual.texture().map(Media::id_to_key),
                 drawing: sprite.visual.drawing(),
                 r: sprite.visual.colour().map(|c| c.r()),
@@ -677,11 +679,12 @@ mod sprite {
                     id: Media::key_to_id(key).ok()?,
                 })
             } else {
-                Some(scene::SpriteVisual::Shape {
-                    shape: Self::u8_to_shape(self.shape?),
-                    stroke: self.stroke?,
-                    colour: Colour([self.r?, self.g?, self.b?, self.a?]),
-                })
+                Some(scene::SpriteVisual::new_shape(
+                    Colour([self.r?, self.g?, self.b?, self.a?]),
+                    Self::u8_to_shape(self.shape?),
+                    self.stroke?,
+                    self.solid.unwrap_or(false),
+                ))
             }
         }
 
@@ -702,9 +705,9 @@ mod sprite {
             sqlx::query(
                 r#"
                 INSERT INTO sprites (
-                    id, scene, layer, x, y, w, h, z, shape, stroke, media_key, r, g, b, a, drawing, drawing_type, cap_start, cap_end
+                    id, scene, layer, x, y, w, h, z, shape, stroke, solid, media_key, r, g, b, a, drawing, drawing_type, cap_start, cap_end
                 ) VALUES (
-                    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19
+                    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20
                 ) RETURNING id;
                 "#,
             )
@@ -718,6 +721,7 @@ mod sprite {
             .bind(record.z)
             .bind(record.shape)
             .bind(record.stroke)
+            .bind(record.solid)
             .bind(record.media_key)
             .bind(record.r)
             .bind(record.g)

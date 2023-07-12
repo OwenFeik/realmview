@@ -80,7 +80,7 @@ impl LayersMenu {
             input.add_toggle_string("Title", false, move |vp, title| {
                 vp.scene.rename_layer(id, title);
             });
-            input.set_value_string("Title", &layer.title);
+            input.set_string("Title", &layer.title);
 
             let locked = layer.locked;
             input.add_button(if locked { Icon::Lock } else { Icon::Unlock }, move |vp| {

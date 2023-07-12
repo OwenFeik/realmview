@@ -143,9 +143,10 @@ pub trait Renderer {
             scene::SpriteVisual::Shape {
                 shape,
                 stroke,
+                solid: _,
                 colour,
             } => {
-                if stroke <= f32::EPSILON {
+                if sprite.visual.is_solid() {
                     self.draw_solid(vp, position, shape, colour);
                 } else {
                     self.draw_hollow(vp, position, shape, colour, stroke);

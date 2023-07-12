@@ -5,9 +5,7 @@
 * Select from selected layer first (possibly)
 * Layer opacity
 * Sprite menu changes
-    * Hide when no sprite selected
     * Use to change texture
-    * Move sprite rust
 * Place media in directories
 * Manage fog of war by player
 * Associate each client with a user. When a user connects a second time,
@@ -39,11 +37,15 @@
 * Fog of war sometimes doesn't show up
 * Remove sprites is forbidden; should be able to remove own sprites
 * Crashes when resizing grid
-* Hollow shapes when rendered with opacity have overlapping triangles visible.
-* Hollow shapes have wrong dimensions after resizing window until zoom.
+* Hollow shapes
+    * When rendered with opacity have overlapping triangles visible.
+    * Have wrong dimensions after resizing window until zoom.
+    * Have varying stroke, obvious at higher stroke levels.
 * Add to scene button is broken; `selected_layer` is undefined.
 * Drawing outlines are misleading for resize anchors.
 * Resizing a drawing increases the line stroke (maybe good?).
+* Drawing event grouping is broken.
+* When changing the cap on a drawing from none, force re-render.
 
 # Documentation
 

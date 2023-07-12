@@ -824,11 +824,12 @@ impl Interactor {
         self.clear_held_selection();
         let at = Rect::at(if snap_to_grid { at.round() } else { at }, 0.0, 0.0);
         if let Some(id) = self.new_sprite_at(
-            Some(SpriteVisual::Shape {
-                colour: details.colour(),
+            Some(SpriteVisual::new_shape(
+                details.colour(),
                 shape,
-                stroke: details.stroke(),
-            }),
+                details.stroke(),
+                details.solid(),
+            )),
             Some(self.selected_layer),
             at,
         ) {
@@ -907,6 +908,7 @@ impl Interactor {
                 SpriteVisual::Shape {
                     shape: Shape::Ellipse,
                     stroke: Sprite::SOLID_STROKE,
+                    solid: true,
                     colour: colour.with_opacity(0.4),
                 },
                 Rect {

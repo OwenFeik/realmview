@@ -5,7 +5,7 @@ use crate::bridge::Cursor;
 #[derive(Clone, Debug)]
 pub enum HeldObject {
     /// (sprite, dx, dy, starting_rect)
-    Anchor(Id, i32, i32, Rect), 
+    Anchor(Id, i32, i32, Rect),
 
     /// (drawing, sprite)
     Drawing(Id, Id),

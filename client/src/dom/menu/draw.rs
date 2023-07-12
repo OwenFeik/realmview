@@ -16,29 +16,28 @@ impl DrawMenu {
     const CAP_START: &str = "Start";
     const CAP_END: &str = "End";
     const STROKE: &str = "Stroke";
+    const SOLID: &str = "Solid";
 
     pub fn new(vp: VpRef) -> Self {
         let mut inputs = InputGroup::new(vp);
 
         inputs.add_colour(Self::COLOUR);
-        inputs.set_value_colour(Self::COLOUR, random_bright_colour());
+        inputs.set_colour(Self::COLOUR, random_bright_colour());
 
         inputs.add_line();
 
         inputs.add_float(Self::STROKE, Some(0), None, Some(0.1));
-        inputs.set_value_float(Self::STROKE, scene::Sprite::DEFAULT_STROKE);
+        inputs.set_float(Self::STROKE, scene::Sprite::DEFAULT_STROKE);
 
-        inputs.add_checkbox("Solid");
-        inputs.set_value_bool("Solid", false);
+        inputs.add_checkbox(Self::SOLID);
+        inputs.set_bool(Self::SOLID, false);
 
         inputs.add_line();
 
-        const CAP_OPTIONS: &[(&str, &str)] =
-            &[("Arrow", "arrow"), ("Round", "round"), ("None", "none")];
-        inputs.add_select(Self::CAP_START, CAP_OPTIONS);
-        inputs.set_value_string(Self::CAP_START, cap_to_str(scene::Cap::DEFAULT_START));
-        inputs.add_select(Self::CAP_END, CAP_OPTIONS);
-        inputs.set_value_string(Self::CAP_END, cap_to_str(scene::Cap::DEFAULT_END));
+        inputs.add_select(Self::CAP_START, super::CAP_OPTIONS);
+        inputs.set_string(Self::CAP_START, scene::Cap::DEFAULT_START.to_str());
+        inputs.add_select(Self::CAP_END, super::CAP_OPTIONS);
+        inputs.set_string(Self::CAP_END, scene::Cap::DEFAULT_END.to_str());
 
         inputs.add_line();
 
@@ -74,12 +73,12 @@ impl DrawMenu {
 
         let old = self
             .inputs
-            .value_float(Self::STROKE)
+            .get_f64(Self::STROKE)
             .map(|s| s as f32)
             .unwrap_or(scene::Sprite::DEFAULT_STROKE);
 
         let new = (old + delta * COEFF).max(0.0);
-        self.inputs.set_value_float(Self::STROKE, new);
+        self.inputs.set_float(Self::STROKE, new);
     }
 
     pub fn details(&self) -> SpriteDetails {
@@ -89,16 +88,17 @@ impl DrawMenu {
                 DrawTool::Rectangle => Some(scene::Shape::Rectangle),
                 DrawTool::Freehand | DrawTool::Line => None,
             },
-            stroke: self.inputs.value_f32(Self::STROKE),
-            colour: self.inputs.value_colour(Self::COLOUR),
+            stroke: self.inputs.get_f32(Self::STROKE),
+            solid: self.inputs.get_bool(Self::SOLID),
+            colour: self.inputs.get_colour(Self::COLOUR),
             cap_start: self
                 .inputs
-                .value_string(Self::CAP_START)
-                .map(|s| str_to_cap(&s)),
+                .get_string(Self::CAP_START)
+                .map(|name| scene::Cap::from(&name)),
             cap_end: self
                 .inputs
-                .value_string(Self::CAP_END)
-                .map(|s| str_to_cap(&s)),
+                .get_string(Self::CAP_END)
+                .map(|name| scene::Cap::from(&name)),
             drawing_mode: match self.tool {
                 DrawTool::Freehand => Some(scene::DrawingMode::Freehand),
                 DrawTool::Line => Some(scene::DrawingMode::Line),
@@ -110,20 +110,19 @@ impl DrawMenu {
 
     fn update(&self, details: &SpriteDetails) {
         if let Some(value) = details.stroke {
-            self.inputs.set_value_float(Self::STROKE, value);
+            self.inputs.set_float(Self::STROKE, value);
         }
 
         if let Some(value) = details.colour {
-            self.inputs.set_value_colour(Self::COLOUR, value);
+            self.inputs.set_colour(Self::COLOUR, value);
         }
 
         if let Some(cap) = details.cap_start {
-            self.inputs
-                .set_value_string(Self::CAP_START, cap_to_str(cap));
+            self.inputs.set_string(Self::CAP_START, cap.to_str());
         }
 
         if let Some(cap) = details.cap_end {
-            self.inputs.set_value_string(Self::CAP_END, cap_to_str(cap));
+            self.inputs.set_string(Self::CAP_END, cap.to_str());
         }
     }
 
@@ -155,23 +154,6 @@ impl DrawMenu {
         self.update(&deets);
         self.inputs.set_selected_icon_radio(Self::DRAW_TOOL, icon);
         self.tool = draw_tool;
-    }
-}
-
-fn str_to_cap(string: &str) -> scene::Cap {
-    match string {
-        "arrow" => scene::Cap::Arrow,
-        "round" => scene::Cap::Round,
-        "none" => scene::Cap::None,
-        _ => scene::Cap::None,
-    }
-}
-
-fn cap_to_str(cap: scene::Cap) -> &'static str {
-    match cap {
-        scene::Cap::Arrow => "arrow",
-        scene::Cap::None => "none",
-        scene::Cap::Round => "round",
     }
 }
 
