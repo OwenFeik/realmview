@@ -107,7 +107,7 @@ impl Canvas {
     fn new_element() -> anyhow::Result<Canvas> {
         let element = Element::by_id("canvas")
             .unwrap_or_else(|| Element::new("canvas").on_page())
-            .element;
+            .raw();
         let canvas = match element.dyn_into::<HtmlCanvasElement>() {
             Ok(c) => Canvas::new(c)?,
             Err(_) => return Err(anyhow!("Couldn't cast Element to HtmlCanvas.",)),
@@ -589,7 +589,7 @@ fn create_file_upload() -> anyhow::Result<HtmlInputElement> {
     element.set_attr("accept", "image/*");
 
     element
-        .element
+        .raw()
         .dyn_into::<HtmlInputElement>()
         .map_err(|_| anyhow!("Failed to cast element to HtmlInputElement."))
 }

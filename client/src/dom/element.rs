@@ -7,7 +7,7 @@ use crate::bridge::{get_body, get_document};
 use crate::viewport::ViewportPoint;
 
 pub struct Element {
-    pub element: web_sys::HtmlElement,
+    element: web_sys::HtmlElement,
 }
 
 impl Element {
@@ -22,6 +22,10 @@ impl Element {
             .map_err(|e| anyhow!("Element creation failed: {e:?}."))?;
 
         Ok(Element { element })
+    }
+
+    pub fn raw(self) -> HtmlElement {
+        self.element
     }
 
     pub fn on_page(self) -> Self {
@@ -114,6 +118,10 @@ impl Element {
 
     pub fn show(&self) {
         self.set_css("display", "");
+    }
+
+    pub fn get_attr(&self, name: &str) -> Option<String> {
+        self.element.get_attribute(name)
     }
 
     pub fn set_attr(&self, name: &str, value: &str) {
@@ -228,6 +236,16 @@ impl Element {
         self.as_input().set_disabled(!enabled);
     }
 
+    pub fn click(&self) {
+        self.element.click();
+    }
+
+    pub fn event(&self, event: &str) {
+        if let Ok(event) = web_sys::Event::new(event) {
+            self.element.dispatch_event(&event).ok();
+        }
+    }
+
     fn add_event_listener(&mut self, on: &str, handler: Box<dyn FnMut(web_sys::Event)>) {
         let closure = Closure::wrap(handler);
         self.element
@@ -279,5 +297,11 @@ impl From<web_sys::Element> for Element {
         Element {
             element: value.unchecked_into::<web_sys::HtmlElement>(),
         }
+    }
+}
+
+impl From<web_sys::EventTarget> for Element {
+    fn from(value: web_sys::EventTarget) -> Self {
+        Element::from(value.unchecked_into::<web_sys::Element>())
     }
 }

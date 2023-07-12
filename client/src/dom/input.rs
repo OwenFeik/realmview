@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
 use scene::Colour;
-use wasm_bindgen::JsCast;
-use web_sys::HtmlInputElement;
 
 use super::{element::Element, icon::Icon};
 use crate::{start::VpRef, viewport::Viewport};
@@ -18,6 +16,8 @@ pub struct InputGroup {
 }
 
 impl InputGroup {
+    const OPACITY_ATTR: &str = "data-opacity";
+
     pub fn new(vp: VpRef) -> InputGroup {
         let root = Element::default();
         let line = input_group();
@@ -51,7 +51,7 @@ impl InputGroup {
     }
 
     pub fn value_colour(&self, key: &str) -> Option<Colour> {
-        self.value_string(key).and_then(|hex| hex_to_colour(&hex))
+        self.inputs.get(key).and_then(Self::colour_input_value)
     }
 
     pub fn set_value_bool(&self, key: &str, value: bool) {
@@ -68,6 +68,7 @@ impl InputGroup {
 
     pub fn set_value_float(&self, key: &str, value: f32) {
         if let Some(e) = self.inputs.get(key) {
+            // Round to 2 decimal places for display.
             e.set_value_float((value as f64 * 100.0).round() / 100.0);
         }
     }
@@ -75,6 +76,10 @@ impl InputGroup {
     pub fn set_value_colour(&self, key: &str, value: Colour) {
         if let Some(e) = self.inputs.get(key) {
             e.set_value_string(&colour_to_hex(value));
+            e.set_attr(Self::OPACITY_ATTR, &(value.a() * 100.0).round().to_string());
+
+            // Trigger opacity input update.
+            e.event("input");
         }
     }
 
@@ -254,8 +259,51 @@ impl InputGroup {
         }));
     }
 
+    fn colour_input_opacity(input: &Element) -> f32 {
+        input
+            .get_attr(Self::OPACITY_ATTR)
+            .and_then(|v| v.parse().ok())
+            .map(|v: f32| v / 100.0)
+            .unwrap_or(1.0)
+    }
+
+    fn colour_input_value(input: &Element) -> Option<Colour> {
+        let hex = input.value_string();
+        let opacity = Self::colour_input_opacity(input);
+        hex_to_colour(&hex, opacity)
+    }
+
     pub fn add_colour(&mut self, key: &str) {
-        self.add_entry(key, colour());
+        let mut colour = Element::input()
+            .with_class("form-control")
+            .with_attr("type", "color")
+            .with_attr(Self::OPACITY_ATTR, "100");
+
+        // Opacity is handled with a separate float input with sets an
+        // attribute on the colour input when its value changes and listens for
+        // changes on the colour input to handle system writes.
+        let mut opacity = float(Some(0), Some(100), None);
+        let colour_ref = colour.clone();
+        opacity.set_oninput(Box::new(move |evt| {
+            if let Some(input) = evt.target() {
+                let opacity = Element::from(input).value_string();
+                colour_ref.set_attr(Self::OPACITY_ATTR, &opacity);
+
+                // Trigger colour input to handle changed opacity.
+                colour_ref.event("input");
+            }
+        }));
+
+        let opacity_ref = opacity.clone();
+        colour.set_oninput(Box::new(move |evt| {
+            if let Some(target) = evt.target() {
+                let opacity = Self::colour_input_opacity(&Element::from(target));
+                opacity_ref.set_value_float((opacity as f64 * 100.0).round());
+            }
+        }));
+
+        self.add_entry(key, colour);
+        self.line.append_child(&opacity);
     }
 
     pub fn add_colour_handler<H: ValueHandler<Colour>>(&mut self, key: &str, action: H) {
@@ -264,8 +312,7 @@ impl InputGroup {
         let vp_ref = self.vp.clone();
         input.set_oninput(Box::new(move |evt| {
             if let Some(input) = evt.target() {
-                let hex = input.unchecked_ref::<HtmlInputElement>().value();
-                if let Some(colour) = hex_to_colour(&hex) {
+                if let Some(colour) = Self::colour_input_value(&Element::from(input)) {
                     action(&mut vp_ref.lock(), colour);
                 }
             };
@@ -358,12 +405,6 @@ fn button() -> Element {
         .with_attr("type", "button")
 }
 
-fn colour() -> Element {
-    Element::input()
-        .with_class("form-control")
-        .with_attr("type", "color")
-}
-
 fn colour_to_hex(colour: Colour) -> String {
     format!(
         "#{:02X}{:02X}{:02X}",
@@ -380,16 +421,15 @@ fn hex_to_num(hex: &str) -> Option<f32> {
         .map(|int| (int as f32) / 255.0)
 }
 
-fn hex_to_colour(hex: &str) -> Option<Colour> {
-    const ALPHA: f32 = 1.0;
+fn hex_to_colour(hex: &str, opacity: f32) -> Option<Colour> {
     match hex.len() {
         6 => Some(Colour([
             hex_to_num(&hex[0..=1])?,
             hex_to_num(&hex[2..=3])?,
             hex_to_num(&hex[4..=5])?,
-            ALPHA,
+            opacity,
         ])),
-        7 => hex_to_colour(&hex[1..]),
+        7 => hex_to_colour(&hex[1..], opacity),
         _ => None,
     }
 }

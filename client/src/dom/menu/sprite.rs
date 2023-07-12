@@ -74,15 +74,18 @@ impl SpriteMenu {
         inputs.add_line();
 
         let id_ref = selected_id.clone();
-        inputs.add_colour_handler("Colour", move |vp, colour| {
-            vp.scene.sprite_details(
-                id_ref.load(Ordering::Relaxed),
-                SpriteDetails {
-                    colour: Some(colour),
-                    ..Default::default()
-                },
-            );
-        });
+        inputs.add_colour_handler(
+            "Colour",
+            move |vp: &mut crate::viewport::Viewport, colour| {
+                vp.scene.sprite_details(
+                    id_ref.load(Ordering::Relaxed),
+                    SpriteDetails {
+                        colour: Some(colour),
+                        ..Default::default()
+                    },
+                );
+            },
+        );
 
         SpriteMenu {
             inputs,
@@ -95,8 +98,7 @@ impl SpriteMenu {
     }
 
     pub fn set_sprite_info(&mut self, details: Option<SpriteDetails>) {
-        if let Some(details) = details {
-            self.selected_id.store(details.id, Ordering::Relaxed);
+        let id = if let Some(details) = details {
             if let Some(x) = details.x {
                 self.inputs.set_value_float(Self::X, x);
             }
@@ -109,9 +111,10 @@ impl SpriteMenu {
             if let Some(h) = details.h {
                 self.inputs.set_value_float(Self::HEIGHT, h);
             }
+            details.id
         } else {
-            self.selected_id
-                .store(Self::NO_SELECTION, Ordering::Relaxed);
-        }
+            Self::NO_SELECTION
+        };
+        self.selected_id.store(id, Ordering::Relaxed);
     }
 }

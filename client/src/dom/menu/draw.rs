@@ -12,7 +12,6 @@ pub struct DrawMenu {
 
 impl DrawMenu {
     const COLOUR: &str = "Colour";
-    const OPACITY: &str = "Opacity";
     const DRAW_TOOL: &str = "draw_tool";
     const CAP_START: &str = "Start";
     const CAP_END: &str = "End";
@@ -23,9 +22,6 @@ impl DrawMenu {
 
         inputs.add_colour(Self::COLOUR);
         inputs.set_value_colour(Self::COLOUR, random_bright_colour());
-
-        inputs.add_float(Self::OPACITY, Some(0), Some(100), None);
-        inputs.set_value_float(Self::OPACITY, scene::Colour::DEFAULT.a() * 100.0);
 
         inputs.add_line();
 
@@ -78,12 +74,12 @@ impl DrawMenu {
 
         let old = self
             .inputs
-            .value_float(Self::OPACITY)
+            .value_float(Self::STROKE)
             .map(|s| s as f32)
             .unwrap_or(scene::Sprite::DEFAULT_STROKE);
 
         let new = (old + delta * COEFF).max(0.0);
-        self.inputs.set_value_float(Self::OPACITY, new);
+        self.inputs.set_value_float(Self::STROKE, new);
     }
 
     pub fn details(&self) -> SpriteDetails {
@@ -94,14 +90,7 @@ impl DrawMenu {
                 DrawTool::Freehand | DrawTool::Line => None,
             },
             stroke: self.inputs.value_f32(Self::STROKE),
-            colour: self.inputs.value_colour(Self::COLOUR).map(|c| {
-                c.with_opacity(
-                    self.inputs
-                        .value_f32(Self::OPACITY)
-                        .map(|v| v / 100.0)
-                        .unwrap_or(1.0),
-                )
-            }),
+            colour: self.inputs.value_colour(Self::COLOUR),
             cap_start: self
                 .inputs
                 .value_string(Self::CAP_START)
@@ -126,7 +115,6 @@ impl DrawMenu {
 
         if let Some(value) = details.colour {
             self.inputs.set_value_colour(Self::COLOUR, value);
-            self.inputs.set_value_float(Self::OPACITY, value.a());
         }
 
         if let Some(cap) = details.cap_start {
@@ -196,7 +184,7 @@ fn random_bright_colour() -> scene::Colour {
     use crate::bridge::rand;
 
     loop {
-        let colour = scene::Colour([rand(), rand(), rand(), 1.0]);
+        let colour = scene::Colour([rand(), rand(), rand(), scene::Colour::DEFAULT.a()]);
         if is_bright_colour(colour) {
             break colour;
         }

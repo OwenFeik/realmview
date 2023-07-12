@@ -65,7 +65,7 @@ fn toggle_accordion_if<F: Fn(&Element) -> bool>(key: &str, condition: F) {
             if let Some(button) =
                 Element::by_selector(&format!("[data-bs-target='{}']", id(&collapse_id)))
             {
-                button.element.click();
+                button.click();
             }
         }
     }
