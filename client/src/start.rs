@@ -8,8 +8,8 @@ use parking_lot::Mutex;
 use wasm_bindgen::prelude::*;
 
 use crate::bridge::{
-    expose_closure_f64, expose_closure_f64_f64, expose_closure_f64x3_string,
-    expose_closure_string_in, expose_closure_string_out, flog, log, request_animation_frame,
+    expose_closure_f64, expose_closure_f64x3_string, expose_closure_string_in,
+    expose_closure_string_out, flog, log, request_animation_frame,
 };
 use crate::client::Client;
 use crate::dom::menu::Menu;
@@ -78,13 +78,6 @@ pub fn start() -> Result<(), JsValue> {
     new_scene_closure.forget();
 
     let vp_ref = vp.clone();
-    let change_scene_closure = Closure::wrap(Box::new(move |scene_key: String| {
-        vp_ref.lock().scene.change_scene(scene_key);
-    }) as Box<dyn FnMut(String)>);
-    expose_closure_string_in("change_scene", &change_scene_closure);
-    change_scene_closure.forget();
-
-    let vp_ref = vp.clone();
     let new_sprite_closure = Closure::wrap(Box::new(
         move |layer: f64, w: f64, h: f64, media_key: String| {
             let texture = crate::render::parse_media_key(&media_key);
@@ -102,41 +95,6 @@ pub fn start() -> Result<(), JsValue> {
     ) as Box<dyn FnMut(f64, f64, f64, String)>);
     expose_closure_f64x3_string("new_sprite", &new_sprite_closure);
     new_sprite_closure.forget();
-
-    let vp_ref = vp.clone();
-    let clone_sprite_closure = Closure::wrap(Box::new(move |id: f64| {
-        vp_ref.lock().scene.clone_sprite(id as i64);
-    }) as Box<dyn FnMut(f64)>);
-    expose_closure_f64("clone_sprite", &clone_sprite_closure);
-    clone_sprite_closure.forget();
-
-    let vp_ref = vp.clone();
-    let remove_sprite_closure = Closure::wrap(Box::new(move |id: f64| {
-        vp_ref.lock().scene.remove_sprite(id as i64);
-    }) as Box<dyn FnMut(f64)>);
-    expose_closure_f64("remove_sprite", &remove_sprite_closure);
-    remove_sprite_closure.forget();
-
-    let vp_ref = vp.clone();
-    let sprite_layer_closure = Closure::wrap(Box::new(move |id: f64, layer: f64| {
-        vp_ref.lock().scene.sprite_layer(id as i64, layer as i64);
-    }) as Box<dyn FnMut(f64, f64)>);
-    expose_closure_f64_f64("sprite_layer", &sprite_layer_closure);
-    sprite_layer_closure.forget();
-
-    let vp_ref = vp.clone();
-    let select_layer_closure = Closure::wrap(Box::new(move |id: f64| {
-        vp_ref.lock().scene.select_layer(id as i64);
-    }) as Box<dyn FnMut(f64)>);
-    expose_closure_f64("select_layer", &select_layer_closure);
-    select_layer_closure.forget();
-
-    let vp_ref = vp.clone();
-    let set_fog_brush_closure = Closure::wrap(Box::new(move |size: f64| {
-        vp_ref.lock().scene.set_fog_brush(size as u32);
-    }) as Box<dyn FnMut(f64)>);
-    expose_closure_f64("set_fog_brush", &set_fog_brush_closure);
-    set_fog_brush_closure.forget();
 
     let vp_ref = vp.clone();
     let set_scene_list_closure = Closure::wrap(Box::new(move |json: String| {

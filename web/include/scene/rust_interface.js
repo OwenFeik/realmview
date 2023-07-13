@@ -28,54 +28,12 @@ var RustFuncs = {
     project.
     */
 
-    change_scene: missing_func,
-    /*
-    function change_scene(scene_key: string)
-
-    Switch to a new scene if in a game, else a nop.
-    */
-
     new_sprite: missing_func,
     /*
     function new_sprite(layer_id: int, w: float, h: float, media_key: string)
 
     Adds a new sprite with the provided texture to the scene. Will load the
     texture if necessary.
-    */
-
-    select_layer: missing_func,
-    /*
-    function select_layer(layer_id: number)
-
-    Selects the specified layer.
-    */
-
-    sprite_layer: missing_func,
-    /*
-    function sprite_layer(sprite_id: number, layer_id: number)
-
-    Moves the specified sprite to the specified layer.
-    */
-
-    clone_sprite: missing_func,
-    /*
-    function clone_sprite(sprite_id: number)
-
-    Clones the specified sprite.
-    */
-
-    remove_sprite: missing_func,
-    /*
-    function remove_sprite(sprite_id: number)
-
-    Deletes the specified sprite.
-    */
-
-    set_fog_brush: missing_func,
-    /*
-    function set_fog_brush(brush_size: number)
-
-    Sets the size of the fog of war brush, in tiles.
     */
 
     set_scene_list: missing_func,
@@ -164,15 +122,6 @@ function new_scene(project_id = 0) {
     call_when_ready("new_scene", () => {
         RustFuncs.new_scene(project_id);
     });
-}
-
-// Wrapper to change the scene when in a game.
-function change_scene(scene_key) {
-    if (scene_key) {
-        call_when_ready("change_scene", () => {
-            RustFuncs.change_scene(scene_key);
-        });
-    }
 }
 
 // Given an HTML image, load the texture for this image and add a sprite with

@@ -29,7 +29,6 @@
 * Better database abstraction
 * One-click jump in to most recent scene.
 * Autosave for editor as well as game.
-* Clean up `rust_interface.js`, remove now unused functions.
 
 ## Bugs
 * Undoing creation of a shape moves it to a 0x0 at cursor
@@ -46,6 +45,7 @@
 * Resizing a drawing increases the line stroke (maybe good?).
 * Drawing event grouping is broken.
 * When changing the cap on a drawing from none, force re-render.
+* Adding media from the media offcanvas doesn't work.
 
 # Documentation
 
