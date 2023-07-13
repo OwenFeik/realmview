@@ -43,7 +43,6 @@
 * Add to scene button is broken; `selected_layer` is undefined.
 * Drawing outlines are misleading for resize anchors.
 * Resizing a drawing increases the line stroke (maybe good?).
-* Drawing event grouping is broken.
 * When changing the cap on a drawing from none, force re-render.
 * Adding media from the media offcanvas doesn't work.
 
