@@ -17,12 +17,10 @@
 * Hold a button to rotate a sprite
 * Save perms, reload when the same scene is loaded
 * Expose closure macro
-* Visible fog brush
 * Visible resize anchors
 * Update stroke width in menu when changing with scroll wheel
 * Close game when owner leaves
 * Added tokens can't be edited by players
-* Sometimes players can't see all lines 
 * Photoshop style stroke changes (maybe)
 * Set sprite aspect ratio
 * Token health bars
@@ -45,6 +43,7 @@
 * Resizing a drawing increases the line stroke (maybe good?).
 * When changing the cap on a drawing from none, force re-render.
 * Adding media from the media offcanvas doesn't work.
+* Sometimes players can't see all lines.
 
 # Documentation
 

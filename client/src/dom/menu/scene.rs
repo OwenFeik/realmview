@@ -42,8 +42,8 @@ impl SceneMenu {
                 ..Default::default()
             });
         });
-        inputs.add_float_handler("Brush", Some(1), Some(20), None, |vp, brush| {
-            vp.scene.set_fog_brush(brush as u32);
+        inputs.add_float_handler("Brush", Some(1), Some(20), Some(0.5), |vp, brush| {
+            vp.scene.set_fog_brush(brush);
         });
         inputs.add_line();
         inputs.add_select_handler("Change Scene", &[], |_vp, key| {
@@ -96,14 +96,14 @@ impl SceneMenu {
         }
     }
 
-    pub fn fog_brush(&self) -> u32 {
+    pub fn fog_brush(&self) -> f32 {
         self.inputs
-            .get_u32("Brush")
+            .get_f32("Brush")
             .unwrap_or(crate::interactor::Interactor::DEFAULT_FOG_BRUSH)
     }
 
-    pub fn set_fog_brush(&self, brush: u32) {
-        self.inputs.set_float("Brush", brush as f32);
+    pub fn set_fog_brush(&self, brush: f32) {
+        self.inputs.set_float("Brush", brush);
     }
 
     pub fn scene(&self) -> Option<String> {

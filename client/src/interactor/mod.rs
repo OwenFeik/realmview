@@ -19,7 +19,7 @@ pub struct Interactor {
     pub changes: changes::Changes,
     pub role: scene::perms::Role,
     copied: Option<Vec<Sprite>>,
-    fog_brush: u32,
+    fog_brush: f32,
     history: history::History,
     holding: holding::HeldObject,
     perms: Perms,
@@ -34,7 +34,7 @@ pub struct Interactor {
 }
 
 impl Interactor {
-    pub const DEFAULT_FOG_BRUSH: u32 = 1;
+    pub const DEFAULT_FOG_BRUSH: f32 = 1.0;
 
     /// This special ID will not belong to any sprite, and will instead be used
     /// to refer to all currently selected sprites.
@@ -670,14 +670,16 @@ impl Interactor {
         &self.scene.fog
     }
 
-    pub fn set_fog_brush(&mut self, size: u32) {
+    pub fn get_fog_brush(&self) -> f32 {
+        self.fog_brush
+    }
+
+    pub fn set_fog_brush(&mut self, size: f32) {
         self.fog_brush = size;
     }
 
     pub fn set_fog(&mut self, at: Point, ctrl: bool) {
-        let x = at.x as u32;
-        let y = at.y as u32;
-        let event = self.scene.fog.set_square(x, y, self.fog_brush, ctrl);
+        let event = self.scene.fog.set_circle(at, self.fog_brush, ctrl);
         self.scene_event(event);
     }
 
@@ -1035,12 +1037,14 @@ impl Interactor {
         &[CanvasDropdownEvent::Group, CanvasDropdownEvent::Ungroup]
     }
 
-    pub fn change_fog_brush(&mut self, delta: f32) -> u32 {
+    pub fn change_fog_brush(&mut self, delta: f32) -> f32 {
+        const MIN_FOG_BRUSH: f32 = 0.5;
+
         if delta.abs() > f32::EPSILON {
             if delta.is_sign_positive() {
-                self.fog_brush = 1.max(self.fog_brush - 1);
+                self.fog_brush = MIN_FOG_BRUSH.max(self.fog_brush - 1.0);
             } else {
-                self.fog_brush += 1;
+                self.fog_brush += 1.0;
             }
         }
 

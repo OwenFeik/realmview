@@ -80,6 +80,14 @@ fn hide_accordion(key: &str) {
     toggle_accordion_if(key, |el| el.has_class("show"))
 }
 
+fn set_accordion_visible(key: &str, visible: bool) {
+    if visible {
+        show_accordion(key);
+    } else {
+        hide_accordion(key);
+    }
+}
+
 pub struct Menu {
     dropdown: dropdown::Dropdown,
     layers: layers::LayersMenu,
@@ -91,6 +99,7 @@ pub struct Menu {
 
 impl Menu {
     const DRAW: &str = "Draw";
+    const SCENE: &str = "Scene";
     const SPRITE: &str = "Sprite";
 
     pub fn new(vp: VpRef) -> Self {
@@ -112,7 +121,7 @@ impl Menu {
                     .with_classes(&["accordion-item", "p-2"]),
             );
             add_accordion(&el, "Layers", menu.layers.root());
-            add_accordion(&el, "Scene", menu.scene.root());
+            add_accordion(&el, Self::SCENE, menu.scene.root());
             add_accordion(&el, Self::DRAW, menu.draw.root());
             add_accordion(&el, Self::SPRITE, menu.sprite.root());
         }
@@ -121,10 +130,10 @@ impl Menu {
     }
 
     pub fn update_tool(&self, tool: crate::viewport::Tool) {
-        match tool {
-            crate::viewport::Tool::Draw => show_accordion(Self::DRAW),
-            _ => hide_accordion(Self::DRAW),
-        }
+        use crate::viewport::Tool;
+
+        set_accordion_visible(Self::DRAW, matches!(tool, Tool::Draw));
+        set_accordion_visible(Self::SCENE, matches!(tool, Tool::Fog));
 
         self.tools.update_tool(tool);
     }
@@ -165,7 +174,7 @@ impl Menu {
         self.scene.set_scene_list(list);
     }
 
-    pub fn set_fog_brush(&mut self, brush: u32) {
+    pub fn set_fog_brush(&mut self, brush: f32) {
         self.scene.set_fog_brush(brush);
     }
 
@@ -179,10 +188,6 @@ impl Menu {
     }
 
     pub fn update_selection(&mut self, has_selection: bool) {
-        if has_selection {
-            show_accordion(Self::SPRITE);
-        } else {
-            hide_accordion(Self::SPRITE);
-        }
+        set_accordion_visible(Self::SPRITE, has_selection);
     }
 }

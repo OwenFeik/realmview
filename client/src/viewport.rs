@@ -10,7 +10,7 @@ use crate::{
     interactor::Interactor,
 };
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Tool {
     Draw,
     Fog,
@@ -22,7 +22,7 @@ impl Tool {
     fn cursor(&self) -> Cursor {
         match self {
             Tool::Draw => Cursor::Crosshair,
-            Tool::Fog => Cursor::Crosshair,
+            Tool::Fog => Cursor::None,
             Tool::Pan => Cursor::Grab,
             Tool::Select => Cursor::Default,
         }
@@ -90,6 +90,9 @@ pub struct Viewport {
     /// Whether the left mousebutton is currently being held down.
     mouse_down: Option<bool>,
 
+    /// Whether the control key is currently being held down.
+    ctrl_down: bool,
+
     // Current grab for dragging on the viewport
     grabbed_at: Option<ViewportPoint>,
 
@@ -116,6 +119,7 @@ impl Viewport {
             grid_zoom: Viewport::BASE_GRID_ZOOM,
             cursor_position: None,
             mouse_down: None,
+            ctrl_down: false,
             grabbed_at: None,
             redraw_needed: true,
         };
@@ -159,10 +163,23 @@ impl Viewport {
     }
 
     pub fn set_tool(&mut self, tool: Tool) {
+        if self.tool == tool {
+            return;
+        }
+
+        // As fog cursor is drawn, we'll need to redraw to get rid of it.
+        if matches!(self.tool, Tool::Fog) {
+            self.redraw_needed = true;
+        }
+
         if tool.allowed(self.scene.role) {
             self.tool = tool;
             self.update_cursor(None);
             self.menu().update_tool(tool);
+
+            if matches!(self.tool, Tool::Fog) {
+                self.enable_fog();
+            }
         } else {
             self.set_tool(Tool::Pan);
         }
@@ -171,6 +188,16 @@ impl Viewport {
     pub fn set_draw_tool(&mut self, draw_tool: DrawTool) {
         self.set_tool(Tool::Draw);
         self.menu().set_draw_tool(draw_tool);
+    }
+
+    fn enable_fog(&mut self) {
+        self.scene
+            .scene_details(crate::interactor::details::SceneDetails {
+                fog: Some(true),
+                ..Default::default()
+            });
+        let new_details = self.scene.get_scene_details();
+        self.menu().set_scene_details(new_details);
     }
 
     fn scene_point(&self, at: ViewportPoint) -> Point {
@@ -268,7 +295,10 @@ impl Viewport {
 
         self.update_cursor(Some(self.scene.cursor_at(scene_point, ctrl)));
 
-        if matches!(self.mouse_down, Some(true)) && matches!(self.tool, Tool::Fog) {
+        if matches!(self.mouse_down, Some(true))
+            && matches!(self.tool, Tool::Fog)
+            && self.scene.fog().active
+        {
             self.scene.set_fog(scene_point, ctrl);
         }
     }
@@ -355,8 +385,18 @@ impl Viewport {
         }
     }
 
+    fn set_ctrl_down(&mut self, ctrl: bool) {
+        if self.ctrl_down != ctrl {
+            self.ctrl_down = ctrl;
+            if let Tool::Fog = self.tool {
+                self.redraw_needed = true;
+            }
+        }
+    }
+
     fn handle_key_down(&mut self, key: Key, ctrl: bool) {
         match key {
+            Key::Control => self.set_ctrl_down(true),
             Key::Delete => self.scene.remove_selection(),
             Key::Escape => {
                 self.scene.clear_selection();
@@ -385,6 +425,29 @@ impl Viewport {
         }
     }
 
+    fn handle_key_up(&mut self, key: Key) {
+        if let Key::Control = key {
+            self.set_ctrl_down(false);
+        }
+    }
+
+    fn handle_cursor(&mut self, at: ViewportPoint) {
+        // As fog cursor is drawn through the renderer, we need to re-render
+        // when the cursor moves if the active tool is the fog brush.
+        if matches!(self.tool, Tool::Fog) {
+            if self.cursor_position.is_none() {
+                self.redraw_needed = true;
+            } else {
+                let pos = self.cursor_position.unwrap();
+                if (pos.x - at.x).abs() >= f32::EPSILON || (pos.y - at.y).abs() >= f32::EPSILON {
+                    self.redraw_needed = true;
+                }
+            }
+        }
+
+        self.cursor_position = Some(at);
+    }
+
     fn process_ui_events(&mut self) {
         let menu = self.menu();
         if let Some(event) = menu.dropdown_event() {
@@ -398,32 +461,33 @@ impl Viewport {
         };
 
         for event in &events {
+            self.set_ctrl_down(event.ctrl);
             match event.input {
                 Input::Mouse(at, MouseAction::Down, button) => {
-                    self.cursor_position = Some(at);
+                    self.handle_cursor(at);
                     self.handle_mouse_down(at, button, event.ctrl, event.alt)
                 }
                 Input::Mouse(at, MouseAction::Enter, _) => {
-                    self.cursor_position = Some(at);
+                    self.handle_cursor(at);
                 }
                 Input::Mouse(_, MouseAction::Leave, button) => {
                     self.cursor_position = None;
                     self.handle_mouse_up(button, event.alt, event.ctrl)
                 }
                 Input::Mouse(at, MouseAction::Move, _) => {
-                    self.cursor_position = Some(at);
+                    self.handle_cursor(at);
                     self.handle_mouse_move(at, event.ctrl)
                 }
                 Input::Mouse(at, MouseAction::Up, button) => {
-                    self.cursor_position = Some(at);
+                    self.handle_cursor(at);
                     self.handle_mouse_up(button, event.alt, event.ctrl)
                 }
                 Input::Mouse(at, MouseAction::Wheel(delta), _) => {
-                    self.cursor_position = Some(at);
+                    self.handle_cursor(at);
                     self.handle_scroll(at, delta, event.shift, event.ctrl, event.alt)
                 }
                 Input::Keyboard(KeyboardAction::Down, key) => self.handle_key_down(key, event.ctrl),
-                Input::Keyboard(KeyboardAction::Up, _) => (),
+                Input::Keyboard(KeyboardAction::Up, key) => self.handle_key_up(key),
             };
         }
     }
@@ -434,6 +498,13 @@ impl Viewport {
             self.grid_zoom,
         );
 
+        let fog_brush_outline = self
+            .cursor_position
+            .map(|at| self.scene_point(at))
+            .map(|at| {
+                let r = self.scene.get_fog_brush();
+                Rect::at(at - Point::same(r), r * 2.0, r * 2.0)
+            });
         let renderer = self.context.renderer();
 
         renderer.clear(vp);
@@ -444,6 +515,15 @@ impl Viewport {
         }
 
         renderer.draw_outlines(vp, &self.scene.selections());
+
+        if matches!(self.tool, Tool::Fog) && let Some(position) = fog_brush_outline {
+            renderer.draw_outline(
+                vp,
+                position,
+                scene::Shape::Ellipse,
+                (if self.ctrl_down { scene::Colour::RED } else { scene::Colour::GREEN }).with_opacity(0.6),
+            )
+        }
     }
 
     pub fn animation_frame(&mut self) {

@@ -122,7 +122,7 @@ pub trait Renderer {
         const PALE_BLUE_OUTLINE: Colour = Colour([0.5, 0.5, 1.0, 0.9]);
 
         for &Outline { rect, shape } in outlines {
-            self.draw_outline(vp, rect.scaled(vp.grid_size), shape, PALE_BLUE_OUTLINE);
+            self.draw_outline(vp, rect, shape, PALE_BLUE_OUTLINE);
         }
     }
 
@@ -283,7 +283,12 @@ impl Renderer for WebGlRenderer {
             w: vp_w,
             h: vp_h,
         } = vp.viewport;
-        let mut points = shapes::outline_shape(shape, position.translate(-Point::new(vp_x, vp_y)));
+        let mut points = shapes::outline_shape(
+            shape,
+            position
+                .scaled(vp.grid_size)
+                .translate(-Point::new(vp_x, vp_y)),
+        );
         self.line_renderer
             .scale_and_load_points(&mut points, vp_w, vp_h);
         self.line_renderer.render_line_loop(Some(colour));

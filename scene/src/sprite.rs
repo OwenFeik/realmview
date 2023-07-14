@@ -8,6 +8,9 @@ pub struct Colour(pub [f32; 4]);
 
 impl Colour {
     pub const DEFAULT: Colour = Colour([1.0, 0.0, 1.0, 1.0]);
+    pub const RED: Colour = Colour([1.0, 0.0, 0.0, 1.0]);
+    pub const GREEN: Colour = Colour([0.0, 1.0, 0.0, 1.0]);
+    pub const BLUE: Colour = Colour([0.0, 0.0, 1.0, 1.0]);
 
     pub fn r(&self) -> f32 {
         self.0[0]

@@ -198,6 +198,7 @@ impl Canvas {
             "mousemove",
             "wheel",
             "keydown",
+            "keyup",
         ] {
             let events = self.events.clone();
             let listener = Closure::wrap(Box::new(move |event: web_sys::UiEvent| {

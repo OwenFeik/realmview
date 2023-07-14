@@ -1,4 +1,4 @@
-use crate::comms::SceneEvent;
+use crate::{comms::SceneEvent, Point};
 
 /// A `struct Fog` represents fog of war over the scene. It keeps a bit array
 /// indicating whether each tile is occluded as it's representation of the fog.
@@ -179,21 +179,30 @@ impl Fog {
         }
     }
 
-    pub fn set_square(&mut self, x: u32, y: u32, d: u32, occluded: bool) -> SceneEvent {
+    fn tile_center(x: u32, y: u32) -> Point {
+        Point::new(x as f32 + 0.5, y as f32 + 0.5)
+    }
+
+    /// Set occluded status of all tiles whose center is within a given radius
+    /// of a point.
+    ///
+    /// * `at`       Point around which to update tile state.
+    /// * `r`        Radius around `at` to update tile state.
+    /// * `occluded` New occluded state for tiles in range.
+    pub fn set_circle(&mut self, at: Point, r: f32, occluded: bool) -> SceneEvent {
         let mut events = Vec::new();
 
-        for dx in 0..(d + 1).div_ceil(2) {
-            for dy in 0..(d + 1).div_ceil(2) {
-                if dx <= x && dy <= y {
-                    for (u, v) in [
-                        (x - dx, y - dy),
-                        (x - dx, y + dy),
-                        (x + dx, y + dy),
-                        (x + dx, y - dy),
-                    ] {
-                        if let Some(event) = self.set(u, v, occluded) {
-                            events.push(event);
-                        }
+        // Negative values become 0 through (as u32).
+        let xmin = (at.x - r).floor() as u32;
+        let xmax = (at.x + r).ceil() as u32;
+        let ymin = (at.y - r).floor() as u32;
+        let ymax = (at.y + r).ceil() as u32;
+
+        for x in xmin..=xmax {
+            for y in ymin..=ymax {
+                if Self::tile_center(x, y).dist(at) <= r {
+                    if let Some(event) = self.set(x, y, occluded) {
+                        events.push(event);
                     }
                 }
             }

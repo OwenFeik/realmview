@@ -2,6 +2,7 @@
 #![feature(drain_filter)]
 #![feature(let_chains)]
 #![feature(trait_alias)]
+#![feature(int_roundings)]
 
 pub use scene;
 
