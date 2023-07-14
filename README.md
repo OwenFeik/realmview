@@ -29,7 +29,6 @@
 * Autosave for editor as well as game.
 
 ## Bugs
-* Undoing creation of a shape moves it to a 0x0 at cursor
 * Updating sprite shape via menu is broken
 * Fog of war sometimes doesn't show up
 * Remove sprites is forbidden; should be able to remove own sprites
