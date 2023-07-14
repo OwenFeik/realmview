@@ -6,9 +6,10 @@ use warp::hyper::StatusCode;
 use warp::Filter;
 
 use super::response::{cookie_result, Binary};
-use super::{current_time, json_body, parse_cookie, with_db, with_session};
+use super::{json_body, parse_cookie, with_db, with_session};
 use crate::crypto::{check_password, from_hex_string, generate_salt, to_hex_string};
 use crate::models::User;
+use crate::utils::current_time;
 
 #[derive(Deserialize)]
 struct LoginRequest {

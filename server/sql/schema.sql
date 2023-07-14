@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS scenes (
     scene_key CHAR(16) NOT NULL,
     project INTEGER REFERENCES projects(id) ON DELETE CASCADE NOT NULL,
     title TEXT,
+    updated_time INTEGER NOT NULL,
     w INTEGER NOT NULL,
     h INTEGER NOT NULL,
     thumbnail TEXT,

@@ -14,6 +14,7 @@ mod crypto;
 mod games;
 mod handlers;
 mod models;
+mod utils;
 
 use games::Games;
 

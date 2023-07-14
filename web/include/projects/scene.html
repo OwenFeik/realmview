@@ -10,6 +10,7 @@
       src="${scene.thumbnail}"
     >
     <div class="card-body">
+    IFNDEF(DISPLAY) {{
       <EditableInput
         button=""
         class="mb-1"
@@ -24,19 +25,25 @@
         "
       >
       <div>
+    }} ELSE {{
+      <div class="input-group">
+        <input class="form-control" value="${scene.title}" disabled>
+    }}
         <Button
-          small=""
+          IFNDEF(DISPLAY) {{ small="" }}
           class=""
           text="Launch"
           href="/project/${project.project_key}/scene/${scene.scene_key}"
         >
+      IFNDEF(DISPLAY) {{
         <Button
           small=""  
           class="btn-danger"
           text="Delete"
           onclick="delete_scene('${scene.scene_key}', '${scene.title}')"
         >
-      </div>
+      }}
+    </div>
     </div>
   </div>
 </div>

@@ -265,6 +265,7 @@ mod scene_record {
         pub scene_key: String,
         pub project: i64,
         pub title: String,
+        pub updated_time: i64,
         pub w: u32,
         pub h: u32,
         pub thumbnail: String,
@@ -302,11 +303,12 @@ mod scene_record {
             fog_active: bool,
         ) -> anyhow::Result<SceneRecord> {
             sqlx::query_as(
-                "INSERT INTO scenes (scene_key, project, title, w, h, fog, fog_active) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) RETURNING *;",
+                "INSERT INTO scenes (scene_key, project, title, updated_time, w, h, fog, fog_active) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) RETURNING *;",
             )
             .bind(crypto::random_hex_string(RECORD_KEY_LENGTH)?)
             .bind(project)
             .bind(title)
+            .bind(super::updated_time())
             .bind(width)
             .bind(height)
             .bind(fog)
@@ -353,11 +355,12 @@ mod scene_record {
             sqlx::query(
                 r#"
                 UPDATE scenes SET
-                    title = ?1, w = ?2, h = ?3, fog = ?4, fog_active = ?5
+                    title = ?1, updated_time = ?2, w = ?3, h = ?4, fog = ?5, fog_active = ?6
                 WHERE id = ?6;
             "#,
             )
             .bind(title)
+            .bind(super::updated_time())
             .bind(width)
             .bind(height)
             .bind(fog)
@@ -983,4 +986,8 @@ mod group {
                 .map_err(|e| anyhow::anyhow!("Failed to load scene groups: {e}"))
         }
     }
+}
+
+fn updated_time() -> i64 {
+    crate::utils::current_time().unwrap_or(0) as i64
 }

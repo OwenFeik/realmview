@@ -13,6 +13,7 @@ use crate::models::{Project, SceneRecord, User};
 struct SceneListEntry {
     scene_key: String,
     title: String,
+    updated_time: i64,
     thumbnail: String,
 }
 
@@ -21,6 +22,7 @@ impl SceneListEntry {
         SceneListEntry {
             scene_key: scene.scene_key,
             title: scene.title,
+            updated_time: scene.updated_time,
             thumbnail: scene.thumbnail,
         }
     }

@@ -25,8 +25,8 @@
 * Set sprite aspect ratio
 * Token health bars
 * Better database abstraction
-* One-click jump in to most recent scene.
 * Autosave for editor as well as game.
+* Scene title in save dialog for new scene should be preselected.
 
 ## Bugs
 * Updating sprite shape via menu is broken

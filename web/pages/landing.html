@@ -1,10 +1,40 @@
-<PageFloat title="Welcome" loggedin="">
-  <div class="text-center">
-    <p class="fs-3">Welcome back!</p>
-    <ul class="text-start">
-      <li><a href="/game">Join a game</a></li>
-      <li><a href="/project">View your projects</a></li>
-      <li><a href="/media">Manage media</a></li>
-    </ul>
+<Page title="Welcome" loggedin="">
+  <div
+    class="row justify-content-center align-items-center"
+    style="height: 30vh;"
+  >
+    <div class="col-sm-3 d-flex flex-column justify-content-end">
+      <div class="text-center">
+        <p class="fs-3">Welcome back!</p>
+        <ul class="text-start">
+          <li><a href="/game">Join a game</a></li>
+          <li><a href="/project">View your projects</a></li>
+          <li><a href="/media">Manage media</a></li>
+        </ul>
+      </div>
+    </div>
   </div>
-</PageFloat>
+  <div class="text-center">
+    <p class="fs-3">Recent scenes</p>
+  </div>
+  <div id="scene_list" class="row px-4"></div>
+  <script>
+    get("/api/project/list", resp => {
+      const list = document.getElementById("scene_list");
+
+      let projects = resp.list || [];
+      let scenes = projects.flatMap(project => project.scene_list.map(
+        scene => Object.assign(scene, { project })
+      ));
+      scenes.sort(scene => scene.updated_time || 1e12).slice(0, 3).forEach(
+        scene => {
+          // template uses project and scene.
+          let project = scene.project;
+          list.appendChild(
+            template_to_element(`{{ projects/scene(display=1) }}`)
+          );
+        }
+      );
+    });
+  </script>
+</Page>

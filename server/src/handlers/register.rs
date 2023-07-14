@@ -5,8 +5,9 @@ use sqlx::{sqlite::SqlitePool, Sqlite};
 use warp::{http::StatusCode, Filter};
 
 use super::response::{as_result, Binary};
-use super::{current_time, json_body, with_db};
+use super::{json_body, with_db};
 use crate::crypto::{generate_salt, hash_password, to_hex_string, Key};
+use crate::utils::current_time;
 
 #[derive(Deserialize)]
 struct RegistrationRequest {

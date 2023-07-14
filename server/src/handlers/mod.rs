@@ -103,12 +103,6 @@ pub fn with_db(
     warp::any().map(move || pool.clone())
 }
 
-pub fn current_time() -> anyhow::Result<u64> {
-    Ok(std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)?
-        .as_secs())
-}
-
 pub fn parse_cookie(cookies: String, goal_key: &str) -> Option<String> {
     for cookie in cookies.split(';') {
         let parts = cookie.splitn(2, '=').collect::<Vec<&str>>();
