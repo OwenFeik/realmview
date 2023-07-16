@@ -21,7 +21,7 @@ if "LOGGEDIN" in kwargs or "REDIRECT" in kwargs:
             onclick="
               fetch('/api/auth/logout', { method: 'POST' }).then(
                 () => window.location = '/'
-              )
+              ).catch(() => window.location = '/')
             "
           >Log Out</a>
         </div>

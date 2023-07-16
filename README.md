@@ -27,6 +27,7 @@
 * Better database abstraction
 * Autosave for editor as well as game.
 * Scene title in save dialog for new scene should be preselected.
+* Save scene when creating; assign ID immediately.
 
 ## Bugs
 * Updating sprite shape via menu is broken

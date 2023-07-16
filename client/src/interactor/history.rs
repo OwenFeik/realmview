@@ -67,6 +67,13 @@ impl History {
     /// history stack. Should be called with every event produced from the
     /// scene to ensure consistency with the server.
     pub fn issue_event(&mut self, event: SceneEvent) {
+        // Empty event set. Useless.
+        if let SceneEvent::EventSet(events) = &event {
+            if events.is_empty() {
+                return;
+            }
+        }
+
         if self.client.is_some() {
             self._issue_event(event.clone());
         }

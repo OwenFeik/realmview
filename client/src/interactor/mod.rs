@@ -163,6 +163,18 @@ impl Interactor {
         }
     }
 
+    fn scene_events(&mut self, events: Vec<SceneEvent>) {
+        if events.is_empty() {
+            return;
+        }
+
+        if events.len() == 1 {
+            self.scene_option(events.into_iter().next());
+        } else {
+            self.scene_event(SceneEvent::EventSet(events));
+        }
+    }
+
     fn scene_option(&mut self, event_option: Option<SceneEvent>) {
         if let Some(event) = event_option {
             self.scene_event(event);
@@ -246,7 +258,7 @@ impl Interactor {
             }
         }
 
-        self.scene_event(SceneEvent::EventSet(events));
+        self.scene_events(events);
     }
 
     fn update_role(&mut self) {
@@ -347,10 +359,7 @@ impl Interactor {
             .filter_map(|id| effect(self.scene.sprite(*id)?))
             .collect::<Vec<SceneEvent>>();
 
-        if !events.is_empty() {
-            self.scene_event(SceneEvent::EventSet(events));
-            self.changes.sprite_selected_change();
-        }
+        self.scene_events(events);
     }
 
     fn grab_selection(&self, at: Point) -> holding::HeldObject {
@@ -849,9 +858,7 @@ impl Interactor {
                 }
             }
 
-            if !events.is_empty() {
-                self.scene_event(SceneEvent::EventSet(events));
-            }
+            self.scene_events(events);
         } else {
             let opt = self.scene.clone_sprite(sprite);
             self.scene_option(opt);

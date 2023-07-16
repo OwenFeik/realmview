@@ -94,6 +94,7 @@ impl Key {
     fn from(key: &str) -> Self {
         match key {
             "Alt" => Self::Alt,
+            "Backspace" => Self::Delete,
             "Control" => Self::Control,
             "Delete" => Self::Delete,
             "Escape" => Self::Escape,
