@@ -10,7 +10,10 @@
       src="${scene.thumbnail}"
     >
     <div class="card-body">
-    IFNDEF(DISPLAY) {{
+    IFDEF(DISPLAY) {{
+      <div class="input-group">
+        <input class="form-control" value="${scene.title}" disabled>
+    }} ELSE {{
       <EditableInput
         button=""
         class="mb-1"
@@ -25,9 +28,6 @@
         "
       >
       <div>
-    }} ELSE {{
-      <div class="input-group">
-        <input class="form-control" value="${scene.title}" disabled>
     }}
         <Button
           IFNDEF(DISPLAY) {{ small="" }}

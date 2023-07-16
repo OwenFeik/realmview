@@ -112,7 +112,7 @@ def cache_file(filename: str, content: str) -> None:
 def download_resource(url: str) -> str:
     resp = urllib3.PoolManager().request("GET", url)
     if resp.status != 200:
-        print(f"Failed to retrieve {url} status {resp.status}.")
+        print(f"[ERROR] Failed to retrieve {url} status {resp.status}.")
         exit(os.EX_DATAERR)
     return resp.data.decode("utf-8")
 
@@ -294,11 +294,10 @@ def read_ifdef_block(start: int, html: str) -> typing.Tuple[str, str, str]:
 
 
 BLOCK_REGEX = rf"{OPEN}{ANY}{CLOSE}"
-_IFDEF_REGEX = (
+IFDEF_REGEX = (
     rf"(?P<ident>(?P<cond>IFN?DEF)\((?P<arg>[A-Z_]+)\))\s*{BLOCK_REGEX}"
 )
-IFDEF_ELSE_REGEX = _IFDEF_REGEX + rf"\s*ELSE\s*{BLOCK_REGEX}"
-IFDEF_REGEX = _IFDEF_REGEX
+IFDEF_ELSE_REGEX = IFDEF_REGEX + rf"\s*ELSE\s*{BLOCK_REGEX}"
 
 
 def _process_ifdefs(
@@ -365,7 +364,7 @@ def kwarg_substitution(html: str, args: str = "") -> str:
     try:
         return process_kwarg_html(html, kwargs)
     except (ValueError, KeyError) as e:
-        print(f"Substitution failed.\nReason: {e}\nArgs: {kwargs}")
+        print(f"[ERROR] Substitution failed.\nReason: {e}\nArgs: {kwargs}")
         exit(os.EX_DATAERR)
 
 
@@ -477,7 +476,7 @@ def process_page(page) -> None:
 
     html = process_html(html)
     if OPEN in html:
-        print(f"Substitution may have failed for {page}.")
+        print(f"[WARN] Substitution may have failed for {page}.")
 
     with open(os.path.join(output_dir, page), "w") as f:
         f.write(html)

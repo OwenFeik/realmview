@@ -1,9 +1,9 @@
 <Page title="Welcome" loggedin="">
   <div
-    class="row justify-content-center align-items-center"
+    class="container d-flex flex-column justify-content-end align-items-center"
     style="height: 30vh;"
   >
-    <div class="col-sm-3 d-flex flex-column justify-content-end">
+    <div class="col-sm-3 ">
       <div class="text-center">
         <p class="fs-3">Welcome back!</p>
         <ul class="text-start">
@@ -13,28 +13,37 @@
         </ul>
       </div>
     </div>
+    <div class="text-center pt-4" style="display: none;" id="scene_list_heading">
+      <p class="fs-3">Recent scenes</p>
+    </div>
   </div>
-  <div class="text-center">
-    <p class="fs-3">Recent scenes</p>
+  <div class="container">
+    <div id="scene_list" class="row px-4"></div>
   </div>
-  <div id="scene_list" class="row px-4"></div>
   <script>
     get("/api/project/list", resp => {
+      const SHOW_N_SCENES = 6;
       const list = document.getElementById("scene_list");
 
       let projects = resp.list || [];
       let scenes = projects.flatMap(project => project.scene_list.map(
         scene => Object.assign(scene, { project })
       ));
-      scenes.sort(scene => scene.updated_time || 1e12).slice(0, 3).forEach(
-        scene => {
+      
+      scenes
+        .sort(scene => scene.updated_time || 1e12)
+        .slice(0, SHOW_N_SCENES)
+        .forEach(scene => {
           // template uses project and scene.
           let project = scene.project;
           list.appendChild(
             template_to_element(`{{ projects/scene(display=1) }}`)
           );
-        }
-      );
+        });
+
+      if (scenes.length) {
+        document.getElementById("scene_list_heading").style.display = "";
+      }
     });
   </script>
 </Page>
