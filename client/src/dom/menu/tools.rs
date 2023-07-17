@@ -1,3 +1,5 @@
+use scene::perms::Role;
+
 use crate::{
     dom::{element::Element, icon::Icon, input::InputGroup},
     start::VpRef,
@@ -11,21 +13,30 @@ pub struct ToolsMenu {
 impl ToolsMenu {
     const KEY: &str = "Tool";
 
-    pub fn new(vp: VpRef) -> Self {
+    const EDITOR_TOOLS: &[Icon] = &[Icon::Cursor, Icon::Arrows, Icon::Brush, Icon::Fog];
+    const PLAYER_TOOLS: &[Icon] = &Self::EDITOR_TOOLS[0..=2];
+
+    pub fn new(vp: VpRef, role: Role) -> Self {
         let mut inputs = InputGroup::new(vp);
         inputs.add_icon_radio_handler(
             Self::KEY,
-            &[Icon::Cursor, Icon::Arrows, Icon::Brush, Icon::Fog],
-            |vp, icon| {
+            if role.editor() {
+                Self::EDITOR_TOOLS
+            } else {
+                Self::PLAYER_TOOLS
+            },
+            move |vp, icon| {
                 vp.set_tool(match icon {
                     Icon::Cursor => Tool::Select,
                     Icon::Arrows => Tool::Pan,
                     Icon::Brush => Tool::Draw,
-                    Icon::Fog => Tool::Fog,
+                    Icon::Fog if role.editor() => Tool::Fog,
                     _ => Tool::Select,
                 })
             },
         );
+
+        inputs.root().add_classes(&["accordion-item", "p-2"]);
 
         Self { inputs }
     }

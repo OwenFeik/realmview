@@ -1,4 +1,4 @@
-use ::scene::Id;
+use ::scene::{perms::Role, Id};
 
 pub use self::dropdown::CanvasDropdownEvent;
 pub use self::layers::LayerInfo;
@@ -30,11 +30,9 @@ fn menu_element() -> Option<Element> {
     Element::by_id("canvas_menu")
 }
 
-fn add_accordion(el: &Element, key: &str, inputs: &Element) {
+fn accordion(key: &str, inputs: &Element) -> Element {
     inputs.add_class("p-2");
-
-    let item = el
-        .child("div")
+    let item = Element::default()
         .with_attr("id", &accordion_id(key))
         .with_class("accordion-item");
     let heading = &format!("menu_{}_heading", key.to_lowercase());
@@ -57,6 +55,21 @@ fn add_accordion(el: &Element, key: &str, inputs: &Element) {
         .with_classes(&["accordion-collapse", "collapse"])
         .with_attr("aria-labelledby", &id(heading))
         .with_child(inputs);
+    item
+}
+
+fn add_accordion(el: &Element, key: &str, inputs: &Element) {
+    el.append_child(&accordion(key, inputs));
+}
+
+fn set_accordion_display(key: &str, visible: bool) {
+    if let Some(item) = Element::by_id(&accordion_id(key)) {
+        if visible {
+            item.remove_class("d-none");
+        } else {
+            item.add_class("d-none");
+        }
+    }
 }
 
 fn toggle_accordion_if<F: Fn(&Element) -> bool>(key: &str, condition: F) {
@@ -95,21 +108,27 @@ pub struct Menu {
     draw: draw::DrawMenu,
     sprite: sprite::SpriteMenu,
     tools: tools::ToolsMenu,
+    vp: VpRef,
+    role: Role,
 }
 
 impl Menu {
     const DRAW: &str = "Draw";
+    const LAYERS: &str = "Layers";
     const SCENE: &str = "Scene";
     const SPRITE: &str = "Sprite";
+    const TOOLS: &str = "Tools";
 
-    pub fn new(vp: VpRef) -> Self {
+    pub fn new(vp: VpRef, role: Role) -> Self {
         let menu = Self {
             dropdown: dropdown::Dropdown::new(),
             layers: layers::LayersMenu::new(vp.clone()),
             scene: scene::SceneMenu::new(vp.clone()),
             draw: draw::DrawMenu::new(vp.clone()),
             sprite: sprite::SpriteMenu::new(vp.clone()),
-            tools: tools::ToolsMenu::new(vp),
+            tools: tools::ToolsMenu::new(vp.clone(), role),
+            vp,
+            role,
         };
 
         if let Some(el) = menu_element() {
@@ -118,9 +137,9 @@ impl Menu {
                     .tools
                     .root()
                     .clone()
-                    .with_classes(&["accordion-item", "p-2"]),
+                    .with_attr("id", &accordion_id(Self::TOOLS)),
             );
-            add_accordion(&el, "Layers", menu.layers.root());
+            add_accordion(&el, Self::LAYERS, menu.layers.root());
             add_accordion(&el, Self::SCENE, menu.scene.root());
             add_accordion(&el, Self::DRAW, menu.draw.root());
             add_accordion(&el, Self::SPRITE, menu.sprite.root());
@@ -189,5 +208,28 @@ impl Menu {
 
     pub fn update_selection(&mut self, has_selection: bool) {
         set_accordion_visible(Self::SPRITE, has_selection);
+    }
+
+    pub fn update_role(&mut self, role: ::scene::perms::Role) {
+        if role == self.role {
+            // Already have the correct role.
+            return;
+        }
+
+        // Need to recreate tools menu as Bootstrap CSS uses :last-child.
+        let new = tools::ToolsMenu::new(self.vp.clone(), role);
+        if let Some(el) = menu_element() {
+            let menu = el.raw();
+            if let Some(old) = menu.first_element_child() {
+                menu.replace_child(&new.root().clone().raw(), &old).ok();
+            }
+        }
+        self.tools = new;
+
+        set_accordion_display(Self::TOOLS, role.player());
+        set_accordion_display(Self::DRAW, role.player());
+        set_accordion_display(Self::SPRITE, role.player());
+        set_accordion_display(Self::LAYERS, role.editor());
+        set_accordion_display(Self::SCENE, role.editor());
     }
 }

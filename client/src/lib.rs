@@ -3,6 +3,8 @@
 #![feature(let_chains)]
 #![feature(trait_alias)]
 #![feature(int_roundings)]
+#![feature(const_trait_impl)]
+#![feature(const_slice_index)]
 
 pub use scene;
 

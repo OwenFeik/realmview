@@ -3,6 +3,9 @@ pub struct Changes {
     // require the layers list to be updated.
     layer: bool,
 
+    // A change to the client role will require menu changes and a re-render.
+    role: bool,
+
     // A change to a sprite that will require a re-render
     sprite: bool,
 
@@ -15,6 +18,7 @@ impl Changes {
     pub fn new() -> Self {
         Changes {
             layer: true,
+            role: true,
             sprite: true,
             selected: true,
         }
@@ -43,6 +47,20 @@ impl Changes {
     pub fn handle_layer_change(&mut self) -> bool {
         let ret = self.layer;
         self.layer = false;
+        ret
+    }
+
+    pub fn role_change(&mut self) {
+        self.role = true;
+    }
+
+    pub fn role_change_if(&mut self, changed: bool) {
+        self.role = self.role || changed;
+    }
+
+    pub fn handle_role_change(&mut self) -> bool {
+        let ret = self.role;
+        self.role = false;
         ret
     }
 

@@ -626,19 +626,6 @@ pub fn set_active_draw_tool(tool: impl serde::Serialize) -> anyhow::Result<()> {
     set_checked(&enum_to_id(tool, ID_PREFIX)?)
 }
 
-pub fn set_role(role: scene::perms::Role) {
-    set_visible("canvas_menu", !role.spectator()).ok();
-    set_visible("show_offcanvas", !role.spectator()).ok();
-    set_visible("tools_menu", role.player()).ok();
-    set_visible("draw_menu", role.player()).ok();
-    set_visible("sprite_menu", role.player()).ok();
-    set_visible("layers_menu", role.editor()).ok();
-    set_visible("scene_menu", role.editor()).ok();
-
-    // Fog tool, editor only
-    set_visible("tool_radio_fog_label", role.editor()).ok();
-}
-
 /// Random float in \[0, 1.0\] using JS Math.random()
 pub fn rand() -> f32 {
     js_sys::Math::random() as f32

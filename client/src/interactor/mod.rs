@@ -263,7 +263,7 @@ impl Interactor {
 
     fn update_role(&mut self) {
         self.role = self.perms.get_role(self.user);
-        crate::bridge::set_role(self.role);
+        self.changes.role_change();
     }
 
     pub fn cursor(&self) -> Cursor {

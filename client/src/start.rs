@@ -45,7 +45,8 @@ pub fn start() -> Result<(), JsValue> {
         Err(_) => return logged_error("Failed to create viewport."),
     };
 
-    vp.lock().add_menu(Menu::new(vp.clone()));
+    vp.lock()
+        .add_menu(Menu::new(vp.clone(), scene::perms::Role::Owner));
 
     // This closure acquires the lock on the Viewport, then exports the scene
     // as a binary blob. This allows the front end to pull out the binary

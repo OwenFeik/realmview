@@ -242,8 +242,10 @@ impl Renderer for WebGlRenderer {
     }
 
     fn draw_fog(&mut self, vp: ViewInfo, fog: &Fog, transparent: bool) {
+        const TRANSPARENT_FOG_OPACITY: f32 = 0.4;
+
         let colour = Colour(if transparent {
-            [0.0, 0.0, 0.0, 0.5]
+            [0.0, 0.0, 0.0, TRANSPARENT_FOG_OPACITY]
         } else {
             [0.0, 0.0, 0.0, 1.0]
         });

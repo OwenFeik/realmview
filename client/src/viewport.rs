@@ -551,6 +551,11 @@ impl Viewport {
             let has_selection = self.scene.has_selection();
             self.menu().update_selection(has_selection);
         }
+
+        if self.scene.changes.handle_role_change() {
+            let new_role = self.scene.role;
+            self.menu().update_role(new_role);
+        }
     }
 
     fn centre(&self) -> ViewportPoint {

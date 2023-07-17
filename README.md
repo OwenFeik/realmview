@@ -44,6 +44,7 @@
 * When changing the cap on a drawing from none, force re-render.
 * Adding media from the media offcanvas doesn't work.
 * Sometimes players can't see all lines.
+* Game ending doesn't disconnect automatically.
 
 # Documentation
 
