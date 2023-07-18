@@ -989,5 +989,5 @@ mod group {
 }
 
 fn updated_time() -> i64 {
-    crate::utils::current_time().unwrap_or(0) as i64
+    crate::utils::timestamp_s().unwrap_or(0) as i64
 }

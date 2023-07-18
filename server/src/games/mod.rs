@@ -57,7 +57,6 @@ pub async fn client_connection(ws: WebSocket, key: String, game: GameRef) {
     }
 
     game.write().await.drop_client(&key);
-    println!("Client disconnected: {key}");
 }
 
 pub fn generate_game_key() -> anyhow::Result<String> {

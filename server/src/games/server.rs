@@ -14,6 +14,7 @@ use crate::{
         comms::{ClientEvent, ClientMessage, ServerEvent},
         Scene,
     },
+    utils::{log, timestamp_us, LogLevel},
 };
 
 pub struct Server {
@@ -28,7 +29,7 @@ pub struct Server {
 
 impl Server {
     const SAVE_INTERVAL: time::Duration = time::Duration::from_secs(10);
-    const INACTIVITY_TIMEOUT: time::Duration = time::Duration::from_secs(1800);
+    const INACTIVITY_TIMEOUT: time::Duration = time::Duration::from_secs(30);
 
     pub fn new(
         owner: i64,
@@ -56,11 +57,16 @@ impl Server {
             client.clear_sender();
         }
 
+        self.save_scene().await.ok();
+
         // Delete this game.
         self.games.write().await.remove(&self.game.key);
+
+        self.log(LogLevel::Debug, "Closed server");
     }
 
     pub async fn start(server: GameRef) {
+        server.read().await.log(LogLevel::Info, "Opened server");
         tokio::task::spawn(async move {
             let mut interval = tokio::time::interval(Self::SAVE_INTERVAL);
 
@@ -74,17 +80,22 @@ impl Server {
 
                 // If something's changed in the scene, save it
                 if lock.last_action > previous_action_time {
-                    if let Err(e) = lock.save_scene().await {
-                        eprintln!("Failed to save scene: {e}");
-                    } else {
-                        previous_action_time = lock.last_action;
+                    match lock.save_scene().await {
+                        Ok(duration) => {
+                            previous_action_time = lock.last_action;
+                            lock.log(
+                                LogLevel::Debug,
+                                format!("Saved scene. Save duration: {duration}us"),
+                            )
+                        }
+                        Err(e) => lock.log(LogLevel::Error, format!("Failed to save scene: {e}")),
                     }
                 }
 
                 // If the server has timed out, close it down
                 if let Ok(duration) = time::SystemTime::now().duration_since(lock.last_action) {
                     if duration > Self::INACTIVITY_TIMEOUT {
-                        println!("Closing {} due to inactivity.", &lock.game.key);
+                        lock.log(LogLevel::Debug, "Closing due to inactivity");
 
                         // Drop read lock so we can get a write lock
                         drop(lock);
@@ -96,6 +107,7 @@ impl Server {
     }
 
     pub fn add_client(&mut self, key: String, user: i64, username: String) {
+        self.log(LogLevel::Debug, format!("New client ({key})"));
         self.clients.insert(key, Client::new(user, username));
     }
 
@@ -106,6 +118,7 @@ impl Server {
     pub fn drop_client(&mut self, key: &str) {
         if let Some(client) = self.clients.get_mut(key) {
             client.clear_sender();
+            self.log(LogLevel::Debug, format!("Client disconnected ({key})"));
         }
     }
 
@@ -140,6 +153,8 @@ impl Server {
                 self.send_to(event, &key);
             }
         }
+
+        self.log(LogLevel::Debug, format!("Client connected ({key})"));
 
         true
     }
@@ -287,14 +302,14 @@ impl Server {
         Ok(())
     }
 
-    async fn save_scene(&self) -> anyhow::Result<()> {
+    async fn save_scene(&self) -> anyhow::Result<u128> {
+        let start_time = timestamp_us()?;
         let conn = &mut self.acquire_conn().await?;
         if let Some(id) = self.game.project_id() {
             let project = Project::load(conn, id).await?;
-            project
-                .update_scene(conn, self.game.server_scene())
-                .await
-                .map(|_| ())
+            project.update_scene(conn, self.game.server_scene()).await?;
+            let end_time = timestamp_us()?;
+            Ok(end_time - start_time)
         } else {
             Err(anyhow!("Scene has no project."))
         }
@@ -322,5 +337,12 @@ impl Server {
         } else {
             Err(anyhow!("Failed to find project."))
         }
+    }
+
+    fn log<A: AsRef<str>>(&self, level: LogLevel, message: A) {
+        log(
+            level,
+            format!("(Game: {}) {}", self.game.key, message.as_ref()),
+        );
     }
 }

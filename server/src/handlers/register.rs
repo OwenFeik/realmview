@@ -7,7 +7,7 @@ use warp::{http::StatusCode, Filter};
 use super::response::{as_result, Binary};
 use super::{json_body, with_db};
 use crate::crypto::{generate_salt, hash_password, to_hex_string, Key};
-use crate::utils::current_time;
+use crate::utils::timestamp_s;
 
 #[derive(Deserialize)]
 struct RegistrationRequest {
@@ -147,7 +147,7 @@ async fn register(
         Err(_) => return Binary::result_error("Cryptography error."),
     };
 
-    let created_time = match current_time() {
+    let created_time = match timestamp_s() {
         Ok(t) => t,
         Err(_) => return Binary::result_error("Server time issue."),
     };

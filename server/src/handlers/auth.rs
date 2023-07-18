@@ -9,7 +9,7 @@ use super::response::{cookie_result, Binary};
 use super::{json_body, parse_cookie, with_db, with_session};
 use crate::crypto::{check_password, from_hex_string, generate_salt, to_hex_string};
 use crate::models::User;
-use crate::utils::current_time;
+use crate::utils::timestamp_s;
 
 #[derive(Deserialize)]
 struct LoginRequest {
@@ -57,7 +57,7 @@ async fn create_user_session(pool: &SqlitePool, user: &User) -> anyhow::Result<S
     sqlx::query("INSERT INTO user_sessions (user, session_key, start_time) VALUES (?1, ?2, ?3);")
         .bind(user.id)
         .bind(session_key.as_str())
-        .bind(current_time()? as i64)
+        .bind(timestamp_s()? as i64)
         .execute(pool)
         .await?;
 
@@ -132,7 +132,7 @@ async fn login(details: LoginRequest, pool: SqlitePool) -> Result<impl warp::Rep
 async fn end_session(pool: &SqlitePool, session_key: &str) -> anyhow::Result<bool> {
     let rows_affected =
         sqlx::query("UPDATE user_sessions SET end_time = ?1 WHERE session_key = ?2")
-            .bind(current_time()? as i64)
+            .bind(timestamp_s()? as i64)
             .bind(session_key)
             .execute(pool)
             .await?
