@@ -630,3 +630,10 @@ pub fn set_active_draw_tool(tool: impl serde::Serialize) -> anyhow::Result<()> {
 pub fn rand() -> f32 {
     js_sys::Math::random() as f32
 }
+
+pub fn game_over_redirect() {
+    const HREF: &str = "/game_over";
+    if let Ok(window) = window() {
+        window.location().set_href("/game_over").ok();
+    }
+}

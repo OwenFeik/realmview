@@ -4,17 +4,16 @@ use std::time;
 use anyhow::anyhow;
 use bincode::serialize;
 use sqlx::{pool::PoolConnection, SqlitePool};
-use tokio::sync::mpsc::UnboundedSender;
 use warp::ws::Message;
 
-use super::{client::Client, Game, GameRef, Games};
+use super::{client::Client, to_message, Game, GameRef, Games};
 use crate::{
     models::{Project, SceneRecord},
     scene::{
         comms::{ClientEvent, ClientMessage, ServerEvent},
         Scene,
     },
-    utils::{log, timestamp_us, LogLevel},
+    utils::{log, timestamp_us, LogLevel, error},
 };
 
 pub struct Server {
@@ -29,7 +28,7 @@ pub struct Server {
 
 impl Server {
     const SAVE_INTERVAL: time::Duration = time::Duration::from_secs(10);
-    const INACTIVITY_TIMEOUT: time::Duration = time::Duration::from_secs(30);
+    const INACTIVITY_TIMEOUT: time::Duration = time::Duration::from_secs(10);
 
     pub fn new(
         owner: i64,
@@ -54,7 +53,7 @@ impl Server {
         self.alive = false;
 
         for client in self.clients.values_mut() {
-            client.clear_sender();
+            client.disconnect();
         }
 
         self.save_scene().await.ok();
@@ -66,7 +65,7 @@ impl Server {
     }
 
     pub async fn start(server: GameRef) {
-        server.read().await.log(LogLevel::Info, "Opened server");
+        server.read().await.log(LogLevel::Debug, "Opened server");
         tokio::task::spawn(async move {
             let mut interval = tokio::time::interval(Self::SAVE_INTERVAL);
 
@@ -117,14 +116,18 @@ impl Server {
 
     pub fn drop_client(&mut self, key: &str) {
         if let Some(client) = self.clients.get_mut(key) {
-            client.clear_sender();
+            client.disconnect();
             self.log(LogLevel::Debug, format!("Client disconnected ({key})"));
         }
     }
 
-    pub async fn connect_client(&mut self, key: String, sender: UnboundedSender<Message>) -> bool {
+    pub async fn connect_client(
+        &mut self,
+        key: String,
+        sender: futures::stream::SplitSink<warp::ws::WebSocket, Message>,
+    ) -> bool {
         let (player, name) = if let Some(client) = self.get_client_mut(&key) {
-            client.set_sender(sender);
+            client.connect(sender);
             (client.user, client.username.clone())
         } else {
             self.drop_client(&key);
@@ -180,20 +183,20 @@ impl Server {
     }
 
     fn broadcast_event(&self, event: ServerEvent, exclude: Option<&str>) {
-        let data = match serialize(&event) {
-            Ok(e) => e,
-            Err(_) => return,
+        let Ok(message) = to_message(&event) else { 
+            error("Failed to encode event as message.");
+            return;
         };
-
+        
         let clients = self.clients.iter();
         if let Some(key) = exclude {
             clients.for_each(|(k, c)| {
                 if *key != *k {
-                    c.send(Message::binary(data.clone()));
+                    c.send(message.clone());
                 }
             });
         } else {
-            clients.for_each(|(_, c)| c.send(Message::binary(data.clone())));
+            clients.for_each(|(_, c)| c.send(message.clone()));
         }
     }
 

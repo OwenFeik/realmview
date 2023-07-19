@@ -99,7 +99,7 @@ fn deserialise_message(message: JsValue) -> anyhow::Result<ServerEvent> {
         Ok(b) => match deserialize(&Uint8Array::new(&b).to_vec()) {
             Ok(e) => {
                 if matches!(e, ServerEvent::GameOver) {
-                    redirect_game_over();
+                    crate::bridge::game_over_redirect();
                     Err(anyhow!("Game over."))
                 } else {
                     Ok(e)
@@ -111,14 +111,6 @@ fn deserialise_message(message: JsValue) -> anyhow::Result<ServerEvent> {
             "WebSocket message could not be cast to ArrayBuffer: {e:?}."
         )),
     }
-}
-
-fn redirect_game_over() {
-    web_sys::window()
-        .expect("Missing window.")
-        .location()
-        .set_href("/game_over")
-        .ok();
 }
 
 fn create_websocket(url: &str, ready: Rc<AtomicBool>, events: Events) -> anyhow::Result<WebSocket> {
@@ -147,7 +139,7 @@ fn create_websocket(url: &str, ready: Rc<AtomicBool>, events: Events) -> anyhow:
 
     let onerror = Closure::wrap(Box::new(move |e: ErrorEvent| {
         crate::bridge::flog!("WebSocket error: {e:?}");
-        redirect_game_over();
+        crate::bridge::game_over_redirect();
     }) as Box<dyn FnMut(ErrorEvent)>);
     ws.set_onerror(Some(onerror.as_ref().unchecked_ref()));
     onerror.forget();
@@ -182,7 +174,7 @@ fn connect_websocket(url: String, ready: Rc<AtomicBool>, events: Events) -> anyh
             *lock = replacement;
         } else {
             crate::bridge::flog!("Failed to reconnect. Game over.");
-            redirect_game_over();
+            crate::bridge::game_over_redirect();
         }
     }) as Box<dyn FnMut(JsValue)>);
     sock.lock()

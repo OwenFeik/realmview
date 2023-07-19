@@ -9,7 +9,7 @@ pub enum LogLevel {
 }
 
 impl LogLevel {
-    fn to_str(&self) -> &str {
+    fn to_str(self) -> &'static str {
         match self {
             Self::Error => "ERROR",
             Self::Warning => " WARN",
@@ -22,8 +22,8 @@ impl LogLevel {
 fn format_log_message<A: AsRef<str>>(level: LogLevel, message: A) -> String {
     format!(
         "[{}:{}] {}",
-        timestamp_s().unwrap_or(0),
         level.to_str(),
+        timestamp_s().unwrap_or(0),
         message.as_ref()
     )
 }
@@ -36,19 +36,19 @@ pub fn log<A: AsRef<str>>(level: LogLevel, message: A) {
     };
 }
 
-pub fn error(message: &str) {
+pub fn error<A: AsRef<str>>(message: A) {
     log(LogLevel::Error, message);
 }
 
-pub fn warning(message: &str) {
+pub fn warning<A: AsRef<str>>(message: A) {
     log(LogLevel::Warning, message);
 }
 
-pub fn info(message: &str) {
+pub fn info<A: AsRef<str>>(message: A) {
     log(LogLevel::Info, message);
 }
 
-pub fn debug(message: &str) {
+pub fn debug<A: AsRef<str>>(message: A) {
     log(LogLevel::Info, message);
 }
 

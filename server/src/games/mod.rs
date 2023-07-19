@@ -2,11 +2,14 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use bincode::deserialize;
-use futures::{SinkExt, StreamExt, TryFutureExt};
-use tokio::sync::{mpsc::unbounded_channel, RwLock};
+use futures::StreamExt;
+use tokio::sync::RwLock;
 use warp::ws::WebSocket;
 
-use crate::crypto::random_hex_string;
+use crate::{
+    crypto::random_hex_string,
+    utils::{debug, error},
+};
 
 mod client;
 mod game;
@@ -21,22 +24,11 @@ pub type Games = Arc<RwLock<HashMap<String, GameRef>>>;
 pub const GAME_KEY_LENGTH: usize = 6;
 
 pub async fn client_connection(ws: WebSocket, key: String, game: GameRef) {
-    let (mut client_ws_send, mut client_ws_recv) = ws.split();
-    let (client_send, client_recv) = unbounded_channel();
-    let mut client_recv = tokio_stream::wrappers::UnboundedReceiverStream::new(client_recv);
-    tokio::task::spawn(async move {
-        while let Some(msg) = client_recv.next().await {
-            client_ws_send
-                .send(msg)
-                .unwrap_or_else(|e| eprintln!("Error sending websocket msg: {}", e))
-                .await;
-        }
-    });
-
+    let (client_ws_send, mut client_ws_recv) = ws.split();
     if !game
         .write()
         .await
-        .connect_client(key.clone(), client_send)
+        .connect_client(key.clone(), client_ws_send)
         .await
     {
         return;
@@ -50,7 +42,15 @@ pub async fn client_connection(ws: WebSocket, key: String, game: GameRef) {
                         break;
                     }
                 }
-                Err(e) => eprintln!("Error parsing ws message: {}", e),
+                Err(e) => match *e {
+                    bincode::ErrorKind::Io(err)
+                        if err.kind() == std::io::ErrorKind::UnexpectedEof =>
+                    {
+                        // EOF error is returned when the websocket closes.
+                        debug("Websocket receiver closed.")
+                    }
+                    _ => error(format!("Error parsing ws message: {e}")),
+                },
             },
             Err(_) => break,
         };
@@ -61,4 +61,8 @@ pub async fn client_connection(ws: WebSocket, key: String, game: GameRef) {
 
 pub fn generate_game_key() -> anyhow::Result<String> {
     random_hex_string(GAME_KEY_LENGTH)
+}
+
+fn to_message<T: serde::Serialize>(value: &T) -> anyhow::Result<warp::ws::Message> {
+    Ok(bincode::serialize(&value).map(warp::ws::Message::binary)?)
 }

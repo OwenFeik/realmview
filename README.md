@@ -8,8 +8,6 @@
     * Use to change texture
 * Place media in directories
 * Manage fog of war by player
-* Associate each client with a user. When a user connects a second time,
-    terminate that user's other sessions
 * Specify which users are allowed to join the game
 * Feedback for when connecting to a game as a given CLIENT_KEY fails
 * Display currently selected line caps
@@ -44,7 +42,6 @@
 * When changing the cap on a drawing from none, force re-render.
 * Adding media from the media offcanvas doesn't work.
 * Sometimes players can't see all lines.
-* Game ending doesn't disconnect automatically.
 
 # Documentation
 
