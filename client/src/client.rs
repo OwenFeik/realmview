@@ -5,7 +5,7 @@ use bincode::{deserialize, serialize};
 use js_sys::{ArrayBuffer, Uint8Array};
 use parking_lot::Mutex;
 use wasm_bindgen::{prelude::*, JsCast};
-use web_sys::{ErrorEvent, MessageEvent, WebSocket};
+use web_sys::{CloseEvent, ErrorEvent, MessageEvent, WebSocket};
 
 use crate::bridge::{flog, game_over_redirect, log, log_js_value, websocket_url};
 use crate::scene::comms::{ClientEvent, ClientMessage, ServerEvent};
@@ -124,13 +124,50 @@ fn create_websocket(url: &str, events: Events) -> anyhow::Result<WebSocket> {
     ws.set_onmessage(Some(onmessage.as_ref().unchecked_ref()));
     onmessage.forget();
 
+    Ok(ws)
+}
+
+fn reconnect_websocket(url: String, events: Events, sock: Sock) {
+    if let Ok(replacement) = create_websocket(&url, events.clone()) {
+        *sock.lock() = replacement;
+        add_handlers(url, events, sock);
+    } else {
+        flog!("Failed to reconnect. Redirecting.");
+        game_over_redirect();
+    }
+}
+
+fn add_handlers(url: String, events: Events, sock: Sock) {
+    let url_ref = url.clone();
+    let sock_ref = sock.clone();
+    let events_ref = events.clone();
     let onerror = Closure::wrap(Box::new(move |e: ErrorEvent| {
-        flog!("WebSocket error: {e:?}");
+        flog!("Attempting reconnect. Closed due to error:");
+        log_js_value(&e);
+        reconnect_websocket(url_ref.clone(), events_ref.clone(), sock_ref.clone());
     }) as Box<dyn FnMut(ErrorEvent)>);
-    ws.set_onerror(Some(onerror.as_ref().unchecked_ref()));
+    sock.lock()
+        .set_onerror(Some(onerror.as_ref().unchecked_ref()));
     onerror.forget();
 
-    Ok(ws)
+    // Create handler to replace the socket if it closes. If the server closes
+    // the socket it will set a reason indicating as such and we will not try
+    // to reopen it.
+    let sock_ref = sock.clone();
+    let onclose = Closure::wrap(Box::new(move |e: CloseEvent| {
+        flog!("WebSocket closed.");
+        if &e.reason() == "gameover" {
+            flog!("Closed due to game over. Redirecting.");
+            game_over_redirect();
+        } else {
+            flog!("Attempting reconnect. Closed due to:");
+            log_js_value(&e);
+            reconnect_websocket(url.clone(), events.clone(), sock_ref.clone());
+        }
+    }) as Box<dyn FnMut(CloseEvent)>);
+    sock.lock()
+        .set_onclose(Some(onclose.as_ref().unchecked_ref()));
+    onclose.forget();
 }
 
 /// Connects a websocket, returning a Mutex to that websocket. In the event
@@ -139,34 +176,6 @@ fn create_websocket(url: &str, events: Events) -> anyhow::Result<WebSocket> {
 fn connect_websocket(url: String, events: Events) -> anyhow::Result<Sock> {
     // Mutex on the websocket.
     let sock = Rc::new(Mutex::new(create_websocket(&url, events.clone())?));
-
-    // Create handler to replace the socket if it closes. Closed atomic flag is
-    // used to determine if the socket was closed due to an issue or by the
-    // server. If the server closes the socket it will send us a message
-    // indicating such and we will not try to reopen it.
-    let sock_ref = sock.clone();
-    let onclose = Closure::wrap(Box::new(move |e: JsValue| {
-        let event = e.unchecked_into::<web_sys::CloseEvent>();
-
-        flog!("WebSocket closed.");
-        if &event.reason() == "gameover" {
-            flog!("Closed due to game over. Redirecting.");
-            game_over_redirect();
-        } else {
-            flog!("Attempting reconnect. Closed due to:");
-            log_js_value(&event);
-            if let Ok(replacement) = create_websocket(&url, events.clone()) {
-                let mut lock = sock_ref.lock();
-                *lock = replacement;
-            } else {
-                flog!("Failed to reconnect. Redirecting.");
-                game_over_redirect();
-            }
-        }
-    }) as Box<dyn FnMut(JsValue)>);
-    sock.lock()
-        .set_onclose(Some(onclose.as_ref().unchecked_ref()));
-    onclose.forget();
-
+    add_handlers(url, events, sock.clone());
     Ok(sock)
 }
