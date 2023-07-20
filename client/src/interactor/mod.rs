@@ -84,7 +84,9 @@ impl Interactor {
     ) -> Option<(Vec<(String, String)>, String)> {
         match event {
             ServerEvent::Approval(id) => self.history.approve_event(id),
-            ServerEvent::GameOver => crate::bridge::game_over_redirect(),
+            ServerEvent::GameOver => {
+                crate::bridge::game_over_redirect();
+            }
             ServerEvent::Rejection(id) => {
                 if let Some(event) = self.history.take_event(id) {
                     self.unwind_event(event)

@@ -1,5 +1,4 @@
-use std::sync::atomic::AtomicBool;
-use std::{rc::Rc, sync::atomic::Ordering};
+use std::rc::Rc;
 
 use anyhow::anyhow;
 use bincode::{deserialize, serialize};
@@ -8,14 +7,13 @@ use parking_lot::Mutex;
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{ErrorEvent, MessageEvent, WebSocket};
 
-use crate::bridge::{flog, log, log_js_value, websocket_url};
+use crate::bridge::{flog, game_over_redirect, log, log_js_value, websocket_url};
 use crate::scene::comms::{ClientEvent, ClientMessage, ServerEvent};
 
 type Events = Rc<Mutex<Vec<ServerEvent>>>;
 type Sock = Rc<Mutex<WebSocket>>;
 
 pub struct Client {
-    ready: Rc<AtomicBool>,
     sock: Sock,
     incoming_events: Events,
 
@@ -40,12 +38,10 @@ impl Client {
             _ => return Ok(None),
         };
 
-        let ready = Rc::new(AtomicBool::new(false));
         let incoming_events = Rc::new(Mutex::new(Vec::new()));
-        let sock = connect_websocket(url, ready.clone(), incoming_events.clone())?;
+        let sock = connect_websocket(url, incoming_events.clone())?;
 
         Ok(Some(Client {
-            ready,
             sock,
             incoming_events,
             counter: 0,
@@ -83,6 +79,8 @@ impl Client {
         self.counter = 0;
         if let Ok(m) = serialize(message) {
             self._send_message(&m, true);
+        } else {
+            log("Failed to serialise message to send.");
         }
     }
 
@@ -96,26 +94,15 @@ impl Client {
 
 fn deserialise_message(message: JsValue) -> anyhow::Result<ServerEvent> {
     match message.dyn_into::<ArrayBuffer>() {
-        Ok(b) => match deserialize(&Uint8Array::new(&b).to_vec()) {
-            Ok(e) => {
-                if matches!(e, ServerEvent::GameOver) {
-                    crate::bridge::game_over_redirect();
-                    Err(anyhow!("Game over."))
-                } else {
-                    Ok(e)
-                }
-            }
-            Err(e) => Err(anyhow!("WebSocket message deserialisation failed: {e}.")),
-        },
+        Ok(b) => Ok(deserialize(&Uint8Array::new(&b).to_vec())?),
         Err(e) => Err(anyhow!(
             "WebSocket message could not be cast to ArrayBuffer: {e:?}."
         )),
     }
 }
 
-fn create_websocket(url: &str, ready: Rc<AtomicBool>, events: Events) -> anyhow::Result<WebSocket> {
-    ready.store(false, Ordering::Relaxed);
-    crate::bridge::flog!("Connecting WebSocket.");
+fn create_websocket(url: &str, events: Events) -> anyhow::Result<WebSocket> {
+    flog!("Connecting WebSocket.");
 
     let ws = match WebSocket::new(url) {
         Ok(ws) => ws,
@@ -138,18 +125,10 @@ fn create_websocket(url: &str, ready: Rc<AtomicBool>, events: Events) -> anyhow:
     onmessage.forget();
 
     let onerror = Closure::wrap(Box::new(move |e: ErrorEvent| {
-        crate::bridge::flog!("WebSocket error: {e:?}");
-        crate::bridge::game_over_redirect();
+        flog!("WebSocket error: {e:?}");
     }) as Box<dyn FnMut(ErrorEvent)>);
     ws.set_onerror(Some(onerror.as_ref().unchecked_ref()));
     onerror.forget();
-
-    let onopen = Closure::wrap(Box::new(move |_| {
-        crate::bridge::flog!("WebSocket connected.");
-        ready.store(true, Ordering::Relaxed)
-    }) as Box<dyn FnMut(JsValue)>);
-    ws.set_onopen(Some(onopen.as_ref().unchecked_ref()));
-    onopen.forget();
 
     Ok(ws)
 }
@@ -157,24 +136,32 @@ fn create_websocket(url: &str, ready: Rc<AtomicBool>, events: Events) -> anyhow:
 /// Connects a websocket, returning a Mutex to that websocket. In the event
 /// that the socket is closed, this will replace the value in the Mutex with a
 /// new socket, setting ready false in the interim.
-fn connect_websocket(url: String, ready: Rc<AtomicBool>, events: Events) -> anyhow::Result<Sock> {
+fn connect_websocket(url: String, events: Events) -> anyhow::Result<Sock> {
     // Mutex on the websocket.
-    let sock = Rc::new(Mutex::new(create_websocket(
-        &url,
-        ready.clone(),
-        events.clone(),
-    )?));
+    let sock = Rc::new(Mutex::new(create_websocket(&url, events.clone())?));
 
-    // Create handler to replace the socket if it closes.
+    // Create handler to replace the socket if it closes. Closed atomic flag is
+    // used to determine if the socket was closed due to an issue or by the
+    // server. If the server closes the socket it will send us a message
+    // indicating such and we will not try to reopen it.
     let sock_ref = sock.clone();
-    let onclose = Closure::wrap(Box::new(move |_| {
-        crate::bridge::flog!("WebSocket closed. Attemting reconnect.");
-        if let Ok(replacement) = create_websocket(&url, ready.clone(), events.clone()) {
-            let mut lock = sock_ref.lock();
-            *lock = replacement;
+    let onclose = Closure::wrap(Box::new(move |e: JsValue| {
+        let event = e.unchecked_into::<web_sys::CloseEvent>();
+
+        flog!("WebSocket closed.");
+        if &event.reason() == "gameover" {
+            flog!("Closed due to game over. Redirecting.");
+            game_over_redirect();
         } else {
-            crate::bridge::flog!("Failed to reconnect. Game over.");
-            crate::bridge::game_over_redirect();
+            flog!("Attempting reconnect. Closed due to:");
+            log_js_value(&event);
+            if let Ok(replacement) = create_websocket(&url, events.clone()) {
+                let mut lock = sock_ref.lock();
+                *lock = replacement;
+            } else {
+                flog!("Failed to reconnect. Redirecting.");
+                game_over_redirect();
+            }
         }
     }) as Box<dyn FnMut(JsValue)>);
     sock.lock()

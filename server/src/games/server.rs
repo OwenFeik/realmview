@@ -24,11 +24,12 @@ pub struct Server {
     owner: i64,
     game: Game,
     games: Games,
+    next_conn_id: i64,
 }
 
 impl Server {
-    const SAVE_INTERVAL: time::Duration = time::Duration::from_secs(10);
-    const INACTIVITY_TIMEOUT: time::Duration = time::Duration::from_secs(10);
+    const SAVE_INTERVAL: time::Duration = time::Duration::from_secs(60);
+    const INACTIVITY_TIMEOUT: time::Duration = time::Duration::from_secs(1800);
 
     pub fn new(
         owner: i64,
@@ -46,6 +47,7 @@ impl Server {
             owner,
             game: super::Game::new(project, scene, owner, key),
             games,
+            next_conn_id: 1,
         }
     }
 
@@ -53,7 +55,7 @@ impl Server {
         self.alive = false;
 
         for client in self.clients.values_mut() {
-            client.disconnect();
+            client.disconnect(None);
         }
 
         self.save_scene().await.ok();
@@ -114,24 +116,28 @@ impl Server {
         self.clients.contains_key(key)
     }
 
-    pub fn drop_client(&mut self, key: &str) {
+    fn _disconnect_client(&mut self, key: &str, conn_id: Option<i64>) {
         if let Some(client) = self.clients.get_mut(key) {
-            client.disconnect();
-            self.log(LogLevel::Debug, format!("Client disconnected ({key})"));
+            client.disconnect(conn_id);
+            self.log(LogLevel::Debug, format!("Client ({key}) disconnected (Conn: {conn_id:?})"));
         }
+    }
+
+    pub fn disconnect_client(&mut self, key: &str, conn_id: i64) {
+        self._disconnect_client(key, Some(conn_id));
     }
 
     pub async fn connect_client(
         &mut self,
         key: String,
         sender: futures::stream::SplitSink<warp::ws::WebSocket, Message>,
-    ) -> bool {
+    ) -> Result<i64, ()> {
+        let conn_id = self.next_conn_id();
         let (player, name) = if let Some(client) = self.get_client_mut(&key) {
-            client.connect(sender);
+            client.connect(sender, conn_id);
             (client.user, client.username.clone())
         } else {
-            self.drop_client(&key);
-            return false;
+            return Err(());
         };
 
         let (perms, scene, layer) = self.game.add_player(player, &name);
@@ -157,9 +163,15 @@ impl Server {
             }
         }
 
-        self.log(LogLevel::Debug, format!("Client connected ({key})"));
+        self.log(LogLevel::Debug, format!("Client ({key}) connected (Conn: {conn_id}) "));
 
-        true
+        Ok(conn_id)
+    }
+
+    fn next_conn_id(&mut self) -> i64 {
+        let id = self.next_conn_id;
+        self.next_conn_id += 1;
+        id
     }
 
     fn client_active(&self, key: &str) -> bool {

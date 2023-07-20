@@ -25,6 +25,7 @@ version = "0.3"
 features = [
     'BinaryType',             # Set WebSocket binary type
     'Blob',                   # Load files from disk
+    'CloseEvent',             # Handle WebSocket close events
     'CssStyleDeclaration',    # Set CSS on created elements
     'Document',               # Access to document methods
     'DomTokenList',           # HTML element classList

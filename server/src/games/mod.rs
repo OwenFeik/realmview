@@ -25,14 +25,14 @@ pub const GAME_KEY_LENGTH: usize = 6;
 
 pub async fn client_connection(ws: WebSocket, key: String, game: GameRef) {
     let (client_ws_send, mut client_ws_recv) = ws.split();
-    if !game
+    let Ok(conn_id) = game
         .write()
         .await
         .connect_client(key.clone(), client_ws_send)
         .await
-    {
+    else {
         return;
-    }
+    };
 
     while let Some(result) = client_ws_recv.next().await {
         match result {
@@ -47,7 +47,7 @@ pub async fn client_connection(ws: WebSocket, key: String, game: GameRef) {
                         if err.kind() == std::io::ErrorKind::UnexpectedEof =>
                     {
                         // EOF error is returned when the websocket closes.
-                        debug("Websocket receiver closed.")
+                        debug("Websocket receiver closed")
                     }
                     _ => error(format!("Error parsing ws message: {e}")),
                 },
@@ -56,7 +56,7 @@ pub async fn client_connection(ws: WebSocket, key: String, game: GameRef) {
         };
     }
 
-    game.write().await.drop_client(&key);
+    game.write().await.disconnect_client(&key, conn_id);
 }
 
 pub fn generate_game_key() -> anyhow::Result<String> {
