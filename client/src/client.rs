@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use std::sync::atomic::AtomicI32;
 
 use anyhow::anyhow;
 use bincode::{deserialize, serialize};
@@ -127,16 +128,58 @@ fn create_websocket(url: &str, events: Events) -> anyhow::Result<WebSocket> {
     Ok(ws)
 }
 
+const MAX_RETRIES: u32 = 100;
+const RETRY_INTERVAL_MS: i32 = 1000;
+
+/// Attempt to reconnect a websocket by opening a new one and replacing the
+/// value in the mutex. Will retry up to MAX_RETRIES times, every
+/// RETRY_INTERVAL_MS milliseconds.
 fn reconnect_websocket(url: String, events: Events, sock: Sock) {
-    if let Ok(replacement) = create_websocket(&url, events.clone()) {
-        *sock.lock() = replacement;
-        add_handlers(url, events, sock);
-    } else {
-        flog!("Failed to reconnect. Redirecting.");
-        game_over_redirect();
+    const NO_HANDLE: i32 = -1;
+    let Some(window) = web_sys::window() else { return; };
+    let handle = Rc::new(AtomicI32::new(NO_HANDLE));
+
+    let handle_ref = handle.clone();
+    let clear_timeout = move || {
+        let handle = handle_ref.load(std::sync::atomic::Ordering::Acquire);
+        if handle != NO_HANDLE && let Some(window) = web_sys::window() {
+            window.clear_interval_with_handle(handle);
+        }
+    };
+
+    let mut num_retries = 0;
+    let callback = Closure::wrap(Box::new(move || {
+        if num_retries >= MAX_RETRIES {
+            flog!("Failed to reconnect after {num_retries} retries. Redirecting.");
+            game_over_redirect();
+            clear_timeout();
+        }
+
+        if let Ok(replacement) = create_websocket(&url, events.clone()) {
+            *sock.lock() = replacement;
+            add_handlers(url.clone(), events.clone(), sock.clone());
+            clear_timeout();
+            flog!("Successfully reconnected WebSocket.");
+        }
+
+        num_retries += 1;
+    }) as Box<dyn FnMut()>);
+
+    match window.set_interval_with_callback_and_timeout_and_arguments_0(
+        callback.as_ref().unchecked_ref(),
+        RETRY_INTERVAL_MS,
+    ) {
+        Ok(h) => handle.store(h, std::sync::atomic::Ordering::Release),
+        Err(error) => {
+            flog!("Failed to set reconnect interval. Error:");
+            log_js_value(&error);
+        }
     }
+    callback.forget();
 }
 
+/// Add handlers to a websocket wrapped in a mutex to reconnect it in the case
+/// that it closes inadvertently.
 fn add_handlers(url: String, events: Events, sock: Sock) {
     let url_ref = url.clone();
     let sock_ref = sock.clone();
