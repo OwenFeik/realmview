@@ -447,7 +447,6 @@ impl Sprite {
     pub fn outline(&mut self) -> Outline {
         let rect = self.rect;
         match self.visual {
-            Visual::Texture { shape, .. } | Visual::Shape { shape, .. } => Outline { rect, shape },
             Visual::Drawing { stroke, .. } => Outline {
                 rect: Rect {
                     x: self.rect.x - stroke,
@@ -455,6 +454,10 @@ impl Sprite {
                     w: self.rect.w + stroke * 2.0,
                     h: self.rect.h + stroke * 2.0,
                 },
+                shape: Shape::Rectangle,
+            },
+            _ => Outline {
+                rect,
                 shape: Shape::Rectangle,
             },
         }

@@ -34,6 +34,16 @@ impl Rect {
         }
     }
 
+    /// Square around point.
+    pub fn around(point: Point, r: f32) -> Rect {
+        Rect {
+            x: point.x - r,
+            y: point.y - r,
+            w: 2.0 * r,
+            h: 2.0 * r,
+        }
+    }
+
     /// Whether the rect is aligned to a full, half, or quarter tile grid cell.
     pub fn is_aligned(&self) -> bool {
         ((self.x % determine_unit_size(self.w)).abs() <= f32::EPSILON)
@@ -139,6 +149,16 @@ impl Rect {
         in_x && in_y
     }
 
+    pub fn dist_to_point(&self, point: Point) -> f32 {
+        if self.w < 0.0 || self.h < 0.0 {
+            self.positive_dimensions().dist_to_point(point)
+        } else {
+            let dx = (self.x - point.x).max(point.x - (self.x + self.w)).max(0.0);
+            let dy = (self.y - point.y).max(point.y - (self.y + self.h)).max(0.0);
+            (dx.powi(2) + dy.powi(2)).sqrt()
+        }
+    }
+
     pub fn contains_rect(&self, rect: Rect) -> bool {
         let a = self.positive_dimensions();
         let b = rect.positive_dimensions();
@@ -157,6 +177,13 @@ impl Rect {
         Point {
             x: self.x,
             y: self.y,
+        }
+    }
+
+    pub fn dimensions(&self) -> Point {
+        Point {
+            x: self.w,
+            y: self.h,
         }
     }
 

@@ -21,7 +21,7 @@ pub enum HeldObject {
 impl HeldObject {
     // Distance in scene units from which anchor points (corners, edges) of the
     // sprite can be dragged.
-    const ANCHOR_RADIUS: f32 = 0.2;
+    pub const ANCHOR_RADIUS: f32 = 0.2;
 
     pub fn held_id(&self) -> Option<Id> {
         match self {
@@ -61,14 +61,30 @@ impl HeldObject {
         )
     }
 
+    pub fn anchors(sprite: &Sprite) -> impl Iterator<Item = Point> {
+        const ANCHORS: &[Point] = &[
+            Point::new(0.0, 0.0),
+            Point::new(0.0, 1.0),
+            Point::new(0.0, 2.0),
+            Point::new(1.0, 0.0),
+            Point::new(1.0, 2.0),
+            Point::new(2.0, 0.0),
+            Point::new(2.0, 1.0),
+            Point::new(2.0, 2.0),
+        ];
+
+        let translation = sprite.rect.top_left();
+        let scaling = sprite.rect.dimensions() / 2.0;
+        ANCHORS
+            .iter()
+            .map(move |&delta| translation + scaling * delta)
+    }
+
     fn grab_sprite_anchor(sprite: &Sprite, at: Point) -> Option<Self> {
         let Rect { x, y, w, h } = sprite.rect;
 
-        // Anchor size is 0.2 tiles or one fifth of the smallest dimension of
-        // the sprite. This is to allow sprites that are ANCHOR_RADIUS or
-        // smaller to nonetheless be grabbed.
-        let mut closest_dist = Self::ANCHOR_RADIUS.min(w.abs().min(h.abs()) / 5.0);
-        let mut closest: (i32, i32) = (2, 2);
+        let mut closest_dist = Self::ANCHOR_RADIUS;
+        let mut closest = None;
         for dx in -1..2 {
             for dy in -1..2 {
                 if dx == 0 && dy == 0 {
@@ -78,27 +94,24 @@ impl HeldObject {
                 let anchor_x = x + (w / 2.0) * (dx + 1) as f32;
                 let anchor_y = y + (h / 2.0) * (dy + 1) as f32;
 
-                let delta_x = anchor_x - at.x;
-                let delta_y = anchor_y - at.y;
-
-                let dist = (delta_x.powi(2) + delta_y.powi(2)).sqrt();
+                let anchor = Point::new(anchor_x, anchor_y);
+                let dist = at.dist(anchor);
                 if dist <= closest_dist {
-                    closest = (dx, dy);
+                    closest = Some((dx, dy));
                     closest_dist = dist;
                 }
             }
         }
 
-        if closest != (2, 2) {
-            Some(Self::Anchor(sprite.id, closest.0, closest.1, sprite.rect))
-        } else {
-            None
-        }
+        closest.map(|(dx, dy)| Self::Anchor(sprite.id, dx, dy, sprite.rect))
+    }
+
+    pub fn sprite(sprite: &Sprite, at: Point) -> Self {
+        Self::Sprite(sprite.id, at - sprite.rect.top_left(), sprite.rect)
     }
 
     pub fn grab_sprite(sprite: &Sprite, at: Point) -> Self {
-        Self::grab_sprite_anchor(sprite, at)
-            .unwrap_or_else(|| Self::Sprite(sprite.id, at - sprite.rect.top_left(), sprite.rect))
+        Self::grab_sprite_anchor(sprite, at).unwrap_or_else(|| Self::sprite(sprite, at))
     }
 
     pub fn cursor(&self) -> Cursor {

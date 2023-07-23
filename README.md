@@ -15,7 +15,6 @@
 * Hold a button to rotate a sprite
 * Save perms, reload when the same scene is loaded
 * Expose closure macro
-* Visible resize anchors
 * Update stroke width in menu when changing with scroll wheel
 * Close game when owner leaves
 * Added tokens can't be edited by players
@@ -37,10 +36,10 @@
     * When rendered with opacity have overlapping triangles visible.
     * Have wrong dimensions after resizing window until zoom.
     * Have varying stroke, obvious at higher stroke levels.
-* Drawing outlines are misleading for resize anchors.
 * Resizing a drawing increases the line stroke (maybe good?).
 * When changing the cap on a drawing from none, force re-render.
 * Sometimes players can't see all lines.
+* Resize anchors on drawings are a bit weird.
 
 # Documentation
 

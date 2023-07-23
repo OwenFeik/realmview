@@ -13,7 +13,7 @@ pub struct Point {
 impl Point {
     pub const ORIGIN: Self = Self { x: 0.0, y: 0.0 };
 
-    pub fn new(x: f32, y: f32) -> Point {
+    pub const fn new(x: f32, y: f32) -> Point {
         Point { x, y }
     }
 

@@ -1,6 +1,6 @@
 use serde_derive::{Deserialize, Serialize};
 
-use super::{Id, Point, Sprite};
+use super::{Id, Sprite};
 use crate::{comms::SceneEvent, Rect};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -112,23 +112,6 @@ impl Layer {
         } else {
             None
         }
-    }
-
-    pub fn sprite_at(&mut self, at: Point) -> Option<&mut Sprite> {
-        // Reversing the iterator atm because the sprites are rendered from the
-        // front of the Vec to the back, hence the last Sprite in the Vec is
-        // rendered on top, and will be clicked first.
-        self.sprites
-            .iter_mut()
-            .rev()
-            .find(|s| s.rect.contains_point(at))
-    }
-
-    pub fn sprite_at_ref(&self, at: Point) -> Option<&Sprite> {
-        self.sprites
-            .iter()
-            .rev()
-            .find(|s| s.rect.contains_point(at))
     }
 
     pub fn sprites_in(&self, region: Rect) -> Vec<Id> {

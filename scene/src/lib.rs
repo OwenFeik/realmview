@@ -299,6 +299,24 @@ impl Scene {
         SceneEvent::EventSet(events)
     }
 
+    /// Iterator across all selectable sprites in the scene, from top to
+    /// bottom.
+    fn sprites(&self) -> impl Iterator<Item = &Sprite> {
+        // sprites.iter().rev() is because sprites are rendered in vector order
+        // so the last sprite will render at the top.
+        self.layers
+            .iter()
+            .filter(|l| !l.locked && l.visible)
+            .flat_map(|l| l.sprites.iter().rev())
+    }
+
+    fn sprites_mut(&mut self) -> impl Iterator<Item = &mut Sprite> {
+        self.layers
+            .iter_mut()
+            .filter(|l| !l.locked && l.visible)
+            .flat_map(|l| l.sprites.iter_mut().rev())
+    }
+
     pub fn sprite(&mut self, id: Id) -> Option<&mut Sprite> {
         for layer in self.layers.iter_mut() {
             let s_opt = layer.sprite(id);
@@ -322,32 +340,19 @@ impl Scene {
     }
 
     pub fn sprite_at(&mut self, at: Point) -> Option<&mut Sprite> {
-        for layer in self.layers.iter_mut() {
-            // Sprites on locked or invisible layers cannot be grabbed.
-            if layer.locked || !layer.visible {
-                continue;
-            }
-
-            let s_opt = layer.sprite_at(at);
-            if s_opt.is_some() {
-                return s_opt;
-            }
-        }
-
-        None
+        self.sprites_mut().find(|s| s.rect.contains_point(at))
     }
 
     pub fn sprite_at_ref(&self, at: Point) -> Option<&Sprite> {
-        for layer in &self.layers {
-            if layer.locked || !layer.visible {
-                continue;
-            }
-            let s_opt = layer.sprite_at_ref(at);
-            if s_opt.is_some() {
-                return s_opt;
-            }
-        }
-        None
+        self.sprites().find(|s| s.rect.contains_point(at))
+    }
+
+    pub fn sprite_near(&self, at: Point, delta: f32) -> Option<&Sprite> {
+        // First try an exact match and failing that look for a nearby sprite.
+        self.sprite_at_ref(at).or_else(|| {
+            self.sprites()
+                .find(|sprite| sprite.rect.dist_to_point(at) <= delta)
+        })
     }
 
     pub fn sprites_in(&mut self, region: Rect, all_layers: bool) -> Vec<Id> {
