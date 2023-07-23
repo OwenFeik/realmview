@@ -301,21 +301,23 @@ impl Sprite {
     }
 
     pub fn enforce_min_size(&mut self) -> Option<SceneEvent> {
-        let mut new_w = None;
-        let mut new_h = None;
-        if self.rect.w.abs() < Sprite::MIN_SIZE {
-            new_w = Some(self.rect.w.signum() * Sprite::MIN_SIZE);
-        }
+        let new_w = if self.rect.w.abs() < Sprite::MIN_SIZE {
+            Some(self.rect.w.signum() * Sprite::MIN_SIZE)
+        } else {
+            None
+        };
 
-        if self.rect.h.abs() < Sprite::MIN_SIZE {
-            new_h = Some(self.rect.w.signum() * Sprite::MIN_SIZE);
-        }
+        let new_h = if self.rect.h.abs() < Sprite::MIN_SIZE {
+            Some(self.rect.h.signum() * Sprite::MIN_SIZE)
+        } else {
+            None
+        };
 
         if new_w.is_some() || new_h.is_some() {
             Some(
                 self.set_rect(
                     self.rect
-                        .sized_as(new_w.unwrap_or(self.rect.w), new_w.unwrap_or(self.rect.h)),
+                        .sized_as(new_w.unwrap_or(self.rect.w), new_h.unwrap_or(self.rect.h)),
                 ),
             )
         } else {
