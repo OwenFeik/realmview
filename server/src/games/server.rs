@@ -13,7 +13,7 @@ use crate::{
         comms::{ClientEvent, ClientMessage, ServerEvent},
         Scene,
     },
-    utils::{log, timestamp_us, LogLevel, error},
+    utils::{error, log, timestamp_us, LogLevel},
 };
 
 pub struct Server {
@@ -119,7 +119,10 @@ impl Server {
     fn _disconnect_client(&mut self, key: &str, conn_id: Option<i64>) {
         if let Some(client) = self.clients.get_mut(key) {
             client.disconnect(conn_id);
-            self.log(LogLevel::Debug, format!("Client ({key}) disconnected (Conn: {conn_id:?})"));
+            self.log(
+                LogLevel::Debug,
+                format!("Client ({key}) disconnected (Conn: {conn_id:?})"),
+            );
         }
     }
 
@@ -163,7 +166,10 @@ impl Server {
             }
         }
 
-        self.log(LogLevel::Debug, format!("Client ({key}) connected (Conn: {conn_id}) "));
+        self.log(
+            LogLevel::Debug,
+            format!("Client ({key}) connected (Conn: {conn_id}) "),
+        );
 
         Ok(conn_id)
     }
@@ -195,11 +201,11 @@ impl Server {
     }
 
     fn broadcast_event(&self, event: ServerEvent, exclude: Option<&str>) {
-        let Ok(message) = to_message(&event) else { 
+        let Ok(message) = to_message(&event) else {
             error("Failed to encode event as message.");
             return;
         };
-        
+
         let clients = self.clients.iter();
         if let Some(key) = exclude {
             clients.for_each(|(k, c)| {

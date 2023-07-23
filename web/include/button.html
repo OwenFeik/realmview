@@ -15,7 +15,7 @@ kwargs["TAG"] = kwargs.get("TAG", "button")
   type="button"
   IFDEF(ONCLICK) {{ onclick="{{ ONCLICK }}" }}
   IFDEF(ATTRS) {{ {{ ATTRS }} }}
-  IFDEF(HREF) {{ href="{{ HREF }}" target="_blank" }}
+  IFDEF(HREF) {{ href="{{ HREF }}" IFDEF(NEWTAB) {{ target="_blank" }} }}
 >IFDEF(TEXT) {{
   {{ TEXT }}
 }} IFDEF(ICON) {{

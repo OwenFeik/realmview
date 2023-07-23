@@ -8,7 +8,7 @@ use parking_lot::Mutex;
 use wasm_bindgen::prelude::*;
 
 use crate::bridge::{
-    expose_closure_f64, expose_closure_f64x3_string, expose_closure_string_in,
+    expose_closure_f64, expose_closure_f64x2_string, expose_closure_string_in,
     expose_closure_string_out, flog, log, request_animation_frame,
 };
 use crate::client::Client;
@@ -79,22 +79,20 @@ pub fn start() -> Result<(), JsValue> {
     new_scene_closure.forget();
 
     let vp_ref = vp.clone();
-    let new_sprite_closure = Closure::wrap(Box::new(
-        move |layer: f64, w: f64, h: f64, media_key: String| {
-            let texture = crate::render::parse_media_key(&media_key);
-            let mut lock = vp_ref.lock();
-            let at = lock.placement_tile();
-            lock.scene.new_sprite_at(
-                Some(scene::SpriteVisual::Texture {
-                    id: texture,
-                    shape: scene::Shape::Rectangle,
-                }),
-                Some(layer as i64),
-                scene::Rect::at(at, w as f32, h as f32),
-            );
-        },
-    ) as Box<dyn FnMut(f64, f64, f64, String)>);
-    expose_closure_f64x3_string("new_sprite", &new_sprite_closure);
+    let new_sprite_closure = Closure::wrap(Box::new(move |w: f64, h: f64, media_key: String| {
+        let texture = crate::render::parse_media_key(&media_key);
+        let mut lock = vp_ref.lock();
+        let at = lock.placement_tile();
+        lock.scene.new_sprite_at(
+            Some(scene::SpriteVisual::Texture {
+                id: texture,
+                shape: scene::Shape::Rectangle,
+            }),
+            None,
+            scene::Rect::at(at, w as f32, h as f32),
+        );
+    }) as Box<dyn FnMut(f64, f64, String)>);
+    expose_closure_f64x2_string("new_sprite", &new_sprite_closure);
     new_sprite_closure.forget();
 
     let vp_ref = vp.clone();

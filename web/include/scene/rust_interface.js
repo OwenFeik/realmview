@@ -30,7 +30,7 @@ var RustFuncs = {
 
     new_sprite: missing_func,
     /*
-    function new_sprite(layer_id: int, w: float, h: float, media_key: string)
+    function new_sprite(w: float, h: float, media_key: string)
 
     Adds a new sprite with the provided texture to the scene. Will load the
     texture if necessary.
@@ -129,7 +129,6 @@ function new_scene(project_id = 0) {
 function add_to_scene(image) {
     texture_queue.push(image);
     call_when_ready("new_sprite", () => RustFuncs.new_sprite(
-        selected_layer(),
         parseFloat(image.getAttribute("data-w")) || 1.0,
         parseFloat(image.getAttribute("data-h")) || 1.0,
         image.getAttribute("data-media_key"),

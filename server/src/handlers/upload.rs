@@ -2,7 +2,7 @@ use std::convert::Infallible;
 
 use anyhow::anyhow;
 use bytes::BufMut;
-use futures::TryStreamExt;
+use futures::{StreamExt, TryStreamExt};
 use ring::digest;
 use sqlx::{Row, SqlitePool};
 use warp::{
@@ -256,6 +256,27 @@ async fn collect_part(part: Part) -> anyhow::Result<Vec<u8>> {
         .map_err(|e| anyhow!("Failed to read part: {e}"))
 }
 
+fn ext_from_filename(filename: &str) -> Option<String> {
+    let mut ext = String::new();
+    for c in filename.chars().rev() {
+        match c {
+            '.' => return Some(ext),
+            _ => ext.push(c),
+        }
+    }
+    None
+}
+
+fn choose_file_extension(part: &Part) -> Option<String> {
+    match part.content_type() {
+        Some("image/png") => return Some(String::from("png")),
+        Some("image/jpeg") => return Some(String::from("png")),
+        _ => {}
+    };
+
+    part.filename().and_then(ext_from_filename)
+}
+
 async fn upload(
     pool: SqlitePool,
     session_key: String,
@@ -277,44 +298,31 @@ async fn upload(
         return Binary::result_failure("Upload limit exceeded.");
     }
 
-    let parts: Vec<Part> = match form.try_collect().await {
-        Ok(v) => v,
-        Err(e) => return Binary::result_failure(&format!("Upload failed: {e}")),
-    };
-
     let mut upload = match UploadImage::new() {
         Ok(u) => u,
         Err(e) => return Binary::from_error(e),
     };
 
-    for p in parts {
-        match p.name() {
-            "thumbnail" => match collect_part(p).await.map(String::from_utf8) {
+    let mut parts = form.into_stream();
+    while let Some(Ok(part)) = parts.next().await {
+        match part.name() {
+            "thumbnail" => match collect_part(part).await.map(String::from_utf8) {
                 Ok(Ok(scene_key)) => upload.role = ImageRole::Thumbnail(scene_key),
                 _ => return Binary::result_failure("Bad thumbnail scene ID."),
             },
             "image" => {
-                upload.ext = match p.content_type() {
-                    Some(mime) => match mime {
-                        "image/png" => "png",
-                        "image/jpeg" => "jpeg",
-                        _ => {
-                            return Binary::result_failure(&format!(
-                                "Unsupported image type: {}",
-                                mime
-                            ))
-                        }
-                    }
-                    .to_owned(),
-                    None => return Binary::result_failure("Missing content type."),
-                };
+                if let Some(ext) = choose_file_extension(&part) {
+                    upload.ext = ext;
+                } else {
+                    return Binary::result_failure("Missing file type.");
+                }
 
-                match p.filename() {
+                match part.filename() {
                     Some(s) => upload.title = s.to_owned(),
                     None => upload.title = format!("untitled.{}", upload.ext),
                 };
 
-                match collect_part(p).await {
+                match collect_part(part).await {
                     Ok(data) => upload.data = Some(data),
                     Err(e) => return Binary::from_error(e),
                 }

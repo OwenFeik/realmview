@@ -37,11 +37,9 @@
     * When rendered with opacity have overlapping triangles visible.
     * Have wrong dimensions after resizing window until zoom.
     * Have varying stroke, obvious at higher stroke levels.
-* Add to scene button is broken; `selected_layer` is undefined.
 * Drawing outlines are misleading for resize anchors.
 * Resizing a drawing increases the line stroke (maybe good?).
 * When changing the cap on a drawing from none, force re-render.
-* Adding media from the media offcanvas doesn't work.
 * Sometimes players can't see all lines.
 
 # Documentation

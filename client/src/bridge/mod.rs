@@ -45,10 +45,7 @@ extern "C" {
     pub fn expose_closure_string_in(name: &str, closure: &Closure<dyn FnMut(String)>);
 
     #[wasm_bindgen(js_name = expose_closure)]
-    pub fn expose_closure_f64x3_string(
-        name: &str,
-        closure: &Closure<dyn FnMut(f64, f64, f64, String)>,
-    );
+    pub fn expose_closure_f64x2_string(name: &str, closure: &Closure<dyn FnMut(f64, f64, String)>);
 
     #[wasm_bindgen(js_name = expose_closure)]
     pub fn expose_closure_f64x4(name: &str, closure: &Closure<dyn FnMut(f64, f64, f64, f64)>);
@@ -598,7 +595,7 @@ pub fn request_animation_frame(f: &Closure<dyn FnMut()>) -> anyhow::Result<()> {
 
 fn set_visible(id: &str, visible: bool) -> anyhow::Result<()> {
     Element::by_id(id)
-        .ok_or(anyhow!("Element not found: {id}."))?
+        .ok_or_else(|| anyhow!("Element not found: {id}."))?
         .set_css("display", if visible { "" } else { "none" });
     Ok(())
 }

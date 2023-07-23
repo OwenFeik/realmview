@@ -298,8 +298,12 @@ impl Renderer for WebGlRenderer {
 
     fn draw_texture(&mut self, vp: ViewInfo, position: Rect, shape: Shape, texture: Id) {
         let texture = self.texture_library.get_texture(texture);
-        self.texture_renderer
-            .draw_texture(shape, texture, vp.viewport, position);
+        self.texture_renderer.draw_texture(
+            shape,
+            texture,
+            vp.viewport,
+            position.scaled(vp.grid_size),
+        );
     }
 
     fn draw_drawing(
