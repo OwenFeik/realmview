@@ -3,6 +3,7 @@ use std::time;
 
 use anyhow::anyhow;
 use bincode::serialize;
+use scene::comms::SceneEvent;
 use sqlx::{pool::PoolConnection, SqlitePool};
 use warp::ws::Message;
 
@@ -13,7 +14,7 @@ use crate::{
         comms::{ClientEvent, ClientMessage, ServerEvent},
         Scene,
     },
-    utils::{error, log, timestamp_us, LogLevel},
+    utils::{log, timestamp_us, LogLevel},
 };
 
 pub struct Server {
@@ -153,13 +154,21 @@ impl Server {
             self.broadcast_event(ServerEvent::SceneUpdate(event), Some(&key));
         }
 
-        self.send_to(ServerEvent::UserId(player), &key);
-
         let scene = self.game.client_scene();
-        self.send_to(ServerEvent::SceneChange(scene, layer), &key);
         let perms = self.game.client_perms();
-        self.send_to(ServerEvent::PermsChange(perms), &key);
+        let mut events = vec![
+            ServerEvent::UserId(player),
+            ServerEvent::SceneChange(scene),
+            ServerEvent::PermsChange(perms),
+        ];
 
+        if let Some(layer) = layer {
+            events.push(ServerEvent::SelectedLayer(layer));
+        }
+
+        self.send_to(ServerEvent::EventSet(events), &key);
+
+        // Separate message as this will only occur after some DB queries.
         if player == self.owner {
             if let Ok(event) = self.scene_list().await {
                 self.send_to(event, &key);
@@ -192,6 +201,13 @@ impl Server {
         self.clients.get_mut(key)
     }
 
+    fn client_key(&self, id: i64) -> Option<&str> {
+        self.clients
+            .iter()
+            .find(|(_, client)| client.user == id)
+            .map(|(key, _)| key.as_str())
+    }
+
     fn is_owner(&self, key: &str) -> bool {
         if let Some(client) = self.clients.get(key) {
             client.user == self.owner
@@ -201,9 +217,15 @@ impl Server {
     }
 
     fn broadcast_event(&self, event: ServerEvent, exclude: Option<&str>) {
-        let Ok(message) = to_message(&event) else {
-            error("Failed to encode event as message.");
-            return;
+        let message = match to_message(&event) {
+            Ok(message) => message,
+            Err(e) => {
+                self.log(
+                    LogLevel::Error,
+                    format!("Failed to encode event as message: {e}"),
+                );
+                return;
+            }
         };
 
         let clients = self.clients.iter();
@@ -251,7 +273,7 @@ impl Server {
             ClientEvent::SceneChange(scene_key) => {
                 if self.is_owner(from) {
                     if let Err(e) = self.load_scene(&scene_key).await {
-                        eprintln!("Failed to load scene: {e}");
+                        self.log(LogLevel::Error, format!("Failed to load scene: {e}"));
                         self.send_rejection(message.id, from);
                     } else {
                         self.send_approval(message.id, from);
@@ -262,19 +284,31 @@ impl Server {
             }
             ClientEvent::SceneUpdate(event) => {
                 if let Some(client) = self.clients.get(from) {
-                    let (ok, perms_events) = self.game.handle_event(client.user, event.clone());
+                    let (ok, server_events) = self.game.handle_event(client.user, event.clone());
 
                     if ok {
                         self.send_approval(message.id, from);
-                        self.broadcast_event(ServerEvent::SceneUpdate(event), Some(from));
+                        self.broadcast_event(ServerEvent::SceneUpdate(event.clone()), Some(from));
                     } else {
-                        println!("Rejected event: {event:?}");
+                        self.log(LogLevel::Debug, format!("Rejected event: {event:?}"));
                         self.send_rejection(message.id, from);
                     }
 
-                    if let Some(events) = perms_events {
-                        for event in events {
-                            self.broadcast_event(ServerEvent::PermsUpdate(event), None);
+                    if let Some(event) = server_events {
+                        self.broadcast_event(event, None);
+                    }
+
+                    if matches!(event, SceneEvent::LayerRemove(..)) {
+                        if let Some((user, layer, event)) = self.game.handle_remove_layer(event) {
+                            let exclude = self.client_key(user);
+
+                            if let Some(event) = event {
+                                self.broadcast_event(ServerEvent::SceneUpdate(event), exclude);
+                            }
+
+                            if let Some(client_key) = exclude {
+                                self.send_to(ServerEvent::SelectedLayer(layer), client_key);
+                            }
                         }
                     }
                 }
@@ -305,11 +339,17 @@ impl Server {
             .collect();
         for (client_key, user, name) in keys {
             let (_, _, layer) = self.game.add_player(user, &name);
-            let scene_change = ServerEvent::SceneChange(self.game.client_scene(), layer);
-            let perms_change = ServerEvent::PermsChange(self.game.client_perms());
 
-            self.send_to(scene_change, &client_key);
-            self.send_to(perms_change, &client_key);
+            let mut events = vec![
+                ServerEvent::SceneChange(self.game.client_scene()),
+                ServerEvent::PermsChange(self.game.client_perms()),
+            ];
+
+            if let Some(layer) = layer {
+                events.push(ServerEvent::SelectedLayer(layer));
+            }
+
+            self.send_to(ServerEvent::EventSet(events), &client_key);
         }
     }
 

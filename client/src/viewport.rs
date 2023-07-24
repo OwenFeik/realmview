@@ -148,7 +148,7 @@ impl Viewport {
         self.menu().set_layer_info(selected, &layers);
     }
 
-    fn update_cursor(&self, new: Option<Cursor>) {
+    fn update_cursor(&mut self, new: Option<Cursor>) {
         let cursor = if self.grabbed_at.is_some() {
             Cursor::Grabbing
         } else {
@@ -158,6 +158,10 @@ impl Viewport {
                     .override_default(new.unwrap_or(Cursor::Default)),
             )
         };
+
+        if matches!(cursor, Cursor::None) {
+            self.redraw_needed();
+        }
 
         self.context.set_cursor(cursor);
     }
@@ -169,7 +173,7 @@ impl Viewport {
 
         // As fog cursor is drawn, we'll need to redraw to get rid of it.
         if matches!(self.tool, Tool::Fog) {
-            self.redraw_needed = true;
+            self.redraw_needed();
         }
 
         if tool.allowed(self.scene.role) {
@@ -216,7 +220,7 @@ impl Viewport {
                 w,
                 h,
             };
-            self.redraw_needed = true;
+            self.redraw_needed();
         }
     }
 
@@ -224,7 +228,7 @@ impl Viewport {
         let (w, h) = self.scene.dimensions();
         self.viewport.x = (w as f32 / 2.0 - self.viewport.w / 2.0).round();
         self.viewport.y = (h as f32 / 2.0 - self.viewport.h / 2.0).round();
-        self.redraw_needed = true;
+        self.redraw_needed();
     }
 
     fn grab(&mut self, at: ViewportPoint) {
@@ -290,7 +294,7 @@ impl Viewport {
             self.viewport.x += (from.x - at.x) / self.grid_zoom;
             self.viewport.y += (from.y - at.y) / self.grid_zoom;
             self.grabbed_at = Some(at);
-            self.redraw_needed = true;
+            self.redraw_needed();
         }
 
         self.update_cursor(Some(self.scene.cursor_at(scene_point, ctrl)));
@@ -305,7 +309,7 @@ impl Viewport {
 
     fn zoom(&mut self, delta: f32, at: Option<ViewportPoint>) {
         const ZOOM_COEFFICIENT: f32 = 3.0 / Viewport::BASE_GRID_ZOOM;
-        const ZOOM_MIN: f32 = Viewport::BASE_GRID_ZOOM / 2.0;
+        const ZOOM_MIN: f32 = Viewport::BASE_GRID_ZOOM / 5.0;
         const ZOOM_MAX: f32 = Viewport::BASE_GRID_ZOOM * 5.0;
 
         let at = at.unwrap_or_else(|| self.centre());
@@ -323,7 +327,7 @@ impl Viewport {
         self.viewport.x = scene_point.x - self.viewport.w * fraction_x;
         self.viewport.y = scene_point.y - self.viewport.h * fraction_y;
 
-        self.redraw_needed = true;
+        self.redraw_needed();
     }
 
     fn zoom_in(&mut self) {
@@ -338,6 +342,7 @@ impl Viewport {
 
     fn handle_scroll(&mut self, at: ViewportPoint, delta: f32, shift: bool, ctrl: bool, alt: bool) {
         const SCROLL_COEFFICIENT: f32 = 0.5;
+        const STROKE_COEFFICIENT: f32 = 0.5;
 
         // We want shift + scroll to scroll horizontally but browsers (Firefox
         // anyway) only do this when the page is wider than the viewport, which
@@ -349,7 +354,7 @@ impl Viewport {
             self.zoom(delta, Some(at));
         } else if alt {
             match self.tool {
-                Tool::Draw => self.menu().handle_stroke_change(delta),
+                Tool::Draw => self.menu().handle_stroke_change(delta * STROKE_COEFFICIENT),
                 Tool::Fog => {
                     let fog_brush = self.scene.change_fog_brush(delta);
                     self.menu().set_fog_brush(fog_brush);
@@ -360,7 +365,7 @@ impl Viewport {
             self.viewport.y += SCROLL_COEFFICIENT * delta / self.grid_zoom;
         }
 
-        self.redraw_needed = true;
+        self.redraw_needed();
 
         // Update the held object details for the scene for the new cursor
         // position.
@@ -379,7 +384,7 @@ impl Viewport {
 
         if ctrl || !self.scene.has_selection() {
             self.viewport.translate_in_place(delta);
-            self.redraw_needed = true;
+            self.redraw_needed();
         } else {
             self.scene.move_selection(delta);
         }
@@ -389,7 +394,7 @@ impl Viewport {
         if self.ctrl_down != ctrl {
             self.ctrl_down = ctrl;
             if let Tool::Fog = self.tool {
-                self.redraw_needed = true;
+                self.redraw_needed();
             }
         }
     }
@@ -436,11 +441,11 @@ impl Viewport {
         // when the cursor moves if the active tool is the fog brush.
         if matches!(self.tool, Tool::Fog) {
             if self.cursor_position.is_none() {
-                self.redraw_needed = true;
+                self.redraw_needed();
             } else {
                 let pos = self.cursor_position.unwrap();
                 if (pos.x - at.x).abs() >= f32::EPSILON || (pos.y - at.y).abs() >= f32::EPSILON {
-                    self.redraw_needed = true;
+                    self.redraw_needed();
                 }
             }
         }
@@ -490,6 +495,10 @@ impl Viewport {
                 Input::Keyboard(KeyboardAction::Up, key) => self.handle_key_up(key),
             };
         }
+    }
+
+    fn redraw_needed(&mut self) {
+        self.redraw_needed = true;
     }
 
     fn redraw(&mut self) {

@@ -2,30 +2,26 @@
 
 ## Features
 * Warn when saving over changes
-* Select from selected layer first (possibly)
 * Layer opacity
-* Sprite menu changes
-    * Use to change texture
+* Use sprite menu to change texture
 * Place media in directories
 * Manage fog of war by player
 * Specify which users are allowed to join the game
 * Feedback for when connecting to a game as a given CLIENT_KEY fails
-* Display currently selected line caps
 * Measurements, persistent measurements
 * Hold a button to rotate a sprite
 * Save perms, reload when the same scene is loaded
 * Expose closure macro
-* Update stroke width in menu when changing with scroll wheel
 * Close game when owner leaves
 * Added tokens can't be edited by players
-* Photoshop style stroke changes (maybe)
-* Set sprite aspect ratio
 * Token health bars
 * Better database abstraction
 * Autosave for editor as well as game.
 * Scene title in save dialog for new scene should be preselected.
 * Save scene when creating; assign ID immediately.
 * Redirect to landing page through backend if logged in.
+* Should avoid creating duplicate layers when players are joining.
+* Resize maintaining aspect ratio.
 
 ## Bugs
 * Updating sprite shape via menu is broken
@@ -40,6 +36,7 @@
 * When changing the cap on a drawing from none, force re-render.
 * Sometimes players can't see all lines.
 * Resize anchors on drawings are a bit weird.
+* Landing page is broken for small screens.
 
 # Documentation
 

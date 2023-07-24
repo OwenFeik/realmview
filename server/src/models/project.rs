@@ -149,6 +149,8 @@ impl Project {
             for sprite in &layer.sprites {
                 SpriteRecord::delete(conn, sprite.id, s.id).await?;
             }
+
+            LayerRecord::delete(conn, layer.id, s.id).await?;
         }
 
         DrawingRecord::update_scene_drawings(conn, &scene).await?;

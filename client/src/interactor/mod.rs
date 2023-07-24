@@ -85,6 +85,11 @@ impl Interactor {
     ) -> Option<(Vec<(String, String)>, String)> {
         match event {
             ServerEvent::Approval(id) => self.history.approve_event(id),
+            ServerEvent::EventSet(events) => {
+                for event in events {
+                    self.process_server_event(event);
+                }
+            }
             ServerEvent::GameOver => {
                 crate::bridge::game_over_redirect();
             }
@@ -103,13 +108,8 @@ impl Interactor {
                     self.update_role();
                 }
             }
-            ServerEvent::SceneChange(scene, layer) => {
+            ServerEvent::SceneChange(scene) => {
                 self.replace_scene(scene);
-                if let Some(id) = layer {
-                    if self.scene.layer(id).is_some() {
-                        self.selected_layer = id;
-                    }
-                }
             }
             ServerEvent::SceneList(scenes, current) => {
                 return Some((scenes, current));
@@ -117,6 +117,9 @@ impl Interactor {
             ServerEvent::SceneUpdate(scene_event) => {
                 self.changes.layer_change_if(scene_event.is_layer());
                 self.scene.apply_event(scene_event);
+            }
+            ServerEvent::SelectedLayer(layer) => {
+                self.selected_layer = layer;
             }
             ServerEvent::UserId(id) => {
                 self.user = id;
@@ -668,7 +671,7 @@ impl Interactor {
         if self.single_selected() {
             if let Some(sprite) = self
                 .selected_sprites
-                .get(0)
+                .first()
                 .and_then(|&id| self.scene.sprite(id))
             {
                 for point in HeldObject::anchors(sprite) {
@@ -774,6 +777,10 @@ impl Interactor {
         let opt = self.scene.remove_layer(layer);
         self.scene_option(opt);
         self.changes.all_change();
+
+        if layer == self.selected_layer {
+            self.selected_layer = self.scene.first_layer();
+        }
     }
 
     pub fn rename_layer(&mut self, layer: Id, title: String) {

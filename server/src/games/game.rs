@@ -1,7 +1,14 @@
-use crate::scene::{
-    comms::{PermsEvent, SceneEvent},
-    perms::{self, Perms},
-    Scene,
+use std::collections::HashMap;
+
+use scene::{comms::ServerEvent, Id};
+
+use crate::{
+    scene::{
+        comms::{PermsEvent, SceneEvent},
+        perms::{self, Perms},
+        Scene,
+    },
+    utils::warning,
 };
 
 pub struct Game {
@@ -10,6 +17,7 @@ pub struct Game {
 
     scene: Scene,
     perms: Perms,
+    users: HashMap<i64, String>,
 }
 
 impl Game {
@@ -22,6 +30,7 @@ impl Game {
             key: key.to_owned(),
             scene,
             perms,
+            users: HashMap::new(),
         }
     }
 
@@ -40,13 +49,18 @@ impl Game {
     /// Given a user ID and that users name, find a layer with that users name
     /// or create one and return it. If that user is the game owner, don't do
     /// this and just return (None, None).
-    fn player_layer(&mut self, user: i64, name: &str) -> (Option<SceneEvent>, Option<scene::Id>) {
+    fn player_layer(&mut self, user: i64) -> (Option<SceneEvent>, Option<scene::Id>) {
+        let Some(name) = self.users.get(&user) else {
+            warning(format!("(Game: {}) Couldn't find player (Id: {}) name.", self.key, user));
+            return (None, None);
+        };
+
         if self.perms.get_role(user) == perms::Role::Owner {
             return (None, None);
         }
 
         for layer in &self.scene.layers {
-            if layer.title == name {
+            if layer.title.eq(name) {
                 return (None, Some(layer.id));
             }
         }
@@ -73,28 +87,53 @@ impl Game {
         user: i64,
         name: &str,
     ) -> (Option<PermsEvent>, Option<SceneEvent>, Option<scene::Id>) {
+        self.users.insert(user, name.to_string());
         let perms = self
             .perms
             .role_change(perms::CANONICAL_UPDATER, user, perms::Role::Player);
-        let (scene, layer) = self.player_layer(user, name);
+        let (scene, layer) = self.player_layer(user);
         (perms, scene, layer)
     }
 
-    pub fn handle_event(
+    /// Handle removal of a layer by recreating a player layer if needed.
+    pub fn handle_remove_layer(
         &mut self,
-        user: i64,
         event: SceneEvent,
-    ) -> (bool, Option<Vec<PermsEvent>>) {
+    ) -> Option<(i64, Id, Option<SceneEvent>)> {
+        let SceneEvent::LayerRemove(layer) = event else {
+            return None;
+        };
+
+        if let Some(layer) = self.scene.removed_layers.iter().find(|l| l.id == layer) {
+            if let Some(user) = self
+                .users
+                .iter()
+                .find(|(_, name)| name == &&layer.title)
+                .map(|(user, _)| *user)
+            {
+                if let (event, Some(id)) = self.player_layer(user) {
+                    return Some((user, id, event));
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn handle_event(&mut self, user: i64, event: SceneEvent) -> (bool, Option<ServerEvent>) {
         if self
             .perms
             .permitted(user, &event, self.scene.event_layer(&event))
+            && self.scene.apply_event(event.clone())
         {
-            let overrides = self.perms.ownership_overrides(user, &event);
-            if self.scene.apply_event(event) {
-                return (true, overrides);
-            }
+            let overrides = self.perms.ownership_overrides(user, &event).map(|events| {
+                ServerEvent::EventSet(events.into_iter().map(ServerEvent::PermsUpdate).collect())
+            });
+
+            (true, overrides)
+        } else {
+            (false, None)
         }
-        (false, None)
     }
 
     pub fn replace_scene(&mut self, scene: Scene, owner: i64) {

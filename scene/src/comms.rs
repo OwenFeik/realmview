@@ -144,12 +144,14 @@ pub struct ClientMessage {
 #[derive(Deserialize, Serialize)]
 pub enum ServerEvent {
     Approval(Id),
+    EventSet(Vec<ServerEvent>),
     GameOver,
     Rejection(Id),
     PermsChange(Perms),
     PermsUpdate(PermsEvent),
-    SceneChange(Scene, Option<Id>), // (new_scene, selected_layer)
+    SceneChange(Scene),
     SceneList(Vec<(String, String)>, String),
     SceneUpdate(SceneEvent),
+    SelectedLayer(Id),
     UserId(Id),
 }
