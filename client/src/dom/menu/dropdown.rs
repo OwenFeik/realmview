@@ -1,10 +1,9 @@
-use std::rc::Rc;
+use std::{rc::Rc, sync::Mutex};
 
-use parking_lot::Mutex;
 use serde::Serialize;
 
 use super::LayerInfo;
-use crate::{dom::element::Element, viewport::ViewportPoint};
+use crate::{bridge::log, dom::element::Element, viewport::ViewportPoint};
 
 #[derive(Clone, Copy, Debug, PartialEq, serde_derive::Serialize)]
 pub enum CanvasDropdownEvent {
@@ -127,18 +126,27 @@ impl Dropdown {
         let mut item = DropdownItem::new(label, event);
         let dest = self.event.clone();
         item.element.set_onclick(Box::new(move |_| {
-            dest.lock().replace(event);
+            if let Ok(mut lock) = dest.try_lock() {
+                lock.replace(event);
+            } else {
+                log("Failed to lock dropdown mutex.");
+            }
         }));
 
         item
     }
 
     pub fn event(&self) -> Option<CanvasDropdownEvent> {
-        let event = self.event.lock().take();
-        if event.is_some() {
-            self.hide();
+        if let Ok(mut lock) = self.event.try_lock() {
+            let event = lock.take();
+            if event.is_some() {
+                self.hide();
+            }
+            event
+        } else {
+            log("Failed to lock dropdown event.");
+            None
         }
-        event
     }
 
     fn set_visible(&self, visible: bool) {

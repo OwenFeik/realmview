@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use scene::Colour;
 
 use super::{element::Element, icon::Icon};
-use crate::{start::VpRef, viewport::Viewport};
+use crate::{bridge::log, start::VpRef, viewport::Viewport};
 
 pub trait Handler = Fn(&mut Viewport) + 'static;
 pub trait ValueHandler<T> = Fn(&mut Viewport, T) + 'static;
@@ -167,6 +167,21 @@ impl InputGroup {
         self.add_input(key, el);
     }
 
+    fn set_input_handler<H: Fn(&mut Viewport, Element) + 'static>(&mut self, key: &str, action: H) {
+        if let Some(element) = self.inputs.get_mut(key) {
+            let vp_ref = self.vp.clone();
+            element.set_oninput(Box::new(move |event: web_sys::Event| {
+                if let Some(el) = event.target().map(Element::from) {
+                    if let Ok(mut lock) = vp_ref.try_lock() {
+                        action(&mut lock, el);
+                    } else {
+                        log("Failed to lock viewport for input event.");
+                    }
+                }
+            }));
+        }
+    }
+
     pub fn add_string(&mut self, key: &str) {
         self.add_entry(key, string());
     }
@@ -215,12 +230,7 @@ impl InputGroup {
         action: H,
     ) {
         self.add_float(key, min, max, step);
-        let el = self.inputs.get_mut(key).unwrap();
-        let el_ref = el.clone();
-        let vp_ref = self.vp.clone();
-        el.set_oninput(Box::new(move |_| {
-            action(&mut vp_ref.lock(), el_ref.value_float() as f32);
-        }));
+        self.set_input_handler(key, move |vp, el| action(vp, el.value_float() as f32));
     }
 
     pub fn add_select(&mut self, key: &str, options: &[(&str, &str)]) {
@@ -234,12 +244,7 @@ impl InputGroup {
         action: H,
     ) {
         self.add_select(key, options);
-        let el = self.inputs.get_mut(key).unwrap();
-        let el_ref = el.clone();
-        let vp_ref = self.vp.clone();
-        el.set_oninput(Box::new(move |_| {
-            action(&mut vp_ref.lock(), el_ref.value_string());
-        }));
+        self.set_input_handler(key, move |vp, el| action(vp, el.value_string()));
     }
 
     pub fn add_checkbox(&mut self, key: &str) {
@@ -257,12 +262,7 @@ impl InputGroup {
 
     pub fn add_checkbox_handler<H: ValueHandler<bool>>(&mut self, key: &str, action: H) {
         self.add_checkbox(key);
-        let input = self.inputs.get_mut(key).unwrap();
-        let input_ref = input.clone();
-        let vp_ref = self.vp.clone();
-        input.set_oninput(Box::new(move |_| {
-            action(&mut vp_ref.lock(), input_ref.checked())
-        }));
+        self.set_input_handler(key, move |vp, el| action(vp, el.checked()));
     }
 
     pub fn add_toggle<H: ValueHandler<bool>>(&mut self, key: &str, a: Icon, b: Icon, action: H) {
@@ -280,14 +280,18 @@ impl InputGroup {
         let input_ref = input.clone();
         let vp_ref = self.vp.clone();
         el.set_onclick(Box::new(move |_| {
-            let value = !input_ref.checked(); // Initially true
+            if let Ok(mut lock) = vp_ref.try_lock() {
+                let value = !input_ref.checked(); // Initially true
 
-            let (from, to) = if value { (a, b) } else { (b, a) };
-            i.remove_class(&from.class());
-            i.add_class(&to.class());
-            input_ref.toggle_checked();
+                let (from, to) = if value { (a, b) } else { (b, a) };
+                i.remove_class(&from.class());
+                i.add_class(&to.class());
+                input_ref.toggle_checked();
 
-            action(&mut vp_ref.lock(), value);
+                action(&mut lock, value);
+            } else {
+                log("Failed to lock viewport for toggle button click.");
+            }
         }));
 
         self.add_input(key, input);
@@ -298,22 +302,25 @@ impl InputGroup {
         el.child("i").with_class(&icon.class());
 
         let vp = self.vp.clone();
-        el.set_onclick(Box::new(move |_| action(&mut vp.lock())));
+        el.set_onclick(Box::new(move |_| {
+            if let Ok(mut lock) = vp.try_lock() {
+                action(&mut lock);
+            } else {
+                log("Failed to lock viewport for button click.");
+            }
+        }));
 
         self.line.append_child(&el);
     }
 
     pub fn add_radio<H: Handler>(&mut self, key: &str, selected: bool, action: H) {
         let el = self.line.child("div").with_class("input-group-text");
-        let mut input = el
+        let input = el
             .child("input")
             .with_classes(&["form-check-input", "mt-0"])
             .with_attrs(&[("name", key), ("type", "radio")]);
         input.set_checked(selected);
-        let vp_ref = self.vp.clone();
-        input.set_oninput(Box::new(move |_| {
-            action(&mut vp_ref.lock());
-        }));
+        self.set_input_handler(key, move |vp, _| action(vp));
     }
 
     fn colour_input_opacity(input: &Element) -> f32 {
@@ -366,15 +373,11 @@ impl InputGroup {
 
     pub fn add_colour_handler<H: ValueHandler<Colour>>(&mut self, key: &str, action: H) {
         self.add_colour(key);
-        let input = self.inputs.get_mut(key).unwrap();
-        let vp_ref = self.vp.clone();
-        input.set_oninput(Box::new(move |evt| {
-            if let Some(input) = evt.target() {
-                if let Some(colour) = Self::colour_input_value(&Element::from(input)) {
-                    action(&mut vp_ref.lock(), colour);
-                }
-            };
-        }));
+        self.set_input_handler(key, move |vp, el| {
+            if let Some(colour) = Self::colour_input_value(&el) {
+                action(vp, colour);
+            }
+        });
     }
 
     fn icon_radio_input_id(key: &str, icon: Icon) -> String {
@@ -408,7 +411,13 @@ impl InputGroup {
                 .with_child(&icon.element());
             let vp_ref = self.vp.clone();
             let action_ref = action_ref.clone();
-            input.set_oninput(Box::new(move |_| action_ref(&mut vp_ref.lock(), icon)));
+            input.set_oninput(Box::new(move |_| {
+                if let Ok(mut lock) = vp_ref.lock() {
+                    action_ref(&mut lock, icon);
+                } else {
+                    log("Failed to lock viewport for icon radio input.");
+                }
+            }));
         }
     }
 }
