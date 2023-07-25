@@ -1,5 +1,4 @@
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, AtomicI32};
 use std::sync::Mutex;
 
 use anyhow::anyhow;
@@ -8,7 +7,7 @@ use js_sys::{ArrayBuffer, Uint8Array};
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{CloseEvent, ErrorEvent, MessageEvent, WebSocket};
 
-use crate::bridge::{flog, game_over_redirect, log, log_js_value, websocket_url};
+use crate::bridge::{flog, game_over_redirect, log, log_js_value, timestamp_ms, websocket_url};
 use crate::scene::comms::{ClientEvent, ClientMessage, ServerEvent};
 
 pub struct Client {
@@ -36,7 +35,7 @@ impl Client {
         };
 
         let incoming_events = Rc::new(Mutex::new(Vec::new()));
-        let sock = connect_websocket(url, incoming_events)?;
+        let sock = Sock::new(url, incoming_events)?;
 
         Ok(Some(Client { sock, counter: 0 }))
     }
@@ -50,6 +49,7 @@ impl Client {
             self.ping();
         }
 
+        self.sock.health_check();
         self.sock.load_events()
     }
 
@@ -70,13 +70,47 @@ impl Client {
 type SockRef = Rc<Mutex<WebSocket>>;
 type EventsRef = Rc<Mutex<Vec<ServerEvent>>>;
 
+// https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/readyState
+#[derive(Debug, Eq, PartialEq)]
+enum ReadyState {
+    Unknown = -1,
+    Connecting = 0,
+    Open = 1,
+    Closing = 2,
+    Closed = 3,
+}
+
+impl ReadyState {
+    fn matches(self, ready_state: u16) -> bool {
+        self as u16 == ready_state
+    }
+}
+
 struct Sock {
-    socket: SockRef,
+    url: String,
+    socket: WebSocket,
     events: EventsRef,
-    connecting: Rc<AtomicBool>,
+    reconnect_attempts: u32,
+    last_connected: u64,
+    last_reconnect_attempt: u64,
 }
 
 impl Sock {
+    const BACKOFF_COEFFICIENT: u32 = 2;
+    const RECONNECT_MAX_DURATION_MS: u64 = 60 * 1000;
+
+    fn new(url: String, events: EventsRef) -> anyhow::Result<Self> {
+        let socket = create_websocket(&url, events.clone())?;
+        Ok(Self {
+            url,
+            socket,
+            events,
+            reconnect_attempts: 0,
+            last_connected: timestamp_ms(),
+            last_reconnect_attempt: 0,
+        })
+    }
+
     fn load_events(&self) -> Vec<ServerEvent> {
         match self.events.try_lock() {
             Ok(mut events) => std::mem::take(&mut *events),
@@ -88,21 +122,78 @@ impl Sock {
     }
 
     fn send_message(&self, message: &ClientMessage, retry: bool) {
+        if self.ready_state() != ReadyState::Open {
+            flog!(
+                "Not sending message as socket state is {:?}.",
+                self.ready_state()
+            );
+            return;
+        }
+
         if let Ok(data) = serialize(message) {
-            if let Ok(sock) = self.socket.try_lock() {
-                if let Err(v) = sock.send_with_u8_array(&data) {
-                    log("Failed to send event. Reason:");
-                    log_js_value(&v);
-                    if retry {
-                        log("Retrying send event.");
-                        self.send_message(message, false);
-                    }
+            if let Err(v) = self.socket.send_with_u8_array(&data) {
+                log("Failed to send event. Reason:");
+                log_js_value(&v);
+                if retry {
+                    log("Retrying send event.");
+                    self.send_message(message, false);
                 }
-            } else {
-                log("Failed to lock client socket to send.");
             }
         } else {
             log("Failed to serialise message to send.");
+        }
+    }
+
+    fn health_check(&mut self) {
+        let now_ms = timestamp_ms();
+
+        match self.ready_state() {
+            ReadyState::Open => {
+                self.last_connected = now_ms;
+            }
+            ReadyState::Closed => {
+                let since_last_reconnect = now_ms.saturating_sub(self.last_reconnect_attempt);
+                if Self::BACKOFF_COEFFICIENT.pow(self.reconnect_attempts) as u64
+                    <= since_last_reconnect
+                {
+                    self.connect();
+                }
+            }
+            _ => {}
+        }
+
+        // If we failed to reconnect for max duration, give up.
+        let closed_for = now_ms.saturating_sub(self.last_connected);
+        crate::bridge::flog!("Closed for: {closed_for}");
+        if closed_for > Self::RECONNECT_MAX_DURATION_MS {
+            game_over_redirect();
+        }
+    }
+
+    fn ready_state(&self) -> ReadyState {
+        match self.socket.ready_state() {
+            0 => ReadyState::Connecting,
+            1 => ReadyState::Open,
+            2 => ReadyState::Closing,
+            3 => ReadyState::Closed,
+            _ => ReadyState::Unknown,
+        }
+    }
+
+    fn connect(&mut self) {
+        self.reconnect_attempts += 1;
+        self.last_reconnect_attempt = timestamp_ms();
+        flog!(
+            "Reconnecting websocket (attempt {})",
+            self.reconnect_attempts
+        );
+
+        if let Ok(socket) = create_websocket(&self.url, self.events.clone()) {
+            // Close existing socket.
+            self.socket.close().ok();
+
+            // Set new socket.
+            self.socket = socket;
         }
     }
 }
@@ -142,116 +233,15 @@ fn create_websocket(url: &str, events: EventsRef) -> anyhow::Result<WebSocket> {
     ws.set_onmessage(Some(onmessage.as_ref().unchecked_ref()));
     onmessage.forget();
 
-    Ok(ws)
-}
-
-const MAX_RETRIES: u32 = 100;
-const RETRY_INTERVAL_MS: i32 = 1000;
-
-/// Attempt to reconnect a websocket by opening a new one and replacing the
-/// value in the mutex. Will retry up to MAX_RETRIES times, every
-/// RETRY_INTERVAL_MS milliseconds.
-fn reconnect_websocket(url: String, events: EventsRef, socket: SockRef) {
-    const NO_HANDLE: i32 = -1;
-    let Some(window) = web_sys::window() else { return; };
-    let handle = Rc::new(AtomicI32::new(NO_HANDLE));
-
-    let handle_ref = handle.clone();
-    let clear_timeout = move || {
-        let handle = handle_ref.load(std::sync::atomic::Ordering::Acquire);
-        if handle != NO_HANDLE && let Some(window) = web_sys::window() {
-            window.clear_interval_with_handle(handle);
-        }
-    };
-
-    let mut num_retries = 0;
-    let callback = Closure::wrap(Box::new(move || {
-        if num_retries >= MAX_RETRIES {
-            flog!("Failed to reconnect after {num_retries} retries. Redirecting.");
-            game_over_redirect();
-            clear_timeout();
-        }
-
-        if let Ok(replacement) = create_websocket(&url, events.clone()) {
-            if let Ok(mut old) = socket.try_lock() {
-                *old = replacement;
-                add_handlers(url.clone(), events.clone(), socket.clone());
-                log("Successfully reconnected WebSocket.");
-            } else {
-                log("Failed to lock socket to set replacement.");
-                replacement.close().ok();
-            }
-            clear_timeout();
-        }
-
-        num_retries += 1;
-    }) as Box<dyn FnMut()>);
-
-    match window.set_interval_with_callback_and_timeout_and_arguments_0(
-        callback.as_ref().unchecked_ref(),
-        RETRY_INTERVAL_MS,
-    ) {
-        Ok(h) => handle.store(h, std::sync::atomic::Ordering::Release),
-        Err(error) => {
-            flog!("Failed to set reconnect interval. Error:");
-            log_js_value(&error);
-        }
-    }
-    callback.forget();
-}
-
-/// Add handlers to a websocket wrapped in a mutex to reconnect it in the case
-/// that it closes inadvertently.
-fn add_handlers(url: String, events: EventsRef, sock: SockRef) {
-    let url_ref = url.clone();
-    let sock_ref = sock.clone();
-    let events_ref = events.clone();
     let onerror = Closure::wrap(Box::new(move |e: ErrorEvent| {
-        flog!("Attempting reconnect. Closed due to error:");
+        flog!("Closed due to error:");
         log_js_value(&e);
-        reconnect_websocket(url_ref.clone(), events_ref.clone(), sock_ref.clone());
     }) as Box<dyn FnMut(ErrorEvent)>);
+    ws.set_onerror(Some(onerror.as_ref().unchecked_ref()));
+    onerror.forget();
 
-    if let Ok(lock) = sock.try_lock() {
-        lock.set_onerror(Some(onerror.as_ref().unchecked_ref()));
-        onerror.forget();
-    } else {
-        log("Failed to set onerror handler for socket.");
-    }
+    // let onclose =
+    //     Closure::wrap(Box::new(move |e: CloseEvent| e.code) as Box<dyn FnMut(CloseEvent)>);
 
-    // Create handler to replace the socket if it closes. If the server closes
-    // the socket it will set a reason indicating as such and we will not try
-    // to reopen it.
-    let sock_ref = sock.clone();
-    let onclose = Closure::wrap(Box::new(move |e: CloseEvent| {
-        flog!("WebSocket closed.");
-        if &e.reason() == "gameover" {
-            flog!("Closed due to game over. Redirecting.");
-            game_over_redirect();
-        } else {
-            flog!("Attempting reconnect. Closed due to:");
-            log_js_value(&e);
-            reconnect_websocket(url.clone(), events.clone(), sock_ref.clone());
-        }
-    }) as Box<dyn FnMut(CloseEvent)>);
-
-    if let Ok(lock) = sock.try_lock() {
-        lock.set_onclose(Some(onclose.as_ref().unchecked_ref()));
-        onclose.forget();
-    } else {
-        log("Failed to set onclose handler for socket.");
-    }
-}
-
-/// Connects a websocket, returning a Mutex to that websocket. In the event
-/// that the socket is closed, this will replace the value in the Mutex with a
-/// new socket, setting ready false in the interim.
-fn connect_websocket(url: String, events: EventsRef) -> anyhow::Result<Sock> {
-    let socket = Rc::new(Mutex::new(create_websocket(&url, events.clone())?));
-    add_handlers(url, events.clone(), socket.clone());
-    Ok(Sock {
-        socket,
-        events,
-        connecting: Rc::new(AtomicBool::new(false)),
-    })
+    Ok(ws)
 }

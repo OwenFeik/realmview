@@ -22,6 +22,8 @@
 * Redirect to landing page through backend if logged in.
 * Should avoid creating duplicate layers when players are joining.
 * Resize maintaining aspect ratio.
+* Queue messages when websocket isn't open.
+* Loading screen when websocket disconnected for some duration.
 
 ## Bugs
 * Updating sprite shape via menu is broken

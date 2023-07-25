@@ -631,6 +631,17 @@ pub fn rand() -> f32 {
 pub fn game_over_redirect() {
     const HREF: &str = "/game_over";
     if let Ok(window) = window() {
-        window.location().set_href("/game_over").ok();
+        if window
+            .location()
+            .pathname()
+            .map(|href| !href.as_str().eq(HREF))
+            .unwrap_or(true)
+        {
+            window.location().set_href("/game_over").ok();
+        }
     }
+}
+
+pub fn timestamp_ms() -> u64 {
+    js_sys::Date::new_0().get_time() as u64
 }

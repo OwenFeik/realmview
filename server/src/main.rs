@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 #![allow(opaque_hidden_inferred_bound)]
+#![allow(clippy::too_many_arguments)]
 
 /// opaque_hidden_inferred_bound is needed because there is an implied bound of
 /// `warp::generic::Tuple`, which is private.
