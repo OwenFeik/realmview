@@ -20,33 +20,77 @@ fn with_games(games: Games) -> impl Filter<Extract = (Games,), Error = Infallibl
 mod connect {
     use warp::Filter;
 
+    use super::Games;
+    use crate::games::GameRef;
+
+    async fn validate_game_and_client(
+        game_key: &str,
+        client_key: &str,
+        games: &Games,
+    ) -> Option<(GameRef, bool)> {
+        if let Some(game_ref) = games.read().await.get(game_key) {
+            return Some((
+                game_ref.clone(),
+                game_ref.read().await.has_client(client_key),
+            ));
+        }
+        None
+    }
+
     async fn connect_to_game(
         game_key: String,
         client_key: String,
         ws: warp::ws::Ws,
-        games: super::Games,
+        games: Games,
     ) -> Result<impl warp::Reply, warp::Rejection> {
-        let game = match games.read().await.get(&game_key) {
-            Some(game_ref) => {
-                if !game_ref.read().await.has_client(&client_key) {
-                    return Err(warp::reject());
-                }
+        if let Some((game, true)) = validate_game_and_client(&game_key, &client_key, &games).await {
+            Ok(ws.on_upgrade(move |sock| crate::games::client_connection(sock, client_key, game)))
+        } else {
+            Err(warp::reject())
+        }
+    }
 
-                game_ref.clone()
-            }
-            None => return Err(warp::reject()),
+    async fn test_game_valid(
+        game_key: String,
+        client_key: String,
+        games: Games,
+    ) -> Result<impl warp::Reply, warp::Rejection> {
+        #[derive(serde_derive::Serialize)]
+        struct Response {
+            success: bool,
+            game_valid: bool,
+            client_valid: bool,
+        }
+
+        let resp = if let Some((_game, client_valid)) =
+            validate_game_and_client(&game_key, &client_key, &games).await
+        {
+            warp::reply::json(&Response {
+                success: true,
+                game_valid: true,
+                client_valid,
+            })
+        } else {
+            warp::reply::json(&Response {
+                success: true,
+                game_valid: false,
+                client_valid: false,
+            })
         };
 
-        Ok(ws.on_upgrade(move |sock| crate::games::client_connection(sock, client_key, game)))
+        Ok(resp)
     }
 
     pub fn filter(
         games: super::Games,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        warp::path!("game" / String / String)
+        (warp::path!("game" / String / String)
             .and(warp::ws())
+            .and(super::with_games(games.clone()))
+            .and_then(connect_to_game))
+        .or(warp::path!("game" / String / String)
             .and(super::with_games(games))
-            .and_then(connect_to_game)
+            .and_then(test_game_valid))
     }
 }
 

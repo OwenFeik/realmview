@@ -22,7 +22,7 @@ pub struct Client {
 /// `ServerMessage`s form the server. It opens a `WebSocket` with the server
 /// and listens on this socket, posting messages if `send_message` is used.
 impl Client {
-    const PING_INTERVAL_FRAMES: u32 = 60 * 30; // For 60fps screen, every 30s.
+    const PING_INTERVAL_FRAMES: u32 = 300; // For 60fps screen, every 5s.
 
     /// If the page URL is /game/GAME_KEY/client/CLIENT_KEY, this will attempt
     /// to connect to the appropriate game websocket. If the URL doesn't match
@@ -147,7 +147,8 @@ impl Sock {
     fn health_check(&mut self) {
         let now_ms = timestamp_ms();
 
-        match self.ready_state() {
+        let ready_state = self.ready_state();
+        match ready_state {
             ReadyState::Open => {
                 self.last_connected = now_ms;
             }
@@ -162,11 +163,12 @@ impl Sock {
             _ => {}
         }
 
-        // If we failed to reconnect for max duration, give up.
-        let closed_for = now_ms.saturating_sub(self.last_connected);
-        crate::bridge::flog!("Closed for: {closed_for}");
-        if closed_for > Self::RECONNECT_MAX_DURATION_MS {
-            game_over_redirect();
+        // If we failed to connect / reconnect for max duration, give up.
+        if ready_state != ReadyState::Open {
+            let closed_for = now_ms.saturating_sub(self.last_connected);
+            if closed_for > Self::RECONNECT_MAX_DURATION_MS {
+                game_over_redirect();
+            }
         }
     }
 
@@ -240,8 +242,12 @@ fn create_websocket(url: &str, events: EventsRef) -> anyhow::Result<WebSocket> {
     ws.set_onerror(Some(onerror.as_ref().unchecked_ref()));
     onerror.forget();
 
-    // let onclose =
-    //     Closure::wrap(Box::new(move |e: CloseEvent| e.code) as Box<dyn FnMut(CloseEvent)>);
+    let onclose = Closure::wrap(
+        Box::new(move |e: CloseEvent| crate::bridge::flog!("{}", e.code()))
+            as Box<dyn FnMut(CloseEvent)>,
+    );
+    ws.set_onclose(Some(onclose.as_ref().unchecked_ref()));
+    onclose.forget();
 
     Ok(ws)
 }

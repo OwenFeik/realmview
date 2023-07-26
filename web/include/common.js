@@ -1,3 +1,13 @@
+const Pages = {
+    Game: game_key => `/game/${game_key}`,
+    GameOver: '/game_over',
+};
+
+const Api = {
+    NewGame: '/api/game/new',
+    TestClient: (game_key, client_key) => `/api/game/${game_key}/${client_key}`
+};
+
 const Icons = {
     check_circle: `{{ bootstrap_icon(check-circle) }}`,
     exclamation_triangle: `{{ bootstrap_icon(exclamation-triangle) }}`,
@@ -32,7 +42,7 @@ function form_to_json(form) {
         if (element === undefined) {
             break;
         }
-        
+
         if (element.tagName === "INPUT") {
             let value = element.value;
             if (element.type == "number") {
@@ -61,7 +71,7 @@ function field_error(form, field_name, message) {
 
     const listener = () => {
         input.setCustomValidity("");
-    
+
         if (feedback) {
             feedback.innerText = feedback_text;
         }
@@ -80,7 +90,7 @@ function form_error(form, message) {
 
 function post_form_json(form, callback = null) {
     form = element_or_string(form);
-    
+
     let req = new XMLHttpRequest();
 
     req.onerror = () => {
@@ -162,8 +172,8 @@ function request_icon_handling(req, onload, onerror, icon_id) {
                 icon_id,
                 (
                     req?.response?.success
-                    ? LoadingIconStates.Success
-                    : LoadingIconStates.Error
+                        ? LoadingIconStates.Success
+                        : LoadingIconStates.Error
                 )
             );
 
@@ -186,7 +196,7 @@ function request_icon_handling(req, onload, onerror, icon_id) {
         if (onload) {
             req.onload = () => onload(req.response);
         }
-        req.onerror = onerror;    
+        req.onerror = onerror;
     }
 }
 

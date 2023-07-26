@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use std::sync::atomic::AtomicBool;
 
 use anyhow::anyhow;
 use js_sys::Array;
@@ -629,15 +630,14 @@ pub fn rand() -> f32 {
 }
 
 pub fn game_over_redirect() {
+    // Ensure we don't redirect multiple times.
+    static REDIRECTED: AtomicBool = AtomicBool::new(false);
+
     const HREF: &str = "/game_over";
-    if let Ok(window) = window() {
-        if window
-            .location()
-            .pathname()
-            .map(|href| !href.as_str().eq(HREF))
-            .unwrap_or(true)
-        {
+    if !REDIRECTED.load(std::sync::atomic::Ordering::Acquire) {
+        if let Ok(window) = window() {
             window.location().set_href("/game_over").ok();
+            REDIRECTED.store(true, std::sync::atomic::Ordering::Release);
         }
     }
 }

@@ -14,7 +14,7 @@ window.addEventListener("load", () => {
         return;
     }
 
-    const join_game_link = document.getElementById("join_game_link"); 
+    const join_game_link = document.getElementById("join_game_link");
     join_game_link.href = join_game_link.innerText = (
         window.location.protocol
         + "//"
@@ -35,6 +35,12 @@ window.addEventListener("load", () => {
 
     // Hide the launch game tab.
     document.getElementById("launch_game_tab").style.display = "none";
+
+    // /game/GAME_KEY/client/CLIENT_KEY
+    const client_key = parts[3];
+    if (client_key) {
+        test_client_key(game_key, client_key);
+    }
 });
 
 function set_up_copy_link_btn() {
@@ -68,7 +74,7 @@ function error_fn(id) {
 function new_game() {
     const error = error_fn("launch_game_error");
     post(
-        "/api/game/new",
+        Api.NewGame,
         { "scene_key": selected_scene() },
         resp => {
             if (resp?.success) {
@@ -83,4 +89,21 @@ function new_game() {
         },
         () => error("Network error.")
     );
+}
+
+function test_client_key(game_key, client_key) {
+    get(Api.TestClient(game_key, client_key), resp => {
+        if (!resp?.success) {
+            return;
+        }
+
+        // For an invalid game, redirect to gameover as the game doesn't exist.
+        // For an invalid client, redirect to try and generate a new client.
+        if (!resp.game_valid) {
+            window.location.href = Pages.GameOver;
+        }
+        else if (!resp.client_valid) {
+            window.location.href = Pages.Game(game_key);
+        }
+    });
 }
