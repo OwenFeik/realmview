@@ -100,8 +100,8 @@ mod join {
     use warp::Filter;
 
     use crate::games::{generate_game_key, GameRef, Games};
-    use crate::handlers::response::{as_result, Binary, ResultReply};
     use crate::models::User;
+    use crate::warp_handlers::response::{as_result, Binary, ResultReply};
 
     #[derive(Serialize)]
     struct JoinGameResponse {
@@ -174,8 +174,8 @@ mod join {
         warp::path!("game" / String)
             .and(warp::post())
             .and(super::with_games(games))
-            .and(crate::handlers::with_db(pool))
-            .and(crate::handlers::with_session())
+            .and(crate::warp_handlers::with_db(pool))
+            .and(crate::warp_handlers::with_session())
             .and_then(join_game_handler)
     }
 }
@@ -192,8 +192,8 @@ mod new {
     use super::with_games;
     use crate::crypto::random_hex_string;
     use crate::games;
-    use crate::handlers::{json_body, response::Binary, with_db, with_session};
     use crate::models::{SceneRecord, User};
+    use crate::warp_handlers::{json_body, response::Binary, with_db, with_session};
 
     #[derive(Deserialize)]
     struct NewGameRequest {

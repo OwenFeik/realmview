@@ -30,9 +30,9 @@ mod details {
     use sqlx::SqlitePool;
     use warp::Filter;
 
-    use crate::handlers::response::{as_result, Binary, ResultReply};
-    use crate::handlers::{json_body, with_db, with_session, with_val};
     use crate::models::{Media, User};
+    use crate::warp_handlers::response::{as_result, Binary, ResultReply};
+    use crate::warp_handlers::{json_body, with_db, with_session, with_val};
 
     #[derive(serde_derive::Serialize)]
     struct MediaItemResponse {
@@ -170,11 +170,11 @@ mod list {
 
     use super::MediaItem;
     use crate::{
-        handlers::{
+        models::{Media, User},
+        warp_handlers::{
             response::{as_result, Binary},
             with_db, with_session,
         },
-        models::{Media, User},
     };
 
     #[derive(serde_derive::Serialize)]

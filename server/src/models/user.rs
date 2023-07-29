@@ -1,6 +1,6 @@
 use sqlx::{FromRow, SqlitePool};
 
-#[derive(FromRow)]
+#[derive(Debug, FromRow)]
 pub struct User {
     pub id: i64,
     pub username: String,
@@ -11,6 +11,29 @@ pub struct User {
 }
 
 impl User {
+    pub async fn register(
+        pool: &SqlitePool,
+        username: &str,
+        salt: &str,
+        hashed_password: &str,
+        recovery_key: &str,
+        created_time: u64,
+    ) -> anyhow::Result<i64> {
+        let id = sqlx::query(
+            "INSERT INTO users (username, salt, hashed_password, recovery_key, created_time) VALUES (?1, ?2, ?3, ?4, ?5);"
+        )
+            .bind(username)
+            .bind(salt)
+            .bind(hashed_password)
+            .bind(recovery_key)
+            .bind(created_time as i64)
+            .execute(&mut pool.acquire().await?)
+            .await?
+            .last_insert_rowid();
+
+        Ok(id)
+    }
+
     pub async fn get(pool: &SqlitePool, username: &str) -> anyhow::Result<Option<User>> {
         let user = sqlx::query_as("SELECT * FROM users WHERE username = ?1;")
             .bind(username)
@@ -51,5 +74,14 @@ impl User {
 
     pub fn upload_dir(&self, content_dir: &str) -> String {
         format!("{}/{}", content_dir, &self.relative_dir())
+    }
+
+    pub async fn username_taken(pool: &SqlitePool, username: &str) -> anyhow::Result<bool> {
+        let row = sqlx::query("SELECT id FROM users WHERE username = ?1;")
+            .bind(username)
+            .fetch_optional(pool)
+            .await?;
+
+        Ok(row.is_some())
     }
 }
