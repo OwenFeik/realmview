@@ -195,73 +195,12 @@ mod new {
     use crate::models::{SceneRecord, User};
     use crate::warp_handlers::{json_body, response::Binary, with_db, with_session};
 
-    #[derive(Deserialize)]
-    struct NewGameRequest {
-        scene_key: String,
-    }
-
     async fn new_game(
         pool: SqlitePool,
         skey: String,
         games: games::Games,
         req: NewGameRequest,
     ) -> Result<impl warp::Reply, Infallible> {
-        let user = match User::get_by_session(&pool, &skey).await {
-            Ok(Some(u)) => u,
-            _ => return Binary::result_failure("Bad session."),
-        };
-
-        let conn = &mut match pool.acquire().await {
-            Ok(c) => c,
-            _ => return Binary::result_error("Database error."),
-        };
-
-        let scene = match SceneRecord::load_from_key(conn, &req.scene_key).await {
-            Ok(r) => match r.user(conn).await {
-                Ok(user_id) => {
-                    if user.id == user_id {
-                        match r.load_scene(conn).await {
-                            Ok(s) => s,
-                            _ => return Binary::result_error("Failed to load scene."),
-                        }
-                    } else {
-                        return Binary::result_failure("Scene owned by a different user.");
-                    }
-                }
-                _ => return Binary::result_failure("Scene user not found."),
-            },
-            _ => return Binary::result_failure("Scene not found."),
-        };
-
-        let game_key = {
-            let games = games.read().await;
-            loop {
-                if let Ok(game_key) = random_hex_string(games::GAME_KEY_LENGTH) {
-                    if !games.contains_key(&game_key) {
-                        break game_key;
-                    }
-                } else {
-                    return Binary::result_error("Crypto error.");
-                }
-            }
-        };
-
-        if let Some(project) = scene.project {
-            let server = Arc::new(RwLock::new(games::GameServer::new(
-                user.id,
-                project,
-                scene,
-                pool.clone(),
-                &game_key,
-                games.clone(),
-            )));
-            games::GameServer::start(server.clone()).await;
-            games.write().await.insert(game_key.clone(), server);
-
-            super::join::join_game(games, game_key, user.id, user.username).await
-        } else {
-            Binary::result_failure("Scene project unknown.")
-        }
     }
 
     pub fn filter(
