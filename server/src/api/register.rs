@@ -1,6 +1,7 @@
-use actix_web::{error::ErrorInternalServerError, web, HttpResponse};
+use actix_web::{error::ErrorInternalServerError, web};
 use sqlx::SqlitePool;
 
+use super::{res_json, Res};
 use crate::{
     crypto::{generate_salt, hash_password, to_hex_string, Key},
     models::User,
@@ -27,24 +28,24 @@ struct RegistrationResponse {
 }
 
 impl RegistrationResponse {
-    fn success(recovery_key: String, username: String) -> Result<HttpResponse, actix_web::Error> {
-        Ok(HttpResponse::Ok().json(&RegistrationResponse {
+    fn success(recovery_key: String, username: String) -> Res {
+        res_json(RegistrationResponse {
             message: String::from("Registration successful."),
             recovery_key: Some(recovery_key),
             success: true,
             username: Some(username),
             problem_field: None,
-        }))
+        })
     }
 
-    fn failure(message: &str, problem_field: &str) -> Result<HttpResponse, actix_web::Error> {
-        Ok(HttpResponse::Ok().json(&RegistrationResponse {
+    fn failure(message: &str, problem_field: &str) -> Res {
+        res_json(RegistrationResponse {
             message: message.to_string(),
             recovery_key: None,
             success: false,
             username: None,
             problem_field: Some(problem_field.to_string()),
-        }))
+        })
     }
 }
 
@@ -80,10 +81,7 @@ fn generate_keys(password: &str) -> anyhow::Result<(String, String, String)> {
     get_hex_strings(&salt, &hashed_password, &recovery_key)
 }
 
-async fn register(
-    pool: web::Data<SqlitePool>,
-    details: web::Json<RegistrationRequest>,
-) -> Result<HttpResponse, actix_web::Error> {
+async fn register(pool: web::Data<SqlitePool>, details: web::Json<RegistrationRequest>) -> Res {
     if !valid_username(&details.username) {
         return RegistrationResponse::failure("Invalid username.", "username");
     }

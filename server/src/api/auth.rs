@@ -2,7 +2,7 @@ use actix_web::{error::ErrorInternalServerError, web, HttpResponse};
 use sqlx::SqlitePool;
 
 use super::req::session::{Session, SessionOpt};
-use super::{body_failure, body_success, resp, session_resp};
+use super::{body_failure, body_success, resp, session_resp, Res};
 use crate::{
     crypto::{check_password, from_hex_string},
     models::{User, UserSession},
@@ -31,10 +31,7 @@ struct LoginRequest {
     password: String,
 }
 
-async fn login(
-    pool: web::Data<SqlitePool>,
-    req: web::Json<LoginRequest>,
-) -> Result<HttpResponse, actix_web::Error> {
+async fn login(pool: web::Data<SqlitePool>, req: web::Json<LoginRequest>) -> Res {
     let Some(user) = User::get(&pool, req.username.as_str())
         .await
         .map_err(ErrorInternalServerError)? else

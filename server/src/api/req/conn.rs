@@ -23,7 +23,7 @@ impl FromRequest for Conn {
         _payload: &mut actix_web::dev::Payload,
     ) -> Self::Future {
         Box::pin(async {
-            if let Some(Some(pool)) = super::POOL.get() {
+            if let Some(pool) = super::POOL.get() {
                 Ok(Conn(pool.acquire().await.map_err(e500)?))
             } else {
                 Err(ErrorInternalServerError("Failed to acquire pool."))

@@ -1,40 +1,25 @@
-use std::convert::Infallible;
+use std::path::PathBuf;
 
+use actix_multipart::{Field, Multipart};
+use actix_web::web;
 use anyhow::anyhow;
-use bytes::BufMut;
 use futures::{StreamExt, TryStreamExt};
 use ring::digest;
-use sqlx::{Row, SqlitePool};
-use warp::{
-    multipart::{FormData, Part},
-    Filter,
+use sqlx::SqlitePool;
+
+use super::{e500, res_failure, res_json, Res};
+use crate::{
+    crypto::to_hex_string_unsized,
+    models::{Media, User},
+    utils::join_relative_path,
+    CONTENT,
 };
 
-use super::response::{as_result, Binary};
-use super::{with_db, with_session, with_val};
-use crate::crypto::to_hex_string_unsized;
-use crate::models::{Media, User};
-
 // Maximum total size of media a single use can upload, in bytes
-const UPLOAD_LIMIT: usize = 128 * 1024 * 1024; // 128 MB
+const UPLOAD_LIMIT: usize = 10 * 1024 * 1024 * 1024; // 10 GB
 
-#[derive(serde_derive::Serialize)]
-struct UploadResponse {
-    message: String,
-    success: bool,
-    media_key: Option<String>,
-    url: String,
-}
-
-impl UploadResponse {
-    fn new(key: Option<String>, url: String) -> UploadResponse {
-        UploadResponse {
-            message: String::from("Uploaded successfully."),
-            success: true,
-            media_key: key,
-            url,
-        }
-    }
+pub fn routes() -> actix_web::Scope {
+    web::scope("/upload").default_service(web::route().to(upload))
 }
 
 #[derive(Debug)]
@@ -97,13 +82,15 @@ impl UploadImage {
         }
     }
 
-    fn real_path(&self, content_dir: &str, user: &User) -> anyhow::Result<String> {
-        let relative_path = self.relative_path(user)?;
-        Ok(format!("{}/{}", content_dir, &relative_path))
+    fn real_path(&self, user: &User) -> anyhow::Result<PathBuf> {
+        Ok(join_relative_path(
+            CONTENT.as_path(),
+            self.relative_path(user)?,
+        ))
     }
 
-    async fn create_directory(&self, content_dir: &str, user: &User) -> anyhow::Result<()> {
-        let mut directory = user.upload_dir(content_dir);
+    async fn create_directory(&self, user: &User) -> anyhow::Result<()> {
+        let mut directory = user.upload_dir(&CONTENT.to_string_lossy());
         if matches!(self.role, ImageRole::Thumbnail(..)) {
             directory.push_str("/thumbnails");
         }
@@ -113,13 +100,16 @@ impl UploadImage {
             .map_err(|e| anyhow!("Failed to create directory: {e}"))
     }
 
-    async fn write_file(&self, content_dir: &str, user: &User) -> anyhow::Result<()> {
-        self.create_directory(content_dir, user).await?;
+    async fn write_file(&self, user: &User) -> anyhow::Result<()> {
+        self.create_directory(user).await?;
 
         match &self.data {
-            Some(data) => tokio::fs::write(self.real_path(content_dir, user)?, data)
-                .await
-                .map_err(|e| anyhow!("Failed to write file: {e}")),
+            Some(data) => {
+                let path = self.real_path(user)?;
+                tokio::fs::write(path, data)
+                    .await
+                    .map_err(|e| anyhow!("Failed to write file: {e}"))
+            }
             None => Err(anyhow!("No image data provided.")),
         }
     }
@@ -136,7 +126,6 @@ impl UploadImage {
         &self,
         pool: &SqlitePool,
         user: &User,
-        content_dir: &str,
     ) -> anyhow::Result<UploadResponse> {
         let scene_key = match &self.role {
             ImageRole::Thumbnail(key) => key,
@@ -152,7 +141,7 @@ impl UploadImage {
             return Err(anyhow!("User does not own scene."));
         }
 
-        self.write_file(content_dir, user).await?;
+        self.write_file(user).await?;
 
         let relative_path = self.relative_path(user)?;
         crate::models::Project::set_scene_thumbnail(&mut conn, scene_key, &relative_path)
@@ -169,7 +158,6 @@ impl UploadImage {
         &mut self,
         pool: &SqlitePool,
         user: &User,
-        content_dir: &str,
     ) -> anyhow::Result<UploadResponse> {
         let hash = self.file_hash()?;
 
@@ -186,7 +174,7 @@ impl UploadImage {
         self.ensure_key()?;
         let relative_path = self.relative_path(user)?;
         let url = format!("/static/{}", &relative_path);
-        self.write_file(content_dir, user).await?;
+        self.write_file(user).await?;
         match Media::new(
             self.key.as_ref().unwrap().clone(),
             user.id,
@@ -204,23 +192,16 @@ impl UploadImage {
             )),
             Err(e) => {
                 // Remove file as part of cleanup.
-                tokio::fs::remove_file(&self.real_path(content_dir, user)?)
-                    .await
-                    .ok();
+                tokio::fs::remove_file(&self.real_path(user)?).await.ok();
                 Err(anyhow!("Database error: {e}"))
             }
         }
     }
 
-    async fn save(
-        &mut self,
-        pool: &SqlitePool,
-        user: &User,
-        content_dir: &str,
-    ) -> anyhow::Result<UploadResponse> {
+    async fn save(&mut self, pool: &SqlitePool, user: &User) -> anyhow::Result<UploadResponse> {
         match self.role {
-            ImageRole::Media => self.save_media(pool, user, content_dir).await,
-            ImageRole::Thumbnail(..) => self.save_thumbnail(pool, user, content_dir).await,
+            ImageRole::Media => self.save_media(pool, user).await,
+            ImageRole::Thumbnail(..) => self.save_thumbnail(pool, user).await,
         }
     }
 }
@@ -237,7 +218,7 @@ async fn file_exists(pool: &SqlitePool, user: i64, hash: &str) -> anyhow::Result
         .await?;
 
     if let Some(row) = row_opt {
-        match row.try_get(0) {
+        match sqlx::Row::try_get(&row, 0) {
             Ok(s) => Ok(Some(s)),
             Err(_) => Err(anyhow::anyhow!("Database error.")),
         }
@@ -246,14 +227,13 @@ async fn file_exists(pool: &SqlitePool, user: i64, hash: &str) -> anyhow::Result
     }
 }
 
-async fn collect_part(part: Part) -> anyhow::Result<Vec<u8>> {
-    part.stream()
-        .try_fold(Vec::new(), |mut vec, data| {
-            vec.put(data);
-            async move { Ok(vec) }
-        })
-        .await
-        .map_err(|e| anyhow!("Failed to read part: {e}"))
+async fn collect_part(part: Field) -> anyhow::Result<Vec<u8>> {
+    part.try_fold(Vec::new(), |mut vec, data| {
+        bytes::BufMut::put(&mut vec, data);
+        async move { Ok(vec) }
+    })
+    .await
+    .map_err(|e| anyhow!("Failed to read part: {e}"))
 }
 
 fn ext_from_filename(filename: &str) -> Option<String> {
@@ -267,89 +247,77 @@ fn ext_from_filename(filename: &str) -> Option<String> {
     None
 }
 
-fn choose_file_extension(part: &Part) -> Option<String> {
-    match part.content_type() {
-        Some("image/png") => return Some(String::from("png")),
-        Some("image/jpeg") => return Some(String::from("png")),
-        _ => {}
+fn choose_file_extension(part: &Field) -> Option<String> {
+    if let Some((t, st)) = part.content_type().map(|m| (m.type_(), m.subtype())) {
+        match (t, st) {
+            (mime::IMAGE, mime::JPEG) => return Some("jpg".to_string()),
+            (mime::IMAGE, mime::PNG) => return Some("png".to_string()),
+            _ => {}
+        }
     };
 
-    part.filename().and_then(ext_from_filename)
+    part.content_disposition()
+        .get_filename()
+        .and_then(ext_from_filename)
 }
 
-async fn upload(
-    pool: SqlitePool,
-    session_key: String,
-    content_dir: String,
-    form: FormData,
-) -> Result<impl warp::Reply, Infallible> {
-    let user = match User::get_by_session(&pool, &session_key).await {
-        Ok(Some(user)) => user,
-        _ => return Binary::result_failure("Invalid session."),
-    };
+#[derive(serde_derive::Serialize)]
+struct UploadResponse {
+    message: String,
+    success: bool,
+    media_key: Option<String>,
+    url: String,
+}
 
-    let total_uploaded = match Media::user_total_size(&pool, user.id).await {
-        Ok(size) => size,
-        Err(e) => return Binary::from_error(e),
-    };
+impl UploadResponse {
+    fn new(key: Option<String>, url: String) -> UploadResponse {
+        UploadResponse {
+            message: String::from("Uploaded successfully."),
+            success: true,
+            media_key: key,
+            url,
+        }
+    }
+}
+
+async fn upload(pool: web::Data<SqlitePool>, user: User, mut form: Multipart) -> Res {
+    let total_uploaded = Media::user_total_size(&pool, user.id).await.map_err(e500)?;
 
     // If they're already full, don't bother processing the upload.
     if total_uploaded >= UPLOAD_LIMIT {
-        return Binary::result_failure("Upload limit exceeded.");
+        return res_failure("Upload limit exceeded.");
     }
 
-    let mut upload = match UploadImage::new() {
-        Ok(u) => u,
-        Err(e) => return Binary::from_error(e),
-    };
+    let mut upload = UploadImage::new().map_err(e500)?;
 
-    let mut parts = form.into_stream();
-    while let Some(Ok(part)) = parts.next().await {
+    while let Some(Ok(part)) = form.next().await {
         match part.name() {
             "thumbnail" => match collect_part(part).await.map(String::from_utf8) {
                 Ok(Ok(scene_key)) => upload.role = ImageRole::Thumbnail(scene_key),
-                _ => return Binary::result_failure("Bad thumbnail scene ID."),
+                _ => return res_failure("Bad thumbnail scene ID."),
             },
             "image" => {
                 if let Some(ext) = choose_file_extension(&part) {
                     upload.ext = ext;
                 } else {
-                    return Binary::result_failure("Missing file type.");
+                    return res_failure("Missing file type.");
                 }
 
-                match part.filename() {
+                match part.content_disposition().get_filename() {
                     Some(s) => upload.title = s.to_owned(),
                     None => upload.title = format!("untitled.{}", upload.ext),
                 };
 
-                match collect_part(part).await {
-                    Ok(data) => upload.data = Some(data),
-                    Err(e) => return Binary::from_error(e),
-                }
+                upload.data = Some(collect_part(part).await.map_err(e500)?);
             }
             _ => (),
         }
     }
 
     if total_uploaded + upload.size() >= UPLOAD_LIMIT {
-        return Binary::result_failure("Upload limit exceeded.");
+        return res_failure("Upload limit exceeded.");
     }
 
-    match upload.save(&pool, &user, &content_dir).await {
-        Ok(resp) => as_result(&resp, warp::http::StatusCode::OK),
-        Err(e) => Binary::result_failure(&e.to_string()),
-    }
-}
-
-pub fn filter(
-    pool: SqlitePool,
-    content_dir: String,
-) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    warp::path!("upload")
-        .and(warp::post())
-        .and(with_db(pool))
-        .and(with_session())
-        .and(with_val(content_dir))
-        .and(warp::multipart::form())
-        .and_then(upload)
+    let res = upload.save(&pool, &user).await.map_err(e500)?;
+    res_json(res)
 }

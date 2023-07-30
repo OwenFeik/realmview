@@ -2,18 +2,32 @@ use actix_web::{
     cookie::Cookie, error::ErrorInternalServerError, http::StatusCode, HttpResponse,
     HttpResponseBuilder,
 };
+use sqlx::SqlitePool;
 
 mod auth;
+mod game;
+mod media;
 mod project;
 mod register;
-pub mod req;
+mod req;
+mod scene;
+mod upload;
 
 pub fn routes() -> actix_web::Scope {
     actix_web::web::scope("/api")
         .service(auth::routes())
+        .service(scene::routes())
         .service(project::routes())
+        .service(media::routes())
         .service(register::routes())
+        .service(upload::routes())
 }
+
+pub fn set_pool(pool: SqlitePool) {
+    req::POOL.set(pool).expect("Failed to set pool reference.");
+}
+
+type Res = Result<HttpResponse, actix_web::Error>;
 
 #[derive(serde_derive::Serialize)]
 struct Binary {
@@ -49,8 +63,24 @@ fn resp_success(message: &str) -> HttpResponse {
     HttpResponse::Ok().json(body_success(message))
 }
 
+fn res_success(message: &str) -> Res {
+    Ok(resp_success(message))
+}
+
 fn resp_failure(message: &str) -> HttpResponse {
     HttpResponse::Ok().json(body_failure(message))
+}
+
+fn res_failure(message: &str) -> Res {
+    Ok(resp_failure(message))
+}
+
+fn resp_unproc(message: &str) -> HttpResponse {
+    HttpResponse::UnprocessableEntity().json(body_failure(message))
+}
+
+fn res_unproc(message: &str) -> Res {
+    Ok(resp_unproc(message))
 }
 
 fn resp(message: &str, success: bool) -> HttpResponse {
@@ -59,6 +89,18 @@ fn resp(message: &str, success: bool) -> HttpResponse {
     } else {
         resp_failure(message)
     }
+}
+
+fn res(message: &str, success: bool) -> Res {
+    Ok(resp(message, success))
+}
+
+fn resp_json(body: impl serde::Serialize) -> HttpResponse {
+    HttpResponse::Ok().json(body)
+}
+
+fn res_json(body: impl serde::Serialize) -> Res {
+    Ok(resp_json(body))
 }
 
 fn e500<E>(error: E) -> actix_web::Error

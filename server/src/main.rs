@@ -49,9 +49,7 @@ async fn main() -> std::io::Result<()> {
         .expect("Invalid port number.");
 
     let pool = connect_to_db().await;
-    api::req::POOL
-        .set(Some(pool.clone()))
-        .expect("Fail to set auth pool ref.");
+    api::set_pool(pool.clone());
 
     HttpServer::new(move || {
         App::new()
@@ -70,7 +68,9 @@ async fn main() -> std::io::Result<()> {
                 web::scope("/project")
                     .service(web::resource("/new").to(|| content("new_project.html")))
                     .service(web::resource("/{proj_key}").to(|| content("edit_project.html")))
-                    .service(web::resource("/{proj_key}/{scene_key}").to(|| content("scene.html")))
+                    .service(
+                        web::resource("/{proj_key}/scene/{scene_key}").to(|| content("scene.html")),
+                    )
                     .default_service(web::route().to(|| content("projects.html"))),
             )
             .service(

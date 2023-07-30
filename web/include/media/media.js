@@ -43,7 +43,7 @@ class MediaManager {
         this.media.set(resp_item.media_key, media_item);
         return media_item;
     }
-    
+
     update_item(media_key, obj) {
         this.media.get(media_key)?.update(obj);
     }
@@ -58,7 +58,7 @@ class MediaManager {
 
             if (confirm) {
                 modal_confirm(
-                    deleteItem, 
+                    deleteItem,
                     `Permanently delete "${item.title}"?`
                 );
             } else {
@@ -101,8 +101,8 @@ class MediaManager {
                     this.add_item(resp.details);
                     this.load_media_with_key(media_key, callback);
                 }
-            );    
-        }        
+            );
+        }
     }
 
     media_list() {
@@ -145,22 +145,26 @@ function upload_media() {
 
         let data = new FormData();
         data.append("image", file);
-        
+
         let req = new XMLHttpRequest();
-    
+
         req.onerror = () => {
             set_card_error(card, "Network error.");
         };
 
         req.onload = () => {
-            if (req.response.success) {
+            if (req.response?.success) {
                 set_card_success(card);
             }
-            else {
+            else if (req.response?.message) {
                 set_card_error(card, req.response.message);
+            } else if (req.status == 500) {
+                set_card_error(card, "Server error.");
+            } else {
+                set_card_error(card, "Network error.");
             }
         };
-    
+
         req.responseType = "json";
         req.open("POST", "/api/upload");
         req.send(data);
@@ -181,7 +185,7 @@ function view_media() {
 
     let loading = document.getElementById("media_view_loading");
     loading.classList.add("show");
-    
+
     show_media([]);
 
     req.onerror = () => {
@@ -194,7 +198,7 @@ function view_media() {
         if (!req.response) {
             label.classList.remove("d-none");
             label.innerText = "Network error.";
-            loading.classList.remove("show");    
+            loading.classList.remove("show");
         }
         else if (req.response.success) {
             label.classList.add("d-none");
@@ -209,7 +213,7 @@ function view_media() {
 
         loading.classList.remove("show");
     };
-    
+
     req.responseType = "json";
     req.open("GET", "/api/media/list");
     req.send();
@@ -218,7 +222,7 @@ function view_media() {
 function search_filter(query) {
     query = query.toLowerCase();
     let matching = [];
-    
+
     for (const item of media_manager.media.values()) {
         if (item.title.toLowerCase().includes(query)) {
             matching.push(item);

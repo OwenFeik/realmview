@@ -13,7 +13,7 @@ pub const COOKIE_NAME: &str = "session_key";
 async fn session_from_req(req: &actix_web::HttpRequest) -> Result<SessionOpt, actix_web::Error> {
     if let Some(cookie) = req.cookie(COOKIE_NAME) {
         let key = cookie.value();
-        if let Some(Some(pool)) = super::POOL.get() {
+        if let Some(pool) = super::POOL.get() {
             let session = match User::get_by_session(pool, key)
                 .await
                 .map_err(ErrorInternalServerError)?

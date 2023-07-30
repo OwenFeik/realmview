@@ -1,4 +1,7 @@
-use std::time::{Duration, SystemTime};
+use std::{
+    path::{Path, PathBuf},
+    time::{Duration, SystemTime},
+};
 
 #[derive(Clone, Copy)]
 pub enum LogLevel {
@@ -62,4 +65,11 @@ pub fn timestamp_s() -> anyhow::Result<u64> {
 
 pub fn timestamp_us() -> anyhow::Result<u128> {
     Ok(current_system_time()?.as_micros())
+}
+
+/// Join a path with a relative path, that may start with a slash. If the
+/// second argument starts with a slash, all leading slashes will be removed
+/// before joining.
+pub fn join_relative_path<S: AsRef<str>>(left: &Path, right: S) -> PathBuf {
+    left.join(right.as_ref().trim_start_matches('/'))
 }

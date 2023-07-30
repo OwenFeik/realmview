@@ -1,7 +1,7 @@
 use actix_web::{error::ErrorInternalServerError, web, HttpResponse};
 use sqlx::SqliteConnection;
 
-use super::{e500, req::Conn, resp, resp_success};
+use super::{e500, req::Conn, res_failure, res_json, res_success};
 use crate::models::{Project, SceneRecord, User};
 
 pub fn routes() -> actix_web::Scope {
@@ -112,12 +112,12 @@ async fn new(
         .await
         .map_err(e500)?;
 
-    Ok(HttpResponse::Ok().json(&NewProjectResponse {
+    res_json(NewProjectResponse {
         message: "Project created successfully.".to_owned(),
         success: true,
         project_key: project.project_key,
         title: req.title.clone(),
-    }))
+    })
 }
 
 async fn get(
@@ -131,12 +131,12 @@ async fn get(
         .map_err(e500)?;
 
     if project.user != user.id {
-        Ok(resp("Project not found.", false))
+        res_failure("Project not found.")
     } else {
         let list = ProjectListEntry::from(project, conn.acquire())
             .await
             .map_err(e500)?;
-        Ok(HttpResponse::Ok().json(&list))
+        res_json(list)
     }
 }
 
@@ -151,9 +151,9 @@ async fn delete(
         .map_err(e500)?;
 
     if project.user != user.id {
-        Ok(resp("Project not found.", false))
+        res_failure("Project not found.")
     } else {
         project.delete(conn.acquire()).await.map_err(e500)?;
-        Ok(resp_success("Project deleted successfully."))
+        res_success("Project deleted successfully.")
     }
 }
