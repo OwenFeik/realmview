@@ -14,11 +14,12 @@ use crate::{
 mod client;
 mod game;
 mod server;
+mod sock;
 
 pub use game::Game;
 pub use server::Server as GameServer;
 
-pub type GameRef = Arc<RwLock<GameServer>>;
+pub type GameRef = Arc<RwLock<GameServer<sock::ActixWs>>>;
 pub type Games = Arc<RwLock<HashMap<String, GameRef>>>;
 
 pub const GAME_KEY_LENGTH: usize = 6;
@@ -61,8 +62,4 @@ pub async fn client_connection(ws: WebSocket, key: String, game: GameRef) {
 
 pub fn generate_game_key() -> anyhow::Result<String> {
     random_hex_string(GAME_KEY_LENGTH)
-}
-
-fn to_message<T: serde::Serialize>(value: &T) -> anyhow::Result<warp::ws::Message> {
-    Ok(bincode::serialize(&value).map(warp::ws::Message::binary)?)
 }

@@ -2,12 +2,13 @@ use std::collections::HashMap;
 use std::time;
 
 use anyhow::anyhow;
-use bincode::serialize;
 use scene::comms::SceneEvent;
 use sqlx::{pool::PoolConnection, SqlitePool};
-use warp::ws::Message;
 
-use super::{client::Client, to_message, Game, GameRef, Games};
+use super::{
+    client::{Client, ClientSocket},
+    Game, GameRef, Games,
+};
 use crate::{
     models::{Project, SceneRecord},
     scene::{
@@ -17,18 +18,18 @@ use crate::{
     utils::{log, timestamp_us, LogLevel},
 };
 
-pub struct Server {
+pub struct Server<S: ClientSocket> {
     alive: bool,
     pool: SqlitePool,
     last_action: time::SystemTime,
-    clients: HashMap<String, Client>,
+    clients: HashMap<String, Client<S>>,
     owner: i64,
     game: Game,
     games: Games,
     next_conn_id: i64,
 }
 
-impl Server {
+impl<S: ClientSocket> Server<S> {
     const SAVE_INTERVAL: time::Duration = time::Duration::from_secs(60);
     const INACTIVITY_TIMEOUT: time::Duration = time::Duration::from_secs(1800);
 
@@ -131,14 +132,10 @@ impl Server {
         self._disconnect_client(key, Some(conn_id));
     }
 
-    pub async fn connect_client(
-        &mut self,
-        key: String,
-        sender: futures::stream::SplitSink<warp::ws::WebSocket, Message>,
-    ) -> Result<i64, ()> {
+    pub async fn connect_client(&mut self, key: String, socket: S) -> Result<i64, ()> {
         let conn_id = self.next_conn_id();
         let (player, name) = if let Some(client) = self.get_client_mut(&key) {
-            client.connect(sender, conn_id);
+            client.connect(socket);
             (client.user, client.username.clone())
         } else {
             return Err(());
@@ -197,7 +194,7 @@ impl Server {
         }
     }
 
-    fn get_client_mut(&mut self, key: &str) -> Option<&mut Client> {
+    fn get_client_mut(&mut self, key: &str) -> Option<&mut Client<S>> {
         self.clients.get_mut(key)
     }
 
@@ -217,34 +214,20 @@ impl Server {
     }
 
     fn broadcast_event(&self, event: ServerEvent, exclude: Option<&str>) {
-        let message = match to_message(&event) {
-            Ok(message) => message,
-            Err(e) => {
-                self.log(
-                    LogLevel::Error,
-                    format!("Failed to encode event as message: {e}"),
-                );
-                return;
-            }
-        };
-
-        let clients = self.clients.iter();
         if let Some(key) = exclude {
-            clients.for_each(|(k, c)| {
+            for (k, c) in &self.clients {
                 if *key != *k {
-                    c.send(message.clone());
+                    c.send(&event);
                 }
-            });
+            }
         } else {
-            clients.for_each(|(_, c)| c.send(message.clone()));
+            self.clients.values().for_each(|c| c.send(&event));
         }
     }
 
     fn send_to(&self, event: ServerEvent, client_key: &str) {
         if let Some(client) = self.clients.get(client_key) {
-            if let Ok(data) = serialize(&event) {
-                client.send(Message::binary(data))
-            }
+            client.send(&event);
         }
     }
 
