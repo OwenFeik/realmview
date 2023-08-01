@@ -46,6 +46,10 @@ impl Game {
         self.perms.handle_event(user, event)
     }
 
+    pub fn owner_is(&self, user: i64) -> bool {
+        matches!(self.perms.get_role(user), perms::Role::Owner)
+    }
+
     /// Given a user ID and that users name, find a layer with that users name
     /// or create one and return it. If that user is the game owner, don't do
     /// this and just return (None, None).

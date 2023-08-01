@@ -1,57 +1,71 @@
-use scene::comms::ServerEvent;
+use actix_ws::{CloseReason, Message};
+use futures::{
+    future::{select, Either},
+    StreamExt,
+};
+use tokio::sync::mpsc::unbounded_channel;
 
-pub struct Client<S: ClientSocket> {
-    pub user: i64,
-    pub username: String,
-    socket: Option<S>,
-}
+use super::GameHandle;
+use crate::{
+    models::User,
+    utils::{debug, warning},
+};
 
-impl<S: ClientSocket> Client<S> {
-    pub fn new(user: i64, username: String) -> Self {
-        Client {
-            user,
-            username,
-            socket: None,
-        }
-    }
+pub fn connect_game_client(
+    user: User,
+    server: GameHandle,
+    mut session: actix_ws::Session,
+    mut stream: actix_ws::MessageStream,
+) {
+    const CLOSE_REASON: &str = "gameover";
 
-    pub fn active(&self) -> bool {
-        self.socket.is_some()
-    }
+    tokio::task::spawn_local(async move {
+        let (send, recv) = unbounded_channel();
 
-    pub fn send(&self, event: &ServerEvent) {
-        if let Some(sender) = &self.socket {
-            sender.send(event);
-        }
-    }
+        server.join(user.id, user.username, send);
 
-    /// Disconnect a client (optionally specifiying the connection ID to
-    /// terminate). If no connection ID is specified, the connection will
-    /// always be closed.
-    pub fn disconnect(&mut self, conn_id: Option<i64>) {
-        if conn_id.is_none()
-            || self
-                .socket
-                .as_ref()
-                .map(|sock| sock.id() == conn_id.unwrap())
-                .unwrap_or(false)
-        {
-            if let Some(sock) = self.socket.take() {
-                sock.close();
+        let mut recv = tokio_stream::wrappers::UnboundedReceiverStream::new(recv);
+
+        loop {
+            match select(stream.next(), recv.next()).await {
+                Either::Left((Some(Ok(message)), _)) => match message {
+                    Message::Binary(bytes) => match bincode::deserialize(&bytes) {
+                        Ok(message) => {
+                            server.message(user.id, message);
+                        }
+                        Err(e) => warning("Failed to deserialise client WS message"),
+                    },
+                    Message::Close(reason) => {
+                        debug(format!(
+                            "Client ({}) disconnected. Reason: {reason:?}",
+                            user.id
+                        ));
+                        break;
+                    }
+                    msg => warning(format!("Unexpected WS message: {msg:?}")),
+                },
+                Either::Left((Some(Err(e)), _)) => {
+                    warning(format!("WS protocol error: {e}"));
+                }
+                Either::Left((None, _)) => {
+                    debug(format!("Client ({}) disconnected without reason", user.id));
+                    break;
+                }
+                Either::Right((Some(msg), _)) => {
+                    if let Err(_) = session.binary(msg).await {
+                        debug(format!("Client ({}) disconnected without reason", user.id));
+                        break;
+                    }
+                }
+                Either::Right((None, _)) => {
+                    // Server closed.
+                    session.close(Some(CloseReason {
+                        code: actix_ws::CloseCode::Normal,
+                        description: Some(CLOSE_REASON.to_string()),
+                    }));
+                    break;
+                }
             }
         }
-    }
-
-    pub fn connect(&mut self, socket: S) {
-        self.disconnect(None);
-        self.socket = Some(socket);
-    }
-}
-
-pub trait ClientSocket {
-    fn id(&self) -> i64;
-
-    fn send(&self, event: &ServerEvent);
-
-    fn close(&self);
+    });
 }

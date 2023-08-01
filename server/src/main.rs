@@ -1,4 +1,4 @@
-#![feature(async_closure)]
+#![feature(const_trait_impl)]
 #![allow(dead_code)]
 #![allow(opaque_hidden_inferred_bound)]
 #![allow(clippy::too_many_arguments)]
@@ -9,6 +9,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use actix_files::NamedFile;
 use actix_web::{web, App, HttpServer};
+use games::GameHandle;
 use once_cell::sync::Lazy;
 pub use scene;
 use sqlx::sqlite::SqlitePool;
@@ -19,8 +20,6 @@ mod crypto;
 mod games;
 mod models;
 mod utils;
-
-use games::GameRef;
 
 const USAGE: &str = "Usage: ./server content/ 80";
 pub static CONTENT: Lazy<PathBuf> =
@@ -55,7 +54,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(RwLock::new(
-                HashMap::<String, GameRef>::new(),
+                HashMap::<String, GameHandle>::new(),
             )))
             .service(api::routes())
             .service(web::resource("/login").to(|| content("login.html")))

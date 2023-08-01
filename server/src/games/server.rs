@@ -4,11 +4,9 @@ use std::time;
 use anyhow::anyhow;
 use scene::comms::SceneEvent;
 use sqlx::{pool::PoolConnection, SqlitePool};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
-use super::{
-    client::{Client, ClientSocket},
-    Game, GameRef, Games,
-};
+use super::game::Game;
 use crate::{
     models::{Project, SceneRecord},
     scene::{
@@ -18,235 +16,142 @@ use crate::{
     utils::{log, timestamp_us, LogLevel},
 };
 
-pub struct Server<S: ClientSocket> {
-    alive: bool,
-    pool: SqlitePool,
-    last_action: time::SystemTime,
-    clients: HashMap<String, Client<S>>,
-    owner: i64,
-    game: Game,
-    games: Games,
-    next_conn_id: i64,
+#[derive(Debug)]
+pub enum ServerCommand {
+    Join {
+        user: i64,
+        username: String,
+        sender: UnboundedSender<Vec<u8>>,
+    },
+    Message {
+        user: i64,
+        message: ClientMessage,
+    },
 }
 
-impl<S: ClientSocket> Server<S> {
-    const SAVE_INTERVAL: time::Duration = time::Duration::from_secs(60);
-    const INACTIVITY_TIMEOUT: time::Duration = time::Duration::from_secs(1800);
+#[derive(Clone)]
+pub struct GameHandle(UnboundedSender<ServerCommand>);
 
-    pub fn new(
+impl GameHandle {
+    fn send(&self, command: ServerCommand) -> anyhow::Result<()> {
+        self.0.send(command)?;
+        Ok(())
+    }
+
+    pub fn join(
+        &self,
+        user: i64,
+        username: String,
+        sender: UnboundedSender<Vec<u8>>,
+    ) -> anyhow::Result<()> {
+        self.send(ServerCommand::Join {
+            user,
+            username,
+            sender,
+        })
+    }
+
+    pub fn message(&self, user: i64, message: ClientMessage) -> anyhow::Result<()> {
+        self.send(ServerCommand::Message { user, message })
+    }
+}
+
+pub fn launch(key: &str, owner: i64, project: i64, scene: Scene, pool: SqlitePool) -> GameHandle {
+    let (send, recv) = unbounded_channel();
+
+    let mut server = Server::new(key, owner, project, scene, pool, recv);
+    tokio::spawn(server.run());
+
+    GameHandle(send)
+}
+
+struct NewClient {
+    user: i64,
+    username: String,
+    sender: Option<UnboundedSender<Vec<u8>>>,
+}
+
+impl NewClient {
+    fn send(&mut self, message: Vec<u8>) {
+        if let Some(sender) = self.sender {
+            if sender.send(message).is_err() {
+                self.sender = None;
+            }
+        }
+    }
+}
+
+struct Server {
+    owner: i64,
+    game: Game,
+    pool: SqlitePool,
+    handle: UnboundedReceiver<ServerCommand>,
+    clients: HashMap<i64, NewClient>,
+    last_action: time::SystemTime,
+}
+
+impl Server {
+    fn new(
+        key: &str,
         owner: i64,
         project: i64,
         scene: Scene,
         pool: SqlitePool,
-        key: &str,
-        games: Games,
+        handle: UnboundedReceiver<ServerCommand>,
     ) -> Self {
         Self {
-            alive: true,
-            pool,
-            last_action: time::SystemTime::now(),
-            clients: HashMap::new(),
             owner,
-            game: super::Game::new(project, scene, owner, key),
-            games,
-            next_conn_id: 1,
+            game: Game::new(project, scene, owner, &key),
+            pool,
+            handle,
+            clients: HashMap::new(),
+            last_action: time::SystemTime::now(),
         }
     }
 
-    async fn die(&mut self) {
-        self.alive = false;
-
-        for client in self.clients.values_mut() {
-            client.disconnect(None);
+    async fn run(&mut self) {
+        while let Some(command) = self.handle.recv().await {
+            match command {
+                ServerCommand::Join {
+                    sender,
+                    user,
+                    username,
+                } => {
+                    self.clients.insert(
+                        user,
+                        NewClient {
+                            user,
+                            username,
+                            sender: Some(sender),
+                        },
+                    );
+                }
+                ServerCommand::Message { user, message } => {
+                    self.handle_message(message, user);
+                }
+            }
         }
 
-        self.save_scene().await.ok();
+        self.broadcast_event(ServerEvent::GameOver, None);
+        self.clients.clear();
 
-        // Delete this game.
-        self.games.write().await.remove(&self.game.key);
+        self.save_scene().await;
 
         self.log(LogLevel::Debug, "Closed server");
     }
 
-    pub async fn start(server: GameRef) {
-        server.read().await.log(LogLevel::Debug, "Opened server");
-        tokio::task::spawn(async move {
-            let mut interval = tokio::time::interval(Self::SAVE_INTERVAL);
-
-            let mut previous_action_time = server.read().await.last_action;
-            while server.read().await.alive {
-                // Wait for SAVE_INTERVAL
-                interval.tick().await;
-
-                // Grab a read lock on the server
-                let lock = server.read().await;
-
-                // If something's changed in the scene, save it
-                if lock.last_action > previous_action_time {
-                    match lock.save_scene().await {
-                        Ok(duration) => {
-                            previous_action_time = lock.last_action;
-                            lock.log(
-                                LogLevel::Debug,
-                                format!("Saved scene. Save duration: {duration}us"),
-                            )
-                        }
-                        Err(e) => lock.log(LogLevel::Error, format!("Failed to save scene: {e}")),
-                    }
-                }
-
-                // If the server has timed out, close it down
-                if let Ok(duration) = time::SystemTime::now().duration_since(lock.last_action) {
-                    if duration > Self::INACTIVITY_TIMEOUT {
-                        lock.log(LogLevel::Debug, "Closing due to inactivity");
-
-                        // Drop read lock so we can get a write lock
-                        drop(lock);
-                        server.write().await.die().await;
-                    }
-                }
-            }
-        });
-    }
-
-    pub fn add_client(&mut self, key: String, user: i64, username: String) {
-        self.log(LogLevel::Debug, format!("New client ({key})"));
-        self.clients.insert(key, Client::new(user, username));
-    }
-
-    pub fn has_client(&self, key: &str) -> bool {
-        self.clients.contains_key(key)
-    }
-
-    fn _disconnect_client(&mut self, key: &str, conn_id: Option<i64>) {
-        if let Some(client) = self.clients.get_mut(key) {
-            client.disconnect(conn_id);
-            self.log(
-                LogLevel::Debug,
-                format!("Client ({key}) disconnected (Conn: {conn_id:?})"),
-            );
-        }
-    }
-
-    pub fn disconnect_client(&mut self, key: &str, conn_id: i64) {
-        self._disconnect_client(key, Some(conn_id));
-    }
-
-    pub async fn connect_client(&mut self, key: String, socket: S) -> Result<i64, ()> {
-        let conn_id = self.next_conn_id();
-        let (player, name) = if let Some(client) = self.get_client_mut(&key) {
-            client.connect(socket);
-            (client.user, client.username.clone())
-        } else {
-            return Err(());
-        };
-
-        let (perms, scene, layer) = self.game.add_player(player, &name);
-
-        if let Some(event) = perms {
-            self.broadcast_event(ServerEvent::PermsUpdate(event), Some(&key));
-        }
-
-        if let Some(event) = scene {
-            self.broadcast_event(ServerEvent::SceneUpdate(event), Some(&key));
-        }
-
-        let scene = self.game.client_scene();
-        let perms = self.game.client_perms();
-        let mut events = vec![
-            ServerEvent::UserId(player),
-            ServerEvent::SceneChange(scene),
-            ServerEvent::PermsChange(perms),
-        ];
-
-        if let Some(layer) = layer {
-            events.push(ServerEvent::SelectedLayer(layer));
-        }
-
-        self.send_to(ServerEvent::EventSet(events), &key);
-
-        // Separate message as this will only occur after some DB queries.
-        if player == self.owner {
-            if let Ok(event) = self.scene_list().await {
-                self.send_to(event, &key);
-            }
-        }
-
-        self.log(
-            LogLevel::Debug,
-            format!("Client ({key}) connected (Conn: {conn_id}) "),
-        );
-
-        Ok(conn_id)
-    }
-
-    fn next_conn_id(&mut self) -> i64 {
-        let id = self.next_conn_id;
-        self.next_conn_id += 1;
-        id
-    }
-
-    fn client_active(&self, key: &str) -> bool {
-        if let Some(client) = self.clients.get(key) {
-            client.active()
-        } else {
-            false
-        }
-    }
-
-    fn get_client_mut(&mut self, key: &str) -> Option<&mut Client<S>> {
-        self.clients.get_mut(key)
-    }
-
-    fn client_key(&self, id: i64) -> Option<&str> {
-        self.clients
-            .iter()
-            .find(|(_, client)| client.user == id)
-            .map(|(key, _)| key.as_str())
-    }
-
-    fn is_owner(&self, key: &str) -> bool {
-        if let Some(client) = self.clients.get(key) {
-            client.user == self.owner
-        } else {
-            false
-        }
-    }
-
-    fn broadcast_event(&self, event: ServerEvent, exclude: Option<&str>) {
-        if let Some(key) = exclude {
-            for (k, c) in &self.clients {
-                if *key != *k {
-                    c.send(&event);
-                }
-            }
-        } else {
-            self.clients.values().for_each(|c| c.send(&event));
-        }
-    }
-
-    fn send_to(&self, event: ServerEvent, client_key: &str) {
-        if let Some(client) = self.clients.get(client_key) {
-            client.send(&event);
-        }
-    }
-
-    fn send_approval(&self, event_id: i64, client_key: &str) {
-        self.send_to(ServerEvent::Approval(event_id), client_key);
-    }
-
-    fn send_rejection(&self, event_id: i64, client_key: &str) {
-        self.send_to(ServerEvent::Rejection(event_id), client_key);
-    }
-
     /// Handles a message from a client. Returns `true` if all is good, or
     /// `false` if the client has been dropped and the socket should be closed.
-    pub async fn handle_message(&mut self, message: ClientMessage, from: &str) -> bool {
+    async fn handle_message(&mut self, message: ClientMessage, from: i64) {
         // Keep track of last activity. Even a ping will keep the server up.
         self.last_action = time::SystemTime::now();
 
         if !self.client_active(from) {
-            return false;
+            self.log(
+                LogLevel::Debug,
+                format!("Client ({from}) messaged while disconnected"),
+            );
+            return;
         }
 
         match message.event {
@@ -254,7 +159,7 @@ impl<S: ClientSocket> Server<S> {
                 self.send_approval(message.id, from);
             }
             ClientEvent::SceneChange(scene_key) => {
-                if self.is_owner(from) {
+                if self.game.owner_is(from) {
                     if let Err(e) = self.load_scene(&scene_key).await {
                         self.log(LogLevel::Error, format!("Failed to load scene: {e}"));
                         self.send_rejection(message.id, from);
@@ -266,74 +171,147 @@ impl<S: ClientSocket> Server<S> {
                 }
             }
             ClientEvent::SceneUpdate(event) => {
-                if let Some(client) = self.clients.get(from) {
-                    let (ok, server_events) = self.game.handle_event(client.user, event.clone());
+                let (ok, server_events) = self.game.handle_event(from, event.clone());
 
-                    if ok {
-                        self.send_approval(message.id, from);
-                        self.broadcast_event(ServerEvent::SceneUpdate(event.clone()), Some(from));
-                    } else {
-                        self.log(LogLevel::Debug, format!("Rejected event: {event:?}"));
-                        self.send_rejection(message.id, from);
-                    }
+                if ok {
+                    self.send_approval(message.id, from);
+                    self.broadcast_event(ServerEvent::SceneUpdate(event.clone()), Some(from));
+                } else {
+                    self.log(LogLevel::Debug, format!("Rejected event: {event:?}"));
+                    self.send_rejection(message.id, from);
+                }
 
-                    if let Some(event) = server_events {
-                        self.broadcast_event(event, None);
-                    }
+                if let Some(event) = server_events {
+                    self.broadcast_event(event, None);
+                }
 
-                    if matches!(event, SceneEvent::LayerRemove(..)) {
-                        if let Some((user, layer, event)) = self.game.handle_remove_layer(event) {
-                            let exclude = self.client_key(user);
-
-                            if let Some(event) = event {
-                                self.broadcast_event(ServerEvent::SceneUpdate(event), exclude);
-                            }
-
-                            if let Some(client_key) = exclude {
-                                self.send_to(ServerEvent::SelectedLayer(layer), client_key);
-                            }
+                // Handle layer removal by ensuring that the player still has a layer.
+                if matches!(event, SceneEvent::LayerRemove(..)) {
+                    if let Some((user, layer, event)) = self.game.handle_remove_layer(event) {
+                        if let Some(event) = event {
+                            self.broadcast_event(ServerEvent::SceneUpdate(event), None);
                         }
+
+                        self.send_event(ServerEvent::SelectedLayer(layer), from);
                     }
                 }
             }
         };
-
-        true
     }
 
-    async fn acquire_conn(&self) -> anyhow::Result<PoolConnection<sqlx::Sqlite>> {
-        self.pool
-            .acquire()
-            .await
-            .map_err(|e| anyhow!("Failed to acquire connection: {e}"))
-    }
+    async fn connect_client(&mut self, user: i64, name: String, sender: UnboundedSender<Vec<u8>>) {
+        self.disconnect_client(user);
+        self.clients.insert(
+            user,
+            NewClient {
+                user,
+                username: name.clone(),
+                sender: Some(sender),
+            },
+        );
 
-    async fn replace_scene(&mut self, scene: Scene) {
-        self.save_scene().await.ok(); // If this fails, so be it
+        let (perms, scene, layer) = self.game.add_player(user, &name);
 
-        // Replace the local scene with the new one
-        self.game.replace_scene(scene.clone(), self.owner);
-
-        // Send the new scene and perms to all clients
-        let keys: Vec<(String, i64, String)> = self
-            .clients
-            .iter()
-            .map(|(k, c)| (k.to_owned(), c.user, c.username.clone()))
-            .collect();
-        for (client_key, user, name) in keys {
-            let (_, _, layer) = self.game.add_player(user, &name);
-
-            let mut events = vec![
-                ServerEvent::SceneChange(self.game.client_scene()),
-                ServerEvent::PermsChange(self.game.client_perms()),
-            ];
-
-            if let Some(layer) = layer {
-                events.push(ServerEvent::SelectedLayer(layer));
-            }
-
-            self.send_to(ServerEvent::EventSet(events), &client_key);
+        if let Some(event) = perms {
+            self.broadcast_event(ServerEvent::PermsUpdate(event), Some(user));
         }
+
+        if let Some(event) = scene {
+            self.broadcast_event(ServerEvent::SceneUpdate(event), Some(user));
+        }
+
+        let scene = self.game.client_scene();
+        let perms = self.game.client_perms();
+        let mut events = vec![
+            ServerEvent::UserId(user),
+            ServerEvent::SceneChange(scene),
+            ServerEvent::PermsChange(perms),
+        ];
+
+        if let Some(layer) = layer {
+            events.push(ServerEvent::SelectedLayer(layer));
+        }
+
+        self.send_event(ServerEvent::EventSet(events), user);
+
+        // Separate message as this will only occur after some DB queries.
+        if user == self.owner {
+            if let Ok(event) = self.scene_list().await {
+                self.send_event(event, user);
+            }
+        }
+
+        self.log(LogLevel::Debug, format!("Client ({user}) connected"));
+    }
+
+    fn disconnect_client(&mut self, user: i64) {
+        self.send_event(ServerEvent::GameOver, user);
+        if self.clients.remove_entry(&user).is_some() {
+            self.log(LogLevel::Debug, format!("Client ({user}) disconnected"));
+        }
+    }
+
+    fn client_active(&self, user: i64) -> bool {
+        match self.clients.get(&user) {
+            Some(client) => match client.sender {
+                Some(sender) => !sender.is_closed(),
+                None => false,
+            },
+            None => false,
+        }
+    }
+
+    fn send_approval(&self, event_id: i64, user: i64) {
+        self.send_event(ServerEvent::Approval(event_id), user);
+    }
+
+    fn send_rejection(&self, event_id: i64, user: i64) {
+        self.send_event(ServerEvent::Rejection(event_id), user);
+    }
+
+    fn send_event(&self, event: ServerEvent, user: i64) {
+        let Some(message) = self.serialise(event) else {
+            return;
+        };
+
+        if let Some(client) = self.clients.get(&user) {
+            client.send(message);
+        }
+    }
+
+    fn broadcast_event(&self, event: ServerEvent, exclude: Option<i64>) {
+        let Some(message) = self.serialise(event) else {
+            return;
+        };
+
+        if let Some(user) = exclude {
+            self.clients
+                .iter()
+                .filter(|(id, _)| **id != user)
+                .for_each(|(_, client)| {
+                    client.send(message.clone());
+                })
+        } else {
+            self.clients
+                .values()
+                .for_each(|client| client.send(message.clone()));
+        }
+    }
+
+    fn serialise(&self, event: ServerEvent) -> Option<Vec<u8>> {
+        if let Ok(message) = bincode::serialize(&event) {
+            Some(message)
+        } else {
+            log(LogLevel::Error, "Failed to encode server event as message");
+            None
+        }
+    }
+
+    fn log<A: AsRef<str>>(&self, level: LogLevel, message: A) {
+        log(
+            level,
+            format!("(Game: {}) {}", self.game.key, message.as_ref()),
+        );
     }
 
     async fn load_scene(&mut self, scene_key: &str) -> anyhow::Result<()> {
@@ -356,6 +334,34 @@ impl<S: ClientSocket> Server<S> {
             Ok(end_time - start_time)
         } else {
             Err(anyhow!("Scene has no project."))
+        }
+    }
+
+    async fn replace_scene(&mut self, scene: Scene) {
+        self.save_scene().await.ok(); // If this fails, so be it
+
+        // Replace the local scene with the new one
+        self.game.replace_scene(scene.clone(), self.owner);
+
+        // Send the new scene and perms to all clients
+        let keys: Vec<(i64, String)> = self
+            .clients
+            .iter()
+            .map(|(k, c)| (c.user, c.username.clone()))
+            .collect();
+        for (user, name) in keys {
+            let (_, _, layer) = self.game.add_player(user, &name);
+
+            let mut events = vec![
+                ServerEvent::SceneChange(self.game.client_scene()),
+                ServerEvent::PermsChange(self.game.client_perms()),
+            ];
+
+            if let Some(layer) = layer {
+                events.push(ServerEvent::SelectedLayer(layer));
+            }
+
+            self.send_event(ServerEvent::EventSet(events), user);
         }
     }
 
@@ -383,10 +389,66 @@ impl<S: ClientSocket> Server<S> {
         }
     }
 
-    fn log<A: AsRef<str>>(&self, level: LogLevel, message: A) {
-        log(
-            level,
-            format!("(Game: {}) {}", self.game.key, message.as_ref()),
-        );
+    async fn acquire_conn(&self) -> anyhow::Result<PoolConnection<sqlx::Sqlite>> {
+        self.pool
+            .acquire()
+            .await
+            .map_err(|e| anyhow!("Failed to acquire connection: {e}"))
+    }
+}
+
+#[cfg(no)]
+mod old {
+    use std::sync::Arc;
+    use std::time;
+    use std::time::Duration;
+
+    use tokio::sync::RwLock;
+
+    use super::Server;
+    use crate::utils::LogLevel;
+
+    const SAVE_INTERVAL: Duration = Duration::from_secs(600);
+    const INACTIVITY_TIMEOUT: Duration = Duration::from_secs(1800);
+
+    pub async fn start(server: Arc<RwLock<Server>>) {
+        server.read().await.log(LogLevel::Debug, "Opened server");
+        tokio::task::spawn(async move {
+            let mut interval = tokio::time::interval(SAVE_INTERVAL);
+
+            let mut previous_action_time = server.read().await.last_action;
+            loop {
+                // Wait for SAVE_INTERVAL
+                interval.tick().await;
+
+                // Grab a read lock on the server
+                let lock = server.read().await;
+
+                // If something's changed in the scene, save it
+                if lock.last_action > previous_action_time {
+                    match lock.save_scene().await {
+                        Ok(duration) => {
+                            previous_action_time = lock.last_action;
+                            lock.log(
+                                LogLevel::Debug,
+                                format!("Saved scene. Save duration: {duration}us"),
+                            )
+                        }
+                        Err(e) => lock.log(LogLevel::Error, format!("Failed to save scene: {e}")),
+                    }
+                }
+
+                // If the server has timed out, close it down
+                if let Ok(duration) = time::SystemTime::now().duration_since(lock.last_action) {
+                    if duration > INACTIVITY_TIMEOUT {
+                        lock.log(LogLevel::Debug, "Closing due to inactivity");
+
+                        // Drop read lock so we can get a write lock
+                        drop(lock);
+                        server.write().await.die().await;
+                    }
+                }
+            }
+        });
     }
 }

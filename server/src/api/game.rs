@@ -1,15 +1,17 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
-use actix_web::web;
+use actix_web::{web, HttpRequest};
 use sqlx::SqlitePool;
 use tokio::sync::RwLock;
 
 use super::{e500, res_failure, res_json, Res};
 use crate::{
     crypto::random_hex_string,
-    games::{generate_game_key, GameRef, GameServer, Games, GAME_KEY_LENGTH},
+    games::{connect_client, generate_game_key, launch_server, GameHandle, GAME_KEY_LENGTH},
     models::{SceneRecord, User},
 };
+
+type Games = RwLock<HashMap<String, GameHandle>>;
 
 pub fn routes() -> actix_web::Scope {
     web::scope("/game")
@@ -45,30 +47,20 @@ async fn new(
     };
 
     let game_key = {
-        let games = games.read().await;
+        let lock = games.read().await;
         loop {
             let game_key = random_hex_string(GAME_KEY_LENGTH).map_err(e500)?;
-            if !games.contains_key(&game_key) {
+            if !lock.contains_key(&game_key) {
                 break game_key;
             }
         }
     };
 
-    let games = &*games.into_inner();
-
     if let Some(project) = scene.project {
-        let server = Arc::new(RwLock::new(GameServer::new(
-            user.id,
-            project,
-            scene,
-            (*pool.into_inner()).clone(),
-            &game_key,
-            games.clone(),
-        )));
-        GameServer::start(server.clone()).await;
+        let pool = (*pool.into_inner()).clone();
+        let server = launch_server(&game_key, user.id, project, scene, pool);
         games.write().await.insert(game_key.clone(), server);
-
-        join_game(games.clone(), game_key, user.id, user.username).await
+        join_game(games.into_inner(), game_key, user.id, user.username).await
     } else {
         res_failure("Scene project unknown.")
     }
@@ -95,13 +87,17 @@ impl JoinGameResponse {
     }
 }
 
-async fn join_game(games: Games, game_key: String, user: i64, username: String) -> Res {
-    let game = match games.read().await.get(&game_key) {
+async fn join_game(req: HttpRequest, games: Arc<Games>, user: User, game_key: &str) -> Res {
+    let game = match games.read().await.get(game_key) {
         Some(game_ref) => game_ref.clone(),
         None => return res_failure("Game not found."),
     };
 
     let client_key = generate_game_key().map_err(e500)?;
+
+    let (res, session, msg_stream) = actix_ws::handle(&req, stream)?;
+
+    connect_client(user, game.clone(), session, stream);
 
     game.write()
         .await
@@ -120,7 +116,7 @@ async fn validate_game_and_client(
     game_key: &str,
     client_key: &str,
     games: &Games,
-) -> Option<(GameRef, bool)> {
+) -> Option<(GameHandle, bool)> {
     if let Some(game_ref) = games.read().await.get(game_key) {
         return Some((
             game_ref.clone(),
