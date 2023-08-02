@@ -13,7 +13,7 @@ pub fn generate_game_key() -> anyhow::Result<String> {
 }
 
 pub fn launch_server(
-    key: &str,
+    key: String,
     owner: i64,
     project: i64,
     scene: scene::Scene,
@@ -25,8 +25,8 @@ pub fn launch_server(
 pub fn connect_client(
     user: User,
     server: GameHandle,
-    mut session: actix_ws::Session,
-    mut stream: actix_ws::MessageStream,
+    session: actix_ws::Session,
+    stream: actix_ws::MessageStream,
 ) {
     client::connect_game_client(user, server, session, stream);
 }

@@ -16,6 +16,7 @@ mod upload;
 pub fn routes() -> actix_web::Scope {
     actix_web::web::scope("/api")
         .service(auth::routes())
+        .service(game::routes())
         .service(scene::routes())
         .service(project::routes())
         .service(media::routes())

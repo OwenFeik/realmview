@@ -56,11 +56,13 @@ impl GameHandle {
     }
 }
 
-pub fn launch(key: &str, owner: i64, project: i64, scene: Scene, pool: SqlitePool) -> GameHandle {
+pub fn launch(key: String, owner: i64, project: i64, scene: Scene, pool: SqlitePool) -> GameHandle {
     let (send, recv) = unbounded_channel();
 
-    let mut server = Server::new(key, owner, project, scene, pool, recv);
-    tokio::spawn(server.run());
+    tokio::task::spawn(async move {
+        let mut server = Server::new(&key, owner, project, scene, pool, recv);
+        server.run().await;
+    });
 
     GameHandle(send)
 }
@@ -73,10 +75,17 @@ struct NewClient {
 
 impl NewClient {
     fn send(&mut self, message: Vec<u8>) {
-        if let Some(sender) = self.sender {
+        if let Some(sender) = &self.sender {
             if sender.send(message).is_err() {
                 self.sender = None;
             }
+        }
+    }
+
+    fn active(&self) -> bool {
+        match &self.sender {
+            Some(sender) => !sender.is_closed(),
+            None => false,
         }
     }
 }
@@ -101,7 +110,7 @@ impl Server {
     ) -> Self {
         Self {
             owner,
-            game: Game::new(project, scene, owner, &key),
+            game: Game::new(project, scene, owner, key),
             pool,
             handle,
             clients: HashMap::new(),
@@ -110,6 +119,8 @@ impl Server {
     }
 
     async fn run(&mut self) {
+        self.log(LogLevel::Debug, "Opened server");
+
         while let Some(command) = self.handle.recv().await {
             match command {
                 ServerCommand::Join {
@@ -127,7 +138,7 @@ impl Server {
                     );
                 }
                 ServerCommand::Message { user, message } => {
-                    self.handle_message(message, user);
+                    self.handle_message(message, user).await;
                 }
             }
         }
@@ -135,7 +146,9 @@ impl Server {
         self.broadcast_event(ServerEvent::GameOver, None);
         self.clients.clear();
 
-        self.save_scene().await;
+        if let Err(e) = self.save_scene().await {
+            self.log(LogLevel::Error, format!("Failed to save scene: {e}"));
+        }
 
         self.log(LogLevel::Debug, "Closed server");
     }
@@ -192,7 +205,7 @@ impl Server {
                             self.broadcast_event(ServerEvent::SceneUpdate(event), None);
                         }
 
-                        self.send_event(ServerEvent::SelectedLayer(layer), from);
+                        self.send_event(ServerEvent::SelectedLayer(layer), user);
                     }
                 }
             }
@@ -252,48 +265,45 @@ impl Server {
     }
 
     fn client_active(&self, user: i64) -> bool {
-        match self.clients.get(&user) {
-            Some(client) => match client.sender {
-                Some(sender) => !sender.is_closed(),
-                None => false,
-            },
-            None => false,
-        }
+        self.clients
+            .get(&user)
+            .map(NewClient::active)
+            .unwrap_or(false)
     }
 
-    fn send_approval(&self, event_id: i64, user: i64) {
+    fn send_approval(&mut self, event_id: i64, user: i64) {
         self.send_event(ServerEvent::Approval(event_id), user);
     }
 
-    fn send_rejection(&self, event_id: i64, user: i64) {
+    fn send_rejection(&mut self, event_id: i64, user: i64) {
         self.send_event(ServerEvent::Rejection(event_id), user);
     }
 
-    fn send_event(&self, event: ServerEvent, user: i64) {
+    fn send_event(&mut self, event: ServerEvent, user: i64) {
         let Some(message) = self.serialise(event) else {
             return;
         };
 
-        if let Some(client) = self.clients.get(&user) {
+        if let Some(client) = self.clients.get_mut(&user) {
             client.send(message);
         }
     }
 
-    fn broadcast_event(&self, event: ServerEvent, exclude: Option<i64>) {
+    fn broadcast_event(&mut self, event: ServerEvent, exclude: Option<i64>) {
         let Some(message) = self.serialise(event) else {
             return;
         };
 
         if let Some(user) = exclude {
             self.clients
-                .iter()
+                .iter_mut()
                 .filter(|(id, _)| **id != user)
                 .for_each(|(_, client)| {
                     client.send(message.clone());
                 })
         } else {
             self.clients
-                .values()
+                .values_mut()
                 .for_each(|client| client.send(message.clone()));
         }
     }
@@ -324,14 +334,18 @@ impl Server {
         Ok(())
     }
 
-    async fn save_scene(&self) -> anyhow::Result<u128> {
+    async fn save_scene(&self) -> anyhow::Result<()> {
         let start_time = timestamp_us()?;
         let conn = &mut self.acquire_conn().await?;
         if let Some(id) = self.game.project_id() {
             let project = Project::load(conn, id).await?;
             project.update_scene(conn, self.game.server_scene()).await?;
-            let end_time = timestamp_us()?;
-            Ok(end_time - start_time)
+            let duration = timestamp_us()? - start_time;
+            self.log(
+                LogLevel::Debug,
+                format!("Saved scene. Save duration: {duration}us"),
+            );
+            Ok(())
         } else {
             Err(anyhow!("Scene has no project."))
         }
@@ -347,7 +361,7 @@ impl Server {
         let keys: Vec<(i64, String)> = self
             .clients
             .iter()
-            .map(|(k, c)| (c.user, c.username.clone()))
+            .map(|(u, c)| (*u, c.username.clone()))
             .collect();
         for (user, name) in keys {
             let (_, _, layer) = self.game.add_player(user, &name);
@@ -412,7 +426,6 @@ mod old {
     const INACTIVITY_TIMEOUT: Duration = Duration::from_secs(1800);
 
     pub async fn start(server: Arc<RwLock<Server>>) {
-        server.read().await.log(LogLevel::Debug, "Opened server");
         tokio::task::spawn(async move {
             let mut interval = tokio::time::interval(SAVE_INTERVAL);
 
@@ -423,20 +436,6 @@ mod old {
 
                 // Grab a read lock on the server
                 let lock = server.read().await;
-
-                // If something's changed in the scene, save it
-                if lock.last_action > previous_action_time {
-                    match lock.save_scene().await {
-                        Ok(duration) => {
-                            previous_action_time = lock.last_action;
-                            lock.log(
-                                LogLevel::Debug,
-                                format!("Saved scene. Save duration: {duration}us"),
-                            )
-                        }
-                        Err(e) => lock.log(LogLevel::Error, format!("Failed to save scene: {e}")),
-                    }
-                }
 
                 // If the server has timed out, close it down
                 if let Ok(duration) = time::SystemTime::now().duration_since(lock.last_action) {

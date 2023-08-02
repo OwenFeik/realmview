@@ -8,7 +8,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use actix_files::NamedFile;
-use actix_web::{web, App, HttpServer};
+use actix_web::{middleware::Logger, web, App, HttpServer};
 use games::GameHandle;
 use once_cell::sync::Lazy;
 pub use scene;
@@ -41,6 +41,8 @@ async fn connect_to_db() -> SqlitePool {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    env_logger::init();
+
     let port = std::env::args()
         .nth(2)
         .expect(USAGE)
@@ -52,6 +54,7 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
+            .wrap(Logger::default())
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(RwLock::new(
                 HashMap::<String, GameHandle>::new(),
@@ -74,11 +77,7 @@ async fn main() -> std::io::Result<()> {
             )
             .service(
                 web::scope("/game")
-                    .service(
-                        web::resource("/{game_key}/client/{client_key}")
-                            .to(|| content("scene.html")),
-                    )
-                    .service(web::resource("/{game_key}").to(|| content("game.html")))
+                    .service(web::resource("/{game_key}").to(|| content("scene.html")))
                     .default_service(web::route().to(|| content("game.html"))),
             )
             .service(actix_files::Files::new("/", CONTENT.clone()).index_file("index.html"))

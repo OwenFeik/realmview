@@ -549,12 +549,11 @@ pub fn websocket_url() -> anyhow::Result<Option<String>> {
             let mut parts = path.split('/').collect::<Vec<&str>>();
             parts.retain(|p| !p.is_empty());
             match parts[..] {
-                ["game", game_key, "client", client_key] => Ok(Some(format!(
-                    "{}://{}/api/game/{}/{}",
+                ["game", game_key] => Ok(Some(format!(
+                    "{}://{}/api/game/{}",
                     if protocol.contains('s') { "wss" } else { "ws" },
                     &host,
                     game_key,
-                    client_key
                 ))),
                 _ => Ok(None),
             }

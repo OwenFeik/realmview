@@ -17,12 +17,13 @@ pub fn connect_game_client(
     mut session: actix_ws::Session,
     mut stream: actix_ws::MessageStream,
 ) {
-    const CLOSE_REASON: &str = "gameover";
-
     tokio::task::spawn_local(async move {
         let (send, recv) = unbounded_channel();
 
-        server.join(user.id, user.username, send);
+        if server.join(user.id, user.username, send).is_err() {
+            close_ws(session).await; // Server closed.
+            return;
+        }
 
         let mut recv = tokio_stream::wrappers::UnboundedReceiverStream::new(recv);
 
@@ -31,9 +32,12 @@ pub fn connect_game_client(
                 Either::Left((Some(Ok(message)), _)) => match message {
                     Message::Binary(bytes) => match bincode::deserialize(&bytes) {
                         Ok(message) => {
-                            server.message(user.id, message);
+                            if server.message(user.id, message).is_err() {
+                                close_ws(session).await; // Server closed.
+                                break;
+                            }
                         }
-                        Err(e) => warning("Failed to deserialise client WS message"),
+                        Err(e) => warning(format!("Failed to deserialise client WS message: {e}")),
                     },
                     Message::Close(reason) => {
                         debug(format!(
@@ -52,20 +56,30 @@ pub fn connect_game_client(
                     break;
                 }
                 Either::Right((Some(msg), _)) => {
-                    if let Err(_) = session.binary(msg).await {
+                    if session.binary(msg).await.is_err() {
                         debug(format!("Client ({}) disconnected without reason", user.id));
                         break;
                     }
                 }
                 Either::Right((None, _)) => {
-                    // Server closed.
-                    session.close(Some(CloseReason {
-                        code: actix_ws::CloseCode::Normal,
-                        description: Some(CLOSE_REASON.to_string()),
-                    }));
+                    close_ws(session).await; // Server closed.
                     break;
                 }
             }
         }
     });
+}
+
+async fn close_ws(session: actix_ws::Session) {
+    const CLOSE_REASON: &str = "gameover";
+
+    if let Err(e) = session
+        .close(Some(CloseReason {
+            code: actix_ws::CloseCode::Normal,
+            description: Some(CLOSE_REASON.to_string()),
+        }))
+        .await
+    {
+        warning(format!("Error when closing WS: {e}"));
+    }
 }
