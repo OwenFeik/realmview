@@ -4,7 +4,7 @@ use actix_web::{error::ErrorInternalServerError, FromRequest};
 use futures::Future;
 use sqlx::{pool::PoolConnection, Sqlite, SqliteConnection};
 
-use crate::api::e500;
+use crate::utils::e500;
 
 pub struct Conn(PoolConnection<Sqlite>);
 

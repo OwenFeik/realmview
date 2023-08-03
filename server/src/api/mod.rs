@@ -1,15 +1,10 @@
-use actix_web::{
-    cookie::Cookie, error::ErrorInternalServerError, http::StatusCode, HttpResponse,
-    HttpResponseBuilder,
-};
-use sqlx::SqlitePool;
+use actix_web::{cookie::Cookie, http::StatusCode, HttpResponse, HttpResponseBuilder};
 
 mod auth;
 mod game;
 mod media;
 mod project;
 mod register;
-mod req;
 mod scene;
 mod upload;
 
@@ -22,10 +17,6 @@ pub fn routes() -> actix_web::Scope {
         .service(media::routes())
         .service(register::routes())
         .service(upload::routes())
-}
-
-pub fn set_pool(pool: SqlitePool) {
-    req::POOL.set(pool).expect("Failed to set pool reference.");
 }
 
 type Res = Result<HttpResponse, actix_web::Error>;
@@ -57,7 +48,7 @@ fn cookie_resp(cookie: &str, value: &str) -> HttpResponseBuilder {
 }
 
 fn session_resp(session_key: &str) -> HttpResponseBuilder {
-    cookie_resp(req::session::COOKIE_NAME, session_key)
+    cookie_resp(crate::req::session::COOKIE_NAME, session_key)
 }
 
 fn resp_success(message: &str) -> HttpResponse {
@@ -102,11 +93,4 @@ fn resp_json(body: impl serde::Serialize) -> HttpResponse {
 
 fn res_json(body: impl serde::Serialize) -> Res {
     Ok(resp_json(body))
-}
-
-fn e500<E>(error: E) -> actix_web::Error
-where
-    E: std::fmt::Debug + std::fmt::Display + 'static,
-{
-    ErrorInternalServerError(error)
 }

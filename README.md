@@ -17,7 +17,6 @@
 * Autosave for editor as well as game.
 * Scene title in save dialog for new scene should be preselected.
 * Save scene when creating; assign ID immediately.
-* Redirect to landing page through backend if logged in.
 * Should avoid creating duplicate layers when players are joining.
 * Resize maintaining aspect ratio.
 * Queue messages when websocket isn't open.

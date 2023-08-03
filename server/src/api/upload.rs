@@ -7,11 +7,11 @@ use futures::{StreamExt, TryStreamExt};
 use ring::digest;
 use sqlx::SqlitePool;
 
-use super::{e500, res_failure, res_json, Res};
+use super::{res_failure, res_json, Res};
 use crate::{
     crypto::to_hex_string_unsized,
     models::{Media, User},
-    utils::join_relative_path,
+    utils::{e500, join_relative_path},
     CONTENT,
 };
 
