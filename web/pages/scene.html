@@ -1,42 +1,43 @@
 <!doctype html>
 <html>
-    <head>
-        {{ head_common.html }}
-        <meta charset="utf-8">
-        <title>Scene</title>
-    </head>
-    <body style="margin: 0; overflow: hidden;">
-        {{ javascript(scene/rust_interface.js) }}
-        <script type="module">
-          import init from "/pkg/client.js";
-          init();
-        </script>
-        <canvas
-          id="canvas"
-          class="bg-light"
-          tabindex="-1"
-          oncontextmenu="return false;"
-        ></canvas>
-        <div
-          class="position-absolute btn-group-vertical"
-          id="show_offcanvas"
-          style="
-            left: {{ constant(HOVER_ELEM_INSET) }};
-            top: {{ constant(HOVER_ELEM_INSET) }};
-          "
-        >
-          {{ offcanvas_button(target=help) }}
-          {{ offcanvas_button(target=media) }}
-          {{ offcanvas_button(target=game) }}
-          {{ offcanvas_button(target=project) }}
-        </div>
-        {{ scene/menu/menu.html }}
-        {{ confirmation_modal.html }}
-        {{ scene/help_offcanvas.html }}
-        {{ media/offcanvas.html }}
-        <MediaModal>
-        {{ scene/game/game_offcanvas.html }}
-        {{ scene/project/project_offcanvas.html }}
-        {{ bootstrap_js.html }}
-    </body>
+  <head>
+    {{ head_common.html }}
+    <meta charset="utf-8">
+    <title>Scene</title>
+    <TestSession loggedin="1">
+  </head>
+  <body style="margin: 0; overflow: hidden;">
+    <Js src="scene/rust_interface.js">
+    <script type="module">
+      import init from "/pkg/client.js";
+      init();
+    </script>
+    <canvas
+      id="canvas"
+      class="bg-light"
+      tabindex="-1"
+      oncontextmenu="return false;"
+    ></canvas>
+    <div
+      class="position-absolute btn-group-vertical"
+      id="show_offcanvas"
+      style="
+        left: {{ constant(HOVER_ELEM_INSET) }};
+        top: {{ constant(HOVER_ELEM_INSET) }};
+      "
+    >
+      {{ offcanvas_button(target=help) }}
+      {{ offcanvas_button(target=media) }}
+      {{ offcanvas_button(target=game) }}
+      {{ offcanvas_button(target=project) }}
+    </div>
+    {{ scene/menu/menu.html }}
+    {{ confirmation_modal.html }}
+    {{ scene/help_offcanvas.html }}
+    {{ media/offcanvas.html }}
+    <MediaModal>
+    {{ scene/game/game_offcanvas.html }}
+    {{ scene/project/project_offcanvas.html }}
+    {{ bootstrap_js.html }}
+  </body>
 </html>

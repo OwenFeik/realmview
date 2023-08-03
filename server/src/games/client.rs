@@ -1,11 +1,11 @@
-use actix_ws::{CloseReason, Message};
+use actix_ws::Message;
 use futures::{
     future::{select, Either},
     StreamExt,
 };
 use tokio::sync::mpsc::unbounded_channel;
 
-use super::GameHandle;
+use super::{close_ws, GameHandle};
 use crate::{
     models::User,
     utils::{debug, warning},
@@ -68,18 +68,4 @@ pub fn connect_game_client(
             }
         }
     });
-}
-
-async fn close_ws(session: actix_ws::Session) {
-    const CLOSE_REASON: &str = "gameover";
-
-    if let Err(e) = session
-        .close(Some(CloseReason {
-            code: actix_ws::CloseCode::Normal,
-            description: Some(CLOSE_REASON.to_string()),
-        }))
-        .await
-    {
-        warning(format!("Error when closing WS: {e}"));
-    }
 }

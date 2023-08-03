@@ -55,20 +55,8 @@ if (link = document.querySelector(`a[href="${window.location.pathname}"]`)) {
 }
 </script>  
 IFDEF(TEST_SESSION) {{
-<script>
-fetch('/api/auth/test', { method: 'POST' }).then(
-  resp => resp.json().then(body => {
-    IFDEF(REDIRECT) {{
-      if (body.success) {
-        window.location.href = '{{ REDIRECT }}';
-      }
-    }}
-    IFDEF(LOGGEDIN) {{
-      if (!body.success) {
-        window.location.href = '/login?backurl=' + window.location.pathname;
-      }
-    }}
-  })
-);
-</script>
+<TestSession
+  IFDEF(REDIRECT) {{ redirect="{{ REDIRECT }}" }}
+  IFDEF(LOGGEDIN) {{ loggedin="1" }}
+>
 }}

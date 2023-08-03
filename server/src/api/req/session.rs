@@ -90,6 +90,11 @@ impl FromRequest for SessionOpt {
         _payload: &mut actix_web::dev::Payload,
     ) -> Self::Future {
         let req = req.clone();
-        Box::pin(async move { session_from_req(&req).await })
+        Box::pin(async move {
+            match session_from_req(&req).await {
+                Err(_) => Ok(SessionOpt::None),
+                ok => ok,
+            }
+        })
     }
 }

@@ -127,18 +127,9 @@ impl Server {
                     sender,
                     user,
                     username,
-                } => {
-                    self.clients.insert(
-                        user,
-                        NewClient {
-                            user,
-                            username,
-                            sender: Some(sender),
-                        },
-                    );
-                }
+                } => self.connect_client(user, username, sender).await,
                 ServerCommand::Message { user, message } => {
-                    self.handle_message(message, user).await;
+                    self.handle_message(message, user).await
                 }
             }
         }

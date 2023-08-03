@@ -1,0 +1,16 @@
+<script>
+fetch('/api/auth/test', { method: 'POST' }).then(
+    resp => resp.json().then(body => {
+    IFDEF(REDIRECT) {{
+        if (body.success) {
+            window.location.href = '{{ REDIRECT }}';
+        }
+    }}
+    IFDEF(LOGGEDIN) {{
+        if (!body.success) {
+            window.location.href = '/login?backurl=' + window.location.pathname;
+        }
+    }}
+    })
+);
+</script>

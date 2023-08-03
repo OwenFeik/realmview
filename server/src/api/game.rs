@@ -6,7 +6,7 @@ use tokio::sync::RwLock;
 
 use super::{e500, res_failure, Res};
 use crate::{
-    games::{connect_client, generate_game_key, launch_server, GameHandle},
+    games::{close_ws, connect_client, generate_game_key, launch_server, GameHandle},
     models::{SceneRecord, User},
 };
 
@@ -86,14 +86,22 @@ async fn join_game(
     user: User,
     game_key: &str,
 ) -> Res {
-    let game = match games.read().await.get(game_key) {
-        Some(handle) => handle.clone(),
-        None => return Err(e500("Game not found.")),
+    let (resp, mut session, msg_stream) = actix_ws::handle(&req, stream)?;
+
+    match games.read().await.get(game_key) {
+        Some(handle) => {
+            connect_client(user, handle.clone(), session, msg_stream);
+        }
+        None => {
+            // Just send a gameover message and close the socket.
+            session
+                .binary(bincode::serialize(&scene::comms::ServerEvent::GameOver).map_err(e500)?)
+                .await
+                .map_err(e500)?;
+
+            close_ws(session).await;
+        }
     };
-
-    let (resp, session, msg_stream) = actix_ws::handle(&req, stream)?;
-
-    connect_client(user, game, session, msg_stream);
 
     Ok(resp)
 }

@@ -52,13 +52,13 @@ async fn main() -> std::io::Result<()> {
     let pool = connect_to_db().await;
     api::set_pool(pool.clone());
 
+    let games = web::Data::new(RwLock::new(HashMap::<String, GameHandle>::new()));
+
     HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
             .app_data(web::Data::new(pool.clone()))
-            .app_data(web::Data::new(RwLock::new(
-                HashMap::<String, GameHandle>::new(),
-            )))
+            .app_data(web::Data::clone(&games))
             .service(api::routes())
             .service(web::resource("/login").to(|| content("login.html")))
             .service(web::resource("/register").to(|| content("register.html")))
