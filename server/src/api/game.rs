@@ -4,7 +4,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use sqlx::SqlitePool;
 use tokio::sync::RwLock;
 
-use super::{e500, res_failure, Res};
+use super::{e500, res_failure, res_json, Res};
 use crate::{
     games::{close_ws, connect_client, generate_game_key, launch_server, GameHandle},
     models::{SceneRecord, User},
@@ -15,6 +15,7 @@ type Games = RwLock<HashMap<String, GameHandle>>;
 pub fn routes() -> actix_web::Scope {
     web::scope("/game")
         .route("/new", web::post().to(new))
+        .route("/{game_key}", web::post().to(test))
         .route("/{game_key}", web::to(join))
 }
 
@@ -24,10 +25,14 @@ struct NewGameRequest {
 }
 
 #[derive(serde_derive::Serialize)]
-struct NewGameResponse {
+struct GameResponse {
     message: String,
     success: bool,
     url: String,
+}
+
+fn game_url(game_key: &str) -> String {
+    format!("/game/{game_key}")
 }
 
 async fn new(
@@ -65,10 +70,10 @@ async fn new(
         let pool = (*pool.into_inner()).clone();
         let server = launch_server(game_key.clone(), user.id, project, scene, pool);
         games.write().await.insert(game_key.clone(), server);
-        let game_location = format!("/game/{game_key}");
+        let game_location = game_url(&game_key);
         let resp = HttpResponse::Ok()
             .insert_header(("location", game_location.as_str()))
-            .json(NewGameResponse {
+            .json(GameResponse {
                 message: "Game launched successfully.".to_string(),
                 success: true,
                 url: game_location,
@@ -115,4 +120,30 @@ async fn join(
 ) -> Res {
     let game_key = &path.into_inner().0;
     join_game(req, stream, games.into_inner(), user, game_key).await
+}
+
+async fn test(games: web::Data<Games>, path: web::Path<(String,)>) -> Res {
+    let game_key = &path.into_inner().0;
+    let url = game_url(game_key);
+    if let Some(handle) = games.read().await.get(game_key) {
+        if handle.open() {
+            res_json(GameResponse {
+                message: "Game exists.".to_string(),
+                success: true,
+                url,
+            })
+        } else {
+            res_json(GameResponse {
+                message: "Game has ended.".to_string(),
+                success: false,
+                url,
+            })
+        }
+    } else {
+        res_json(GameResponse {
+            message: "Game doesn't exist.".to_string(),
+            success: false,
+            url,
+        })
+    }
 }

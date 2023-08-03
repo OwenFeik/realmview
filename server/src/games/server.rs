@@ -1,5 +1,7 @@
 use std::collections::HashMap;
-use std::time;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+use std::time::{Duration, SystemTime};
 
 use anyhow::anyhow;
 use scene::comms::SceneEvent;
@@ -18,6 +20,7 @@ use crate::{
 
 #[derive(Debug)]
 pub enum ServerCommand {
+    Close,
     Join {
         user: i64,
         username: String,
@@ -30,12 +33,19 @@ pub enum ServerCommand {
 }
 
 #[derive(Clone)]
-pub struct GameHandle(UnboundedSender<ServerCommand>);
+pub struct GameHandle {
+    open: Arc<AtomicBool>,
+    chan: UnboundedSender<ServerCommand>,
+}
 
 impl GameHandle {
     fn send(&self, command: ServerCommand) -> anyhow::Result<()> {
-        self.0.send(command)?;
+        self.chan.send(command)?;
         Ok(())
+    }
+
+    pub fn open(&self) -> bool {
+        self.open.load(std::sync::atomic::Ordering::Acquire)
     }
 
     pub fn join(
@@ -57,14 +67,16 @@ impl GameHandle {
 }
 
 pub fn launch(key: String, owner: i64, project: i64, scene: Scene, pool: SqlitePool) -> GameHandle {
+    let open = Arc::new(AtomicBool::new(true));
     let (send, recv) = unbounded_channel();
 
+    let open_ref = open.clone();
     tokio::task::spawn(async move {
-        let mut server = Server::new(&key, owner, project, scene, pool, recv);
+        let mut server = Server::new(open_ref, &key, owner, project, scene, pool, recv);
         server.run().await;
     });
 
-    GameHandle(send)
+    GameHandle { open, chan: send }
 }
 
 struct NewClient {
@@ -91,16 +103,19 @@ impl NewClient {
 }
 
 struct Server {
+    open: Arc<AtomicBool>,
     owner: i64,
     game: Game,
     pool: SqlitePool,
     handle: UnboundedReceiver<ServerCommand>,
     clients: HashMap<i64, NewClient>,
-    last_action: time::SystemTime,
+    last_save: SystemTime,
+    last_action: SystemTime,
 }
 
 impl Server {
     fn new(
+        open: Arc<AtomicBool>,
         key: &str,
         owner: i64,
         project: i64,
@@ -109,38 +124,54 @@ impl Server {
         handle: UnboundedReceiver<ServerCommand>,
     ) -> Self {
         Self {
+            open,
             owner,
             game: Game::new(project, scene, owner, key),
             pool,
             handle,
             clients: HashMap::new(),
-            last_action: time::SystemTime::now(),
+            last_save: SystemTime::now(),
+            last_action: SystemTime::now(),
         }
     }
 
     async fn run(&mut self) {
+        const CHECK_INTERVAL: Duration = Duration::from_secs(10);
+        const SAVE_INTERVAL: Duration = Duration::from_secs(600);
+        const INACTIVITY_TIMEOUT: Duration = Duration::from_secs(1800);
+
         self.log(LogLevel::Debug, "Opened server");
 
-        while let Some(command) = self.handle.recv().await {
-            match command {
-                ServerCommand::Join {
-                    sender,
-                    user,
-                    username,
-                } => self.connect_client(user, username, sender).await,
-                ServerCommand::Message { user, message } => {
-                    self.handle_message(message, user).await
-                }
+        loop {
+            match tokio::time::timeout(CHECK_INTERVAL, self.handle.recv()).await {
+                Ok(Some(command)) => match command {
+                    ServerCommand::Close => break,
+                    ServerCommand::Join {
+                        sender,
+                        user,
+                        username,
+                    } => self.connect_client(user, username, sender).await,
+                    ServerCommand::Message { user, message } => {
+                        self.handle_message(message, user).await
+                    }
+                },
+                Ok(None) => break, // All server handles dropped. Closed.
+                Err(_) => {}       // Timeout expired. Just check inactivity and save.
+            }
+
+            if duration_elapsed(self.last_action, INACTIVITY_TIMEOUT) {
+                break; // Inactive for timeout duration. Close server.
+            }
+
+            if duration_elapsed(self.last_save, SAVE_INTERVAL) {
+                self.save_scene().await; // Save interval elapsed, save scene.
             }
         }
 
         self.broadcast_event(ServerEvent::GameOver, None);
         self.clients.clear();
-
-        if let Err(e) = self.save_scene().await {
-            self.log(LogLevel::Error, format!("Failed to save scene: {e}"));
-        }
-
+        self.save_scene().await;
+        self.open.store(false, std::sync::atomic::Ordering::Release);
         self.log(LogLevel::Debug, "Closed server");
     }
 
@@ -148,7 +179,7 @@ impl Server {
     /// `false` if the client has been dropped and the socket should be closed.
     async fn handle_message(&mut self, message: ClientMessage, from: i64) {
         // Keep track of last activity. Even a ping will keep the server up.
-        self.last_action = time::SystemTime::now();
+        self.last_action = SystemTime::now();
 
         if !self.client_active(from) {
             self.log(
@@ -325,7 +356,7 @@ impl Server {
         Ok(())
     }
 
-    async fn save_scene(&self) -> anyhow::Result<()> {
+    async fn _save_scene(&self) -> anyhow::Result<()> {
         let start_time = timestamp_us()?;
         let conn = &mut self.acquire_conn().await?;
         if let Some(id) = self.game.project_id() {
@@ -342,8 +373,14 @@ impl Server {
         }
     }
 
+    async fn save_scene(&self) {
+        if let Err(e) = self._save_scene().await {
+            self.log(LogLevel::Error, format!("Failed to save scene: {e}"));
+        }
+    }
+
     async fn replace_scene(&mut self, scene: Scene) {
-        self.save_scene().await.ok(); // If this fails, so be it
+        self.save_scene().await;
 
         // Replace the local scene with the new one
         self.game.replace_scene(scene.clone(), self.owner);
@@ -402,43 +439,6 @@ impl Server {
     }
 }
 
-#[cfg(no)]
-mod old {
-    use std::sync::Arc;
-    use std::time;
-    use std::time::Duration;
-
-    use tokio::sync::RwLock;
-
-    use super::Server;
-    use crate::utils::LogLevel;
-
-    const SAVE_INTERVAL: Duration = Duration::from_secs(600);
-    const INACTIVITY_TIMEOUT: Duration = Duration::from_secs(1800);
-
-    pub async fn start(server: Arc<RwLock<Server>>) {
-        tokio::task::spawn(async move {
-            let mut interval = tokio::time::interval(SAVE_INTERVAL);
-
-            let mut previous_action_time = server.read().await.last_action;
-            loop {
-                // Wait for SAVE_INTERVAL
-                interval.tick().await;
-
-                // Grab a read lock on the server
-                let lock = server.read().await;
-
-                // If the server has timed out, close it down
-                if let Ok(duration) = time::SystemTime::now().duration_since(lock.last_action) {
-                    if duration > INACTIVITY_TIMEOUT {
-                        lock.log(LogLevel::Debug, "Closing due to inactivity");
-
-                        // Drop read lock so we can get a write lock
-                        drop(lock);
-                        server.write().await.die().await;
-                    }
-                }
-            }
-        });
-    }
+fn duration_elapsed(start: SystemTime, duration: Duration) -> bool {
+    start.elapsed().map(|d| d >= duration).unwrap_or(false)
 }

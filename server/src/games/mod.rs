@@ -6,7 +6,7 @@ mod server;
 
 pub use server::GameHandle;
 
-pub const GAME_KEY_LENGTH: usize = 6;
+pub const GAME_KEY_LENGTH: usize = 10;
 
 pub fn generate_game_key() -> anyhow::Result<String> {
     random_hex_string(GAME_KEY_LENGTH)

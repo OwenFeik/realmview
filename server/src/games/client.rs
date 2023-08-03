@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use actix_ws::Message;
 use futures::{
     future::{select, Either},
@@ -46,6 +48,7 @@ pub fn connect_game_client(
                         ));
                         break;
                     }
+                    Message::Ping(_) => warn_err(session.pong(b"PONG").await),
                     msg => warning(format!("Unexpected WS message: {msg:?}")),
                 },
                 Either::Left((Some(Err(e)), _)) => {
@@ -68,4 +71,10 @@ pub fn connect_game_client(
             }
         }
     });
+}
+
+fn warn_err<T, E: Debug>(result: Result<T, E>) {
+    if let Err(e) = result {
+        warning(format!("Client WS error: {e:?}"))
+    }
 }

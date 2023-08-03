@@ -7,12 +7,10 @@
 * Place media in directories
 * Manage fog of war by player
 * Specify which users are allowed to join the game
-* Feedback for when connecting to a game as a given CLIENT_KEY fails
 * Measurements, persistent measurements
 * Hold a button to rotate a sprite
 * Save perms, reload when the same scene is loaded
 * Expose closure macro
-* Close game when owner leaves
 * Added tokens can't be edited by players
 * Token health bars
 * Better database abstraction

@@ -2,7 +2,7 @@
     "APP_TITLE": "Realm View",
     "DEFAULT_TITLE": "Untitled",
     "DATA_ID_ATTR": "data-id",
-    "GAME_KEY_LENGTH": 6,
+    "GAME_KEY_LENGTH": 10,
     "SCENE_KEY_LENGTH": 16,
     "HOVER_ELEM_INSET": "10px",
     "SPRITE_STROKE_SOLID": 0.0

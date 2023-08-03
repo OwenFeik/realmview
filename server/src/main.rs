@@ -54,6 +54,17 @@ async fn main() -> std::io::Result<()> {
 
     let games = web::Data::new(RwLock::new(HashMap::<String, GameHandle>::new()));
 
+    // Every interval, drop all game servers which are no longer running.
+    const GAMES_CLEANUP_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
+    let games_ref = games.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(GAMES_CLEANUP_INTERVAL);
+        loop {
+            interval.tick().await;
+            games_ref.write().await.retain(|_, server| server.open());
+        }
+    });
+
     HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
