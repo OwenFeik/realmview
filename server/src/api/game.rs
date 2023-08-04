@@ -8,7 +8,7 @@ use super::{res_failure, res_json, Res};
 use crate::{
     games::{close_ws, connect_client, generate_game_key, launch_server, GameHandle},
     models::{SceneRecord, User},
-    utils::e500,
+    req::e500,
 };
 
 type Games = RwLock<HashMap<String, GameHandle>>;

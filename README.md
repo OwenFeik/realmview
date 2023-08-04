@@ -10,7 +10,6 @@
 * Measurements, persistent measurements
 * Hold a button to rotate a sprite
 * Save perms, reload when the same scene is loaded
-* Expose closure macro
 * Added tokens can't be edited by players
 * Token health bars
 * Better database abstraction
@@ -21,21 +20,25 @@
 * Resize maintaining aspect ratio.
 * Queue messages when websocket isn't open.
 * Loading screen when websocket disconnected for some duration.
+* Aura
+    * Circular, cone shape
+    * Option to show only to DM or both DM and players
+    * Multiple auras don't add opacity, blend by mixing colour, constant %
+    * Image pattern in aura
+* Arrow to point, create circle from centre of given radius at point
+* Preview snapping, show dimensions
+* Scale battlemap by dragging 3*3 on grid.
 
 ## Bugs
-* Updating sprite shape via menu is broken
 * Fog of war sometimes doesn't show up
 * Remove sprites is forbidden; should be able to remove own sprites
-* Crashes when resizing grid
 * Hollow shapes
     * When rendered with opacity have overlapping triangles visible.
     * Have wrong dimensions after resizing window until zoom.
     * Have varying stroke, obvious at higher stroke levels.
 * Resizing a drawing increases the line stroke (maybe good?).
-* When changing the cap on a drawing from none, force re-render.
 * Sometimes players can't see all lines.
 * Resize anchors on drawings are a bit weird.
-* Landing page is broken for small screens.
 
 # Documentation
 

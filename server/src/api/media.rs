@@ -4,7 +4,8 @@ use sqlx::SqlitePool;
 use super::{res_failure, res_success, Res};
 use crate::{
     models::{Media, User},
-    utils::{e500, join_relative_path},
+    req::e500,
+    utils::join_relative_path,
 };
 
 pub fn routes() -> actix_web::Scope {

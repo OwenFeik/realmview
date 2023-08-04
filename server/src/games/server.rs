@@ -373,9 +373,11 @@ impl Server {
         }
     }
 
-    async fn save_scene(&self) {
+    async fn save_scene(&mut self) {
         if let Err(e) = self._save_scene().await {
             self.log(LogLevel::Error, format!("Failed to save scene: {e}"));
+        } else {
+            self.last_save = SystemTime::now();
         }
     }
 

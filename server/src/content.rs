@@ -1,46 +1,63 @@
 use std::path::PathBuf;
 
 use actix_files::NamedFile;
-use actix_web::web;
+use actix_web::{web, FromRequest, HttpRequest};
 use once_cell::sync::Lazy;
 
-use crate::req::session::SessionOpt;
+use crate::req::{
+    e500,
+    session::{Session, SessionOpt},
+};
 
 pub static CONTENT: Lazy<PathBuf> =
     Lazy::new(|| PathBuf::from(std::env::args().nth(1).expect(super::USAGE)));
 
 pub fn routes() -> actix_web::Scope {
     web::scope("")
-        .service(web::resource("/login").to(|| content(files::LOGIN)))
-        .service(web::resource("/register").to(|| content(files::REGISTER)))
-        .service(web::resource("/scene").to(|| content(files::SCENE)))
-        .service(web::resource("/media").to(|| content(files::MEDIA)))
-        .service(web::resource("/game_over").to(|| content(files::GAME_OVER)))
-        .service(web::resource("/landing").to(|| content(files::LANDING)))
-        .service(
-            web::scope("/project")
-                .service(web::resource("/new").to(|| content(files::NEW_PROJECT)))
-                .service(web::resource("/{proj_key}").to(|| content(files::EDIT_PROJECT)))
-                .service(
-                    web::resource("/{proj_key}/scene/{scene_key}").to(|| content(files::SCENE)),
-                )
-                .default_service(web::route().to(|| content(files::PROJECTS))),
-        )
-        .service(
-            web::scope("/game")
-                .service(web::resource("/{game_key}").to(|| content(files::SCENE)))
-                .default_service(web::route().to(|| content(files::GAME))),
-        )
-        .route("/", web::get().to(landing))
-        .service(actix_files::Files::new("/", CONTENT.clone()).index_file(files::INDEX))
+        .route("/login", public(files::LOGIN))
+        .route("/register", public(files::REGISTER))
+        .route("/media", loggedin(files::MEDIA))
+        .route("/game_over", public(files::GAME_OVER))
+        .route("/landing", loggedin(files::LANDING))
+        .service(projects())
+        .service(game())
+        .route("/", public(files::INDEX))
+        .service(actix_files::Files::new("/", &*CONTENT).index_file(files::INDEX))
+}
+
+fn projects() -> actix_web::Scope {
+    web::scope("/project")
+        .route("/new", loggedin(files::NEW_PROJECT))
+        .route("/{proj_key}", loggedin(files::EDIT_PROJECT))
+        .route("/{proj_key}/scene/{scene_key}", loggedin(files::SCENE))
+        .default_service(loggedin(files::PROJECTS))
+}
+
+fn game() -> actix_web::Scope {
+    web::scope("game")
+        .route("/{game_key}", loggedin(files::SCENE))
+        .default_service(loggedin(files::GAME))
+}
+
+fn public(path: &'static str) -> actix_web::Route {
+    web::get().to(|| content(path))
+}
+
+fn loggedin(path: &'static str) -> actix_web::Route {
+    web::get().to(async move |req| loggedin_content(&req, path).await)
+}
+
+async fn loggedin_content(req: &HttpRequest, path: &str) -> Result<NamedFile, actix_web::Error> {
+    Session::from_request(req, &mut actix_web::dev::Payload::None).await?;
+    content(path).await.map_err(e500)
 }
 
 async fn content(path: &str) -> std::io::Result<NamedFile> {
     NamedFile::open_async(CONTENT.join(path)).await
 }
 
-async fn landing(sess: SessionOpt) -> std::io::Result<NamedFile> {
-    match sess {
+async fn index(session: SessionOpt) -> std::io::Result<NamedFile> {
+    match session {
         SessionOpt::Some(_) => content(files::LANDING).await,
         SessionOpt::None => content(files::INDEX).await,
     }

@@ -2,8 +2,7 @@ use actix_web::{web, HttpResponse};
 
 use super::{res_failure, res_success, res_unproc, Res};
 use crate::models::{Project, SceneRecord, User};
-use crate::req::Conn;
-use crate::utils::e500;
+use crate::req::{e500, Conn};
 
 pub fn routes() -> actix_web::Scope {
     web::scope("/scene")

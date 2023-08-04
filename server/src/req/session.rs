@@ -1,14 +1,48 @@
-use std::pin::Pin;
+use std::fmt::Write;
+use std::{fmt::Display, pin::Pin};
 
 use actix_web::{
-    error::{ErrorForbidden, ErrorInternalServerError, ErrorUnprocessableEntity},
-    FromRequest,
+    body::BoxBody,
+    error::{ErrorInternalServerError, ErrorUnprocessableEntity},
+    http::StatusCode,
+    FromRequest, HttpResponse, ResponseError,
 };
 use futures::Future;
 
 use crate::models::User;
 
 pub const COOKIE_NAME: &str = "session_key";
+
+#[derive(Debug)]
+struct LoginRedirect {
+    path: String,
+}
+
+impl Display for LoginRedirect {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Session not found. Redirecting.")
+    }
+}
+
+impl ResponseError for LoginRedirect {
+    fn error_response(&self) -> HttpResponse<BoxBody> {
+        let redirect = format!("/login?backurl={}", self.path);
+
+        let mut buf = bytes::BytesMut::new();
+        write!(&mut buf, "{}", self).ok();
+
+        HttpResponse::build(StatusCode::SEE_OTHER)
+            .insert_header(("location", redirect.as_str()))
+            .body(format!("{}", self))
+    }
+}
+
+fn login_redirect<T, S: ToString>(path: S) -> Result<T, actix_web::Error> {
+    let redirect = LoginRedirect {
+        path: path.to_string(),
+    };
+    Err(redirect.into())
+}
 
 async fn session_from_req(req: &actix_web::HttpRequest) -> Result<SessionOpt, actix_web::Error> {
     if let Some(cookie) = req.cookie(COOKIE_NAME) {
@@ -33,6 +67,13 @@ async fn session_from_req(req: &actix_web::HttpRequest) -> Result<SessionOpt, ac
     }
 }
 
+async fn session_or_redirect(req: &actix_web::HttpRequest) -> Result<Session, actix_web::Error> {
+    match session_from_req(req).await {
+        Ok(SessionOpt::Some(session)) => Ok(session),
+        Ok(SessionOpt::None) | Err(_) => login_redirect(req.path()),
+    }
+}
+
 #[derive(Debug)]
 pub struct Session {
     pub key: String,
@@ -54,12 +95,7 @@ impl FromRequest for Session {
         _payload: &mut actix_web::dev::Payload,
     ) -> Self::Future {
         let req = req.clone();
-        Box::pin(async move {
-            match session_from_req(&req).await? {
-                SessionOpt::Some(session) => Ok(session),
-                SessionOpt::None => Err(ErrorForbidden("Session not found.")),
-            }
-        })
+        Box::pin(async move { session_or_redirect(&req).await })
     }
 }
 
@@ -72,12 +108,7 @@ impl FromRequest for User {
         _payload: &mut actix_web::dev::Payload,
     ) -> Self::Future {
         let req = req.clone();
-        Box::pin(async move {
-            match session_from_req(&req).await? {
-                SessionOpt::Some(session) => Ok(session.user),
-                SessionOpt::None => Err(ErrorForbidden("Session not found.")),
-            }
-        })
+        Box::pin(async move { session_or_redirect(&req).await.map(|s| s.user) })
     }
 }
 
