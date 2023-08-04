@@ -1,6 +1,7 @@
 mod conn;
 pub mod session;
 
+use actix_web::{http::StatusCode, HttpResponse};
 use once_cell::sync::{Lazy, OnceCell};
 use sqlx::SqlitePool;
 
@@ -17,4 +18,10 @@ where
     E: std::fmt::Debug + std::fmt::Display + 'static,
 {
     actix_web::error::ErrorInternalServerError(error)
+}
+
+pub fn redirect(to: &str) -> HttpResponse {
+    HttpResponse::build(StatusCode::SEE_OTHER)
+        .insert_header(("location", to))
+        .finish()
 }

@@ -1,12 +1,16 @@
 use std::path::PathBuf;
 
 use actix_files::NamedFile;
-use actix_web::{web, FromRequest, HttpRequest};
+use actix_web::{web, FromRequest, HttpRequest, HttpResponse};
 use once_cell::sync::Lazy;
 
-use crate::req::{
-    e500,
-    session::{Session, SessionOpt},
+use crate::{
+    models::{Project, User},
+    req::{
+        e500, redirect,
+        session::{Session, SessionOpt},
+        Conn,
+    },
 };
 
 pub static CONTENT: Lazy<PathBuf> =
@@ -29,6 +33,7 @@ fn projects() -> actix_web::Scope {
     web::scope("/project")
         .route("/new", loggedin(files::NEW_PROJECT))
         .route("/{proj_key}", loggedin(files::EDIT_PROJECT))
+        .route("/{proj_key}/scene/new", web::get().to(new_scene))
         .route("/{proj_key}/scene/{scene_key}", loggedin(files::SCENE))
         .default_service(loggedin(files::PROJECTS))
 }
@@ -61,6 +66,36 @@ async fn index(session: SessionOpt) -> std::io::Result<NamedFile> {
         SessionOpt::Some(_) => content(files::LANDING).await,
         SessionOpt::None => content(files::INDEX).await,
     }
+}
+
+async fn new_scene(
+    req: HttpRequest,
+    mut conn: Conn,
+    user: User,
+    path: web::Path<(String,)>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let project_key = path.into_inner().0;
+    let proj = Project::get_by_key(conn.acquire(), &project_key)
+        .await
+        .map_err(e500)?;
+
+    if proj.user != user.id {
+        return Ok(content(files::NEW_PROJECT)
+            .await
+            .map_err(e500)?
+            .into_response(&req));
+    }
+
+    let scene = scene::Scene::new();
+    let scene_key = proj
+        .update_scene(conn.acquire(), scene)
+        .await
+        .map_err(e500)?
+        .scene_key;
+
+    Ok(redirect(&format!(
+        "/project/{project_key}/scene/{scene_key}"
+    )))
 }
 
 mod files {

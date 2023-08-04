@@ -13,8 +13,10 @@
 * Added tokens can't be edited by players
 * Token health bars
 * Better database abstraction
-* Autosave for editor as well as game.
-* Scene title in save dialog for new scene should be preselected.
+* Rework editor save process
+    * Autosave for editor as well as game.
+    * Change editable inputs to post new name directly.
+    * Change select option for new scene to button.
 * Save scene when creating; assign ID immediately.
 * Should avoid creating duplicate layers when players are joining.
 * Resize maintaining aspect ratio.
