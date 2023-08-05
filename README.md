@@ -15,8 +15,7 @@
 * Better database abstraction
 * Rework editor save process
     * Autosave for editor as well as game.
-    * Change editable inputs to post new name directly.
-    * Change select option for new scene to button.
+    * Add a way to manually save scene.
 * Save scene when creating; assign ID immediately.
 * Should avoid creating duplicate layers when players are joining.
 * Resize maintaining aspect ratio.

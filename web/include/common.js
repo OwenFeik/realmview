@@ -1,10 +1,12 @@
 const Pages = {
     Game: game_key => `/game/${game_key}`,
     GameOver: '/game_over',
+    NewScene: project_key => `/project/${project_key}/scene/new`
 };
 
 const Api = {
     NewGame: '/api/game/new',
+    SceneDetails: '/api/scene/details',
     TestClient: (game_key, client_key) => `/api/game/${game_key}/${client_key}`
 };
 

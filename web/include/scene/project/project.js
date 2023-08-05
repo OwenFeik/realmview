@@ -2,7 +2,6 @@ window.addEventListener("load", () => {
     const project_select = document.getElementById("project_select");
     const scene_select = document.getElementById("scene_select");
 
-    add_default_option(project_select);
     project_select.oninput = e => set_active_project(e.target.value);
 
     scene_select.disabled = true;
@@ -66,6 +65,10 @@ function url_project_scene() {
     return ret;
 }
 
+function project_key() {
+    return url_project_scene()[0];
+}
+
 function is_scene_editor() {
     let page = url_parts()[0];
     return page == "project" || page == "scene" || page == "scene.html";
@@ -110,10 +113,6 @@ function create_option(label, value, data_id) {
     return opt;
 }
 
-function add_default_option(select, label = "New") {
-    select.add(create_option(label, "", 0));
-}
-
 function selected_project() {
     return document.getElementById("project_select").value;
 }
@@ -147,7 +146,6 @@ function populate_project_select(list, project_key = null, scene_key = null) {
         project_select.remove(0);
     }
 
-    add_default_option(project_select);
     list.forEach(proj => {
         project_select.add(
             create_option(proj.title, proj.project_key, proj.id)
@@ -166,17 +164,13 @@ function populate_project_select(list, project_key = null, scene_key = null) {
     update_url_project_scene();
 }
 
-function add_scene_entries(select, list, default_option = true) {
+function add_scene_entries(select, list) {
     if (!select) {
         return;
     }
 
     while (select.options.length) {
         select.remove(0);
-    }
-
-    if (default_option) {
-        add_default_option(select);
     }
 
     list.forEach(scene => {
@@ -223,7 +217,6 @@ function set_active_project(project_key, scene_key = null) {
     update_url_project_scene();
 
     if (!project_key) {
-        create_new_project();
         return;
     }
 
@@ -249,7 +242,6 @@ function set_active_scene(scene_key) {
     update_url_project_scene();
 
     if (!scene_key) {
-        create_new_scene();
         return;
     }
 
@@ -391,4 +383,33 @@ function submit_scene_list() {
         'set_scene_list',
         () => RustFuncs.set_scene_list(JSON.stringify(scene_list))
     );
+}
+
+function update_project_title(project_title) {
+    update_details(null, project_title);
+}
+
+function update_scene_title(scene_title) {
+    update_details(scene_title);
+}
+
+function update_details(scene_title = null, project_title = null) {
+    const [project_key, scene_key] = url_project_scene();
+    post(
+        Api.SceneDetails,
+        {
+            project_title,
+            project_key,
+            scene_title,
+            scene_key
+        },
+        resp => {
+            if (resp.success) {
+                if (scene_title) {
+                    document.title = scene_title;
+                    update_select("scene_select", scene_title, scene_key);
+                }
+            }
+        }
+    )
 }

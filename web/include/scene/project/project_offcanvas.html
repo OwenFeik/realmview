@@ -30,6 +30,12 @@
             <span class="input-group-text">
               <LoadingIcon id="project_select_loading" icon="archive">
             </span>
+            <Button
+              class="ms-auto"
+              icon="arrow-up-right-square"
+              text="New"
+              href="/project/new"
+            >
           </div>
         </div>
         <div class="row py-2">
@@ -39,6 +45,12 @@
             <span class="input-group-text">
               <LoadingIcon id="scene_select_loading" icon="archive">
             </span>
+            <Button
+              class="ms-auto"
+              icon="arrow-up-right-square"
+              text="New"
+              onclick="window.location.href = Pages.NewScene(project_key())"
+            >
           </div>
         </div>
       </Tab>
@@ -50,6 +62,7 @@
             feedback=""
             button=""
             enabled=""
+            action="title => update_project_title(title)"
           >
         </div>
         <div class="row py-2">
@@ -59,19 +72,8 @@
             feedback=""
             button=""
             enabled=""
+            action="title => update_scene_title(title)"
           >
-        </div>
-        <div class="row py-2">
-          <div class="btn-group">
-            <button
-              type="button"
-              class="btn btn-primary"
-              onclick="save_project();"
-            >Save</button>
-            <button class="btn btn-outline-primary btn-group-icon" disabled>
-              <LoadingIcon id="save_project_loading" icon="save">
-            </button>
-          </div>
         </div>
       </Tab>
     </div>
