@@ -34,6 +34,7 @@ features = [
     'File',                   # Canvas direct upload functionality
     'FileList',               # Canvas direct upload functionality
     'FileReader',             # Load images from disk
+    'Headers',                # Set request headers
     'HtmlCanvasElement',      # Create canvas for battlemap
     'HtmlElement',            # Create and manipulate elements
     'HtmlImageElement',       # Load images from URL
@@ -44,6 +45,8 @@ features = [
     'MessageEvent',           # Receive and send WebSocket messages
     'MouseEvent',             # Interaction with canvas
     'ProgressEvent',          # Handle image loading events
+    'Request',                # Send requests to save scene
+    'RequestInit',            # Configure requests
     'Url',                    # Create DataURLs for image loading
     'UrlSearchParams',        # Read URL parameters from Window
     'WebGlBuffer',            # WebGl2 buffers, for rendering

@@ -13,9 +13,6 @@
 * Added tokens can't be edited by players
 * Token health bars
 * Better database abstraction
-* Rework editor save process
-    * Autosave for editor as well as game.
-    * Add a way to manually save scene.
 * Save scene when creating; assign ID immediately.
 * Should avoid creating duplicate layers when players are joining.
 * Resize maintaining aspect ratio.
@@ -29,6 +26,7 @@
 * Arrow to point, create circle from centre of given radius at point
 * Preview snapping, show dimensions
 * Scale battlemap by dragging 3*3 on grid.
+* Error handling for save failure.
 
 ## Bugs
 * Fog of war sometimes doesn't show up

@@ -190,6 +190,7 @@ def javascript(resource: str) -> str:
 def constant(
     name: str, constants: typing.Dict[str, typing.Union[str, int]] = {}
 ) -> str:
+    name = name.strip()
     if constants:
         try:
             return str(constants[name])

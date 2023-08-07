@@ -3,11 +3,13 @@ use std::sync::atomic::AtomicBool;
 
 use anyhow::anyhow;
 use js_sys::Array;
+use js_sys::Promise;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use web_sys::Headers;
 use web_sys::{
     Blob, Document, FileReader, HtmlCanvasElement, HtmlElement, HtmlImageElement, HtmlInputElement,
-    ProgressEvent, UiEvent, Url, WebGl2RenderingContext, Window,
+    ProgressEvent, Request, RequestInit, UiEvent, Url, WebGl2RenderingContext, Window,
 };
 
 use crate::dom::element::Element;
@@ -38,9 +40,6 @@ extern "C" {
 
     #[wasm_bindgen(js_name = expose_closure)]
     pub fn expose_closure_f64(name: &str, closure: &Closure<dyn FnMut(f64)>);
-
-    #[wasm_bindgen(js_name = expose_closure)]
-    pub fn expose_closure_string_out(name: &str, closure: &Closure<dyn FnMut() -> String>);
 
     #[wasm_bindgen(js_name = expose_closure)]
     pub fn expose_closure_string_in(name: &str, closure: &Closure<dyn FnMut(String)>);
@@ -625,7 +624,9 @@ pub fn set_active_draw_tool(tool: impl serde::Serialize) -> anyhow::Result<()> {
 
 /// Random float in \[0, 1.0\] using JS Math.random()
 pub fn rand() -> f32 {
-    js_sys::Math::random() as f32
+    #[allow(unused_unsafe)]
+    let num = unsafe { js_sys::Math::random() };
+    num as f32
 }
 
 pub fn game_over_redirect() {
@@ -643,4 +644,62 @@ pub fn game_over_redirect() {
 
 pub fn timestamp_ms() -> u64 {
     js_sys::Date::new_0().get_time() as u64
+}
+
+fn err<E: JsCast>(error: E) -> anyhow::Error {
+    let js_value = error.as_ref();
+    log_js_value(js_value);
+    anyhow::anyhow!("Error: {js_value:?}")
+}
+
+pub struct SaveState {
+    onload: Closure<dyn FnMut()>,
+    promise: Promise,
+}
+
+impl SaveState {
+    fn new<T: FnMut() + 'static>(onload: T, req: Promise) -> Self {
+        let onload = Closure::new(onload);
+        let promise = req.finally(&onload);
+        Self { onload, promise }
+    }
+}
+
+pub fn save_scene(scene_key: &str, raw: Vec<u8>) -> anyhow::Result<SaveState> {
+    #[derive(serde_derive::Serialize)]
+    struct Req {
+        encoded: String,
+    }
+
+    const METHOD: &str = "PUT";
+    const PATH: &str = "/api/scene/";
+
+    let headers = Headers::new().map_err(err)?;
+    headers
+        .set("content-type", "application/json")
+        .map_err(err)?;
+
+    let body = serde_json::ser::to_string(&Req {
+        encoded: base64::encode(raw),
+    })?;
+
+    if let Some(loading) = Element::by_id("canvas_loading_icon") {
+        loading.show();
+    }
+
+    let mut init = RequestInit::new();
+    init.method(METHOD)
+        .headers(&headers)
+        .body(Some(&wasm_bindgen::JsValue::from_str(&body)));
+    let req = Request::new_with_str_and_init(&format!("{PATH}{scene_key}"), &init).map_err(err)?;
+    let promise = window()?.fetch_with_request(&req);
+
+    Ok(SaveState::new(
+        || {
+            if let Some(loading) = Element::by_id("canvas_loading_icon") {
+                loading.hide();
+            }
+        },
+        promise,
+    ))
 }

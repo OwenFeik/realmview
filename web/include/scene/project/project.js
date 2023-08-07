@@ -334,41 +334,6 @@ function upload_thumbnail() {
     });
 }
 
-function save_project() {
-    let proj = selected_project();
-    post(
-        "/api/scene/save",
-        {
-            // struct SceneSaveRequest
-            project_title: document.getElementById("project_title").value,
-            title: document.getElementById("scene_title").value,
-            encoded: RustFuncs.export_scene()
-        },
-        resp => {
-            if (resp.success) {
-                load_scene(resp.scene);
-            }
-
-            // Only update if the selected project is unchanged
-            if (selected_project() === proj) {
-                update_select("scene_select", resp.title, resp.scene_key);
-                update_select(
-                    "project_select",
-                    resp.project_title,
-                    resp.project_key,
-                    resp.project_id
-                );
-                update_url_project_scene();
-                submit_scene_list();
-            }
-
-            upload_thumbnail();
-        },
-        null,
-        "save_project_loading"
-    );
-}
-
 function submit_scene_list() {
     const select = document.getElementById("scene_select");
 

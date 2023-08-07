@@ -8,6 +8,7 @@ use crate::client::Client;
 
 pub struct History {
     client: Option<Client>,
+    modified: bool,
     history: Vec<SceneEvent>,
     redo_history: Vec<SceneEvent>,
     issued_events: Vec<ClientMessage>,
@@ -17,6 +18,7 @@ impl History {
     pub fn new(client: Option<Client>) -> Self {
         Self {
             client,
+            modified: false,
             history: vec![],
             redo_history: vec![],
             issued_events: vec![],
@@ -40,6 +42,16 @@ impl History {
         self.issued_events.retain(|c| c.id != id);
     }
 
+    pub fn save_required(&self) -> bool {
+        // If client is present, server scene is canonical and will be saved
+        // automatically.
+        self.modified && self.client.is_none()
+    }
+
+    pub fn clear_modified(&mut self) {
+        self.modified = false;
+    }
+
     /// Creates a `ClientMessage` with a unique ID and sends it to the server.
     /// If there is no `Client`, this is a no-op.
     fn issue_message(&mut self, event: ClientEvent) {
@@ -56,6 +68,15 @@ impl History {
         }
     }
 
+    fn is_pointless(event: &SceneEvent) -> bool {
+        // Empty event set. Useless.
+        if let SceneEvent::EventSet(events) = &event {
+            return events.is_empty();
+        }
+
+        false
+    }
+
     /// Internal common backend for `issue_event` and `issue_event_no_history`,
     /// handles creating a `ClientEvent` from a `SceneEvent` and pushing along
     /// to be sent in a message.
@@ -67,11 +88,8 @@ impl History {
     /// history stack. Should be called with every event produced from the
     /// scene to ensure consistency with the server.
     pub fn issue_event(&mut self, event: SceneEvent) {
-        // Empty event set. Useless.
-        if let SceneEvent::EventSet(events) = &event {
-            if events.is_empty() {
-                return;
-            }
+        if Self::is_pointless(&event) {
+            return;
         }
 
         if self.client.is_some() {
@@ -81,6 +99,8 @@ impl History {
         // When adding a new entry to the history, all undone events are lost.
         self.redo_history.clear();
         self.history.push(event);
+
+        self.modified = true;
     }
 
     /// Issue an event to the server without affecting the history stack.

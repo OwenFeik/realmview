@@ -216,6 +216,14 @@ impl Interactor {
         }
     }
 
+    pub fn save_required(&self) -> bool {
+        self.history.save_required()
+    }
+
+    pub fn save_done(&mut self) {
+        self.history.clear_modified();
+    }
+
     pub fn copy(&mut self) {
         if !self.has_selection() {
             return;

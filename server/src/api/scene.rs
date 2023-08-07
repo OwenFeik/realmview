@@ -9,6 +9,7 @@ pub fn routes() -> actix_web::Scope {
         .route("/save", web::post().to(save))
         .route("/details", web::post().to(details))
         .route("/load/{scene_key}", web::get().to(load))
+        .route("/{scene_key}", web::put().to(save))
         .route("/{scene_key}", web::delete().to(delete))
 }
 
@@ -42,31 +43,17 @@ impl SceneResponse {
 
 #[derive(serde_derive::Deserialize)]
 struct SceneSaveRequest {
-    project_title: String,
-    title: String,
     encoded: String,
 }
 
 async fn save(mut conn: Conn, user: User, req: web::Json<SceneSaveRequest>) -> Res {
-    let Ok(Ok(mut scene)) = base64::decode(&req.encoded).map(|bytes| bincode::deserialize::<scene::Scene>(&bytes)) else {
+    let Ok(Ok(scene)) = base64::decode(&req.encoded).map(|bytes| bincode::deserialize::<scene::Scene>(&bytes)) else {
         return res_unproc("Failed to decode scene.");
     };
 
-    let mut project = Project::get_or_create(conn.acquire(), scene.project, user.id)
+    let project = Project::get_or_create(conn.acquire(), scene.project, user.id)
         .await
         .map_err(e500)?;
-
-    if project.title != req.project_title {
-        project
-            .update_title(conn.acquire(), req.project_title.clone())
-            .await
-            .map_err(e500)?;
-    }
-
-    let title = req.title.trim();
-    if !title.is_empty() {
-        scene.title = Some(title.to_owned());
-    }
 
     let record = project
         .update_scene(conn.acquire(), scene)

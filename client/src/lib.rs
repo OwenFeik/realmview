@@ -6,6 +6,7 @@
 #![feature(int_roundings)]
 #![feature(const_trait_impl)]
 #![feature(const_slice_index)]
+#![feature(stmt_expr_attributes)]
 
 pub use scene;
 

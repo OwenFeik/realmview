@@ -1,3 +1,4 @@
+use crate::bridge::{save_scene, timestamp_ms, SaveState};
 use crate::dom::menu::Menu;
 use crate::render::Renderer;
 use crate::scene::{Point, Rect};
@@ -98,10 +99,17 @@ pub struct Viewport {
 
     // Flag set true whenever something changes
     redraw_needed: bool,
+
+    // Last save time
+    last_save: u64,
+
+    // Save progress
+    save_state: Option<SaveState>,
 }
 
 impl Viewport {
     const BASE_GRID_ZOOM: f32 = 50.0;
+    const SAVE_INTERVAL_MS: u64 = 1000 * 5 * 60;
 
     pub fn new(client: Option<Client>) -> anyhow::Result<Self> {
         let scene = Interactor::new(client);
@@ -122,6 +130,8 @@ impl Viewport {
             ctrl_down: false,
             grabbed_at: None,
             redraw_needed: true,
+            last_save: timestamp_ms(),
+            save_state: None,
         };
 
         vp.update_viewport();
@@ -421,6 +431,7 @@ impl Viewport {
             Key::L => self.set_draw_tool(DrawTool::Line),
             Key::Q => self.set_tool(Tool::Select),
             Key::R => self.set_draw_tool(DrawTool::Rectangle),
+            Key::S => self.save_scene(),
             Key::V => self.scene.paste(self.target_point()),
             Key::W => self.set_tool(Tool::Fog),
             Key::Y => self.scene.redo(),
@@ -536,12 +547,15 @@ impl Viewport {
     }
 
     pub fn animation_frame(&mut self) {
+        // Handle incoming input events, server events and viewport changes.
         self.process_ui_events();
         if let Some((list, scene)) = self.scene.process_server_events() {
             self.set_scene_list(list);
             self.menu().set_scene(Some(scene));
         }
         self.update_viewport();
+
+        // Redraw the scene if required.
         if self.redraw_needed
             || self.context.load_texture_queue()
             || self.scene.changes.handle_sprite_change()
@@ -550,10 +564,12 @@ impl Viewport {
             self.redraw_needed = false;
         }
 
+        // Handle layer changes by updating layers menu.
         if self.scene.changes.handle_layer_change() {
             self.update_layers_menu();
         }
 
+        // Handle selection changes by updating sprite menu.
         if self.scene.changes.handle_selected_change() {
             let details = self.scene.selected_details();
             self.menu().set_sprite_info(details);
@@ -561,9 +577,16 @@ impl Viewport {
             self.menu().update_selection(has_selection);
         }
 
+        // Handle role changes if any by updating visible tools.
         if self.scene.changes.handle_role_change() {
             let new_role = self.scene.role;
             self.menu().update_role(new_role);
+        }
+
+        // Save the scene every save interval, as required.
+        let now = timestamp_ms();
+        if now.saturating_sub(self.last_save) >= Self::SAVE_INTERVAL_MS {
+            self.save_scene();
         }
     }
 
@@ -601,6 +624,16 @@ impl Viewport {
                 Point::new(nearest.0 as f32, nearest.1 as f32)
             } else {
                 centre
+            }
+        }
+    }
+
+    pub fn save_scene(&mut self) {
+        if self.scene.save_required() {
+            if let Some(scene_key) = self.scene.scene_key() {
+                self.save_state = save_scene(&scene_key, self.scene.export()).ok();
+                self.last_save = timestamp_ms();
+                self.scene.save_done();
             }
         }
     }

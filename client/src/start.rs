@@ -5,11 +5,11 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Mutex;
 
-use wasm_bindgen::prelude::*;
+use wasm_bindgen::{prelude::*, JsCast};
 
 use crate::bridge::{
-    expose_closure_f64, expose_closure_f64x2_string, expose_closure_string_in,
-    expose_closure_string_out, flog, log, request_animation_frame,
+    expose_closure_f64, expose_closure_f64x2_string, expose_closure_string_in, flog, log,
+    request_animation_frame,
 };
 use crate::client::Client;
 use crate::dom::menu::Menu;
@@ -57,21 +57,6 @@ pub fn start() -> Result<(), JsValue> {
         lock.add_menu(Menu::new(vp.clone(), scene::perms::Role::Owner))
     });
 
-    // This closure acquires the lock on the Viewport, then exports the scene
-    // as a binary blob. This allows the front end to pull out the binary
-    // representation of the scene to send back to the server.
-    let vp_ref = vp.clone();
-    let export_closure = Closure::wrap(Box::new(move || {
-        if let Ok(lock) = vp_ref.try_lock() {
-            base64::encode(lock.scene.export())
-        } else {
-            log("Failed to lock for export.");
-            String::new()
-        }
-    }) as Box<dyn FnMut() -> String>);
-    expose_closure_string_out("export_scene", &export_closure);
-    export_closure.forget();
-
     let vp_ref = vp.clone();
     let load_scene_closure = Closure::wrap(Box::new(move |vp_b64: String| {
         if let Ok(bytes) = base64::decode(vp_b64) {
@@ -116,6 +101,14 @@ pub fn start() -> Result<(), JsValue> {
     }) as Box<dyn FnMut(String)>);
     expose_closure_string_in("set_scene_list", &set_scene_list_closure);
     set_scene_list_closure.forget();
+
+    let vp_ref = vp.clone();
+    let before_unload_closure: Closure<dyn FnMut()> =
+        Closure::new(move || lock_and(&vp_ref, |vp| vp.save_scene()));
+    web_sys::window()
+        .unwrap()
+        .set_onbeforeunload(Some(before_unload_closure.as_ref().unchecked_ref()));
+    before_unload_closure.forget();
 
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
