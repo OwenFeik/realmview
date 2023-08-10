@@ -31,15 +31,15 @@
       {{ offcanvas_button(target=game) }}
       {{ offcanvas_button(target=project) }}
     </div>
-    <div 
-      class="spinner-border position-absolute"
-      id="canvas_loading_icon"
+    <div
       style = "
-        display: none;
+        position: absolute;
         right: {{ constant(HOVER_ELEM_INSET) }};
         top: {{ constant(HOVER_ELEM_INSET) }};
       "
-    ></div>
+    >
+      <LoadingIcon id="canvas_loading_icon" icon="save" style="display: none;">
+    </div>
     {{ scene/menu/menu.html }}
     {{ confirmation_modal.html }}
     {{ scene/help_offcanvas.html }}

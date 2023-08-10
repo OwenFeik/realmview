@@ -26,7 +26,7 @@
 * Arrow to point, create circle from centre of given radius at point
 * Preview snapping, show dimensions
 * Scale battlemap by dragging 3*3 on grid.
-* Error handling for save failure.
+* Avoid generating colours too close to white for players.
 
 ## Bugs
 * Fog of war sometimes doesn't show up

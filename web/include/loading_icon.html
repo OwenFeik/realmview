@@ -1,4 +1,8 @@
-<div IFDEF(ID) {{ id="{{ ID }}" }} class="loading-icon loading-idle">
+<div
+  IFDEF(ID) {{ id="{{ ID }}" }}
+  class="loading-icon loading-idle"
+  IFDEF(STYLE) {{ style="{{ STYLE }}" }}
+>
   <div class="spinner-border spinner-border-sm ms-auto me-auto"></div>
   <div class="text-success">{{ bootstrap_icon(check-circle) }}</div>
   <div class="text-danger">{{ bootstrap_icon(exclamation-triangle) }}</div>

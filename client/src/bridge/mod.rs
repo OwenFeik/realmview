@@ -7,6 +7,7 @@ use js_sys::Promise;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::Headers;
+use web_sys::Response;
 use web_sys::{
     Blob, Document, FileReader, HtmlCanvasElement, HtmlElement, HtmlImageElement, HtmlInputElement,
     ProgressEvent, Request, RequestInit, UiEvent, Url, WebGl2RenderingContext, Window,
@@ -653,15 +654,25 @@ fn err<E: JsCast>(error: E) -> anyhow::Error {
 }
 
 pub struct SaveState {
-    onload: Closure<dyn FnMut()>,
+    onload: Closure<dyn FnMut(JsValue)>,
+    onerror: Closure<dyn FnMut(JsValue)>,
     promise: Promise,
 }
 
 impl SaveState {
-    fn new<T: FnMut() + 'static>(onload: T, req: Promise) -> Self {
+    fn new<L, E>(onload: L, onerror: E, req: Promise) -> Self
+    where
+        L: FnMut(JsValue) + 'static,
+        E: FnMut(JsValue) + 'static,
+    {
         let onload = Closure::new(onload);
-        let promise = req.finally(&onload);
-        Self { onload, promise }
+        let onerror = Closure::new(onerror);
+        let promise = req.then(&onload).catch(&onerror);
+        Self {
+            onload,
+            onerror,
+            promise,
+        }
     }
 }
 
@@ -669,6 +680,18 @@ pub fn save_scene(scene_key: &str, raw: Vec<u8>) -> anyhow::Result<SaveState> {
     #[derive(serde_derive::Serialize)]
     struct Req {
         encoded: String,
+    }
+
+    #[derive(serde_derive::Deserialize)]
+    struct Resp {
+        message: String,
+        project_title: String,
+        project_key: String,
+        project_id: i64,
+        scene: String,
+        scene_key: String,
+        success: bool,
+        title: String,
     }
 
     const METHOD: &str = "PUT";
@@ -685,6 +708,10 @@ pub fn save_scene(scene_key: &str, raw: Vec<u8>) -> anyhow::Result<SaveState> {
 
     if let Some(loading) = Element::by_id("canvas_loading_icon") {
         loading.show();
+        loading.remove_class("loading-idle");
+        loading.remove_class("loading-error");
+        loading.add_class("loading-loading");
+        loading.set_attr("title", "Saving scene");
     }
 
     let mut init = RequestInit::new();
@@ -695,9 +722,22 @@ pub fn save_scene(scene_key: &str, raw: Vec<u8>) -> anyhow::Result<SaveState> {
     let promise = window()?.fetch_with_request(&req);
 
     Ok(SaveState::new(
-        || {
+        |resp: JsValue| {
             if let Some(loading) = Element::by_id("canvas_loading_icon") {
-                loading.hide();
+                loading.remove_class("loading-loading");
+                if resp.unchecked_into::<Response>().ok() {
+                    loading.hide();
+                } else {
+                    loading.add_class("loading-error");
+                    loading.set_attr("title", "Failed to save");
+                }
+            }
+        },
+        |_err| {
+            if let Some(loading) = Element::by_id("canvas_loading_icon") {
+                loading.remove_class("loading-loading");
+                loading.add_class("loading-error");
+                loading.set_attr("title", "Network error");
             }
         },
         promise,

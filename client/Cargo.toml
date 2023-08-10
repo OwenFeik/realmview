@@ -47,6 +47,7 @@ features = [
     'ProgressEvent',          # Handle image loading events
     'Request',                # Send requests to save scene
     'RequestInit',            # Configure requests
+    'Response',               # Receive responses
     'Url',                    # Create DataURLs for image loading
     'UrlSearchParams',        # Read URL parameters from Window
     'WebGlBuffer',            # WebGl2 buffers, for rendering
