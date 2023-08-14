@@ -1,3 +1,5 @@
+use std::ops::Sub;
+
 use crate::{
     dom::{element::Element, icon::Icon, input::InputGroup},
     interactor::details::SpriteDetails,
@@ -162,12 +164,22 @@ fn is_bright_colour(colour: scene::Colour) -> bool {
     colour.r() + colour.g() + colour.b() >= THRESHOLD
 }
 
+fn is_whiteish_colour(colour: scene::Colour) -> bool {
+    const THRESHOLD: f32 = 0.3;
+
+    let delta_sum = colour.r().sub(colour.g()).abs()
+        + colour.r().sub(colour.b()).abs()
+        + colour.g().sub(colour.b()).abs();
+
+    delta_sum <= THRESHOLD
+}
+
 fn random_bright_colour() -> scene::Colour {
     use crate::bridge::rand;
 
     loop {
         let colour = scene::Colour([rand(), rand(), rand(), scene::Colour::DEFAULT.a()]);
-        if is_bright_colour(colour) {
+        if is_bright_colour(colour) && !is_whiteish_colour(colour) {
             break colour;
         }
     }

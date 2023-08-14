@@ -13,7 +13,6 @@
 * Added tokens can't be edited by players
 * Token health bars
 * Better database abstraction
-* Save scene when creating; assign ID immediately.
 * Should avoid creating duplicate layers when players are joining.
 * Resize maintaining aspect ratio.
 * Queue messages when websocket isn't open.
@@ -26,7 +25,6 @@
 * Arrow to point, create circle from centre of given radius at point
 * Preview snapping, show dimensions
 * Scale battlemap by dragging 3*3 on grid.
-* Avoid generating colours too close to white for players.
 
 ## Bugs
 * Fog of war sometimes doesn't show up
