@@ -1,6 +1,7 @@
 use serde_derive::{Deserialize, Serialize};
 
 use super::{Id, Point, PointVector, Rect};
+use crate::DrawingMode;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Drawing {
@@ -58,6 +59,29 @@ impl Drawing {
             self.points.translate(-delta);
         }
         rect
+    }
+
+    pub fn length(&self, mode: DrawingMode) -> f32 {
+        match mode {
+            DrawingMode::Freehand => {
+                let mut dist = 0.0;
+                let mut prev = None;
+                self.points.iter(|p| {
+                    if let Some(q) = prev {
+                        dist += p.dist(q);
+                    }
+                    prev = Some(p);
+                });
+                dist
+            }
+            DrawingMode::Line => {
+                if let (Some(first), Some(last)) = (self.points.nth(1), self.points.last()) {
+                    first.dist(last)
+                } else {
+                    0.0
+                }
+            }
+        }
     }
 
     fn translate(&mut self, offset: f32) {

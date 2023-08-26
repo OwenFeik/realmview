@@ -4,6 +4,7 @@
     {{ head_common.html }}
     <meta charset="utf-8">
     <title>Scene</title>
+    <Css src="scene/scene.css">
     <TestSession loggedin="1">
   </head>
   <body style="margin: 0; overflow: hidden;">
@@ -18,6 +19,11 @@
       tabindex="-1"
       oncontextmenu="return false;"
     ></canvas>
+    <div
+      id="canvas_text"
+      class="position-absolute"
+      style="left: 0; top: 0;"
+    ></div>
     <div
       class="position-absolute btn-group-vertical"
       id="show_offcanvas"

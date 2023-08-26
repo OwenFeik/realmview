@@ -536,6 +536,11 @@ impl Viewport {
 
         renderer.draw_outlines(vp, &self.scene.selections());
 
+        for (at, measurement) in self.scene.active_measurements() {
+            let feet = (measurement * 5.).round();
+            renderer.draw_text(vp, at, &format!("{feet}ft"));
+        }
+
         if matches!(self.tool, Tool::Fog) && let Some(position) = fog_brush_outline {
             renderer.draw_outline(
                 vp,

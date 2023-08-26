@@ -4,12 +4,11 @@ use crate::bridge::Cursor;
 
 #[derive(Clone, Debug)]
 pub enum HeldObject {
-    /// (sprite, dx, dy, starting_rect)
-    Anchor(Id, i32, i32, Rect),
+    /// (sprite, dx, dy, starting_rect, ephemeral)
+    Anchor(Id, i32, i32, Rect, bool),
 
-    /// (drawing, sprite)
-    Drawing(Id, Id),
-    Ephemeral(Box<HeldObject>),
+    /// (drawing, sprite, ephemeral, measurement)
+    Drawing(Id, Id, bool, bool),
     Marquee(Point),
     None,
     Selection(Point),
@@ -25,33 +24,13 @@ impl HeldObject {
 
     pub fn held_id(&self) -> Option<Id> {
         match self {
-            Self::Anchor(id, ..) | Self::Drawing(id, ..) | Self::Sprite(id, ..) => Some(*id),
-            Self::Ephemeral(held) => held.held_id(),
+            Self::Anchor(id, ..) | Self::Drawing(_, id, ..) | Self::Sprite(id, ..) => Some(*id),
             _ => None,
         }
     }
 
     fn is_none(&self) -> bool {
         matches!(self, HeldObject::None)
-    }
-
-    /// If this isn't a HeldObject::Ephemeral, wrap it in one.
-    pub fn ephemeral(&mut self) {
-        if !matches!(self, Self::Ephemeral(..)) {
-            *self = HeldObject::Ephemeral(Box::new(self.clone()))
-        }
-    }
-
-    /// Update this HeldObject so that it is wrapped in HeldObject::Ephemeral
-    /// if ephemeral is true, otherwise not wrapped.
-    pub fn set_ephemeral(&mut self, ephemeral: bool) {
-        if let Self::Ephemeral(held) = self {
-            if !ephemeral {
-                *self = *held.clone();
-            }
-        } else if ephemeral {
-            self.ephemeral();
-        }
     }
 
     pub fn is_sprite(&self) -> bool {
@@ -103,7 +82,7 @@ impl HeldObject {
             }
         }
 
-        closest.map(|(dx, dy)| Self::Anchor(sprite.id, dx, dy, sprite.rect))
+        closest.map(|(dx, dy)| Self::Anchor(sprite.id, dx, dy, sprite.rect, false))
     }
 
     pub fn sprite(sprite: &Sprite, at: Point) -> Self {
@@ -116,7 +95,7 @@ impl HeldObject {
 
     pub fn cursor(&self) -> Cursor {
         match self {
-            Self::Anchor(_, dx, dy, Rect { w, h, .. }) => match (dx, dy) {
+            Self::Anchor(_, dx, dy, Rect { w, h, .. }, _) => match (dx, dy) {
                 (-1, -1) | (1, 1) => {
                     if w.signum() == h.signum() {
                         Cursor::NwseResize
@@ -136,18 +115,8 @@ impl HeldObject {
                 _ => Cursor::Move,
             },
             Self::Drawing(..) => Cursor::Crosshair,
-            Self::Ephemeral(held) => held.cursor(),
             Self::Marquee(..) | Self::None => Cursor::Default,
             Self::Selection(..) | Self::Sprite(..) => Cursor::Move,
-        }
-    }
-
-    /// Returns a clone of this HeldObject if it isn't a wrapper, otherwise
-    /// a clone of the wrapped HeldObject.
-    pub fn value(&self) -> HeldObject {
-        match self {
-            HeldObject::Ephemeral(held) => *held.clone(),
-            _ => self.clone(),
         }
     }
 }

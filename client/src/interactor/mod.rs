@@ -473,24 +473,22 @@ impl Interactor {
                 Rect::at(Point::ORIGIN, Sprite::DEFAULT_WIDTH, Sprite::DEFAULT_HEIGHT),
             ) {
                 self.history.start_move_group();
-
-                self.holding = HeldObject::Drawing(drawing_id, sprite_id);
-                self.holding.set_ephemeral(ephemeral);
+                self.holding = HeldObject::Drawing(drawing_id, sprite_id, ephemeral, !alt);
             }
         }
     }
 
     fn update_held_sprite(&mut self, at: Point) {
-        let holding = self.holding.value();
+        let held = self.holding.clone();
         let sprite = if let Some(s) = self.held_sprite() {
             s
         } else {
             return;
         };
 
-        let event = match holding {
+        let event = match held {
             HeldObject::Sprite(_, offset, _) => sprite.set_pos(at - offset),
-            HeldObject::Anchor(_, dx, dy, _) => {
+            HeldObject::Anchor(_, dx, dy, _, _) => {
                 let Point {
                     x: delta_x,
                     y: delta_y,
@@ -519,20 +517,47 @@ impl Interactor {
     }
 
     pub fn drag(&mut self, at: Point) {
-        let holding = self.holding.value();
-        match holding {
-            HeldObject::Drawing(d, _sprite) => {
+        match self.holding {
+            HeldObject::Drawing(d, _sprite, _ephemeral, _measurement) => {
                 let opt = self.scene.add_drawing_point(d, at);
                 self.scene_option(opt);
             }
-            HeldObject::Ephemeral(..) | HeldObject::None => {}
             HeldObject::Marquee(from) => {
                 self.selection_marquee = Some(from.rect(at));
                 self.changes.sprite_selected_change();
             }
+            HeldObject::None => {}
             HeldObject::Selection(_) => self.drag_selection(at),
             HeldObject::Sprite(..) | HeldObject::Anchor(..) => self.update_held_sprite(at),
         };
+    }
+
+    pub fn active_measurements(&self) -> Vec<(Point, f32)> {
+        let mut measurements = Vec::new();
+        if let HeldObject::Drawing(_, sprite, _, true) = self.holding {
+            if let Some(sprite) = self.sprite_ref(sprite) {
+                match sprite.visual {
+                    SpriteVisual::Drawing { drawing, mode, .. } => {
+                        if let Some(drawing) = self.scene.get_drawing(drawing) {
+                            measurements.push((
+                                drawing.points.last().unwrap_or(Point::ORIGIN)
+                                    + Point::new(1.0, 0.0),
+                                drawing.length(mode),
+                            ));
+                        }
+                    }
+                    SpriteVisual::Shape { shape, .. } | SpriteVisual::Texture { shape, .. } => {
+                        match shape {
+                            Shape::Ellipse => todo!("radius / diameter in centre"),
+                            Shape::Hexagon => todo!("same as circle"),
+                            Shape::Rectangle => todo!("width / height at relevant corners"),
+                            Shape::Triangle => {}
+                        }
+                    }
+                }
+            }
+        }
+        measurements
     }
 
     pub fn sprite_ref(&self, id: Id) -> Option<&Sprite> {
@@ -616,14 +641,12 @@ impl Interactor {
     }
 
     pub fn release(&mut self, alt: bool, ctrl: bool) {
-        match &self.holding {
-            &HeldObject::Drawing(drawing, sprite) => self.finish_draw(drawing, sprite),
-            HeldObject::Ephemeral(held) => {
-                if let Some(id) = held.held_id() {
-                    self.remove_sprite(id);
-                    self.history.erase_item(id);
-                }
+        match self.holding {
+            HeldObject::Anchor(sprite, _, _, _, true) | HeldObject::Drawing(_, sprite, true, _) => {
+                self.remove_sprite(sprite);
+                self.history.erase_item(sprite);
             }
+            HeldObject::Drawing(drawing, sprite, _, _) => self.finish_draw(drawing, sprite),
             HeldObject::None => {}
             HeldObject::Marquee(_) => {
                 if !ctrl {
@@ -638,8 +661,8 @@ impl Interactor {
                 self.changes.sprite_selected_change();
             }
             HeldObject::Selection(_) => self.finish_selection_drag(alt),
-            &HeldObject::Sprite(id, _, start) => self.finish_sprite_drag(id, start, alt),
-            &HeldObject::Anchor(id, _, _, start) => self.finish_sprite_resize(id, start, alt),
+            HeldObject::Sprite(id, _, start) => self.finish_sprite_drag(id, start, alt),
+            HeldObject::Anchor(id, _, _, start, _) => self.finish_sprite_resize(id, start, alt),
         };
 
         if self.holding.is_sprite() {
@@ -883,8 +906,7 @@ impl Interactor {
             Some(self.selected_layer),
             at,
         ) {
-            self.holding = HeldObject::Anchor(id, 1, 1, at);
-            self.holding.set_ephemeral(ephemeral);
+            self.holding = HeldObject::Anchor(id, 1, 1, at, ephemeral);
         }
     }
 

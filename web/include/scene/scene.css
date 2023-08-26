@@ -1,0 +1,9 @@
+.hover-text {
+    background-color: var(--bs-body-bg);
+    border: solid 1px var(--bs-body-color);
+    border-radius: 0.25rem;
+    color: var(--bs-body-color);
+    padding: 0.25rem;
+    position: absolute;
+    user-select: none;
+}

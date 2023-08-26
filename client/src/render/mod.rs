@@ -5,10 +5,13 @@ use scene::{
 };
 use web_sys::{HtmlImageElement, WebGl2RenderingContext};
 
+use crate::viewport::ViewportPoint;
+
 mod programs;
 mod shapes;
+mod text;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct ViewInfo {
     viewport: Rect,
     grid_size: f32,
@@ -19,6 +22,14 @@ impl ViewInfo {
         Self {
             viewport,
             grid_size,
+        }
+    }
+
+    pub fn viewport_point(&self, scene_point: Point) -> ViewportPoint {
+        let point = scene_point * self.grid_size;
+        ViewportPoint {
+            x: point.x - self.viewport.x,
+            y: point.y - self.viewport.y,
         }
     }
 }
@@ -196,6 +207,9 @@ pub trait Renderer {
             self.draw_grid(vp, dimensions);
         }
     }
+
+    /// Draw hover text bubble at
+    fn draw_text(&mut self, vp: ViewInfo, at: Point, text: &str);
 }
 
 pub struct WebGlRenderer {
@@ -208,6 +222,7 @@ pub struct WebGlRenderer {
     line_renderer: programs::LineRenderer,
     grid_renderer: programs::GridRenderer,
     fog_renderer: programs::FogRenderer,
+    text_manager: text::HoverTextManager,
 }
 
 impl WebGlRenderer {
@@ -222,6 +237,7 @@ impl WebGlRenderer {
             line_renderer: programs::LineRenderer::new(gl.clone())?,
             grid_renderer: programs::GridRenderer::new(gl.clone())?,
             fog_renderer: programs::FogRenderer::new(gl)?,
+            text_manager: text::HoverTextManager::new(),
         })
     }
 
@@ -235,6 +251,7 @@ impl Renderer for WebGlRenderer {
         self.gl
             .viewport(0, 0, vp.viewport.w as i32, vp.viewport.h as i32);
         self.gl.clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
+        self.text_manager.clear();
     }
 
     fn draw_grid(&mut self, vp: ViewInfo, dimensions: (u32, u32)) {
@@ -328,6 +345,11 @@ impl Renderer for WebGlRenderer {
             position,
             vp.grid_size,
         );
+    }
+
+    fn draw_text(&mut self, vp: ViewInfo, at: Point, text: &str) {
+        crate::bridge::flog!("{at:?}, {vp:?}, {:?}", vp.viewport_point(at));
+        self.text_manager.render(vp.viewport_point(at), text);
     }
 }
 
