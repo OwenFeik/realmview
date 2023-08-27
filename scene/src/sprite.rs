@@ -446,7 +446,7 @@ impl Sprite {
         }
     }
 
-    pub fn outline(&mut self) -> Outline {
+    pub fn outline(&self) -> Outline {
         let rect = self.rect;
         match self.visual {
             Visual::Drawing { stroke, .. } => Outline {

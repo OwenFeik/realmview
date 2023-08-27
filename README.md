@@ -27,6 +27,7 @@
 * Scale battlemap by dragging 3*3 on grid.
 
 ## Bugs
+* Adding a texture breaks all drawings.
 * Fog of war sometimes doesn't show up
 * Remove sprites is forbidden; should be able to remove own sprites
 * Hollow shapes

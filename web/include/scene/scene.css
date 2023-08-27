@@ -4,6 +4,8 @@
     border-radius: 0.25rem;
     color: var(--bs-body-color);
     padding: 0.25rem;
+    pointer-events: none;
     position: absolute;
+    transform: translate(-50%, -50%);
     user-select: none;
 }

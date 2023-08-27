@@ -299,11 +299,15 @@ impl Interactor {
         self.holding.held_id()
     }
 
-    fn held_sprite(&mut self) -> Option<&mut Sprite> {
+    fn held_sprite(&self) -> Option<&Sprite> {
         match self.held_id() {
-            Some(id) => self.scene.sprite(id),
+            Some(id) => self.scene.sprite_ref(id),
             None => None,
         }
+    }
+
+    fn held_sprite_mut(&mut self) -> Option<&mut Sprite> {
+        self.held_id().and_then(|id| self.scene.sprite(id))
     }
 
     pub fn has_selection(&self) -> bool {
@@ -480,7 +484,7 @@ impl Interactor {
 
     fn update_held_sprite(&mut self, at: Point) {
         let held = self.holding.clone();
-        let sprite = if let Some(s) = self.held_sprite() {
+        let sprite = if let Some(s) = self.held_sprite_mut() {
             s
         } else {
             return;
@@ -532,31 +536,50 @@ impl Interactor {
         };
     }
 
-    pub fn active_measurements(&self) -> Vec<(Point, f32)> {
-        let mut measurements = Vec::new();
-        if let HeldObject::Drawing(_, sprite, _, true) = self.holding {
-            if let Some(sprite) = self.sprite_ref(sprite) {
-                match sprite.visual {
-                    SpriteVisual::Drawing { drawing, mode, .. } => {
-                        if let Some(drawing) = self.scene.get_drawing(drawing) {
-                            measurements.push((
-                                drawing.points.last().unwrap_or(Point::ORIGIN)
-                                    + Point::new(1.0, 0.0),
-                                drawing.length(mode),
-                            ));
-                        }
+    fn add_sprite_measurements(&self, sprite: Id, to: &mut Vec<(Point, f32)>) {
+        if let Some(sprite) = self.sprite_ref(sprite) {
+            match sprite.visual {
+                SpriteVisual::Drawing { drawing, mode, .. } => {
+                    if let Some(drawing) = self.scene.get_drawing(drawing) {
+                        to.push((
+                            drawing.points.rect().top_left() + sprite.rect.top_left()
+                                - Point::same(0.5),
+                            drawing.length(mode),
+                        ));
                     }
-                    SpriteVisual::Shape { shape, .. } | SpriteVisual::Texture { shape, .. } => {
-                        match shape {
-                            Shape::Ellipse => todo!("radius / diameter in centre"),
-                            Shape::Hexagon => todo!("same as circle"),
-                            Shape::Rectangle => todo!("width / height at relevant corners"),
-                            Shape::Triangle => {}
+                }
+                SpriteVisual::Shape { shape, .. } | SpriteVisual::Texture { shape, .. } => {
+                    match shape {
+                        Shape::Ellipse | Shape::Hexagon if sprite.rect.w == sprite.rect.h => {
+                            if sprite.rect.w == sprite.rect.h {
+                                to.push((sprite.rect.centre(), sprite.rect.w / 2.0));
+                            }
+                        }
+                        _ => {
+                            let rect = sprite.rect.positive_dimensions();
+                            let centre = rect.centre();
+                            let above = Point::new(centre.x, rect.y - 0.5);
+                            let left = Point::new(rect.x - 0.5, centre.y);
+                            to.push((above, sprite.rect.w.abs()));
+                            to.push((left, sprite.rect.h.abs()));
                         }
                     }
                 }
             }
         }
+    }
+
+    pub fn active_measurements(&self) -> Vec<(Point, f32)> {
+        let mut measurements = Vec::new();
+
+        if let Some(sprite) = self.held_id() {
+            self.add_sprite_measurements(sprite, &mut measurements);
+        }
+
+        if self.single_selected() && let Some(sprite) = self.selected_id() {
+            self.add_sprite_measurements(sprite, &mut measurements);
+        }
+
         measurements
     }
 

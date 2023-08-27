@@ -348,7 +348,6 @@ impl Renderer for WebGlRenderer {
     }
 
     fn draw_text(&mut self, vp: ViewInfo, at: Point, text: &str) {
-        crate::bridge::flog!("{at:?}, {vp:?}, {:?}", vp.viewport_point(at));
         self.text_manager.render(vp.viewport_point(at), text);
     }
 }
