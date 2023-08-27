@@ -45,13 +45,20 @@ impl DrawMenu {
 
         inputs.add_icon_radio_handler(
             Self::DRAW_TOOL,
-            &[Icon::Brush, Icon::Line, Icon::Square, Icon::Circle],
+            &[
+                Icon::Brush,
+                Icon::Line,
+                Icon::Square,
+                Icon::Circle,
+                Icon::Target,
+            ],
             |vp, icon| {
                 vp.set_draw_tool(match icon {
                     Icon::Brush => DrawTool::Freehand,
                     Icon::Line => DrawTool::Line,
                     Icon::Square => DrawTool::Rectangle,
                     Icon::Circle => DrawTool::Ellipse,
+                    Icon::Target => DrawTool::Circle,
                     _ => DrawTool::Freehand,
                 });
             },
@@ -86,7 +93,7 @@ impl DrawMenu {
     pub fn details(&self) -> SpriteDetails {
         SpriteDetails {
             shape: match self.tool {
-                DrawTool::Ellipse => Some(scene::Shape::Ellipse),
+                DrawTool::Circle | DrawTool::Ellipse => Some(scene::Shape::Ellipse),
                 DrawTool::Rectangle => Some(scene::Shape::Rectangle),
                 DrawTool::Freehand | DrawTool::Line => None,
             },
@@ -104,7 +111,7 @@ impl DrawMenu {
             drawing_mode: match self.tool {
                 DrawTool::Freehand => Some(scene::DrawingMode::Freehand),
                 DrawTool::Line => Some(scene::DrawingMode::Line),
-                DrawTool::Ellipse | DrawTool::Rectangle => None,
+                DrawTool::Circle | DrawTool::Ellipse | DrawTool::Rectangle => None,
             },
             ..Default::default()
         }
@@ -128,9 +135,17 @@ impl DrawMenu {
         }
     }
 
+    pub fn get_draw_tool(&self) -> DrawTool {
+        self.tool
+    }
+
     pub fn set_draw_tool(&mut self, draw_tool: DrawTool) {
         let mut deets: crate::interactor::details::SpriteDetails = Default::default();
         let icon = match draw_tool {
+            DrawTool::Circle => {
+                deets.shape = Some(::scene::Shape::Ellipse);
+                Icon::Target
+            }
             DrawTool::Ellipse => {
                 deets.shape = Some(::scene::Shape::Ellipse);
                 Icon::Circle

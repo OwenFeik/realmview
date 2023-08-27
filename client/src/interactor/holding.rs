@@ -6,7 +6,8 @@ use crate::bridge::Cursor;
 pub enum HeldObject {
     /// (sprite, dx, dy, starting_rect, ephemeral)
     Anchor(Id, i32, i32, Rect, bool),
-
+    /// (sprite, centre, ephemeral)
+    Circle(Id, Point, bool),
     /// (drawing, sprite, ephemeral, measurement)
     Drawing(Id, Id, bool, bool),
     Marquee(Point),
@@ -114,6 +115,7 @@ impl HeldObject {
                 (-1, 0) | (1, 0) => Cursor::EwResize,
                 _ => Cursor::Move,
             },
+            Self::Circle(..) => Cursor::Move,
             Self::Drawing(..) => Cursor::Crosshair,
             Self::Marquee(..) | Self::None => Cursor::Default,
             Self::Selection(..) | Self::Sprite(..) => Cursor::Move,

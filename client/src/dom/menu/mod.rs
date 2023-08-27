@@ -165,6 +165,10 @@ impl Menu {
         self.draw.change_stroke(delta);
     }
 
+    pub fn get_draw_tool(&self) -> crate::viewport::DrawTool {
+        self.draw.get_draw_tool()
+    }
+
     pub fn set_draw_tool(&mut self, draw_tool: crate::viewport::DrawTool) {
         self.draw.set_draw_tool(draw_tool);
     }

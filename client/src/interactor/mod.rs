@@ -460,24 +460,39 @@ impl Interactor {
         ephemeral: bool,
         alt: bool,
         details: details::SpriteDetails,
+        tool: crate::viewport::DrawTool,
     ) {
-        self.clear_held_selection();
-        if details.shape.is_some() {
-            self.new_held_shape(details.shape.unwrap(), at, !alt, ephemeral, details);
-        } else {
-            let mut visual = details.drawing();
-            let drawing_id = self.scene.start_drawing();
-            if let SpriteVisual::Drawing { drawing, .. } = &mut visual {
-                *drawing = drawing_id;
-            }
+        use crate::viewport::DrawTool;
 
-            if let Some(sprite_id) = self.new_sprite_at(
-                Some(visual),
-                None,
-                Rect::at(Point::ORIGIN, Sprite::DEFAULT_WIDTH, Sprite::DEFAULT_HEIGHT),
-            ) {
-                self.history.start_move_group();
-                self.holding = HeldObject::Drawing(drawing_id, sprite_id, ephemeral, !alt);
+        self.clear_held_selection();
+
+        match tool {
+            DrawTool::Circle => {
+                self.new_held_shape(Shape::Ellipse, at, !alt, ephemeral, details);
+                if let HeldObject::Anchor(id, .., ephemeral) = self.holding {
+                    self.holding = HeldObject::Circle(id, at, ephemeral);
+                }
+            }
+            DrawTool::Ellipse | DrawTool::Rectangle => {
+                if details.shape.is_some() {
+                    self.new_held_shape(details.shape.unwrap(), at, !alt, ephemeral, details);
+                }
+            }
+            DrawTool::Freehand | DrawTool::Line => {
+                let mut visual = details.drawing();
+                let drawing_id = self.scene.start_drawing();
+                if let SpriteVisual::Drawing { drawing, .. } = &mut visual {
+                    *drawing = drawing_id;
+                }
+
+                if let Some(sprite_id) = self.new_sprite_at(
+                    Some(visual),
+                    None,
+                    Rect::at(Point::ORIGIN, Sprite::DEFAULT_WIDTH, Sprite::DEFAULT_HEIGHT),
+                ) {
+                    self.history.start_move_group();
+                    self.holding = HeldObject::Drawing(drawing_id, sprite_id, ephemeral, !alt);
+                }
             }
         }
     }
@@ -491,6 +506,15 @@ impl Interactor {
         };
 
         let event = match held {
+            HeldObject::Circle(_, centre, _) => {
+                let r = at.dist(centre);
+                sprite.set_rect(Rect {
+                    x: centre.x - r,
+                    y: centre.y - r,
+                    w: 2.0 * r,
+                    h: 2.0 * r,
+                })
+            }
             HeldObject::Sprite(_, offset, _) => sprite.set_pos(at - offset),
             HeldObject::Anchor(_, dx, dy, _, _) => {
                 let Point {
@@ -532,7 +556,9 @@ impl Interactor {
             }
             HeldObject::None => {}
             HeldObject::Selection(_) => self.drag_selection(at),
-            HeldObject::Sprite(..) | HeldObject::Anchor(..) => self.update_held_sprite(at),
+            HeldObject::Anchor(..) | HeldObject::Circle(..) | HeldObject::Sprite(..) => {
+                self.update_held_sprite(at)
+            }
         };
     }
 
@@ -663,12 +689,23 @@ impl Interactor {
         self.history.end_move_group();
     }
 
+    fn finish_circle(&mut self, id: Id, snap_to_grid: bool) {
+        if snap_to_grid && let Some(sprite) = self.scene.sprite(id) {
+            let event = sprite.snap_size();
+            self.scene_event(event);
+        }
+    }
+
     pub fn release(&mut self, alt: bool, ctrl: bool) {
         match self.holding {
-            HeldObject::Anchor(sprite, _, _, _, true) | HeldObject::Drawing(_, sprite, true, _) => {
+            HeldObject::Anchor(sprite, _, _, _, true)
+            | HeldObject::Circle(sprite, _, true)
+            | HeldObject::Drawing(_, sprite, true, _) => {
+                // Ephemeral
                 self.remove_sprite(sprite);
                 self.history.erase_item(sprite);
             }
+            HeldObject::Circle(id, _, _) => self.finish_circle(id, !alt),
             HeldObject::Drawing(drawing, sprite, _, _) => self.finish_draw(drawing, sprite),
             HeldObject::None => {}
             HeldObject::Marquee(_) => {

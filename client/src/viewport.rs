@@ -38,7 +38,9 @@ impl Tool {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum DrawTool {
+    Circle,
     Ellipse,
     Freehand,
     Line,
@@ -253,9 +255,16 @@ impl Viewport {
             MouseButton::Left => {
                 match self.tool {
                     Tool::Draw => {
-                        let draw_details = self.menu().get_draw_details();
-                        self.scene
-                            .start_draw(self.scene_point(at), ctrl, alt, draw_details)
+                        let menu = self.menu();
+                        let draw_details = menu.get_draw_details();
+                        let draw_tool = menu.get_draw_tool();
+                        self.scene.start_draw(
+                            self.scene_point(at),
+                            ctrl,
+                            alt,
+                            draw_details,
+                            draw_tool,
+                        );
                     }
                     Tool::Pan => self.grab(at),
                     Tool::Select => self.scene.grab(self.scene_point(at), ctrl),
