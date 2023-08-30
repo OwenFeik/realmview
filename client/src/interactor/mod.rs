@@ -280,18 +280,18 @@ impl Interactor {
         self.changes.role_change();
     }
 
-    pub fn cursor(&self) -> Cursor {
-        self.holding.cursor()
+    pub fn cursor(&self, at: Point) -> Cursor {
+        self.holding.cursor(at)
     }
 
     pub fn cursor_at(&self, at: Point, ctrl: bool) -> Cursor {
         if matches!(self.holding, HeldObject::None) {
             match self.grab_at(at, ctrl).0 {
                 HeldObject::Sprite(..) => Cursor::Pointer,
-                h => h.cursor(),
+                h => h.cursor(at),
             }
         } else {
-            self.cursor()
+            self.cursor(at)
         }
     }
 

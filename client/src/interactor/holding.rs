@@ -25,7 +25,7 @@ impl HeldObject {
 
     pub fn held_id(&self) -> Option<Id> {
         match self {
-            Self::Anchor(id, ..) | Self::Drawing(_, id, ..) | Self::Sprite(id, ..) => Some(*id),
+            Self::Anchor(id, ..) | Self::Circle(id, _, _) | Self::Drawing(_, id, ..) | Self::Sprite(id, ..) => Some(*id),
             _ => None,
         }
     }
@@ -94,7 +94,7 @@ impl HeldObject {
         Self::grab_sprite_anchor(sprite, at).unwrap_or_else(|| Self::sprite(sprite, at))
     }
 
-    pub fn cursor(&self) -> Cursor {
+    pub fn cursor(&self, at: Point) -> Cursor {
         match self {
             Self::Anchor(_, dx, dy, Rect { w, h, .. }, _) => match (dx, dy) {
                 (-1, -1) | (1, 1) => {
@@ -115,7 +115,15 @@ impl HeldObject {
                 (-1, 0) | (1, 0) => Cursor::EwResize,
                 _ => Cursor::Move,
             },
-            Self::Circle(..) => Cursor::Move,
+            Self::Circle(_, centre, _) => {
+                if at.x <= centre.x && at.y <= centre.y || at.x >= centre.x && at.y >= centre.y {
+                    Cursor::NwseResize
+                } else if at.x >= centre.x && at.y <= centre.y || at.x <= centre.x && at.y >= centre.y {
+                    Cursor::NeswResize
+                } else {
+                    Cursor::Move
+                }
+            },
             Self::Drawing(..) => Cursor::Crosshair,
             Self::Marquee(..) | Self::None => Cursor::Default,
             Self::Selection(..) | Self::Sprite(..) => Cursor::Move,

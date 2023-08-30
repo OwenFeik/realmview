@@ -164,7 +164,8 @@ impl Viewport {
         let cursor = if self.grabbed_at.is_some() {
             Cursor::Grabbing
         } else {
-            self.scene.cursor().override_default(
+            let at = self.scene_point(self.cursor_position.unwrap_or(ViewportPoint { x: 0.0, y: 0.0 }));
+            self.scene.cursor(at).override_default(
                 self.tool
                     .cursor()
                     .override_default(new.unwrap_or(Cursor::Default)),
@@ -435,7 +436,7 @@ impl Viewport {
             }
             Key::C => self.scene.copy(),
             Key::D => self.scene.clear_selection(),
-            Key::E => self.set_draw_tool(DrawTool::Ellipse),
+            Key::E => self.set_draw_tool(DrawTool::Circle),
             Key::F => self.set_draw_tool(DrawTool::Freehand),
             Key::L => self.set_draw_tool(DrawTool::Line),
             Key::Q => self.set_tool(Tool::Select),
