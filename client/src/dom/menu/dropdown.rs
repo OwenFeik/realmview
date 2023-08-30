@@ -150,7 +150,7 @@ impl Dropdown {
     }
 
     fn set_visible(&self, visible: bool) {
-        const CSS_CLASS: &str = "show";
+        const CSS_CLASS: &'static str = "show";
 
         if visible {
             self.element.add_class(CSS_CLASS);

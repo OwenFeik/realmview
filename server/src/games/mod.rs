@@ -32,7 +32,7 @@ pub fn connect_client(
 }
 
 pub async fn close_ws(session: actix_ws::Session) {
-    const CLOSE_REASON: &str = "gameover";
+    const CLOSE_REASON: &'static str = "gameover";
 
     if let Err(e) = session
         .close(Some(actix_ws::CloseReason {

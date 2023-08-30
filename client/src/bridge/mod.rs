@@ -619,7 +619,7 @@ fn enum_to_id(tool: impl serde::Serialize, pref: &str) -> anyhow::Result<String>
 }
 
 pub fn set_active_draw_tool(tool: impl serde::Serialize) -> anyhow::Result<()> {
-    const ID_PREFIX: &str = "draw_radio_";
+    const ID_PREFIX: &'static str = "draw_radio_";
     set_checked(&enum_to_id(tool, ID_PREFIX)?)
 }
 
@@ -634,7 +634,7 @@ pub fn game_over_redirect() {
     // Ensure we don't redirect multiple times.
     static REDIRECTED: AtomicBool = AtomicBool::new(false);
 
-    const HREF: &str = "/game_over";
+    const HREF: &'static str = "/game_over";
     if !REDIRECTED.load(std::sync::atomic::Ordering::Acquire) {
         if let Ok(window) = window() {
             window.location().set_href("/game_over").ok();
@@ -694,8 +694,8 @@ pub fn save_scene(scene_key: &str, raw: Vec<u8>) -> anyhow::Result<SaveState> {
         title: String,
     }
 
-    const METHOD: &str = "PUT";
-    const PATH: &str = "/api/scene/";
+    const METHOD: &'static str = "PUT";
+    const PATH: &'static str = "/api/scene/";
 
     let headers = Headers::new().map_err(err)?;
     headers

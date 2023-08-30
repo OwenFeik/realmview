@@ -246,7 +246,7 @@ impl Perms {
     }
 
     pub fn selectable(&self, user: Id, item: Id) -> bool {
-        const SELECTABLE_PERMS: &[Perm] = &[
+        const SELECTABLE_PERMS: &'static [Perm] = &[
             Perm::LayerRemove,
             Perm::LayerUpdate,
             Perm::SpriteRemove,

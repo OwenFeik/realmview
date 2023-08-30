@@ -99,15 +99,15 @@ async fn new_scene(
 }
 
 mod files {
-    pub const EDIT_PROJECT: &str = "edit_project.html";
-    pub const GAME: &str = "game.html";
-    pub const GAME_OVER: &str = "game_over.html";
-    pub const INDEX: &str = "index.html";
-    pub const LANDING: &str = "landing.html";
-    pub const LOGIN: &str = "login.html";
-    pub const MEDIA: &str = "media.html";
-    pub const NEW_PROJECT: &str = "new_project.html";
-    pub const PROJECTS: &str = "projects.html";
-    pub const REGISTER: &str = "register.html";
-    pub const SCENE: &str = "scene.html";
+    pub const EDIT_PROJECT: &'static str = "edit_project.html";
+    pub const GAME: &'static str = "game.html";
+    pub const GAME_OVER: &'static str = "game_over.html";
+    pub const INDEX: &'static str = "index.html";
+    pub const LANDING: &'static str = "landing.html";
+    pub const LOGIN: &'static str = "login.html";
+    pub const MEDIA: &'static str = "media.html";
+    pub const NEW_PROJECT: &'static str = "new_project.html";
+    pub const PROJECTS: &'static str = "projects.html";
+    pub const REGISTER: &'static str = "register.html";
+    pub const SCENE: &'static str = "scene.html";
 }

@@ -13,12 +13,12 @@ pub struct DrawMenu {
 }
 
 impl DrawMenu {
-    const COLOUR: &str = "Colour";
-    const DRAW_TOOL: &str = "draw_tool";
-    const CAP_START: &str = "Start";
-    const CAP_END: &str = "End";
-    const STROKE: &str = "Stroke";
-    const SOLID: &str = "Solid";
+    const COLOUR: &'static str = "Colour";
+    const DRAW_TOOL: &'static str = "draw_tool";
+    const CAP_START: &'static str = "Start";
+    const CAP_END: &'static str = "End";
+    const STROKE: &'static str = "Stroke";
+    const SOLID: &'static str = "Solid";
 
     pub fn new(vp: VpRef) -> Self {
         let mut inputs = InputGroup::new(vp);

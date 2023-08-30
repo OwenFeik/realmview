@@ -1,13 +1,13 @@
 use crate::{dom::element::Element, viewport::ViewportPoint};
 
-const HOVER_ROOT_ID: &str = "canvas_text";
+const HOVER_ROOT_ID: &'static str = "canvas_text";
 
 struct HoverText {
     element: Element,
 }
 
 impl HoverText {
-    const HOVER_TEXT_CLASS: &str = "hover-text";
+    const HOVER_TEXT_CLASS: &'static str = "hover-text";
 
     fn new(at: ViewportPoint, text: &str) -> Self {
         let element = Element::new("div");

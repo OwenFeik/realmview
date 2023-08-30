@@ -4,6 +4,7 @@ target := ${build}/target
 content := ${build}/content
 env := CARGO_TARGET_DIR=${target} RUST_BACKTRACE=1
 cargo := ${env} cargo
+wp := ${env} ~/.cargo/bin/wasm-pack
 py := python3
 
 serve: server content
@@ -15,7 +16,7 @@ serve: server content
 deploy: html
 	${cargo} build -p server --release
 	cp --remove-destination ${target}/release/server ${build}/server
-	${env} wasm-pack build client/ --out-dir ${content}/pkg --target web
+	${wp} build client/ --out-dir ${content}/pkg --target web
 	echo "Serving on port 80"
 	sudo \
 		RUST_BACKTRACE=1 \
@@ -46,7 +47,7 @@ database: build-dir
 	fi
 
 wasm: content-dir
-	${env} wasm-pack build client/ --out-dir ${content}/pkg --target web --dev
+	${wp} build client/ --out-dir ${content}/pkg --target web --dev
 
 html: content-dir
 	${py} ${root}/web/build.py ${content}/

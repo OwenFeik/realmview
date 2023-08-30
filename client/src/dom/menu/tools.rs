@@ -11,10 +11,10 @@ pub struct ToolsMenu {
 }
 
 impl ToolsMenu {
-    const KEY: &str = "Tool";
+    const KEY: &'static str = "Tool";
 
-    const EDITOR_TOOLS: &[Icon] = &[Icon::Cursor, Icon::Arrows, Icon::Brush, Icon::Fog];
-    const PLAYER_TOOLS: &[Icon] = &Self::EDITOR_TOOLS[0..=2];
+    const EDITOR_TOOLS: &'static [Icon] = &[Icon::Cursor, Icon::Arrows, Icon::Brush, Icon::Fog];
+    const PLAYER_TOOLS: &'static [Icon] = &[Icon::Cursor, Icon::Arrows, Icon::Brush];
 
     pub fn new(vp: VpRef, role: Role) -> Self {
         let mut inputs = InputGroup::new(vp);

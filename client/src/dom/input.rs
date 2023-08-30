@@ -16,7 +16,7 @@ pub struct InputGroup {
 }
 
 impl InputGroup {
-    const OPACITY_ATTR: &str = "data-opacity";
+    const OPACITY_ATTR: &'static str = "data-opacity";
 
     pub fn new(vp: VpRef) -> InputGroup {
         let root = Element::default();

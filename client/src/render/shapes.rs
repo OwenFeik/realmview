@@ -248,7 +248,7 @@ pub fn circle() -> Vec<f32> {
 }
 
 pub fn rectangle() -> Vec<f32> {
-    const RECTANGLE: &[f32] = &[0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0];
+    const RECTANGLE: &'static [f32] = &[0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0];
     RECTANGLE.to_owned()
 }
 

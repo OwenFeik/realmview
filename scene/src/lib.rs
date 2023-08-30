@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-#![feature(drain_filter)]
+#![feature(extract_if)]
 #![feature(int_roundings)]
 
 use std::collections::HashMap;
@@ -156,14 +156,14 @@ impl Scene {
     }
 
     pub fn remove_layer(&mut self, layer: Id) -> Option<SceneEvent> {
-        let removed = self.layers.drain_filter(|l| l.id == layer).last()?;
+        let removed = self.layers.extract_if(|l| l.id == layer).last()?;
         let event = SceneEvent::LayerRemove(removed.id);
         self.removed_layers.push(removed);
         Some(event)
     }
 
     fn restore_layer(&mut self, layer: Id) -> Option<SceneEvent> {
-        let l = self.removed_layers.drain_filter(|l| l.id == layer).last()?;
+        let l = self.removed_layers.extract_if(|l| l.id == layer).last()?;
         self.add_layer(l);
         Some(SceneEvent::LayerRestore(layer))
     }

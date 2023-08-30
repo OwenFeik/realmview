@@ -11,7 +11,7 @@ use futures::Future;
 
 use crate::models::User;
 
-pub const COOKIE_NAME: &str = "session_key";
+pub const COOKIE_NAME: &'static str = "session_key";
 
 #[derive(Debug)]
 struct LoginRedirect {

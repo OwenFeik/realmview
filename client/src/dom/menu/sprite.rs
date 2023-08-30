@@ -17,16 +17,16 @@ pub struct SpriteMenu {
 impl SpriteMenu {
     const NO_SELECTION: scene::Id = -2;
 
-    const X: &str = "X";
-    const Y: &str = "Y";
-    const WIDTH: &str = "W";
-    const HEIGHT: &str = "H";
-    const COLOUR: &str = "Colour";
-    const STROKE: &str = "Stroke Width";
-    const SOLID: &str = "Solid";
-    const CAP_START: &str = "Start";
-    const CAP_END: &str = "End";
-    const SHAPE: &str = "Shape";
+    const X: &'static str = "X";
+    const Y: &'static str = "Y";
+    const WIDTH: &'static str = "W";
+    const HEIGHT: &'static str = "H";
+    const COLOUR: &'static str = "Colour";
+    const STROKE: &'static str = "Stroke Width";
+    const SOLID: &'static str = "Solid";
+    const CAP_START: &'static str = "Start";
+    const CAP_END: &'static str = "End";
+    const SHAPE: &'static str = "Shape";
 
     pub fn new(vp: VpRef) -> Self {
         let mut inputs = InputGroup::new(vp);

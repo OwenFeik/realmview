@@ -12,7 +12,7 @@ mod scene;
 mod sprite;
 mod tools;
 
-const CAP_OPTIONS: &[(&str, &str)] = &[("Arrow", "arrow"), ("Round", "round"), ("None", "none")];
+const CAP_OPTIONS: &'static [(&str, &str)] = &[("Arrow", "arrow"), ("Round", "round"), ("None", "none")];
 
 fn id(key: &str) -> String {
     format!("#{key}")
@@ -113,11 +113,11 @@ pub struct Menu {
 }
 
 impl Menu {
-    const DRAW: &str = "Draw";
-    const LAYERS: &str = "Layers";
-    const SCENE: &str = "Scene";
-    const SPRITE: &str = "Sprite";
-    const TOOLS: &str = "Tools";
+    const DRAW: &'static str = "Draw";
+    const LAYERS: &'static str = "Layers";
+    const SCENE: &'static str = "Scene";
+    const SPRITE: &'static str = "Sprite";
+    const TOOLS: &'static str = "Tools";
 
     pub fn new(vp: VpRef, role: Role) -> Self {
         let menu = Self {

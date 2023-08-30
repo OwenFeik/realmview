@@ -42,7 +42,7 @@ impl HeldObject {
     }
 
     pub fn anchors(sprite: &Sprite) -> impl Iterator<Item = Point> {
-        const ANCHORS: &[Point] = &[
+        const ANCHORS: &'static [Point] = &[
             Point::new(0.0, 0.0),
             Point::new(0.0, 1.0),
             Point::new(0.0, 2.0),
