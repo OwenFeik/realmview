@@ -1031,22 +1031,17 @@ impl Interactor {
     }
 
     pub fn sprite_aura(&mut self, id: Id, colour: scene::Colour) {
-        const DEFAULT_RADIUS: f32 = 2.0;
-
         if let Some((visual, rect)) = self.sprite_ref(id).map(|s| {
+            let r = s.rect.w.max(s.rect.h) / 2.0 + 1.0;
+            let c = s.rect.centre();
             (
                 SpriteVisual::Shape {
                     shape: Shape::Ellipse,
                     stroke: Sprite::SOLID_STROKE,
                     solid: true,
-                    colour: colour.with_opacity(0.4),
+                    colour: colour.with_opacity(0.6),
                 },
-                Rect {
-                    x: s.rect.x - DEFAULT_RADIUS,
-                    y: s.rect.y - DEFAULT_RADIUS,
-                    w: DEFAULT_RADIUS * 2.0 + s.rect.w,
-                    h: DEFAULT_RADIUS * 2.0 + s.rect.h,
-                },
+                Rect::at(c - Point::same(r), 2.0 * r, 2.0 * r)
             )
         }) {
             if let Some(aura) = self.new_sprite_at(
@@ -1055,8 +1050,8 @@ impl Interactor {
                 rect,
             ) {
                 self.clear_selection();
-                self.select(aura);
                 self.scene.group_sprites(&[id, aura]);
+                self.holding = HeldObject::Circle(aura, rect.centre(), false);
             }
         }
     }

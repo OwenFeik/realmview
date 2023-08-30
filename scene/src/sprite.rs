@@ -487,7 +487,7 @@ fn round_to_nearest(d: f32, n: f32) -> f32 {
 #[cfg(test)]
 mod test {
     use super::round_dimension;
-    use crate::rect::float_eq;
+    use crate::{rect::float_eq, sprite::round_to_nearest};
 
     #[test]
     fn test_round_dimension() {
@@ -495,5 +495,12 @@ mod test {
         assert!(float_eq(round_dimension(0.1), 0.25));
         assert!(float_eq(round_dimension(-0.6), -0.5));
         assert!(float_eq(round_dimension(0.76), 1.0));
+    }
+
+    #[test]
+    fn test_round_to_nearest() {
+        assert!(float_eq(round_to_nearest(0.66, 0.25), 0.75));
+        assert!(float_eq(round_to_nearest(0.74, 0.5), 0.5));
+        assert!(float_eq(round_to_nearest(5.2, 3.0), 6.0));
     }
 }
