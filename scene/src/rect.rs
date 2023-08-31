@@ -60,6 +60,12 @@ impl Rect {
         self * factor
     }
 
+    pub fn match_aspect(mut self, other: Rect) -> Rect {
+        let other = other.positive_dimensions();
+        self.w = self.h * (other.w / other.h);
+        self
+    }
+
     #[must_use]
     pub fn dimension(&self, dimension: Dimension, value: f32) -> Rect {
         let mut rect = *self;

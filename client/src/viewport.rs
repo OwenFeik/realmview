@@ -307,9 +307,9 @@ impl Viewport {
         };
     }
 
-    fn handle_mouse_move(&mut self, at: ViewportPoint, ctrl: bool) {
+    fn handle_mouse_move(&mut self, at: ViewportPoint, ctrl: bool, shift: bool) {
         let scene_point = self.scene_point(at);
-        self.scene.drag(scene_point);
+        self.scene.drag(scene_point, shift);
         if let Some(from) = self.grabbed_at {
             self.viewport.x += (from.x - at.x) / self.grid_zoom;
             self.viewport.y += (from.y - at.y) / self.grid_zoom;
@@ -390,7 +390,7 @@ impl Viewport {
         // Update the held object details for the scene for the new cursor
         // position.
         self.scene
-            .drag(at.scene_point(self.viewport, self.grid_zoom));
+            .drag(at.scene_point(self.viewport, self.grid_zoom), shift);
     }
 
     fn handle_arrow_key_down(&mut self, key: Key, ctrl: bool) {
@@ -502,7 +502,7 @@ impl Viewport {
                 }
                 Input::Mouse(at, MouseAction::Move, _) => {
                     self.handle_cursor(at);
-                    self.handle_mouse_move(at, event.ctrl)
+                    self.handle_mouse_move(at, event.ctrl, event.shift)
                 }
                 Input::Mouse(at, MouseAction::Up, button) => {
                     self.handle_cursor(at);

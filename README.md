@@ -14,7 +14,6 @@
 * Token health bars
 * Better database abstraction
 * Should avoid creating duplicate layers when players are joining.
-* Resize maintaining aspect ratio.
 * Queue messages when websocket isn't open.
 * Loading screen when websocket disconnected for some duration.
 * Aura

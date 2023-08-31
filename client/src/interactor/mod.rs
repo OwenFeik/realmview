@@ -497,7 +497,7 @@ impl Interactor {
         }
     }
 
-    fn update_held_sprite(&mut self, at: Point) {
+    fn update_held_sprite(&mut self, at: Point, maintain_aspect_ratio: bool) {
         let held = self.holding.clone();
         let sprite = if let Some(s) = self.held_sprite_mut() {
             s
@@ -516,7 +516,7 @@ impl Interactor {
                 })
             }
             HeldObject::Sprite(_, offset, _) => sprite.set_pos(at - offset),
-            HeldObject::Anchor(_, dx, dy, _, _) => {
+            HeldObject::Anchor(_, dx, dy, starting_rect, _) => {
                 let Point {
                     x: delta_x,
                     y: delta_y,
@@ -525,8 +525,13 @@ impl Interactor {
                 let y = sprite.rect.y + (if dy == -1 { delta_y } else { 0.0 });
                 let w = delta_x * (dx as f32) + sprite.rect.w;
                 let h = delta_y * (dy as f32) + sprite.rect.h;
-
-                sprite.set_rect(Rect { x, y, w, h })
+                let rect = Rect { x, y, w, h };
+                
+                if maintain_aspect_ratio {
+                    sprite.set_rect(rect.match_aspect(starting_rect))
+                } else {
+                    sprite.set_rect(rect)
+                }
             }
             _ => return, // Other types aren't sprite-related
         };
@@ -544,7 +549,7 @@ impl Interactor {
         self.holding = HeldObject::Selection(to);
     }
 
-    pub fn drag(&mut self, at: Point) {
+    pub fn drag(&mut self, at: Point, shift: bool) {
         match self.holding {
             HeldObject::Drawing(d, _sprite, _ephemeral, _measurement) => {
                 let opt = self.scene.add_drawing_point(d, at);
@@ -557,7 +562,7 @@ impl Interactor {
             HeldObject::None => {}
             HeldObject::Selection(_) => self.drag_selection(at),
             HeldObject::Anchor(..) | HeldObject::Circle(..) | HeldObject::Sprite(..) => {
-                self.update_held_sprite(at)
+                self.update_held_sprite(at, shift)
             }
         };
     }

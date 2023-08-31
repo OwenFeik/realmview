@@ -537,7 +537,7 @@ impl DrawingRenderer {
 pub struct HollowRenderer {
     gl: Rc<Gl>,
     grid_size: f32,
-    meshes: HashMap<scene::Id, (u32, f32, f32, f32, Mesh)>, // { id: (n, stroke, rect, mesh) }
+    meshes: HashMap<scene::Id, (u8, u32, f32, f32, f32, Mesh)>, // { id: (n, stroke, rect, mesh) }
     renderer: SolidRenderer,
 }
 
@@ -571,14 +571,14 @@ impl HollowRenderer {
         let mut mesh = Mesh::new(&self.gl, &self.renderer.program, &points)?;
         mesh.set_transforms(false, true);
         self.meshes
-            .insert(id, (1, stroke, position.w, position.h, mesh));
+            .insert(id, (shape as u8, 1, stroke, position.w, position.h, mesh));
         Ok(())
     }
 
-    fn get_mesh(&self, id: scene::Id, points: u32, stroke: f32, rect: Rect) -> Option<&Mesh> {
-        if let Some((n, s, w, h, mesh)) = self.meshes.get(&id) {
+    fn get_mesh(&self, id: scene::Id, shape: scene::Shape, points: u32, stroke: f32, rect: Rect) -> Option<&Mesh> {
+        if let Some((shp, n, s, w, h, mesh)) = self.meshes.get(&id) {
             // If n is different, drawing has changed, we don't have it
-            if points == *n && stroke == *s && rect.w == *w && rect.h == *h {
+            if shape as u8 == *shp && points == *n && stroke == *s && rect.w == *w && rect.h == *h {
                 return Some(mesh);
             }
         }
@@ -604,7 +604,7 @@ impl HollowRenderer {
     ) {
         let pos = position.positive_dimensions();
         self.update_grid_size(grid_size);
-        if let Some(shape) = self.get_mesh(id, 1, stroke, pos) {
+        if let Some(shape) = self.get_mesh(id, shape, 1, stroke, pos) {
             self.renderer.draw_unscaled(shape, colour, viewport, pos);
         } else if self.add_shape(id, shape, stroke, viewport, pos).is_ok() {
             self.draw_shape(id, shape, colour, stroke, viewport, pos, grid_size);
