@@ -1,5 +1,5 @@
 use crate::bridge::{save_scene, timestamp_ms, SaveState};
-use crate::dom::menu::Menu;
+use crate::dom::menu::{Menu, CanvasDropdownEvent};
 use crate::render::Renderer;
 use crate::scene::{Point, Rect};
 use crate::{
@@ -41,6 +41,7 @@ impl Tool {
 #[derive(Clone, Copy, Debug)]
 pub enum DrawTool {
     Circle,
+    Cone,
     Ellipse,
     Freehand,
     Line,
@@ -439,6 +440,7 @@ impl Viewport {
             Key::E => self.set_draw_tool(DrawTool::Circle),
             Key::F => self.set_draw_tool(DrawTool::Freehand),
             Key::L => self.set_draw_tool(DrawTool::Line),
+            Key::O => self.set_draw_tool(DrawTool::Cone),
             Key::Q => self.set_tool(Tool::Select),
             Key::R => self.set_draw_tool(DrawTool::Rectangle),
             Key::S => self.save_scene(),
@@ -478,6 +480,9 @@ impl Viewport {
         let menu = self.menu();
         if let Some(event) = menu.dropdown_event() {
             let draw_details = menu.get_draw_details();
+            if matches!(event, CanvasDropdownEvent::Aura) {
+                self.set_tool(Tool::Select);
+            }
             self.scene.handle_dropdown_event(event, draw_details);
         }
 

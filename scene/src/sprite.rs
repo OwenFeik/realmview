@@ -73,6 +73,7 @@ impl Shape {
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub enum DrawingMode {
+    Cone,
     Freehand,
     Line,
 }

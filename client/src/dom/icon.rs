@@ -18,6 +18,7 @@ pub enum Icon {
     Square,
     Target,
     Trash,
+    Triangle,
     Unlock,
     Up,
 }
@@ -41,6 +42,7 @@ impl Icon {
             Icon::Square => "square",
             Icon::Target => "bullseye",
             Icon::Trash => "trash3",
+            Icon::Triangle => "triangle",
             Icon::Unlock => "unlock",
             Icon::Up => "chevron-up",
         };

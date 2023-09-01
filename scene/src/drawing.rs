@@ -74,7 +74,7 @@ impl Drawing {
                 });
                 dist
             }
-            DrawingMode::Line => {
+            DrawingMode::Cone | DrawingMode::Line => {
                 if let (Some(first), Some(last)) = (self.points.nth(1), self.points.last()) {
                     first.dist(last)
                 } else {

@@ -478,7 +478,7 @@ impl Interactor {
                     self.new_held_shape(details.shape.unwrap(), at, !alt, ephemeral, details);
                 }
             }
-            DrawTool::Freehand | DrawTool::Line => {
+            DrawTool::Cone | DrawTool::Freehand | DrawTool::Line => {
                 let mut visual = details.drawing();
                 let drawing_id = self.scene.start_drawing();
                 if let SpriteVisual::Drawing { drawing, .. } = &mut visual {

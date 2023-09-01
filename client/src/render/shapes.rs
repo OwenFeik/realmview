@@ -308,3 +308,16 @@ pub fn freehand(
     coords.scale_asymmetric(scale_x, scale_y);
     coords.data
 }
+
+pub fn cone((p, q): (Point, Point), scale: f32) -> Vec<f32> {
+    let h = p.dist(q);
+    let theta = p.angle(q);
+
+    let left = q + Point::trig(theta - PI / 2.0) * h * 0.5;
+    let right = q + Point::trig(theta + PI / 2.0) * h * 0.5;
+    
+    let mut coords = PointVector::new();
+    coords.add_tri(left, right, p);
+    coords.scale(scale);
+    coords.data
+}

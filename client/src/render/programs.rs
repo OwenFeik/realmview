@@ -467,6 +467,9 @@ impl DrawingRenderer {
             ),
             scene::DrawingMode::Line => {
                 super::shapes::line(drawing.line(), stroke, cap_start, cap_end, self.grid_size)
+            },
+            scene::DrawingMode::Cone => {
+                super::shapes::cone(drawing.line(), self.grid_size)
             }
         };
 

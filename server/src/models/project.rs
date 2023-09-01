@@ -641,6 +641,7 @@ mod sprite {
             match drawing_type {
                 scene::DrawingMode::Freehand => 1,
                 scene::DrawingMode::Line => 2,
+                scene::DrawingMode::Cone => 3,
             }
         }
 
@@ -648,6 +649,7 @@ mod sprite {
             match int {
                 1 => scene::DrawingMode::Freehand,
                 2 => scene::DrawingMode::Line,
+                3 => scene::DrawingMode::Cone,
                 _ => scene::DrawingMode::Freehand,
             }
         }

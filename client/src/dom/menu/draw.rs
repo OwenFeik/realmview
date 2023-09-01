@@ -51,6 +51,7 @@ impl DrawMenu {
                 Icon::Square,
                 Icon::Circle,
                 Icon::Target,
+                Icon::Triangle,
             ],
             |vp, icon| {
                 vp.set_draw_tool(match icon {
@@ -59,6 +60,7 @@ impl DrawMenu {
                     Icon::Square => DrawTool::Rectangle,
                     Icon::Circle => DrawTool::Ellipse,
                     Icon::Target => DrawTool::Circle,
+                    Icon::Triangle => DrawTool::Cone,
                     _ => DrawTool::Freehand,
                 });
             },
@@ -95,7 +97,7 @@ impl DrawMenu {
             shape: match self.tool {
                 DrawTool::Circle | DrawTool::Ellipse => Some(scene::Shape::Ellipse),
                 DrawTool::Rectangle => Some(scene::Shape::Rectangle),
-                DrawTool::Freehand | DrawTool::Line => None,
+                DrawTool::Cone | DrawTool::Freehand | DrawTool::Line => None,
             },
             stroke: self.inputs.get_f32(Self::STROKE),
             solid: self.inputs.get_bool(Self::SOLID),
@@ -109,6 +111,7 @@ impl DrawMenu {
                 .get_string(Self::CAP_END)
                 .map(|name| scene::Cap::from(&name)),
             drawing_mode: match self.tool {
+                DrawTool::Cone => Some(scene::DrawingMode::Cone),
                 DrawTool::Freehand => Some(scene::DrawingMode::Freehand),
                 DrawTool::Line => Some(scene::DrawingMode::Line),
                 DrawTool::Circle | DrawTool::Ellipse | DrawTool::Rectangle => None,
@@ -145,6 +148,12 @@ impl DrawMenu {
             DrawTool::Circle => {
                 deets.shape = Some(::scene::Shape::Ellipse);
                 Icon::Target
+            }
+            DrawTool::Cone => {
+                deets.colour = Some(deets.colour().with_opacity(0.3));
+                deets.shape = None;
+                deets.drawing_mode = Some(::scene::DrawingMode::Cone);
+                Icon::Triangle
             }
             DrawTool::Ellipse => {
                 deets.shape = Some(::scene::Shape::Ellipse);

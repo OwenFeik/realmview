@@ -21,9 +21,11 @@
     * Option to show only to DM or both DM and players
     * Multiple auras don't add opacity, blend by mixing colour, constant %
     * Image pattern in aura
-* Arrow to point, create circle from centre of given radius at point
 * Preview snapping, show dimensions
 * Scale battlemap by dragging 3*3 on grid.
+* Better positioning for line / cone labels (just put near head?)
+* Better bounding boxes for lines / cones. Probably just update rect, remove
+    excess points when done?
 
 ## Bugs
 * Possible to leave game without saving.
