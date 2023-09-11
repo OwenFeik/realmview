@@ -1,104 +1,206 @@
 use serde_derive::{Deserialize, Serialize};
 
 use super::{Id, Point, PointVector, Rect};
-use crate::DrawingMode;
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct Drawing {
-    pub id: Id,
-    pub points: PointVector,
-    pub finished: bool,
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub enum DrawingMode {
+    Cone,
+    Freehand,
+    Line,
 }
 
-impl Drawing {
-    pub fn new(id: Id) -> Self {
-        Self {
-            id,
-            ..Default::default()
-        }
-    }
+#[derive(Clone, Serialize, Deserialize)]
+enum DrawingInner {
+    Freehand(PointVector),
+    Line(Point, Point),
+}
 
-    pub fn line(&self) -> (Point, Point) {
-        let p = self.points.nth(1).unwrap_or(Point::ORIGIN);
-        let q = self.points.last().unwrap_or(Point::ORIGIN);
-        (p, q)
-    }
-
-    pub fn n_points(&self) -> u32 {
-        self.points.n() as u32
-    }
-
-    pub fn keep_n_points(&mut self, n: u32) {
-        self.points.keep_n(n as usize);
-    }
-
-    pub fn last_point(&self) -> Option<Point> {
-        self.points.last()
-    }
-
-    // Adds a new point to the drawing, if it isn't too close to the previous
-    // point.
-    pub fn add_point(&mut self, point: Point) {
-        const MINIMUM_DISTANCE: f32 = 0.1;
-
-        if let Some(prev) = self.points.last() {
-            if prev.dist(point) < MINIMUM_DISTANCE {
-                return;
-            }
-        }
-
-        self.points.add(point);
-    }
-
-    /// Simplifies the drawing such that it's top-left-most point is the
-    /// origin, returning it's from rect before the transformation.
-    pub fn simplify(&mut self) -> Rect {
-        let rect = self.points.rect();
-        let delta = rect.top_left();
-        if delta.non_zero() {
-            self.points.translate(-delta);
-        }
-        rect
-    }
-
-    pub fn length(&self, mode: DrawingMode) -> f32 {
+impl DrawingInner {
+    fn new(mode: DrawingMode) -> Self {
         match mode {
-            DrawingMode::Freehand => {
+            DrawingMode::Cone | DrawingMode::Line => DrawingInner::Line(Point::ORIGIN, Point::ORIGIN),
+            DrawingMode::Freehand => DrawingInner::Freehand(PointVector::new()),
+        }
+    }
+
+    fn from(mode: DrawingMode, points: PointVector) -> Self {
+        match mode {
+            DrawingMode::Cone | DrawingMode::Line => DrawingInner::Line(points.nth(1).unwrap_or_default(), points.last().unwrap_or_default()),
+            DrawingMode::Freehand => DrawingInner::Freehand(points),
+        }
+    }
+
+    fn add(&mut self, point: Point) {
+        match self {
+            DrawingInner::Freehand(points) => {
+                // Adds a new point to the drawing, if it isn't too close to the previous
+                // point.
+                const MINIMUM_DISTANCE: f32 = 0.1;
+
+                if let Some(prev) = points.last() {
+                    if prev.dist(point) < MINIMUM_DISTANCE {
+                        return;
+                    }
+                }
+        
+                points.add(point);
+            },
+            DrawingInner::Line(_, end) => *end = point,
+        }
+    }
+
+    fn line(&self) -> (Point, Point) {
+        match self {
+            DrawingInner::Freehand(points) => {
+                let p = points.nth(1).unwrap_or(Point::ORIGIN);
+                let q = points.last().unwrap_or(Point::ORIGIN);
+                (p, q)
+            },
+            &DrawingInner::Line(p, q) => (p, q),
+        }
+    }
+
+    fn end(&self) -> Option<Point> {
+        match self {
+            DrawingInner::Freehand(points) => points.last(),
+            &DrawingInner::Line(_, end) => Some(end),
+        }
+    }
+
+    /// Simplifies the drawing such that its top-left-most point is the
+    /// origin, returning its from rect before the transformation.
+    fn simplify(&mut self) -> Rect {
+        match self {
+            DrawingInner::Freehand(points) => {
+                let rect = points.rect();
+                let delta = rect.top_left();
+                if delta.non_zero() {
+                    points.translate(-delta);
+                }
+                rect
+            },
+            DrawingInner::Line(..) => self.rect(),
+        }
+    }
+
+    fn length(&self) -> f32 {
+        match self {
+            DrawingInner::Freehand(points) => {
                 let mut dist = 0.0;
                 let mut prev = None;
-                self.points.iter(|p| {
+                points.iter(|p| {
                     if let Some(q) = prev {
                         dist += p.dist(q);
                     }
                     prev = Some(p);
                 });
                 dist
-            }
-            DrawingMode::Cone | DrawingMode::Line => {
-                if let (Some(first), Some(last)) = (self.points.nth(1), self.points.last()) {
-                    first.dist(last)
-                } else {
-                    0.0
-                }
-            }
+            },
+            &DrawingInner::Line(p, q) => p.dist(q),
         }
     }
 
-    fn translate(&mut self, offset: f32) {
-        self.points.translate(Point::same(offset));
+    fn rect(&self) -> Rect {
+        match self {
+            DrawingInner::Freehand(points) => points.rect(),
+            DrawingInner::Line(p, q) => Rect {
+                x: p.x.min(q.x),
+                y: p.y.min(q.y),
+                w: (p.x - q.x).abs(),
+                h: (p.y - q.y).abs(),
+            },
+        }
     }
 
-    fn scale(&mut self, sx: f32, sy: f32) {
-        self.points.map(|p| Point::new(p.x * sx, p.y * sy));
+    fn encode(self) -> Vec<u8> {
+        let points = match self {
+            DrawingInner::Freehand(points) => points,
+            DrawingInner::Line(p, q) => {
+                let mut points = PointVector::new();
+                points.add(p);
+                points.add(q);
+                points
+            },
+        };
+
+        points
+            .data
+            .iter()
+            .flat_map(|f| f.to_be_bytes())
+            .collect()
     }
 }
 
-impl Default for Drawing {
-    fn default() -> Self {
+#[derive(Clone, Deserialize, Serialize)]
+pub struct Drawing {
+    pub id: Id,
+    pub finished: bool,
+    pub mode: DrawingMode,
+    inner: DrawingInner,
+}
+
+impl Drawing {
+    pub fn new(id: Id, mode: DrawingMode) -> Self {
         Self {
-            id: 0,
-            points: PointVector::new(),
+            id,
             finished: false,
+            mode,
+            inner: DrawingInner::new(mode)
         }
+    }
+
+    pub fn from(id: Id, mode: DrawingMode, points: PointVector) -> Self {
+        Self {
+            id,
+            finished: true,
+            mode,
+            inner: DrawingInner::from(mode, points)
+        }
+    }
+
+    pub fn line(&self) -> (Point, Point) {
+        self.inner.line()
+    }
+
+    pub fn last_point(&self) -> Option<Point> {
+        self.inner.end()
+    }
+
+
+    pub fn add_point(&mut self, point: Point) {
+        self.inner.add(point);
+    }
+
+    /// Simplifies the drawing such that its top-left-most point is the
+    /// origin, returning its from rect before the transformation.
+    pub fn simplify(&mut self) -> Rect {
+        self.inner.simplify()
+    }
+
+    pub fn length(&self) -> f32 {
+        self.inner.length()
+    }
+
+    pub fn rect(&self) -> Rect {
+        self.inner.rect()
+    }
+
+    pub fn n_points(&self) -> u32 {
+        match &self.inner {
+            DrawingInner::Freehand(points) => points.n() as u32,
+            DrawingInner::Line(_, _) => 2,
+        }
+    }
+
+    pub fn points(&self) -> Option<&PointVector> {
+        if let DrawingInner::Freehand(points) = &self.inner {
+            Some(points)
+        } else {
+            None
+        }
+    }
+
+    pub fn encode(&self) -> Vec<u8> {
+        self.inner.clone().encode()
     }
 }

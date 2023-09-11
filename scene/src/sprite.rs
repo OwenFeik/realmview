@@ -71,12 +71,7 @@ impl Shape {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
-pub enum DrawingMode {
-    Cone,
-    Freehand,
-    Line,
-}
+
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub enum Cap {
@@ -121,7 +116,6 @@ pub enum Visual {
     },
     Drawing {
         drawing: Id,
-        mode: DrawingMode,
         colour: Colour,
         stroke: f32,
         cap_start: Cap,
@@ -206,14 +200,6 @@ impl Visual {
             None
         }
     }
-
-    pub fn drawing_mode(&self) -> Option<DrawingMode> {
-        if let Self::Drawing { mode, .. } = self {
-            Some(*mode)
-        } else {
-            None
-        }
-    }
 }
 
 pub struct Outline {
@@ -244,7 +230,6 @@ impl Sprite {
     pub const SOLID_STROKE: f32 = 0.0;
     pub const DEFAULT_WIDTH: f32 = 1.0;
     pub const DEFAULT_HEIGHT: f32 = 1.0;
-    pub const DEFAULT_MODE: DrawingMode = DrawingMode::Freehand;
 
     // Minimum size of a sprite dimension; too small and sprites can be lost.
     const MIN_SIZE: f32 = 0.25;
@@ -402,16 +387,6 @@ impl Sprite {
         if let Visual::Texture { id: _, shape } = self.visual {
             let old = self.visual.clone();
             self.visual = Visual::Texture { id: new, shape };
-            Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
-        } else {
-            None
-        }
-    }
-
-    pub fn set_drawing_type(&mut self, new: DrawingMode) -> Option<SceneEvent> {
-        let old = self.visual.clone();
-        if let Visual::Drawing { mode, .. } = &mut self.visual {
-            *mode = new;
             Some(SceneEvent::SpriteVisual(self.id, old, self.visual.clone()))
         } else {
             None

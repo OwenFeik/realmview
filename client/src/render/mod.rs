@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use scene::{
-    Cap, Colour, Drawing, DrawingMode, Fog, Id, Outline, Point, Rect, Scene, Shape, Sprite,
+    Cap, Colour, Drawing, Fog, Id, Outline, Point, Rect, Scene, Shape, Sprite,
 };
 use web_sys::{HtmlImageElement, WebGl2RenderingContext};
 
@@ -118,7 +118,6 @@ pub trait Renderer {
         vp: ViewInfo,
         position: Rect,
         drawing: &Drawing,
-        mode: DrawingMode,
         colour: Colour,
         stroke: f32,
         start: Cap,
@@ -165,7 +164,6 @@ pub trait Renderer {
             }
             scene::SpriteVisual::Drawing {
                 drawing: _id,
-                mode,
                 colour,
                 stroke,
                 cap_start,
@@ -173,7 +171,7 @@ pub trait Renderer {
             } => {
                 if let Some(drawing) = drawing {
                     self.draw_drawing(
-                        vp, position, drawing, mode, colour, stroke, cap_start, cap_end,
+                        vp, position, drawing, colour, stroke, cap_start, cap_end,
                     );
                 }
             }
@@ -328,14 +326,12 @@ impl Renderer for WebGlRenderer {
         vp: ViewInfo,
         position: Rect,
         drawing: &Drawing,
-        mode: DrawingMode,
         colour: Colour,
         stroke: f32,
         start: Cap,
         end: Cap,
     ) {
         self.drawing_renderer.draw_drawing(
-            mode,
             drawing,
             stroke,
             start,

@@ -438,7 +438,6 @@ impl DrawingRenderer {
         &mut self,
         id: scene::Id,
         rect: scene::Rect,
-        drawing_mode: scene::DrawingMode,
         drawing: &scene::Drawing,
         stroke: f32,
         cap_start: scene::Cap,
@@ -446,7 +445,7 @@ impl DrawingRenderer {
     ) -> anyhow::Result<()> {
         // Before drawing is finished the sprite will always be 1*1. Only after
         // it is finished do we need to think about it being resized.
-        let points_rect = drawing.points.rect();
+        let points_rect = drawing.rect();
         let (scale_x, scale_y) = if drawing.finished {
             (
                 self.grid_size * rect.w / points_rect.w,
@@ -456,9 +455,9 @@ impl DrawingRenderer {
             (self.grid_size, self.grid_size)
         };
 
-        let points = match drawing_mode {
+        let points = match drawing.mode {
             scene::DrawingMode::Freehand => super::shapes::freehand(
-                &drawing.points,
+                drawing.points().unwrap(),
                 stroke,
                 cap_start,
                 cap_end,
@@ -511,7 +510,6 @@ impl DrawingRenderer {
 
     pub fn draw_drawing(
         &mut self,
-        mode: scene::DrawingMode,
         drawing: &scene::Drawing,
         stroke: f32,
         start: scene::Cap,
@@ -527,11 +525,11 @@ impl DrawingRenderer {
             self.renderer
                 .draw(mesh, colour, viewport, position * grid_size);
         } else if self
-            .add_drawing(id, position, mode, drawing, stroke, start, end)
+            .add_drawing(id, position, drawing, stroke, start, end)
             .is_ok()
         {
             self.draw_drawing(
-                mode, drawing, stroke, start, end, colour, viewport, position, grid_size,
+                drawing, stroke, start, end, colour, viewport, position, grid_size,
             );
         }
     }

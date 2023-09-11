@@ -27,7 +27,7 @@ pub enum SceneEvent {
     SceneDimensions(u32, u32, u32, u32),          // (old_w, old_h, new_w, new_h)
     SceneTitle(Option<String>, String),           // (old_title, new_title)
     SpriteDrawingFinish(Id, Id),                  // (drawing, sprite)
-    SpriteDrawingPoint(Id, u32, Point),           // (drawing, npoints, point)
+    SpriteDrawingPoint(Id, Point),                // (drawing, npoints, point)
     SpriteLayer(Id, Id, Id),                      // (sprite, old_layer, new_layer)
     SpriteMove(Id, Rect, Rect),                   // (sprite, from, to)
     SpriteNew(Sprite, Id),                        // (new_sprite, layer)

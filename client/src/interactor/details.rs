@@ -65,7 +65,6 @@ pub struct SpriteDetails {
     pub solid: Option<bool>,
     pub colour: Option<Colour>,
     pub texture: Option<Id>,
-    pub drawing_mode: Option<scene::DrawingMode>,
     pub cap_start: Option<scene::Cap>,
     pub cap_end: Option<scene::Cap>,
 }
@@ -83,7 +82,6 @@ impl SpriteDetails {
             solid: sprite.visual.solid(),
             colour: sprite.visual.colour(),
             texture: sprite.visual.texture(),
-            drawing_mode: sprite.visual.drawing_mode(),
             cap_start: sprite.visual.cap_start(),
             cap_end: sprite.visual.cap_end(),
         }
@@ -98,7 +96,6 @@ impl SpriteDetails {
 
         SpriteVisual::Drawing {
             drawing: 0,
-            mode: self.drawing_mode(),
             colour: self.colour(),
             cap_start: self.cap_start(),
             cap_end: self.cap_end(),
@@ -142,10 +139,6 @@ impl SpriteDetails {
 
         if other.texture.is_some() {
             self.texture = other.texture;
-        }
-
-        if other.drawing_mode.is_some() {
-            self.drawing_mode = other.drawing_mode;
         }
 
         if other.cap_start.is_some() {
@@ -196,10 +189,6 @@ impl SpriteDetails {
 
         if self.texture.is_some() && self.texture != sprite.visual.texture() {
             self.texture = None;
-        }
-
-        if self.drawing_mode.is_some() && self.drawing_mode != sprite.visual.drawing_mode() {
-            self.drawing_mode = None;
         }
 
         if self.cap_start.is_some() && self.cap_start != sprite.visual.cap_start() {
@@ -259,12 +248,6 @@ impl SpriteDetails {
             }
         }
 
-        if let Some(drawing_type) = self.drawing_mode {
-            if let Some(event) = sprite.set_drawing_type(drawing_type) {
-                events.push(event);
-            }
-        }
-
         if let Some(event) = sprite.set_caps(self.cap_start, self.cap_end) {
             events.push(event);
         }
@@ -282,10 +265,6 @@ impl SpriteDetails {
 
     pub fn solid(&self) -> bool {
         self.solid.unwrap_or(false)
-    }
-
-    fn drawing_mode(&self) -> scene::DrawingMode {
-        self.drawing_mode.unwrap_or(scene::Sprite::DEFAULT_MODE)
     }
 
     fn cap_start(&self) -> scene::Cap {

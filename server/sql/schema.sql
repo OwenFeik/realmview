@@ -78,7 +78,6 @@ CREATE TABLE IF NOT EXISTS sprites (
     b REAL,
     a REAL,
     drawing INTEGER, -- References drawing ID in scene
-    drawing_type INTEGER,
     cap_start INTEGER,
     cap_end INTEGER,
     UNIQUE(id, scene)
@@ -87,6 +86,7 @@ CREATE TABLE IF NOT EXISTS sprites (
 CREATE TABLE IF NOT EXISTS drawings (
     id INTEGER NOT NULL,
     scene INTEGER REFERENCES scenes(id) ON DELETE CASCADE NOT NULL,
+    mode INTEGER,
     points BLOB, -- Vec<f32>, big endian encoded
     UNIQUE(id, scene)
 );

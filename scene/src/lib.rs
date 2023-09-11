@@ -5,13 +5,14 @@
 use std::collections::HashMap;
 
 use comms::SceneEvent;
-pub use drawing::Drawing;
+pub use drawing::{Drawing, DrawingMode};
 pub use fog::Fog;
 pub use group::Group;
 pub use layer::Layer;
 pub use point::{Point, PointVector};
+use rect::float_eq;
 pub use rect::{Dimension, Rect};
-pub use sprite::{Cap, Colour, DrawingMode, Outline, Shape, Sprite, Visual as SpriteVisual};
+pub use sprite::{Cap, Colour, Outline, Shape, Sprite, Visual as SpriteVisual};
 
 pub mod comms;
 pub mod perms;
@@ -486,8 +487,8 @@ impl Scene {
             .unwrap_or(0)
     }
 
-    fn create_drawing(&mut self, id: Id) {
-        let drawing = Drawing::new(id);
+    fn create_drawing(&mut self, id: Id, mode: DrawingMode) {
+        let drawing = Drawing::new(id, mode);
         self.sprite_drawings.insert(id, drawing);
     }
 
@@ -499,29 +500,24 @@ impl Scene {
         self.sprite_drawings.values().collect::<Vec<&Drawing>>()
     }
 
-    pub fn start_drawing(&mut self) -> Id {
+    pub fn start_drawing(&mut self, mode: DrawingMode) -> Id {
         let id = self.next_id();
-        self.create_drawing(id);
+        self.create_drawing(id, mode);
         id
     }
 
     pub fn add_drawing_point(&mut self, id: Id, point: Point) -> Option<SceneEvent> {
         if let Some(drawing) = self.sprite_drawings.get_mut(&id) {
             drawing.add_point(point);
-            Some(SceneEvent::SpriteDrawingPoint(
-                id,
-                drawing.n_points(),
-                point,
-            ))
+            Some(SceneEvent::SpriteDrawingPoint(id, point))
         } else {
-            self.create_drawing(id);
-            self.add_drawing_point(id, point)
+            None
         }
     }
 
     pub fn finish_drawing(&mut self, drawing: Id, sprite: Id) -> Option<SceneEvent> {
         let rect = if let Some(d) = self.sprite_drawings.get_mut(&drawing) {
-            if d.n_points() == 1 {
+            if float_eq(d.length(), 0.0) {
                 return self.remove_sprite(sprite);
             } else {
                 d.finished = true;
@@ -657,7 +653,7 @@ impl Scene {
                     false
                 }
             }
-            SceneEvent::SpriteDrawingPoint(id, _, at) => self.add_drawing_point(id, at).is_some(),
+            SceneEvent::SpriteDrawingPoint(id, at) => self.add_drawing_point(id, at).is_some(),
             SceneEvent::SpriteNew(s, l) => {
                 if self.sprite(s.id).is_none() {
                     self.add_sprite(s, l).is_some()
@@ -754,16 +750,7 @@ impl Scene {
                 None
             }
             SceneEvent::SpriteDrawingFinish(..) => None,
-            SceneEvent::SpriteDrawingPoint(id, n, _) => {
-                if let Some(drawing) = self.sprite_drawings.get_mut(&id) {
-                    drawing.keep_n_points(n - 1);
-                    drawing
-                        .last_point()
-                        .map(|at| SceneEvent::SpriteDrawingPoint(id, n, at))
-                } else {
-                    None
-                }
-            }
+            SceneEvent::SpriteDrawingPoint(..) => None,
             SceneEvent::SpriteNew(s, _) => self.remove_sprite(s.id),
             SceneEvent::SpriteLayer(id, old_layer, new_layer) => {
                 if self.layer_ref(new_layer)?.sprite_ref(id).is_some() {

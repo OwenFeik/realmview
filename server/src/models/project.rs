@@ -566,7 +566,6 @@ mod sprite {
         b: Option<f32>,
         a: Option<f32>,
         drawing: Option<i64>,
-        drawing_type: Option<u8>,
         cap_start: Option<u8>,
         cap_end: Option<u8>,
     }
@@ -604,7 +603,6 @@ mod sprite {
                 g: sprite.visual.colour().map(|c| c.g()),
                 b: sprite.visual.colour().map(|c| c.b()),
                 a: sprite.visual.colour().map(|c| c.a()),
-                drawing_type: sprite.visual.drawing_mode().map(Self::drawing_mode_to_u8),
                 cap_start,
                 cap_end,
             };
@@ -637,23 +635,6 @@ mod sprite {
             }
         }
 
-        fn drawing_mode_to_u8(drawing_type: scene::DrawingMode) -> u8 {
-            match drawing_type {
-                scene::DrawingMode::Freehand => 1,
-                scene::DrawingMode::Line => 2,
-                scene::DrawingMode::Cone => 3,
-            }
-        }
-
-        fn u8_to_drawing_mode(int: u8) -> scene::DrawingMode {
-            match int {
-                1 => scene::DrawingMode::Freehand,
-                2 => scene::DrawingMode::Line,
-                3 => scene::DrawingMode::Cone,
-                _ => scene::DrawingMode::Freehand,
-            }
-        }
-
         fn cap_to_u8(cap: scene::Cap) -> u8 {
             match cap {
                 scene::Cap::Arrow => 1,
@@ -673,7 +654,6 @@ mod sprite {
         fn visual(&self) -> Option<scene::SpriteVisual> {
             if let Some(drawing) = self.drawing {
                 Some(scene::SpriteVisual::Drawing {
-                    mode: Self::u8_to_drawing_mode(self.drawing_type?),
                     drawing,
                     stroke: self.stroke?,
                     colour: Colour([self.r?, self.g?, self.b?, self.a?]),
@@ -735,7 +715,6 @@ mod sprite {
             .bind(record.b)
             .bind(record.a)
             .bind(record.drawing)
-            .bind(record.drawing_type)
             .bind(record.cap_start)
             .bind(record.cap_end)
             .fetch_one(conn)
@@ -789,6 +768,7 @@ mod drawing {
     pub struct DrawingRecord {
         id: i64,
         scene: i64,
+        mode: u8,
         points: Vec<u8>,
     }
 
@@ -797,12 +777,8 @@ mod drawing {
             Self {
                 id: drawing.id,
                 scene,
-                points: drawing
-                    .points
-                    .data
-                    .iter()
-                    .flat_map(|f| f.to_be_bytes())
-                    .collect(),
+                mode: Self::drawing_mode_to_u8(drawing.mode),
+                points: drawing.encode()
             }
         }
 
@@ -812,9 +788,10 @@ mod drawing {
             scene: i64,
         ) -> anyhow::Result<()> {
             let record = Self::from_drawing(drawing, scene);
-            sqlx::query("INSERT INTO drawings (id, scene, points) VALUES (?1, ?2, ?3);")
+            sqlx::query("INSERT INTO drawings (id, scene, mode, points) VALUES (?1, ?2, ?3, ?4);")
                 .bind(drawing.id)
                 .bind(scene)
+                .bind(Self::drawing_mode_to_u8(drawing.mode))
                 .bind(record.points)
                 .execute(conn)
                 .await
@@ -899,15 +876,29 @@ mod drawing {
         }
 
         pub fn drawing(&self) -> scene::Drawing {
-            scene::Drawing {
-                id: self.id,
-                points: scene::PointVector::from(
-                    self.points
-                        .chunks_exact(32 / 8)
-                        .map(|b| f32::from_be_bytes([b[0], b[1], b[2], b[3]]))
-                        .collect(),
-                ),
-                finished: true,
+            let points = scene::PointVector::from(
+                self.points
+                    .chunks_exact(32 / 8)
+                    .map(|b| f32::from_be_bytes([b[0], b[1], b[2], b[3]]))
+                    .collect(),
+            );
+            scene::Drawing::from(self.id, Self::u8_to_drawing_mode(self.mode), points)
+        }
+
+        fn drawing_mode_to_u8(drawing_type: scene::DrawingMode) -> u8 {
+            match drawing_type {
+                scene::DrawingMode::Freehand => 1,
+                scene::DrawingMode::Line => 2,
+                scene::DrawingMode::Cone => 3,
+            }
+        }
+
+        fn u8_to_drawing_mode(int: u8) -> scene::DrawingMode {
+            match int {
+                1 => scene::DrawingMode::Freehand,
+                2 => scene::DrawingMode::Line,
+                3 => scene::DrawingMode::Cone,
+                _ => scene::DrawingMode::Freehand,
             }
         }
     }

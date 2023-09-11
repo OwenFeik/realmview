@@ -22,12 +22,11 @@ fn test_sprite_drawing() {
     let mut server = Scene::new();
     let mut client = server.non_canon();
 
-    let drawing = client.start_drawing();
+    let drawing = client.start_drawing(crate::DrawingMode::Freehand);
     let event = client
         .new_sprite(
             Some(SpriteVisual::Drawing {
                 drawing,
-                mode: crate::DrawingMode::Freehand,
                 colour: crate::Colour([0.0, 255.0, 0.0, 255.0]),
                 stroke: crate::Sprite::DEFAULT_STROKE,
                 cap_start: crate::Cap::Arrow,
@@ -40,5 +39,5 @@ fn test_sprite_drawing() {
 
     let event = client.add_drawing_point(drawing, Point::same(1.0)).unwrap();
     assert!(server.apply_event(event));
-    assert!(server.get_drawing(drawing).unwrap().n_points() == 1);
+    assert!(server.get_drawing(drawing).unwrap().last_point().unwrap() == Point::same(1.0));
 }

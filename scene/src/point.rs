@@ -58,6 +58,12 @@ impl Point {
     }
 }
 
+impl Default for Point {
+    fn default() -> Self {
+        Self::ORIGIN
+    }
+}
+
 impl Add for Point {
     type Output = Point;
 
