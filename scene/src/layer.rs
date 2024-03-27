@@ -108,7 +108,7 @@ impl Layer {
     pub fn remove_sprite(&mut self, id: Id) -> Option<SceneEvent> {
         if let Some(s) = self.take_sprite(id) {
             self.removed_sprites.push(s);
-            Some(SceneEvent::SpriteRemove(id))
+            Some(SceneEvent::SpriteRemove(id, self.id))
         } else {
             None
         }

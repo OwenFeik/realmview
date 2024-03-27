@@ -1,6 +1,6 @@
 use crate::{dom::element::Element, viewport::ViewportPoint};
 
-const HOVER_ROOT_ID: &'static str = "canvas_text";
+const HOVER_ROOT_ID: &str = "canvas_text";
 
 struct HoverText {
     element: Element,

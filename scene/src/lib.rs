@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![feature(extract_if)]
 #![feature(int_roundings)]
+#![feature(let_chains)]
 
 use std::collections::HashMap;
 
@@ -468,16 +469,16 @@ impl Scene {
 
     pub fn event_layer(&self, event: &SceneEvent) -> Option<Id> {
         if event.is_layer() {
-            event.item()
+            event.layer()
         } else if event.is_sprite() {
-            self.get_sprite_layer(event.item()?)
+            self.get_sprite_layer(event.sprite()?)
         } else {
             None
         }
     }
 
     pub fn first_layer(&self) -> Id {
-        self.layers.get(0).map(|l| l.id).unwrap_or(0)
+        self.layers.first().map(|l| l.id).unwrap_or(0)
     }
 
     pub fn first_background_layer(&self) -> Id {
@@ -487,9 +488,10 @@ impl Scene {
             .unwrap_or(0)
     }
 
-    fn create_drawing(&mut self, id: Id, mode: DrawingMode) {
+    fn create_drawing(&mut self, id: Id, mode: DrawingMode) -> SceneEvent {
         let drawing = Drawing::new(id, mode);
         self.sprite_drawings.insert(id, drawing);
+        SceneEvent::SpriteDrawingStart(id, mode)
     }
 
     pub fn get_drawing(&self, id: Id) -> Option<&Drawing> {
@@ -500,10 +502,9 @@ impl Scene {
         self.sprite_drawings.values().collect::<Vec<&Drawing>>()
     }
 
-    pub fn start_drawing(&mut self, mode: DrawingMode) -> Id {
+    pub fn start_drawing(&mut self, mode: DrawingMode) -> SceneEvent {
         let id = self.next_id();
-        self.create_drawing(id, mode);
-        id
+        self.create_drawing(id, mode)
     }
 
     pub fn add_drawing_point(&mut self, id: Id, point: Point) -> Option<SceneEvent> {
@@ -639,6 +640,14 @@ impl Scene {
                     false
                 }
             }
+            SceneEvent::SpriteDrawingStart(id, mode) => {
+                if self.get_drawing(id).is_none() {
+                    self.create_drawing(id, mode);
+                    true
+                } else {
+                    false
+                }
+            }
             SceneEvent::SpriteDrawingFinish(d, s) => {
                 if let Some(drawing) = self.sprite_drawings.get_mut(&d) {
                     let rect = drawing.simplify();
@@ -683,7 +692,7 @@ impl Scene {
                     _ => false,
                 }
             }
-            SceneEvent::SpriteRemove(id) => {
+            SceneEvent::SpriteRemove(id, _layer) => {
                 self.remove_sprite(id);
 
                 // Always approve removal because the only failure mode is that
@@ -749,6 +758,7 @@ impl Scene {
                 }
                 None
             }
+            SceneEvent::SpriteDrawingStart(..) => None,
             SceneEvent::SpriteDrawingFinish(..) => None,
             SceneEvent::SpriteDrawingPoint(..) => None,
             SceneEvent::SpriteNew(s, _) => self.remove_sprite(s.id),
@@ -762,7 +772,7 @@ impl Scene {
             SceneEvent::SpriteMove(id, from, to) => {
                 self.sprite(id).map(|s| s.set_rect(s.rect - (to - from)))
             }
-            SceneEvent::SpriteRemove(id) => self.restore_sprite(id),
+            SceneEvent::SpriteRemove(id, _layer) => self.restore_sprite(id),
             SceneEvent::SpriteRestore(id) => self.remove_sprite(id),
             SceneEvent::SpriteVisual(id, old, new) => {
                 let sprite = self.sprite(id)?;

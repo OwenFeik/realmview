@@ -110,12 +110,6 @@ impl DrawMenu {
                 .inputs
                 .get_string(Self::CAP_END)
                 .map(|name| scene::Cap::from(&name)),
-            drawing_mode: match self.tool {
-                DrawTool::Cone => Some(scene::DrawingMode::Cone),
-                DrawTool::Freehand => Some(scene::DrawingMode::Freehand),
-                DrawTool::Line => Some(scene::DrawingMode::Line),
-                DrawTool::Circle | DrawTool::Ellipse | DrawTool::Rectangle => None,
-            },
             ..Default::default()
         }
     }
@@ -152,7 +146,6 @@ impl DrawMenu {
             DrawTool::Cone => {
                 deets.colour = Some(deets.colour().with_opacity(0.3));
                 deets.shape = None;
-                deets.drawing_mode = Some(::scene::DrawingMode::Cone);
                 Icon::Triangle
             }
             DrawTool::Ellipse => {
@@ -161,13 +154,11 @@ impl DrawMenu {
             }
             DrawTool::Freehand => {
                 deets.shape = None;
-                deets.drawing_mode = Some(::scene::DrawingMode::Freehand);
                 deets.cap_end = Some(::scene::Cap::Round);
                 Icon::Brush
             }
             DrawTool::Line => {
                 deets.shape = None;
-                deets.drawing_mode = Some(::scene::DrawingMode::Line);
                 deets.cap_end = Some(::scene::Cap::Arrow);
                 Icon::Line
             }

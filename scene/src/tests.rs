@@ -1,4 +1,4 @@
-use crate::{Point, Scene, SpriteVisual};
+use crate::{comms::SceneEvent, Point, Scene, SpriteVisual};
 
 #[test]
 fn test_layer_move() {
@@ -22,7 +22,12 @@ fn test_sprite_drawing() {
     let mut server = Scene::new();
     let mut client = server.non_canon();
 
-    let drawing = client.start_drawing(crate::DrawingMode::Freehand);
+    let event = client.start_drawing(crate::DrawingMode::Freehand);
+    assert!(server.apply_event(event.clone()));
+
+    let SceneEvent::SpriteDrawingStart(drawing, ..) = event else {
+        panic!();
+    };
     let event = client
         .new_sprite(
             Some(SpriteVisual::Drawing {

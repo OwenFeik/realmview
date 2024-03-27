@@ -48,6 +48,19 @@ pub enum DrawTool {
     Rectangle,
 }
 
+impl DrawTool {
+    pub fn mode(&self) -> Option<scene::DrawingMode> {
+        match self {
+            DrawTool::Circle => None,
+            DrawTool::Cone => Some(scene::DrawingMode::Cone),
+            DrawTool::Ellipse => None,
+            DrawTool::Freehand => Some(scene::DrawingMode::Freehand),
+            DrawTool::Line => Some(scene::DrawingMode::Line),
+            DrawTool::Rectangle => None,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct ViewportPoint {
     pub x: f32,
@@ -112,7 +125,7 @@ pub struct Viewport {
 
 impl Viewport {
     const BASE_GRID_ZOOM: f32 = 50.0;
-    const SAVE_INTERVAL_MS: u64 = 1000 * 5 * 60;
+    const SAVE_INTERVAL_MS: u64 = 1000 * 60; // 1 minute.
 
     pub fn new(client: Option<Client>) -> anyhow::Result<Self> {
         let scene = Interactor::new(client);

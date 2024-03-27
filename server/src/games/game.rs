@@ -55,7 +55,10 @@ impl Game {
     /// this and just return (None, None).
     fn player_layer(&mut self, user: i64) -> (Option<SceneEvent>, Option<scene::Id>) {
         let Some(name) = self.users.get(&user) else {
-            warning(format!("(Game: {}) Couldn't find player (Id: {}) name.", self.key, user));
+            warning(format!(
+                "(Game: {}) Couldn't find player (Id: {}) name.",
+                self.key, user
+            ));
             return (None, None);
         };
 
@@ -125,16 +128,13 @@ impl Game {
     }
 
     pub fn handle_event(&mut self, user: i64, event: SceneEvent) -> (bool, Option<ServerEvent>) {
-        if self
-            .perms
-            .permitted(user, &event, self.scene.event_layer(&event))
-            && self.scene.apply_event(event.clone())
-        {
-            let overrides = self.perms.ownership_overrides(user, &event).map(|events| {
-                ServerEvent::EventSet(events.into_iter().map(ServerEvent::PermsUpdate).collect())
-            });
+        if self.perms.permitted(user, &event) && self.scene.apply_event(event.clone()) {
+            let perms_event = self
+                .perms
+                .ownership_override(user, &event)
+                .map(ServerEvent::PermsUpdate);
 
-            (true, overrides)
+            (true, perms_event)
         } else {
             (false, None)
         }

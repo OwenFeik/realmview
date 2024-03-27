@@ -2,6 +2,10 @@
     "rust-analyzer.server.extraEnv": {
         "CARGO_TARGET_DIR": "build/target"
     },
+    "rust-analyzer.check.command": "clippy",
+    "[rust]": {
+        "editor.formatOnSave": true,
+    },
     "[html]": {
         "editor.formatOnSave": false,
         "editor.tabSize": 2,

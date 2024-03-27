@@ -12,7 +12,7 @@ mod scene;
 mod sprite;
 mod tools;
 
-const CAP_OPTIONS: &'static [(&str, &str)] = &[("Arrow", "arrow"), ("Round", "round"), ("None", "none")];
+const CAP_OPTIONS: &[(&str, &str)] = &[("Arrow", "arrow"), ("Round", "round"), ("None", "none")];
 
 fn id(key: &str) -> String {
     format!("#{key}")

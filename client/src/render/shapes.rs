@@ -248,7 +248,7 @@ pub fn circle() -> Vec<f32> {
 }
 
 pub fn rectangle() -> Vec<f32> {
-    const RECTANGLE: &'static [f32] = &[0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0];
+    const RECTANGLE: &[f32] = &[0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0];
     RECTANGLE.to_owned()
 }
 
@@ -315,7 +315,7 @@ pub fn cone((p, q): (Point, Point), scale: f32) -> Vec<f32> {
 
     let left = q + Point::trig(theta - PI / 2.0) * h * 0.5;
     let right = q + Point::trig(theta + PI / 2.0) * h * 0.5;
-    
+
     let mut coords = PointVector::new();
     coords.add_tri(left, right, p);
     coords.scale(scale);

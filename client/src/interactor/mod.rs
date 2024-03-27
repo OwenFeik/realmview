@@ -157,10 +157,7 @@ impl Interactor {
     }
 
     fn scene_event(&mut self, event: SceneEvent) {
-        if self
-            .perms
-            .permitted(self.user, &event, self.scene.event_layer(&event))
-        {
+        if self.perms.permitted(self.user, &event) {
             self.change_if(&event);
             self.history.issue_event(event);
         } else {
@@ -336,7 +333,10 @@ impl Interactor {
     /// Common handling for sprites in groups and single sprites. Only called
     /// from select.
     fn _select(&mut self, id: Id, require_visible: bool) {
-        if !self.is_selected(id) && self.perms.selectable(self.user, id) {
+        if !self.is_selected(id)
+            && let Some(layer) = self.scene.get_sprite_layer(id)
+            && self.perms.selectable(self.user, id, layer)
+        {
             if let Some(s) = self.sprite_ref(id) {
                 if !require_visible || self.role.editor() || !self.scene.fog.rect_occluded(s.rect) {
                     self.selection_aligned = self.selection_aligned && s.rect.is_aligned();
@@ -347,6 +347,7 @@ impl Interactor {
         }
     }
 
+    /// Select a sprite.
     fn select(&mut self, id: Id) {
         if let Some(g) = self.scene.sprite_group(id).map(|g| g.sprites().to_owned()) {
             g.iter().for_each(|id| self._select(*id, false));
@@ -479,8 +480,12 @@ impl Interactor {
                 }
             }
             DrawTool::Cone | DrawTool::Freehand | DrawTool::Line => {
+                let Some(mode) = tool.mode() else {
+                    return;
+                };
+
                 let mut visual = details.drawing();
-                let drawing_id = self.scene.start_drawing();
+                let drawing_id = self.scene.start_drawing(mode);
                 if let SpriteVisual::Drawing { drawing, .. } = &mut visual {
                     *drawing = drawing_id;
                 }
@@ -526,7 +531,7 @@ impl Interactor {
                 let w = delta_x * (dx as f32) + sprite.rect.w;
                 let h = delta_y * (dy as f32) + sprite.rect.h;
                 let rect = Rect { x, y, w, h };
-                
+
                 if maintain_aspect_ratio {
                     sprite.set_rect(rect.match_aspect(starting_rect))
                 } else {
@@ -570,12 +575,11 @@ impl Interactor {
     fn add_sprite_measurements(&self, sprite: Id, to: &mut Vec<(Point, f32)>) {
         if let Some(sprite) = self.sprite_ref(sprite) {
             match sprite.visual {
-                SpriteVisual::Drawing { drawing, mode, .. } => {
+                SpriteVisual::Drawing { drawing, .. } => {
                     if let Some(drawing) = self.scene.get_drawing(drawing) {
                         to.push((
-                            drawing.points.rect().top_left() + sprite.rect.top_left()
-                                - Point::same(0.5),
-                            drawing.length(mode),
+                            drawing.rect().top_left() + sprite.rect.top_left() - Point::same(0.5),
+                            drawing.length(),
                         ));
                     }
                 }
@@ -607,7 +611,9 @@ impl Interactor {
             self.add_sprite_measurements(sprite, &mut measurements);
         }
 
-        if self.single_selected() && let Some(sprite) = self.selected_id() {
+        if self.single_selected()
+            && let Some(sprite) = self.selected_id()
+        {
             self.add_sprite_measurements(sprite, &mut measurements);
         }
 
@@ -862,7 +868,7 @@ impl Interactor {
         let z = self
             .scene
             .layers
-            .get(0)
+            .first()
             .map(|l| (l.z + 1).max(1))
             .unwrap_or(1);
         let opt = self.scene.new_layer("Untitled", z);
@@ -1046,7 +1052,7 @@ impl Interactor {
                     solid: true,
                     colour: colour.with_opacity(0.6),
                 },
-                Rect::at(c - Point::same(r), 2.0 * r, 2.0 * r)
+                Rect::at(c - Point::same(r), 2.0 * r, 2.0 * r),
             )
         }) {
             if let Some(aura) = self.new_sprite_at(

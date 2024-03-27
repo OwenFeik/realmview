@@ -1,9 +1,10 @@
 use serde_derive::{Deserialize, Serialize};
 
 use super::{
-    perms::{Override, PermSet, Perms, Role},
+    perms::{Override, Perms, Role},
     Id, Point, Rect, Scene, Sprite, SpriteVisual,
 };
+use crate::DrawingMode;
 
 // Events processed by Scene
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -26,12 +27,13 @@ pub enum SceneEvent {
     LayerVisibility(Id, bool),                    // (layer, status)
     SceneDimensions(u32, u32, u32, u32),          // (old_w, old_h, new_w, new_h)
     SceneTitle(Option<String>, String),           // (old_title, new_title)
+    SpriteDrawingStart(Id, DrawingMode),          // (drawing, mode)
     SpriteDrawingFinish(Id, Id),                  // (drawing, sprite)
     SpriteDrawingPoint(Id, Point),                // (drawing, npoints, point)
     SpriteLayer(Id, Id, Id),                      // (sprite, old_layer, new_layer)
     SpriteMove(Id, Rect, Rect),                   // (sprite, from, to)
     SpriteNew(Sprite, Id),                        // (new_sprite, layer)
-    SpriteRemove(Id),                             // (sprite)
+    SpriteRemove(Id, Id),                         // (sprite, layer)
     SpriteRestore(Id),                            // (sprite)
     SpriteVisual(Id, SpriteVisual, SpriteVisual), // (sprite, old, new)
 }
@@ -93,24 +95,52 @@ impl SceneEvent {
 
     // If is_sprite or is_layer is true, this will be safe to unwrap.
     pub fn item(&self) -> Option<Id> {
-        let id = match self {
-            Self::GroupAdd(_, id) => id,
-            Self::GroupRemove(_, id) => id,
+        Some(match self {
+            &Self::GroupAdd(_, id) => id,
+            &Self::GroupRemove(_, id) => id,
+            &Self::LayerLocked(id, ..) => id,
+            &Self::LayerMove(id, ..) => id,
+            &Self::LayerNew(id, ..) => id,
+            &Self::LayerRename(id, ..) => id,
+            &Self::LayerRestore(id) => id,
+            &Self::LayerVisibility(id, ..) => id,
+            &Self::SpriteLayer(id, ..) => id,
+            &Self::SpriteMove(id, ..) => id,
+            Self::SpriteNew(s, ..) => s.id,
+            &Self::SpriteRemove(id, ..) => id,
+            &Self::SpriteRestore(id) => id,
+            &Self::SpriteVisual(id, ..) => id,
+            _ => return None,
+        })
+    }
+
+    pub fn sprite(&self) -> Option<Id> {
+        Some(match self {
+            &Self::GroupAdd(_, id) => id,
+            &Self::GroupRemove(_, id) => id,
+            &Self::SpriteLayer(id, ..) => id,
+            &Self::SpriteMove(id, ..) => id,
+            Self::SpriteNew(s, ..) => s.id,
+            &Self::SpriteRemove(id, ..) => id,
+            &Self::SpriteRestore(id) => id,
+            &Self::SpriteVisual(id, ..) => id,
+            _ => return None,
+        })
+    }
+
+    pub fn layer(&self) -> Option<Id> {
+        Some(match *self {
             Self::LayerLocked(id, ..) => id,
             Self::LayerMove(id, ..) => id,
             Self::LayerNew(id, ..) => id,
             Self::LayerRename(id, ..) => id,
             Self::LayerRestore(id) => id,
             Self::LayerVisibility(id, ..) => id,
-            Self::SpriteLayer(id, ..) => id,
-            Self::SpriteMove(id, ..) => id,
-            Self::SpriteNew(s, ..) => &s.id,
-            Self::SpriteRemove(id) => id,
-            Self::SpriteRestore(id) => id,
-            Self::SpriteVisual(id, ..) => id,
+            Self::SpriteLayer(.., layer) => layer,
+            Self::SpriteNew(.., layer) => layer,
+            Self::SpriteRemove(.., layer) => layer,
             _ => return None,
-        };
-        Some(*id)
+        })
     }
 }
 
@@ -118,8 +148,6 @@ impl SceneEvent {
 pub enum PermsEvent {
     /// Update to the role of a user
     RoleChange(Id, Role),
-    /// Replace the PermSet for an item
-    ItemPerms(PermSet),
     /// Issue a new Override
     NewOverride(Override),
 }

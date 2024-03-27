@@ -10,6 +10,7 @@
 * Measurements, persistent measurements
 * Hold a button to rotate a sprite
 * Save perms, reload when the same scene is loaded
+* Simplify perms.
 * Added tokens can't be edited by players
 * Token health bars
 * Better database abstraction
@@ -39,6 +40,7 @@
 * Resizing a drawing increases the line stroke (maybe good?).
 * Sometimes players can't see all lines.
 * Resize anchors on drawings are a bit weird.
+* Perms don't handle drawings well or at all.
 
 # Documentation
 
@@ -66,3 +68,25 @@
     unaligned, it will remain so. To change this behaviour, hold `Alt`. So If
     you want to unalign a sprite from the grid, hold `Alt` when releasing a
     drag. Likewise to snap an unaligned sprite to the grid. 
+
+## Permissions
+
+Permissions are segmented by layer and by sprite. A user may have permissions
+over a given sprite, in which case they can modify and delete that sprite, or a
+layer, in which case they can edit or delete any sprite in that layer. A user
+may have permissions over any number of sprites or layers. Permission on a layer
+does not grant permission to edit the visibility or lock state of the layer, or
+the ability to delete the layer.
+
+There are four roles a user in a game may have, which each confer different
+default permissions.
+
+* Spectators may only view the scene. They cannot interact with any entity.
+* Players are granted a single layer to edit on joining the game. They may be
+    granted permissions over additional layers or sprites by an editor or
+    better.
+* Editors have full permission over all aspects of the scene, including to edit
+    layer visibility and locks state, and delete layers. They may edit the
+    permissions of players or spectators. They may edit the fog of war.
+* The owner of the scene has a special role which grants irrevocable editor
+    permissions and the ability to grant the editor role.

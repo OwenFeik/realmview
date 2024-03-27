@@ -1,4 +1,4 @@
-use std::{collections::HashMap, vec};
+use std::collections::HashMap;
 
 use serde_derive::{Deserialize, Serialize};
 
@@ -43,6 +43,7 @@ impl Perm {
             | SceneEvent::GroupRemove(..)
             | SceneEvent::SpriteMove(..)
             | SceneEvent::SpriteVisual(..)
+            | SceneEvent::SpriteDrawingStart(..)
             | SceneEvent::SpriteDrawingFinish(..)
             | SceneEvent::SpriteDrawingPoint(..) => Perm::SpriteUpdate,
             SceneEvent::SpriteNew(..) | SceneEvent::SpriteRestore(..) => Perm::SpriteNew,
@@ -71,7 +72,6 @@ impl Role {
 
         match perm {
             Perm::Special => false,
-            Perm::SpriteUpdate | Perm::SpriteNew => !self.spectator(),
             _ => self.editor(),
         }
     }
@@ -96,50 +96,32 @@ impl Role {
     }
 }
 
-/// For this item, only uses who are listed or have a role exceeding this role
-/// may interact.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct PermSet {
-    item: Id,
-    users: Vec<Id>,
-    role: Role,
-}
-
-impl PermSet {
-    fn new(id: Id) -> Self {
-        PermSet {
-            item: id,
-            users: vec![],
-            role: Role::Editor,
-        }
-    }
-
-    /// Whether this user is allowed to interact with this item
-    fn allows(&self, user: Id, role: Role) -> bool {
-        role >= self.role || self.users.contains(&user)
-    }
-}
-
-/// This user is granted this permission, optionally over a single item.
+/// This user is granted certain permissions over a single item.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Override {
     user: Id,
-    perm: Perm,
-    item: Option<Id>,
+    item: Id,
 }
 
 impl Override {
-    fn allows(&self, user: Id, event: &SceneEvent) -> bool {
-        user == self.user
-            && Perm::of(event) == self.perm
-            && (self.item.is_none() || event.item() == self.item)
+    fn allows(&self, user: Id, perm: Perm, sprite: Option<Id>, layer: Option<Id>) -> bool {
+        self.user == user
+            && match perm {
+                Perm::FogEdit => false,
+                Perm::LayerNew => false,
+                Perm::LayerRemove => false,
+                Perm::LayerUpdate => false,
+                Perm::SceneDetails => false,
+                Perm::Special => false,
+                Perm::SpriteNew | Perm::SpriteRemove => layer == Some(self.item),
+                Perm::SpriteUpdate => sprite == Some(self.item),
+            }
     }
 }
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Perms {
     roles: HashMap<Id, Role>,
-    items: HashMap<Id, PermSet>,
     overrides: Vec<Override>,
 }
 
@@ -149,7 +131,6 @@ impl Perms {
         roles.insert(CANONICAL_UPDATER, Role::Owner);
         Self {
             roles,
-            items: HashMap::new(),
             overrides: Vec::new(),
         }
     }
@@ -162,31 +143,17 @@ impl Perms {
         self.roles.insert(user, role);
     }
 
-    fn allowed_by_role(&self, user: Id, event: &SceneEvent, layer: Option<Id>) -> bool {
-        let role = self.get_role(user);
-        if let Some(id) = layer {
-            if let Some(ps) = self.items.get(&id) {
-                if !ps.allows(user, role) {
-                    return false;
-                }
-            }
-        }
-
-        if event.is_sprite() {
-            if let Some(id) = event.item() {
-                if let Some(ps) = self.items.get(&id) {
-                    if !ps.allows(user, role) {
-                        return false;
-                    }
-                }
-            }
-        }
-
-        role.allows(Perm::of(event))
+    fn allowed_by_role(&self, user: Id, event: &SceneEvent) -> bool {
+        self.get_role(user).allows(Perm::of(event))
     }
 
     fn allowed_by_override(&self, user: Id, event: &SceneEvent) -> bool {
-        self.overrides.iter().any(|o| o.allows(user, event))
+        let perm = Perm::of(event);
+        let sprite = event.sprite();
+        let layer = event.layer();
+        self.overrides
+            .iter()
+            .any(|o| o.allows(user, perm, sprite, layer))
     }
 
     pub fn set_owner(&mut self, owner: Id) {
@@ -212,15 +179,6 @@ impl Perms {
         }
     }
 
-    pub fn item_perms(&mut self, updater: Id, perms: PermSet) -> Option<PermsEvent> {
-        if self.get_role(updater) >= Role::Editor {
-            self.items.insert(perms.item, perms.clone());
-            Some(PermsEvent::ItemPerms(perms))
-        } else {
-            None
-        }
-    }
-
     fn add_override(&mut self, new: Override) -> PermsEvent {
         if !self.overrides.contains(&new) {
             self.overrides.push(new.clone());
@@ -239,65 +197,37 @@ impl Perms {
     pub fn handle_event(&mut self, updater: Id, event: PermsEvent) -> bool {
         match event {
             PermsEvent::RoleChange(user, role) => self.role_change(updater, user, role),
-            PermsEvent::ItemPerms(perms) => self.item_perms(updater, perms),
             PermsEvent::NewOverride(new) => self.new_override(updater, new),
         }
         .is_some()
     }
 
-    pub fn selectable(&self, user: Id, item: Id) -> bool {
-        const SELECTABLE_PERMS: &'static [Perm] = &[
-            Perm::LayerRemove,
-            Perm::LayerUpdate,
-            Perm::SpriteRemove,
-            Perm::SpriteUpdate,
-        ];
+    pub fn selectable(&self, user: Id, sprite: Id, layer: Id) -> bool {
+        const REQUIRED_PERM: Perm = Perm::SpriteUpdate;
 
-        let role = self.get_role(user);
-        SELECTABLE_PERMS.iter().any(|p| role.allows(*p))
-            || self.overrides.iter().any(|o| {
-                o.user == user
-                    && (o.item.is_none() || o.item.unwrap() == item)
-                    && SELECTABLE_PERMS.iter().any(|p| o.perm == *p)
-            })
+        self.get_role(user).allows(REQUIRED_PERM)
+            || self
+                .overrides
+                .iter()
+                .any(|o| o.allows(user, REQUIRED_PERM, Some(sprite), Some(layer)))
     }
 
-    pub fn permitted(&self, user: Id, event: &SceneEvent, layer: Option<Id>) -> bool {
+    pub fn permitted(&self, user: Id, event: &SceneEvent) -> bool {
         if let SceneEvent::EventSet(events) = event {
-            events.iter().all(|e| self.permitted(user, e, layer))
+            events.iter().all(|e| self.permitted(user, e))
         } else {
-            self.allowed_by_role(user, event, layer) || self.allowed_by_override(user, event)
+            self.allowed_by_role(user, event) || self.allowed_by_override(user, event)
         }
     }
 
     /// Allow the creators of sprites or layers to update or delete them.
-    pub fn ownership_overrides(&mut self, user: Id, event: &SceneEvent) -> Option<Vec<PermsEvent>> {
-        match event {
-            SceneEvent::LayerNew(id, ..) => Some(vec![
-                self.add_override(Override {
-                    user,
-                    perm: Perm::LayerUpdate,
-                    item: Some(*id),
-                }),
-                self.add_override(Override {
-                    user,
-                    perm: Perm::LayerRemove,
-                    item: Some(*id),
-                }),
-            ]),
-            SceneEvent::SpriteNew(s, ..) => Some(vec![
-                self.add_override(Override {
-                    user,
-                    perm: Perm::SpriteUpdate,
-                    item: Some(s.id),
-                }),
-                self.add_override(Override {
-                    user,
-                    perm: Perm::SpriteRemove,
-                    item: Some(s.id),
-                }),
-            ]),
-            _ => None,
+    pub fn ownership_override(&mut self, user: Id, event: &SceneEvent) -> Option<PermsEvent> {
+        if matches!(event, SceneEvent::LayerNew(..) | SceneEvent::SpriteNew(..))
+            && let Some(item) = event.item()
+        {
+            Some(self.add_override(Override { user, item }))
+        } else {
+            None
         }
     }
 }
@@ -305,5 +235,56 @@ impl Perms {
 impl Default for Perms {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::{Rect, Sprite};
+
+    #[test]
+    fn test_role_precedence() {
+        assert!(Role::Owner > Role::Editor);
+        assert!(Role::Editor > Role::Player);
+        assert!(Role::Player > Role::Spectator);
+    }
+
+    #[test]
+    fn test_override_handling() {
+        let user = 123;
+        let layer = 1;
+        let sprite = 2;
+        let mut perms = Perms::new();
+
+        // User is a player.
+        perms.role_change(CANONICAL_UPDATER, user, Role::Player);
+
+        // User should be granted permission over their layer.
+        assert!(perms
+            .ownership_override(user, &SceneEvent::LayerNew(layer, "user".into(), -1))
+            .is_some());
+
+        // User should not be able to create a sprite on a layer they don't own.
+        assert!(!perms.permitted(user, &SceneEvent::SpriteNew(Sprite::new(4, None), 3)));
+
+        // User should be able to create a sprite in their layer.
+        let sprite_event = SceneEvent::SpriteNew(Sprite::new(sprite, None), layer);
+        assert!(perms.permitted(user, &sprite_event));
+
+        // Creating the sprite, user should be granted ownership thereof.
+        assert!(perms.ownership_override(user, &sprite_event).is_some());
+
+        // User should be able to modify the sprite.
+        assert!(perms.permitted(
+            user,
+            &SceneEvent::SpriteMove(sprite, Rect::new(1., 1., 1., 1.), Rect::new(0., 1., 1., 1.))
+        ));
+
+        // User to be able to remove this sprite, or any sprite from their
+        // layer, but not from other layers.
+        assert!(perms.permitted(user, &SceneEvent::SpriteRemove(sprite, layer)));
+        assert!(perms.permitted(user, &SceneEvent::SpriteRemove(5, layer)));
+        assert!(!perms.permitted(user, &SceneEvent::SpriteRemove(6, 7)));
     }
 }

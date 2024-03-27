@@ -20,7 +20,7 @@ mod utils;
 pub use content::CONTENT;
 pub use scene;
 
-const USAGE: &'static str = "Usage: ./server content/ 80";
+const USAGE: &str = "Usage: ./server content/ 80";
 
 async fn connect_to_db() -> SqlitePool {
     SqlitePool::connect(
