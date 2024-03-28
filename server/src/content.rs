@@ -49,11 +49,11 @@ fn public(path: &'static str) -> actix_web::Route {
 }
 
 fn loggedin(path: &'static str) -> actix_web::Route {
-    web::get().to(async move |req| loggedin_content(&req, path).await)
+    web::get().to(move |req| loggedin_content(req, path))
 }
 
-async fn loggedin_content(req: &HttpRequest, path: &str) -> Result<NamedFile, actix_web::Error> {
-    Session::from_request(req, &mut actix_web::dev::Payload::None).await?;
+async fn loggedin_content(req: HttpRequest, path: &str) -> Result<NamedFile, actix_web::Error> {
+    Session::from_request(&req, &mut actix_web::dev::Payload::None).await?;
     content(path).await.map_err(e500)
 }
 

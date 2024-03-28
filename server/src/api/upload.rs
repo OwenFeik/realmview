@@ -305,7 +305,7 @@ async fn upload(pool: web::Data<SqlitePool>, user: User, mut form: Multipart) ->
                 }
 
                 match part.content_disposition().get_filename() {
-                    Some(s) => upload.title = s.to_owned(),
+                    Some(s) => s.clone_into(&mut upload.title),
                     None => upload.title = format!("untitled.{}", upload.ext),
                 };
 

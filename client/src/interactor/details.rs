@@ -27,7 +27,7 @@ impl SceneDetails {
         let mut events = Vec::new();
         if self.title.is_some() {
             let old = scene.title.clone();
-            scene.title = self.title.clone();
+            scene.title.clone_from(&self.title);
             events.push(SceneEvent::SceneTitle(old, self.title.clone().unwrap()));
         }
 

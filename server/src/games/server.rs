@@ -421,7 +421,7 @@ impl Server {
                 .into_iter()
                 .map(|scene| {
                     if current_scene_id == Some(scene.id) {
-                        current = scene.scene_key.clone();
+                        current.clone_from(&scene.scene_key);
                     }
 
                     (scene.title, scene.scene_key)

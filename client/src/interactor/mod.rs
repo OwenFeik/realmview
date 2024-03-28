@@ -157,7 +157,8 @@ impl Interactor {
     }
 
     fn scene_event(&mut self, event: SceneEvent) {
-        if self.perms.permitted(self.user, &event) {
+        let layer = self.scene.event_layer(&event);
+        if self.perms.permitted(self.user, &event, layer) {
             self.change_if(&event);
             self.history.issue_event(event);
         } else {

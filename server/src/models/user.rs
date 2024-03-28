@@ -27,7 +27,7 @@ impl User {
             .bind(hashed_password)
             .bind(recovery_key)
             .bind(created_time as i64)
-            .execute(&mut pool.acquire().await?)
+            .execute(pool)
             .await?
             .last_insert_rowid();
 

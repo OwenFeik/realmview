@@ -128,7 +128,8 @@ impl Game {
     }
 
     pub fn handle_event(&mut self, user: i64, event: SceneEvent) -> (bool, Option<ServerEvent>) {
-        if self.perms.permitted(user, &event) && self.scene.apply_event(event.clone()) {
+        let layer = self.scene.event_layer(&event);
+        if self.perms.permitted(user, &event, layer) && self.scene.apply_event(event.clone()) {
             let perms_event = self
                 .perms
                 .created(user, &event)

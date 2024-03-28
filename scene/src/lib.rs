@@ -751,9 +751,9 @@ impl Scene {
             }
             SceneEvent::SceneTitle(old, new) => {
                 if self.title == Some(new.clone()) {
-                    self.title = old.clone();
-                    if let Some(title) = old {
-                        return Some(SceneEvent::SceneTitle(Some(new), title));
+                    self.title = old;
+                    if let Some(title) = &self.title {
+                        return Some(SceneEvent::SceneTitle(Some(new), title.clone()));
                     }
                 }
                 None
