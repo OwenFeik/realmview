@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use scene::{comms::ServerEvent, Id};
+use scene::Id;
 
 use crate::{
     scene::{
@@ -93,12 +93,24 @@ impl Game {
         &mut self,
         user: i64,
         name: &str,
-    ) -> (Option<PermsEvent>, Option<SceneEvent>, Option<scene::Id>) {
+    ) -> (Vec<PermsEvent>, Option<SceneEvent>, Option<scene::Id>) {
         self.users.insert(user, name.to_string());
-        let perms = self
-            .perms
-            .role_change(perms::CANONICAL_UPDATER, user, perms::Role::Player);
+
+        let mut perms = Vec::new();
+        if let Some(event) =
+            self.perms
+                .role_change(perms::CANONICAL_UPDATER, user, perms::Role::Player)
+        {
+            perms.push(event);
+        }
+
         let (scene, layer) = self.player_layer(user);
+        if let Some(id) = layer
+            && let Some(event) = self.perms.grant_override(user, id)
+        {
+            perms.push(event);
+        }
+
         (perms, scene, layer)
     }
 
@@ -127,18 +139,9 @@ impl Game {
         None
     }
 
-    pub fn handle_event(&mut self, user: i64, event: SceneEvent) -> (bool, Option<ServerEvent>) {
+    pub fn handle_event(&mut self, user: i64, event: SceneEvent) -> bool {
         let layer = self.scene.event_layer(&event);
-        if self.perms.permitted(user, &event, layer) && self.scene.apply_event(event.clone()) {
-            let perms_event = self
-                .perms
-                .created(user, &event)
-                .map(ServerEvent::PermsUpdate);
-
-            (true, perms_event)
-        } else {
-            (false, None)
-        }
+        self.perms.permitted(user, &event, layer) && self.scene.apply_event(event.clone())
     }
 
     pub fn replace_scene(&mut self, scene: Scene, owner: i64) {
@@ -160,5 +163,74 @@ impl Game {
 
     pub fn client_perms(&mut self) -> Perms {
         self.perms.clone()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use scene::{comms::SceneEvent, Rect, Scene, Sprite};
+
+    use super::Game;
+
+    #[test]
+    fn test_permissions() {
+        let project = 1;
+        let owner = 2;
+        let owner_layer = 3;
+        let player = 4;
+        let mut game = Game::new(project, Scene::new(), owner, "abcdefgh");
+
+        // Owner should be able to add a new layer and a sprite to that layer.
+        let owner_sprite = 6;
+        assert!(game.handle_event(owner, SceneEvent::LayerNew(owner_layer, "extra".into(), 1)));
+        assert!(game.handle_event(
+            owner,
+            SceneEvent::SpriteNew(Sprite::new(owner_sprite, None), owner_layer)
+        ));
+
+        // Adding a new player should create a layer for that player.
+        let (perms, layer_event, layer_opt) = game.add_player(player, "player");
+        assert!(!perms.is_empty());
+        assert!(layer_event.is_some());
+        assert!(layer_opt.is_some());
+        let player_layer = layer_opt.unwrap();
+
+        // Player should be able to add a sprite to their own player, but not
+        // the owner's layer.
+        let player_sprite = 5;
+        assert!(!game.handle_event(
+            player,
+            SceneEvent::SpriteNew(Sprite::new(player_sprite, None), owner_layer)
+        ));
+        assert!(game.handle_event(
+            player,
+            SceneEvent::SpriteNew(Sprite::new(player_sprite, None), player_layer)
+        ));
+
+        // Player should be able to modify their sprite, but not the owner's.
+        let from = game.scene.sprite(player_sprite).unwrap().rect;
+        assert!(game.handle_event(
+            player,
+            SceneEvent::SpriteMove(player_sprite, from, Rect::new(1., 1., 1., 1.))
+        ));
+        let from = game.scene.sprite(owner_sprite).unwrap().rect;
+        assert!(!game.handle_event(
+            player,
+            SceneEvent::SpriteMove(owner_sprite, from, Rect::new(1., 1., 1., 1.))
+        ));
+
+        // Player should be able to remove their sprite, but not the owner's.
+        assert!(game.handle_event(
+            player,
+            SceneEvent::SpriteRemove(player_sprite, player_layer)
+        ));
+        assert!(!game.handle_event(player, SceneEvent::SpriteRemove(owner_sprite, owner_layer)));
+
+        // Owner should be able to remove their sprite.
+        assert!(game.handle_event(owner, SceneEvent::SpriteRemove(owner_sprite, owner_layer)));
+
+        // All sprites should be removed.
+        assert!(game.scene.sprite(player_sprite).is_none());
+        assert!(game.scene.sprite(owner_sprite).is_none());
     }
 }

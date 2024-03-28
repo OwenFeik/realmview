@@ -468,8 +468,9 @@ impl Scene {
     }
 
     pub fn event_layer(&self, event: &SceneEvent) -> Option<Id> {
-        if event.is_layer() {
-            event.layer()
+        let event_layer = event.layer();
+        if event_layer.is_some() {
+            event_layer
         } else if event.is_sprite() {
             self.get_sprite_layer(event.sprite()?)
         } else {

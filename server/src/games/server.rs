@@ -206,18 +206,12 @@ impl Server {
                 }
             }
             ClientEvent::SceneUpdate(event) => {
-                let (ok, server_events) = self.game.handle_event(from, event.clone());
-
-                if ok {
+                if self.game.handle_event(from, event.clone()) {
                     self.send_approval(message.id, from);
                     self.broadcast_event(ServerEvent::SceneUpdate(event.clone()), Some(from));
                 } else {
                     self.log(LogLevel::Debug, format!("Rejected event: {event:?}"));
                     self.send_rejection(message.id, from);
-                }
-
-                if let Some(event) = server_events {
-                    self.broadcast_event(event, None);
                 }
 
                 // Handle layer removal by ensuring that the player still has a layer.
@@ -247,7 +241,7 @@ impl Server {
 
         let (perms, scene, layer) = self.game.add_player(user, &name);
 
-        if let Some(event) = perms {
+        for event in perms {
             self.broadcast_event(ServerEvent::PermsUpdate(event), Some(user));
         }
 

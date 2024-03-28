@@ -124,10 +124,21 @@ pub struct Override {
 }
 
 impl Override {
+    /// Whether this override allows perm to be exercised on sprite in layer.
+    /// If the item is a layer, and sprite on that layer may be edited or
+    /// removed, and sprites may be added to the layer (LayerEdit). If the item
+    /// is a sprite, the sprite may be edited (SpriteEdit), but not removed.
     fn allows(&self, user: Id, perm: Perm, sprite: Option<Id>, layer: Option<Id>) -> bool {
-        perm == Perm::SpriteEdit
-            && self.user == user
-            && (Some(self.item) == sprite || Some(self.item) == layer)
+        self.user == user
+            && match perm {
+                Perm::LayerEdit => self.item_is(layer),
+                Perm::SpriteEdit => self.item_is(sprite) || self.item_is(layer),
+                _ => false,
+            }
+    }
+
+    fn item_is(&self, id: Option<Id>) -> bool {
+        Some(self.item) == id
     }
 }
 
@@ -240,18 +251,13 @@ impl Perms {
         }
     }
 
-    /// Allow the creators of sprites or layers to update or delete them.
-    pub fn created(&mut self, user: Id, event: &SceneEvent) -> Option<PermsEvent> {
-        if matches!(
-            event,
-            SceneEvent::LayerNew(..)
-                | SceneEvent::SpriteNew(..)
-                | SceneEvent::SpriteDrawingStart(..)
-        ) && let Some(item) = event.item()
-        {
-            Some(self.add_override(Override { user, item }))
+    /// Allow a user to edit a sprite or layer.
+    pub fn grant_override(&mut self, user: Id, item: Id) -> Option<PermsEvent> {
+        let or = Override { user, item };
+        if self.overrides.contains(&or) {
+            None // Skip creating redundant override.
         } else {
-            None
+            Some(self.add_override(or))
         }
     }
 }
@@ -284,10 +290,8 @@ mod test {
         // User is a player.
         perms.role_change(CANONICAL_UPDATER, user, Role::Player);
 
-        // User should be granted permission over their layer.
-        assert!(perms
-            .created(user, &SceneEvent::LayerNew(layer, "user".into(), -1))
-            .is_some());
+        // User is granted permission over their layer.
+        assert!(perms.grant_override(user, layer).is_some());
 
         // User should not be able to create a sprite on a layer they don't own.
         assert!(!perms.permitted(
@@ -299,9 +303,6 @@ mod test {
         // User should be able to create a sprite in their layer.
         let sprite_event = SceneEvent::SpriteNew(Sprite::new(sprite, None), layer);
         assert!(perms.permitted(user, &sprite_event, Some(layer)));
-
-        // Creating the sprite, user should be granted ownership thereof.
-        assert!(perms.created(user, &sprite_event).is_some());
 
         // User should be able to modify the sprite.
         assert!(perms.permitted(
@@ -328,21 +329,7 @@ mod test {
 
         let mut perms = Perms::new();
         perms.role_change(CANONICAL_UPDATER, user, Role::Player);
-        assert!(perms
-            .created(user, &SceneEvent::LayerNew(layer, "layer".into(), -1))
-            .is_some());
-        assert!(perms
-            .created(
-                user,
-                &SceneEvent::SpriteDrawingStart(drawing, crate::DrawingMode::Freehand)
-            )
-            .is_some());
-        assert!(perms
-            .created(
-                user,
-                &SceneEvent::SpriteNew(Sprite::new(sprite, None), layer)
-            )
-            .is_some());
+        assert!(perms.grant_override(user, layer).is_some());
         assert!(perms.permitted(
             user,
             &SceneEvent::SpriteDrawingPoint(drawing, crate::Point::same(1.)),

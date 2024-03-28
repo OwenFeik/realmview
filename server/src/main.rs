@@ -1,4 +1,5 @@
 #![feature(async_closure)]
+#![feature(let_chains)]
 #![allow(dead_code)]
 #![allow(clippy::too_many_arguments)]
 
