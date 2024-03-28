@@ -131,7 +131,7 @@ impl Game {
         if self.perms.permitted(user, &event) && self.scene.apply_event(event.clone()) {
             let perms_event = self
                 .perms
-                .ownership_override(user, &event)
+                .created(user, &event)
                 .map(ServerEvent::PermsUpdate);
 
             (true, perms_event)

@@ -485,7 +485,12 @@ impl Interactor {
                 };
 
                 let mut visual = details.drawing();
-                let drawing_id = self.scene.start_drawing(mode);
+                let event = self.scene.start_drawing(mode);
+                let SceneEvent::SpriteDrawingStart(drawing_id, ..) = event else {
+                    return;
+                };
+
+                self.scene_event(event);
                 if let SpriteVisual::Drawing { drawing, .. } = &mut visual {
                     *drawing = drawing_id;
                 }

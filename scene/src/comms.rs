@@ -34,7 +34,7 @@ pub enum SceneEvent {
     SpriteMove(Id, Rect, Rect),                   // (sprite, from, to)
     SpriteNew(Sprite, Id),                        // (new_sprite, layer)
     SpriteRemove(Id, Id),                         // (sprite, layer)
-    SpriteRestore(Id),                            // (sprite)
+    SpriteRestore(Id),                            // (sprite, layer)
     SpriteVisual(Id, SpriteVisual, SpriteVisual), // (sprite, old, new)
 }
 
@@ -95,23 +95,35 @@ impl SceneEvent {
 
     // If is_sprite or is_layer is true, this will be safe to unwrap.
     pub fn item(&self) -> Option<Id> {
-        Some(match self {
-            &Self::GroupAdd(_, id) => id,
-            &Self::GroupRemove(_, id) => id,
-            &Self::LayerLocked(id, ..) => id,
-            &Self::LayerMove(id, ..) => id,
-            &Self::LayerNew(id, ..) => id,
-            &Self::LayerRename(id, ..) => id,
-            &Self::LayerRestore(id) => id,
-            &Self::LayerVisibility(id, ..) => id,
-            &Self::SpriteLayer(id, ..) => id,
-            &Self::SpriteMove(id, ..) => id,
-            Self::SpriteNew(s, ..) => s.id,
-            &Self::SpriteRemove(id, ..) => id,
-            &Self::SpriteRestore(id) => id,
-            &Self::SpriteVisual(id, ..) => id,
-            _ => return None,
-        })
+        match self {
+            &Self::GroupAdd(_, id)
+            | &Self::GroupRemove(_, id)
+            | &Self::LayerLocked(id, ..)
+            | &Self::LayerMove(id, ..)
+            | &Self::LayerNew(id, ..)
+            | &Self::LayerRemove(id)
+            | &Self::LayerRename(id, ..)
+            | &Self::LayerRestore(id)
+            | &Self::LayerVisibility(id, ..)
+            | &Self::SpriteLayer(id, ..)
+            | &Self::SpriteMove(id, ..)
+            | &Self::SpriteRemove(id, ..)
+            | &Self::SpriteRestore(id)
+            | &Self::SpriteVisual(id, ..)
+            | &Self::SpriteDrawingStart(id, ..)
+            | &Self::SpriteDrawingPoint(id, ..)
+            | &Self::SpriteDrawingFinish(_, id) => Some(id),
+            Self::SpriteNew(s, ..) => Some(s.id),
+            Self::Dummy
+            | Self::EventSet(_)
+            | Self::FogActive(_, _)
+            | Self::FogOcclude(_, _, _)
+            | Self::FogReveal(_, _, _)
+            | Self::GroupNew(_)
+            | Self::GroupDelete(_)
+            | Self::SceneDimensions(_, _, _, _)
+            | Self::SceneTitle(_, _) => None,
+        }
     }
 
     pub fn sprite(&self) -> Option<Id> {
