@@ -136,6 +136,7 @@ impl SceneEvent {
             &Self::SpriteRemove(id, ..) => id,
             &Self::SpriteRestore(id) => id,
             &Self::SpriteVisual(id, ..) => id,
+            &Self::SpriteDrawingFinish(_, id) => id,
             _ => return None,
         })
     }

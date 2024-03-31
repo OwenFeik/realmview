@@ -32,15 +32,13 @@
 * Possible to leave game without saving.
 * Adding a texture breaks all drawings.
 * Fog of war sometimes doesn't show up
-* Remove sprites is forbidden; should be able to remove own sprites
 * Hollow shapes
     * When rendered with opacity have overlapping triangles visible.
     * Have wrong dimensions after resizing window until zoom.
     * Have varying stroke, obvious at higher stroke levels.
 * Resizing a drawing increases the line stroke (maybe good?).
 * Sometimes players can't see all lines.
-* Resize anchors on drawings are a bit weird.
-* Perms don't handle drawings well or at all.
+* Unable to select a sprite behind a sprite you don't have permissions for.
 
 # Documentation
 

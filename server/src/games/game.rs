@@ -168,7 +168,7 @@ impl Game {
 
 #[cfg(test)]
 mod test {
-    use scene::{comms::SceneEvent, Rect, Scene, Sprite};
+    use scene::{comms::SceneEvent, Colour, Point, Rect, Scene, Sprite, SpriteVisual};
 
     use super::Game;
 
@@ -229,8 +229,47 @@ mod test {
         // Owner should be able to remove their sprite.
         assert!(game.handle_event(owner, SceneEvent::SpriteRemove(owner_sprite, owner_layer)));
 
-        // All sprites should be removed.
+        // All sprites should be removed.ABCDEFGH
         assert!(game.scene.sprite(player_sprite).is_none());
         assert!(game.scene.sprite(owner_sprite).is_none());
+    }
+
+    #[test]
+    fn test_drawings() {
+        let project = 1;
+        let owner = 2;
+        let drawing = 3;
+        let player = 4;
+        let sprite = 5;
+
+        let mut game = Game::new(project, Scene::new(), owner, "ABCDEFGH");
+        let (_, _, layer) = game.add_player(player, "player");
+        let layer = layer.unwrap();
+
+        assert!(game.handle_event(
+            player,
+            SceneEvent::SpriteDrawingStart(drawing, scene::DrawingMode::Freehand)
+        ));
+        assert!(game.handle_event(
+            player,
+            SceneEvent::SpriteNew(
+                Sprite::new(
+                    sprite,
+                    Some(SpriteVisual::Drawing {
+                        drawing,
+                        colour: Colour::DEFAULT,
+                        stroke: 1.,
+                        cap_start: scene::Cap::Arrow,
+                        cap_end: scene::Cap::Round
+                    })
+                ),
+                layer
+            )
+        ));
+        assert!(game.handle_event(
+            player,
+            SceneEvent::SpriteDrawingPoint(drawing, Point::same(1.))
+        ));
+        assert!(game.handle_event(player, SceneEvent::SpriteDrawingFinish(drawing, sprite)));
     }
 }

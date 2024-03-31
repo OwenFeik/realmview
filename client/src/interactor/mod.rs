@@ -331,29 +331,43 @@ impl Interactor {
         self.clear_selection();
     }
 
+    fn selectable(&self, sprite: &Sprite, require_visible: bool) -> bool {
+        if let Some(layer) = self.scene.get_sprite_layer(sprite.id) {
+            self.perms.selectable(self.user, sprite.id, layer)
+                && (!require_visible
+                    || self.role.editor()
+                    || !self.scene.fog.rect_occluded(sprite.rect))
+        } else {
+            false
+        }
+    }
+
     /// Common handling for sprites in groups and single sprites. Only called
     /// from select.
-    fn _select(&mut self, id: Id, require_visible: bool) {
+    fn _select(&mut self, id: Id, require_visible: bool) -> bool {
         if !self.is_selected(id)
-            && let Some(layer) = self.scene.get_sprite_layer(id)
-            && self.perms.selectable(self.user, id, layer)
+            && let Some(s) = self.sprite_ref(id)
+            && self.selectable(s, require_visible)
         {
-            if let Some(s) = self.sprite_ref(id) {
-                if !require_visible || self.role.editor() || !self.scene.fog.rect_occluded(s.rect) {
-                    self.selection_aligned = self.selection_aligned && s.rect.is_aligned();
-                    self.selected_sprites.push(id);
-                    self.changes.sprite_selected_change();
-                }
-            }
+            self.selection_aligned = self.selection_aligned && s.rect.is_aligned();
+            self.selected_sprites.push(id);
+            self.changes.sprite_selected_change();
+            true
+        } else {
+            false
         }
     }
 
     /// Select a sprite.
-    fn select(&mut self, id: Id) {
+    fn select(&mut self, id: Id) -> bool {
         if let Some(g) = self.scene.sprite_group(id).map(|g| g.sprites().to_owned()) {
-            g.iter().for_each(|id| self._select(*id, false));
+            let mut successful = false;
+            for id in g {
+                successful |= self._select(id, false);
+            }
+            successful
         } else {
-            self._select(id, true);
+            self._select(id, true)
         }
     }
 
@@ -404,9 +418,10 @@ impl Interactor {
     /// sprite. Returns a `HeldObject` which should be held after this click
     /// and an ID option which contains the newly selected sprite, if any.
     fn grab_at(&self, at: Point, add: bool) -> (HeldObject, Option<Id>) {
-        if let Some(s) = self.sprite_to_grab_at(at) {
-            if !self.role.editor() && self.scene.fog.rect_occluded(s.rect) && self.scene.fog.active
-            {
+        if let Some(s) = self.sprite_to_grab_at(at)
+            && self.selectable(s, true)
+        {
+            if !self.role.editor() && self.scene.fog.rect_occluded(s.rect) {
                 (HeldObject::Marquee(at), None)
             } else {
                 if self.has_selection() {

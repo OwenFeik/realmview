@@ -229,13 +229,11 @@ impl Perms {
     }
 
     pub fn selectable(&self, user: Id, sprite: Id, layer: Id) -> bool {
-        if self.get_role(user).allows(Perm::SpriteEdit) {
-            true
-        } else {
-            self.overrides
+        self.get_role(user).allows(Perm::SpriteEdit)
+            || self
+                .overrides
                 .iter()
                 .any(|o| o.allows(user, Perm::SpriteEdit, Some(sprite), Some(layer)))
-        }
     }
 
     /// Check if a given event is permitted for this user. The optional layer
@@ -340,5 +338,19 @@ mod test {
             &SceneEvent::SpriteDrawingFinish(drawing, sprite),
             Some(layer)
         ));
+    }
+
+    #[test]
+    fn test_selectability() {
+        let owner = 1;
+        let player = 2;
+        let sprite = 3;
+        let layer = 4;
+
+        let mut perms = Perms::new();
+        perms.set_owner(owner);
+        perms.role_change(CANONICAL_UPDATER, player, Role::Player);
+        assert!(perms.selectable(owner, sprite, layer));
+        assert!(!perms.selectable(player, sprite, layer));
     }
 }
