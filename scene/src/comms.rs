@@ -187,6 +187,7 @@ pub enum ServerEvent {
     Approval(Id),
     EventSet(Vec<ServerEvent>),
     GameOver,
+    HealthCheck,
     Rejection(Id),
     PermsChange(Perms),
     PermsUpdate(PermsEvent),

@@ -7,6 +7,7 @@ use anyhow::anyhow;
 use scene::comms::SceneEvent;
 use sqlx::{pool::PoolConnection, SqlitePool};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::time::Instant;
 
 use super::game::Game;
 use crate::{
@@ -79,13 +80,15 @@ pub fn launch(key: String, owner: i64, project: i64, scene: Scene, pool: SqliteP
     GameHandle { open, chan: send }
 }
 
-struct NewClient {
+struct Client {
     user: i64,
     username: String,
     sender: Option<UnboundedSender<Vec<u8>>>,
+    check_time: Option<Instant>,
+    last_event: Instant,
 }
 
-impl NewClient {
+impl Client {
     fn send(&mut self, message: Vec<u8>) {
         if let Some(sender) = &self.sender {
             if sender.send(message).is_err() {
@@ -108,7 +111,7 @@ struct Server {
     game: Game,
     pool: SqlitePool,
     handle: UnboundedReceiver<ServerCommand>,
-    clients: HashMap<i64, NewClient>,
+    clients: HashMap<i64, Client>,
     last_save: SystemTime,
     last_action: SystemTime,
 }
@@ -136,7 +139,7 @@ impl Server {
     }
 
     async fn run(&mut self) {
-        const CHECK_INTERVAL: Duration = Duration::from_secs(10);
+        const CHECK_INTERVAL: Duration = Duration::from_millis(500);
         const SAVE_INTERVAL: Duration = Duration::from_secs(600);
         const INACTIVITY_TIMEOUT: Duration = Duration::from_secs(1800);
 
@@ -152,12 +155,16 @@ impl Server {
                         username,
                     } => self.connect_client(user, username, sender).await,
                     ServerCommand::Message { user, message } => {
-                        self.handle_message(message, user).await
+                        self.handle_message(message, user).await;
+                        continue; // Skip checks on a message.
                     }
                 },
                 Ok(None) => break, // All server handles dropped. Closed.
                 Err(_) => {}       // Timeout expired. Just check inactivity and save.
             }
+
+            // Check health of clients.
+            self.health_check();
 
             if duration_elapsed(self.last_action, INACTIVITY_TIMEOUT) {
                 break; // Inactive for timeout duration. Close server.
@@ -232,10 +239,12 @@ impl Server {
         self.disconnect_client(user);
         self.clients.insert(
             user,
-            NewClient {
+            Client {
                 user,
                 username: name.clone(),
                 sender: Some(sender),
+                check_time: None,
+                last_event: Instant::now(),
             },
         );
 
@@ -281,10 +290,7 @@ impl Server {
     }
 
     fn client_active(&self, user: i64) -> bool {
-        self.clients
-            .get(&user)
-            .map(NewClient::active)
-            .unwrap_or(false)
+        self.clients.get(&user).map(Client::active).unwrap_or(false)
     }
 
     fn send_approval(&mut self, event_id: i64, user: i64) {
@@ -321,6 +327,44 @@ impl Server {
             self.clients
                 .values_mut()
                 .for_each(|client| client.send(message.clone()));
+        }
+    }
+
+    fn health_check(&mut self) {
+        /// Time to allow a client to be quiet for before sending a heartbeat.
+        const QUIET_TIME: Duration = Duration::from_secs(5);
+
+        /// Time to wait after sending a heartbeat before presuming a client
+        /// dead and disconnecting it.
+        const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(10);
+
+        let now = Instant::now();
+        let mut clients_to_disconnect = Vec::new();
+        for client in self.clients.values_mut() {
+            if let Some(since) = now.checked_duration_since(client.last_event)
+                && since >= QUIET_TIME
+            {
+                if let Some(since) = client
+                    .check_time
+                    .and_then(|t| now.checked_duration_since(t))
+                {
+                    if since >= HEARTBEAT_TIMEOUT {
+                        clients_to_disconnect.push(client.user);
+                    }
+                } else {
+                    client.check_time = Some(now);
+                    if let Ok(message) = bincode::serialize(&ServerEvent::HealthCheck) {
+                        client.send(message);
+                    }
+                }
+            } else {
+                client.check_time = None;
+            }
+        }
+
+        for user in clients_to_disconnect {
+            self.log(LogLevel::Info, format!("User ({user}) timed out."));
+            self.disconnect_client(user);
         }
     }
 
