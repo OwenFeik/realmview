@@ -31,11 +31,11 @@
 ## Bugs
 
 * Sometimes players can't see all lines.
-* Unable to select a sprite behind a sprite you don't have permissions for.
+* If someone else resizes a drawing the drawing isn't re-rendered for others.
+* Possible to leave game without saving.
 
 ### Low priority
 
-* Possible to leave game without saving.
 * Hollow shapes
     * When rendered with opacity have overlapping triangles visible.
     * Have wrong dimensions after resizing window until zoom.

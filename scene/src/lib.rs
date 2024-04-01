@@ -345,6 +345,12 @@ impl Scene {
         self.sprites_mut().find(|s| s.rect.contains_point(at))
     }
 
+    pub fn sprites_near(&self, at: Point, delta: f32) -> Vec<&Sprite> {
+        self.sprites()
+            .filter(|sprite| sprite.rect.dist_to_point(at) <= delta)
+            .collect()
+    }
+
     pub fn sprite_at_ref(&self, at: Point) -> Option<&Sprite> {
         self.sprites().find(|s| s.rect.contains_point(at))
     }

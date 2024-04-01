@@ -409,12 +409,14 @@ impl Interactor {
         HeldObject::Selection(at)
     }
 
-    fn sprite_to_grab_at(&self, at: Point) -> Option<&Sprite> {
-        if self.single_selected() {
-            self.scene.sprite_near(at, HeldObject::ANCHOR_RADIUS)
+    fn selectable_at(&self, at: Point) -> Option<&Sprite> {
+        let delta = if self.single_selected() {
+            HeldObject::ANCHOR_RADIUS
         } else {
-            self.scene.sprite_at_ref(at)
-        }
+            0.0
+        };
+        let sprites = self.scene.sprites_near(at, delta);
+        sprites.iter().find(|s| self.selectable(s, true)).copied()
     }
 
     /// Attempt to grab whatever lies at the cursor (`at`), if `add` is `true`
@@ -422,9 +424,7 @@ impl Interactor {
     /// sprite. Returns a `HeldObject` which should be held after this click
     /// and an ID option which contains the newly selected sprite, if any.
     fn grab_at(&self, at: Point, add: bool) -> (HeldObject, Option<Id>) {
-        if let Some(s) = self.sprite_to_grab_at(at)
-            && self.selectable(s, true)
-        {
+        if let Some(s) = self.selectable_at(at) {
             if !self.role.editor() && self.scene.fog.rect_occluded(s.rect) {
                 (HeldObject::Marquee(at), None)
             } else {

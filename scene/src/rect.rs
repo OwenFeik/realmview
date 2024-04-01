@@ -132,9 +132,10 @@ impl Rect {
     }
 
     pub fn contains_point(&self, point: Point) -> bool {
-        // A negative dimension causes a texture to be flipped. As this is a useful behaviour, negative dimensions on
-        // Rects are supported. To that end a different treatment is required for checking if a point is contained.
-        // Hence the special cases for negative width and height.
+        // A negative dimension causes a texture to be flipped. As this is a
+        // useful behaviour, negative dimensions on Rects are supported. To
+        // that end a different treatment is required for checking if a point
+        // is contained. Hence the special cases for negative width and height.
 
         let in_x = {
             if self.w < 0.0 {
@@ -292,6 +293,7 @@ pub fn determine_unit_size(d: f32) -> f32 {
 #[cfg(test)]
 mod test {
     use super::Rect;
+    use crate::{rect::float_eq, Point};
 
     #[test]
     fn test_delta() {
@@ -301,5 +303,41 @@ mod test {
         assert_eq!(origin.delta(ones), 4.0);
         assert_eq!(origin.delta(halfneg), 4.0);
         assert_eq!(ones.delta(halfneg), 4.0);
+    }
+
+    #[test]
+    fn test_contains_point() {
+        let rect = Rect::new(-1.0, -1.0, 2.0, 2.0);
+        assert!(rect.contains_point(Point::same(-1.0)));
+        assert!(rect.contains_point(Point::same(-0.5)));
+        assert!(rect.contains_point(Point::ORIGIN));
+        assert!(rect.contains_point(Point::same(0.5)));
+        assert!(rect.contains_point(Point::same(1.0)));
+
+        assert!(!rect.contains_point(Point::same(-1.01)));
+        assert!(!rect.contains_point(Point::same(1.01)));
+
+        assert!(rect.contains_point(Point { x: -1.0, y: 0.0 }));
+        assert!(rect.contains_point(Point { x: 1.0, y: 0.0 }));
+        assert!(rect.contains_point(Point { x: 0.0, y: -1.0 }));
+        assert!(rect.contains_point(Point { x: 0.0, y: 1.0 }));
+
+        assert!(!rect.contains_point(Point { x: -1.01, y: 0.0 }));
+        assert!(!rect.contains_point(Point { x: 1.01, y: 0.0 }));
+        assert!(!rect.contains_point(Point { x: 0.0, y: -1.01 }));
+        assert!(!rect.contains_point(Point { x: 0.0, y: 1.01 }));
+    }
+
+    #[test]
+    fn test_dist_to_point() {
+        let rect = Rect::new(1.0, 1.0, 2.5, 2.5);
+
+        assert!(float_eq(rect.dist_to_point(Point::same(3.5)), 0.0));
+        assert!(float_eq(rect.dist_to_point(Point::same(1.0)), 0.0));
+        assert!(float_eq(rect.dist_to_point(Point::same(2.0)), 0.0));
+        assert!(float_eq(rect.dist_to_point(Point::same(2.5)), 0.0));
+
+        assert!(float_eq(rect.dist_to_point(Point { x: 3.6, y: 3.5 }), 0.1));
+        assert!(float_eq(rect.dist_to_point(Point { x: 0.9, y: 3.5 }), 0.1));
     }
 }
