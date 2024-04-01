@@ -16,6 +16,10 @@ pub mod details;
 pub mod history;
 pub mod holding;
 
+#[cfg(test)]
+mod test;
+
+/// Handles updating the scene based on user input.
 pub struct Interactor {
     pub changes: changes::Changes,
     pub role: scene::perms::Role,
