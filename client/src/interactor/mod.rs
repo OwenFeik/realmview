@@ -509,10 +509,7 @@ impl Interactor {
                 };
 
                 let mut visual = details.drawing();
-                let event = self.scene.start_drawing(mode);
-                let SceneEvent::SpriteDrawingStart(drawing_id, ..) = event else {
-                    return;
-                };
+                let (drawing_id, event) = self.scene.start_drawing(mode, at);
 
                 self.scene_event(event);
                 if let SpriteVisual::Drawing { drawing, .. } = &mut visual {
@@ -606,8 +603,10 @@ impl Interactor {
             match sprite.visual {
                 SpriteVisual::Drawing { drawing, .. } => {
                     if let Some(drawing) = self.scene.get_drawing(drawing) {
+                        let sprite_at = sprite.rect.top_left();
+                        let line_end = drawing.line().1;
                         to.push((
-                            drawing.rect().top_left() + sprite.rect.top_left() - Point::same(0.5),
+                            sprite_at + line_end + Point { x: 0.0, y: 1.0 },
                             drawing.length(),
                         ));
                     }

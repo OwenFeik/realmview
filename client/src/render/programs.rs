@@ -389,7 +389,6 @@ impl DrawingRenderer {
     }
 
     fn create_key(
-        rect: scene::Rect,
         drawing: &scene::Drawing,
         stroke: f32,
         cap_start: scene::Cap,
@@ -411,6 +410,8 @@ impl DrawingRenderer {
         //
         // Is this grotesquely overcomplicated? Yes.
         let mut key = 0u128;
+
+        let rect = drawing.rect();
 
         // First 100 bits are the literal bits of the three floats.
         let mut keyf32 = |v: f32| {
@@ -466,20 +467,15 @@ impl DrawingRenderer {
             ),
             scene::DrawingMode::Line => {
                 super::shapes::line(drawing.line(), stroke, cap_start, cap_end, self.grid_size)
-            },
-            scene::DrawingMode::Cone => {
-                super::shapes::cone(drawing.line(), self.grid_size)
             }
+            scene::DrawingMode::Cone => super::shapes::cone(drawing.line(), self.grid_size),
         };
 
         let mut mesh = Mesh::new(&self.gl, &self.renderer.program, &points)?;
         mesh.set_transforms(false, true);
         self.drawings.insert(
             id,
-            (
-                Self::create_key(rect, drawing, stroke, cap_start, cap_end),
-                mesh,
-            ),
+            (Self::create_key(drawing, stroke, cap_start, cap_end), mesh),
         );
         Ok(())
     }
@@ -487,14 +483,13 @@ impl DrawingRenderer {
     fn get_drawing(
         &self,
         id: scene::Id,
-        rect: scene::Rect,
         drawing: &scene::Drawing,
         stroke: f32,
         start: scene::Cap,
         end: scene::Cap,
     ) -> Option<&Mesh> {
         if let Some((key, mesh)) = self.drawings.get(&id) {
-            if Self::create_key(rect, drawing, stroke, start, end) == *key {
+            if Self::create_key(drawing, stroke, start, end) == *key {
                 return Some(mesh);
             }
         }
@@ -521,7 +516,7 @@ impl DrawingRenderer {
     ) {
         self.update_grid_size(grid_size);
         let id = drawing.id;
-        if let Some(mesh) = self.get_drawing(id, position, drawing, stroke, start, end) {
+        if let Some(mesh) = self.get_drawing(id, drawing, stroke, start, end) {
             self.renderer
                 .draw(mesh, colour, viewport, position * grid_size);
         } else if self
@@ -576,7 +571,14 @@ impl HollowRenderer {
         Ok(())
     }
 
-    fn get_mesh(&self, id: scene::Id, shape: scene::Shape, points: u32, stroke: f32, rect: Rect) -> Option<&Mesh> {
+    fn get_mesh(
+        &self,
+        id: scene::Id,
+        shape: scene::Shape,
+        points: u32,
+        stroke: f32,
+        rect: Rect,
+    ) -> Option<&Mesh> {
         if let Some((shp, n, s, w, h, mesh)) = self.meshes.get(&id) {
             // If n is different, drawing has changed, we don't have it
             if shape as u8 == *shp && points == *n && stroke == *s && rect.w == *w && rect.h == *h {

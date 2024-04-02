@@ -27,12 +27,14 @@
 * Better positioning for line / cone labels (just put near head?)
 * Better bounding boxes for lines / cones. Probably just update rect, remove
     excess points when done?
+* Allow manual saving in game.
+* Add a playground for non-logged-in users.
+* Refactor to remove SpriteDrawingFinish; awful hack.
 
 ## Bugs
 
-* Sometimes players can't see all lines.
 * If someone else resizes a drawing the drawing isn't re-rendered for others.
-* Possible to leave game without saving.
+* Editor can't remove lines added by player during game.
 
 ### Low priority
 

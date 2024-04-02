@@ -3,6 +3,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 use serde_derive::{Deserialize, Serialize};
 
 use super::Rect;
+use crate::float_eq;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
 pub struct Point {
@@ -46,7 +47,7 @@ impl Point {
     }
 
     pub fn non_zero(&self) -> bool {
-        self.x != 0.0 || self.y != 0.0
+        !float_eq(self.x, 0.0) || !float_eq(self.y, 0.0)
     }
 
     #[must_use]
@@ -200,6 +201,10 @@ impl PointVector {
         }
     }
 
+    pub fn first(&self) -> Option<Point> {
+        self.nth(1)
+    }
+
     pub fn last(&self) -> Option<Point> {
         self.nth(self.n())
     }
@@ -297,5 +302,18 @@ mod test {
         pv.add_point(-1.0, -1.0);
 
         assert_eq!(pv.rect(), Rect::new(-1.0, -1.0, 0.5, 0.5));
+    }
+
+    #[test]
+    fn test_point_vec_first_last() {
+        let mut pv = PointVector::new();
+        assert_eq!(pv.first(), None);
+        assert_eq!(pv.last(), None);
+        pv.add(Point::same(1.0));
+        assert_eq!(pv.first().unwrap(), Point::same(1.0));
+        assert_eq!(pv.last().unwrap(), Point::same(1.0));
+        pv.add(Point::same(-1.0));
+        assert_eq!(pv.first().unwrap(), Point::same(1.0));
+        assert_eq!(pv.last().unwrap(), Point::same(-1.0));
     }
 }

@@ -101,7 +101,7 @@ fn add_cap(dst: &mut PointVector, cap: scene::Cap, at: Point, direction: f32, st
             );
         }
         scene::Cap::Round => add_semicircle(dst, at, stroke / 2.0, direction - PI / 2.0),
-        scene::Cap::None => dst.add_tri(at, at, at),
+        scene::Cap::None => {}
     }
 }
 
@@ -320,4 +320,37 @@ pub fn cone((p, q): (Point, Point), scale: f32) -> Vec<f32> {
     coords.add_tri(left, right, p);
     coords.scale(scale);
     coords.data
+}
+
+#[cfg(test)]
+mod test {
+    use scene::{float_eq, Cap};
+
+    use super::*;
+
+    #[test]
+    fn test_straight_line_start_point() {
+        let p = Point::same(-1.0);
+        let q = Point::same(1.0);
+        let stroke = 1.0;
+        let points = PointVector::from(line((p, q), stroke, Cap::None, Cap::None, 1.0));
+
+        dbg!(&points.data);
+
+        // Should have two triangles, splitting the diagonal of the line.
+        assert_eq!(points.data.len(), 6 * 2);
+
+        // Should have 3 points at each end to form the two triangles.
+        let mut start = 0;
+        let mut end = 0;
+        points.iter(|point| {
+            if float_eq(point.dist(p), stroke / 2.0) {
+                start += 1
+            } else if float_eq(point.dist(q), stroke / 2.0) {
+                end += 1;
+            }
+        });
+        assert_eq!(start, 3);
+        assert_eq!(end, 3);
+    }
 }

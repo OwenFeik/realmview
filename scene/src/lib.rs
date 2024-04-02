@@ -11,8 +11,7 @@ pub use fog::Fog;
 pub use group::Group;
 pub use layer::Layer;
 pub use point::{Point, PointVector};
-use rect::float_eq;
-pub use rect::{Dimension, Rect};
+pub use rect::{float_eq, Dimension, Rect};
 pub use sprite::{Cap, Colour, Outline, Shape, Sprite, Visual as SpriteVisual};
 
 pub mod comms;
@@ -509,9 +508,14 @@ impl Scene {
         self.sprite_drawings.values().collect::<Vec<&Drawing>>()
     }
 
-    pub fn start_drawing(&mut self, mode: DrawingMode) -> SceneEvent {
+    pub fn start_drawing(&mut self, mode: DrawingMode, at: Point) -> (Id, SceneEvent) {
         let id = self.next_id();
-        self.create_drawing(id, mode)
+        let creation_event = self.create_drawing(id, mode);
+        let mut events = vec![creation_event];
+        if let Some(event) = self.add_drawing_point(id, at) {
+            events.push(event);
+        };
+        (id, SceneEvent::EventSet(events))
     }
 
     pub fn add_drawing_point(&mut self, id: Id, point: Point) -> Option<SceneEvent> {

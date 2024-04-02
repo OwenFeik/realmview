@@ -18,14 +18,19 @@ enum DrawingInner {
 impl DrawingInner {
     fn new(mode: DrawingMode) -> Self {
         match mode {
-            DrawingMode::Cone | DrawingMode::Line => DrawingInner::Line(Point::ORIGIN, Point::ORIGIN),
+            DrawingMode::Cone | DrawingMode::Line => {
+                DrawingInner::Line(Point::ORIGIN, Point::ORIGIN)
+            }
             DrawingMode::Freehand => DrawingInner::Freehand(PointVector::new()),
         }
     }
 
     fn from(mode: DrawingMode, points: PointVector) -> Self {
         match mode {
-            DrawingMode::Cone | DrawingMode::Line => DrawingInner::Line(points.nth(1).unwrap_or_default(), points.last().unwrap_or_default()),
+            DrawingMode::Cone | DrawingMode::Line => DrawingInner::Line(
+                points.nth(1).unwrap_or_default(),
+                points.last().unwrap_or_default(),
+            ),
             DrawingMode::Freehand => DrawingInner::Freehand(points),
         }
     }
@@ -42,10 +47,15 @@ impl DrawingInner {
                         return;
                     }
                 }
-        
+
                 points.add(point);
-            },
-            DrawingInner::Line(_, end) => *end = point,
+            }
+            DrawingInner::Line(start, end) => {
+                if *start == Point::ORIGIN && *end == Point::ORIGIN {
+                    *start = point;
+                }
+                *end = point;
+            }
         }
     }
 
@@ -55,7 +65,7 @@ impl DrawingInner {
                 let p = points.nth(1).unwrap_or(Point::ORIGIN);
                 let q = points.last().unwrap_or(Point::ORIGIN);
                 (p, q)
-            },
+            }
             &DrawingInner::Line(p, q) => (p, q),
         }
     }
@@ -70,17 +80,20 @@ impl DrawingInner {
     /// Simplifies the drawing such that its top-left-most point is the
     /// origin, returning its from rect before the transformation.
     fn simplify(&mut self) -> Rect {
-        match self {
-            DrawingInner::Freehand(points) => {
-                let rect = points.rect();
-                let delta = rect.top_left();
-                if delta.non_zero() {
+        let rect = self.rect();
+        let delta = rect.top_left();
+        if delta.non_zero() {
+            match self {
+                DrawingInner::Freehand(points) => {
                     points.translate(-delta);
                 }
-                rect
-            },
-            DrawingInner::Line(..) => self.rect(),
+                DrawingInner::Line(start, end) => {
+                    *start = *start - delta;
+                    *end = *end - delta;
+                }
+            }
         }
+        rect
     }
 
     fn length(&self) -> f32 {
@@ -95,7 +108,7 @@ impl DrawingInner {
                     prev = Some(p);
                 });
                 dist
-            },
+            }
             &DrawingInner::Line(p, q) => p.dist(q),
         }
     }
@@ -120,14 +133,10 @@ impl DrawingInner {
                 points.add(p);
                 points.add(q);
                 points
-            },
+            }
         };
 
-        points
-            .data
-            .iter()
-            .flat_map(|f| f.to_be_bytes())
-            .collect()
+        points.data.iter().flat_map(|f| f.to_be_bytes()).collect()
     }
 }
 
@@ -145,7 +154,7 @@ impl Drawing {
             id,
             finished: false,
             mode,
-            inner: DrawingInner::new(mode)
+            inner: DrawingInner::new(mode),
         }
     }
 
@@ -154,7 +163,7 @@ impl Drawing {
             id,
             finished: true,
             mode,
-            inner: DrawingInner::from(mode, points)
+            inner: DrawingInner::from(mode, points),
         }
     }
 
@@ -165,7 +174,6 @@ impl Drawing {
     pub fn last_point(&self) -> Option<Point> {
         self.inner.end()
     }
-
 
     pub fn add_point(&mut self, point: Point) {
         self.inner.add(point);
