@@ -94,9 +94,13 @@ impl Interactor {
                     self.process_server_event(event);
                 }
             }
+            ServerEvent::Disconnect => {
+                self.history.disconnect();
+            }
             ServerEvent::GameOver => {
                 crate::bridge::game_over_redirect();
             }
+            ServerEvent::HealthCheck => self.history.reply_to_health_check(),
             ServerEvent::Rejection(id) => {
                 if let Some(event) = self.history.take_event(id) {
                     self.unwind_event(event)

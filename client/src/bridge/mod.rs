@@ -533,7 +533,7 @@ fn prepend_child(parent: &HtmlElement, child: &HtmlElement) {
         .ok();
 }
 
-pub fn websocket_url() -> anyhow::Result<Option<String>> {
+pub fn websocket_url() -> anyhow::Result<Option<(String, String)>> {
     let win = match window() {
         Ok(w) => w,
         Err(_) => return Err(anyhow!("Failed to read window Location.")),
@@ -549,11 +549,14 @@ pub fn websocket_url() -> anyhow::Result<Option<String>> {
             let mut parts = path.split('/').collect::<Vec<&str>>();
             parts.retain(|p| !p.is_empty());
             match parts[..] {
-                ["game", game_key] => Ok(Some(format!(
-                    "{}://{}/api/game/{}",
-                    if protocol.contains('s') { "wss" } else { "ws" },
-                    &host,
-                    game_key,
+                ["game", game_key] => Ok(Some((
+                    format!(
+                        "{}://{}/api/game/{}",
+                        if protocol.contains('s') { "wss" } else { "ws" },
+                        &host,
+                        game_key,
+                    ),
+                    game_key.to_string(),
                 ))),
                 _ => Ok(None),
             }
@@ -630,17 +633,20 @@ pub fn rand() -> f32 {
     num as f32
 }
 
-pub fn game_over_redirect() {
+pub fn redirect_to(url: &str) {
     // Ensure we don't redirect multiple times.
     static REDIRECTED: AtomicBool = AtomicBool::new(false);
-
-    const HREF: &str = "/game_over";
     if !REDIRECTED.load(std::sync::atomic::Ordering::Acquire) {
         if let Ok(window) = window() {
-            window.location().set_href("/game_over").ok();
+            window.location().set_href(url).ok();
             REDIRECTED.store(true, std::sync::atomic::Ordering::Release);
         }
     }
+}
+
+pub fn game_over_redirect() {
+    const HREF: &str = "/game_over";
+    redirect_to(HREF);
 }
 
 pub fn timestamp_ms() -> u64 {

@@ -71,8 +71,6 @@ function new_game() {
         Api.NewGame,
         { "scene_key": selected_scene() },
         resp => {
-            console.log(resp);
-
             if (resp?.success) {
                 window.location = resp.url;
             }

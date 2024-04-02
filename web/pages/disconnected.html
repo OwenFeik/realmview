@@ -1,0 +1,18 @@
+<PageFloat title="Disconnected" loggedin="">
+  <div class="text-center" id="main">
+    <p class="fs-3">
+      You were disconnected from a game.
+    </p>
+    <p>
+      <a href="/game/">Join a different game</a>
+    </p>
+  </div>
+</PageFloat>
+<script>
+let game = new URL(window.location).searchParams.get("from");
+if (game) {
+  document.getElementById("main").appendChild(template_to_element(
+    `<p><a href="/game/${game}">Try to reconnect</a></p>`
+  ));
+}
+</script>

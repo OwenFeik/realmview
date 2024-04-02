@@ -22,6 +22,7 @@ pub fn routes() -> actix_web::Scope {
         .route("/register", public(files::REGISTER))
         .route("/media", loggedin(files::MEDIA))
         .route("/game_over", public(files::GAME_OVER))
+        .route("/disconnected", public(files::DISCONNECTED))
         .route("/landing", loggedin(files::LANDING))
         .service(projects())
         .service(game())
@@ -102,6 +103,7 @@ mod files {
     pub const EDIT_PROJECT: &str = "edit_project.html";
     pub const GAME: &str = "game.html";
     pub const GAME_OVER: &str = "game_over.html";
+    pub const DISCONNECTED: &str = "disconnected.html";
     pub const INDEX: &str = "index.html";
     pub const LANDING: &str = "landing.html";
     pub const LOGIN: &str = "login.html";

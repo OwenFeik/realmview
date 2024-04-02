@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
 use anyhow::anyhow;
 use scene::comms::SceneEvent;
@@ -112,8 +112,9 @@ struct Server {
     pool: SqlitePool,
     handle: UnboundedReceiver<ServerCommand>,
     clients: HashMap<i64, Client>,
-    last_save: SystemTime,
-    last_action: SystemTime,
+    last_save: Instant,
+    last_action: Instant,
+    empty_time: Option<Instant>,
 }
 
 impl Server {
@@ -126,6 +127,7 @@ impl Server {
         pool: SqlitePool,
         handle: UnboundedReceiver<ServerCommand>,
     ) -> Self {
+        let now = Instant::now();
         Self {
             open,
             owner,
@@ -133,15 +135,25 @@ impl Server {
             pool,
             handle,
             clients: HashMap::new(),
-            last_save: SystemTime::now(),
-            last_action: SystemTime::now(),
+            last_save: now,
+            last_action: now,
+            empty_time: Some(now),
         }
     }
 
     async fn run(&mut self) {
+        // Interval at which to update client health checks, check if a save is
+        // needed, etc.
         const CHECK_INTERVAL: Duration = Duration::from_millis(500);
+
+        // Interval at which to save the game.
         const SAVE_INTERVAL: Duration = Duration::from_secs(600);
+
+        // Time after which to close the game if no event has ocurred.
         const INACTIVITY_TIMEOUT: Duration = Duration::from_secs(1800);
+
+        // Time to keep the game open with no clients.
+        const EMPTY_TIMEOUT: Duration = Duration::from_secs(30);
 
         self.log(LogLevel::Debug, "Opened server");
 
@@ -163,14 +175,20 @@ impl Server {
                 Err(_) => {}       // Timeout expired. Just check inactivity and save.
             }
 
-            // Check health of clients.
+            // Check if any clients have died.
             self.health_check();
 
-            if duration_elapsed(self.last_action, INACTIVITY_TIMEOUT) {
+            if self.last_action.elapsed() >= INACTIVITY_TIMEOUT {
                 break; // Inactive for timeout duration. Close server.
             }
 
-            if duration_elapsed(self.last_save, SAVE_INTERVAL) {
+            if let Some(empty_time) = self.empty_time
+                && empty_time.elapsed() >= EMPTY_TIMEOUT
+            {
+                break; // Inactive for timeout duration. Close server.
+            }
+
+            if self.last_save.elapsed() >= SAVE_INTERVAL {
                 self.save_scene().await; // Save interval elapsed, save scene.
             }
         }
@@ -185,10 +203,12 @@ impl Server {
     /// Handles a message from a client. Returns `true` if all is good, or
     /// `false` if the client has been dropped and the socket should be closed.
     async fn handle_message(&mut self, message: ClientMessage, from: i64) {
-        // Keep track of last activity. Even a ping will keep the server up.
-        self.last_action = SystemTime::now();
+        let now = Instant::now();
 
-        if !self.client_active(from) {
+        // Keep track of last activity. Even a ping will keep the server up.
+        self.last_action = now;
+
+        if !self.client_active(from, now) {
             self.log(
                 LogLevel::Debug,
                 format!("Client ({from}) messaged while disconnected"),
@@ -247,6 +267,7 @@ impl Server {
                 last_event: Instant::now(),
             },
         );
+        self.empty_time = None;
 
         let (perms, scene, layer) = self.game.add_player(user, &name);
 
@@ -283,14 +304,22 @@ impl Server {
     }
 
     fn disconnect_client(&mut self, user: i64) {
-        self.send_event(ServerEvent::GameOver, user);
+        self.send_event(ServerEvent::Disconnect, user);
         if self.clients.remove_entry(&user).is_some() {
             self.log(LogLevel::Debug, format!("Client ({user}) disconnected"));
         }
+        if self.clients.is_empty() {
+            self.empty_time = Some(Instant::now());
+        }
     }
 
-    fn client_active(&self, user: i64) -> bool {
-        self.clients.get(&user).map(Client::active).unwrap_or(false)
+    fn client_active(&mut self, user: i64, time: Instant) -> bool {
+        if let Some(client) = self.clients.get_mut(&user) {
+            client.last_event = time;
+            client.active()
+        } else {
+            false
+        }
     }
 
     fn send_approval(&mut self, event_id: i64, user: i64) {
@@ -336,7 +365,7 @@ impl Server {
 
         /// Time to wait after sending a heartbeat before presuming a client
         /// dead and disconnecting it.
-        const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(10);
+        const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(30);
 
         let now = Instant::now();
         let mut clients_to_disconnect = Vec::new();
@@ -363,7 +392,7 @@ impl Server {
         }
 
         for user in clients_to_disconnect {
-            self.log(LogLevel::Info, format!("User ({user}) timed out."));
+            self.log(LogLevel::Info, format!("User ({user}) timed out"));
             self.disconnect_client(user);
         }
     }
@@ -415,7 +444,7 @@ impl Server {
         if let Err(e) = self._save_scene().await {
             self.log(LogLevel::Error, format!("Failed to save scene: {e}"));
         } else {
-            self.last_save = SystemTime::now();
+            self.last_save = Instant::now();
         }
     }
 
@@ -477,8 +506,4 @@ impl Server {
             .await
             .map_err(|e| anyhow!("Failed to acquire connection: {e}"))
     }
-}
-
-fn duration_elapsed(start: SystemTime, duration: Duration) -> bool {
-    start.elapsed().map(|d| d >= duration).unwrap_or(false)
 }

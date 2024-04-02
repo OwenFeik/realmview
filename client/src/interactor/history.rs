@@ -283,4 +283,15 @@ impl History {
         self.history.retain(predicate);
         self.redo_history.retain(predicate);
     }
+
+    pub fn disconnect(&mut self) {
+        if let Some(client) = &mut self.client {
+            client.disconnect();
+        }
+    }
+
+    pub fn reply_to_health_check(&mut self) {
+        crate::bridge::flog!("PING!");
+        self.issue_message(ClientEvent::Ping);
+    }
 }
