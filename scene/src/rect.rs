@@ -156,6 +156,27 @@ impl Rect {
         in_x && in_y
     }
 
+    pub fn containing(self, point: Point) -> Self {
+        let mut rect = self.positive_dimensions();
+        if point.x < rect.x {
+            let dx = rect.x - point.x;
+            rect.x = point.x;
+            rect.w += dx;
+        } else if point.x > rect.x + rect.w {
+            rect.w = point.x - rect.x;
+        }
+
+        if point.y < rect.y {
+            let dy = rect.y - point.y;
+            rect.y = point.y;
+            rect.h += dy;
+        } else if point.y > rect.y + rect.h {
+            rect.h = point.y - rect.y;
+        }
+
+        rect
+    }
+
     pub fn dist_to_point(&self, point: Point) -> f32 {
         if self.w < 0.0 || self.h < 0.0 {
             self.positive_dimensions().dist_to_point(point)
@@ -339,5 +360,24 @@ mod test {
 
         assert!(float_eq(rect.dist_to_point(Point { x: 3.6, y: 3.5 }), 0.1));
         assert!(float_eq(rect.dist_to_point(Point { x: 0.9, y: 3.5 }), 0.1));
+    }
+
+    #[test]
+    fn test_containing() {
+        let rect = Rect::new(0., 0., 2., 2.);
+
+        let points = &[
+            Point::same(-1.),
+            Point::new(-1., -5.),
+            Point::same(3.),
+            Point::same(0.5),
+            Point::new(2.5, 0.5),
+            Point::new(2.5, -0.5),
+            Point::new(123.456, -12.34),
+        ];
+
+        for &point in points {
+            assert!(rect.containing(point).contains_point(point));
+        }
     }
 }

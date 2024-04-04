@@ -117,7 +117,7 @@ impl Interactor {
                 }
             }
             ServerEvent::SceneChange(scene) => {
-                self.replace_scene(scene);
+                self.replace_scene(*scene);
             }
             ServerEvent::SceneList(scenes, current) => {
                 return Some((scenes, current));
@@ -516,11 +516,9 @@ impl Interactor {
                     *drawing = drawing_id;
                 }
 
-                if let Some(sprite_id) = self.new_sprite_at(
-                    Some(visual),
-                    None,
-                    Rect::at(Point::ORIGIN, Sprite::DEFAULT_WIDTH, Sprite::DEFAULT_HEIGHT),
-                ) {
+                if let Some(sprite_id) =
+                    self.new_sprite_at(Some(visual), None, Rect::at(at, 0.0, 0.0))
+                {
                     self.history.start_move_group();
                     self.holding = HeldObject::Drawing(drawing_id, sprite_id, ephemeral, !alt);
                 }
@@ -723,8 +721,9 @@ impl Interactor {
     }
 
     fn finish_draw(&mut self, drawing: Id, sprite: Id) {
-        let opt = self.scene.finish_drawing(drawing, sprite);
-        self.scene_option(opt);
+        // let opt = self.scene.finish_drawing(drawing, sprite);
+        // self.scene_option(opt);
+        // TODO
         self.history.end_move_group();
     }
 

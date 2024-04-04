@@ -35,6 +35,7 @@ pub struct Scene {
     canon: bool,
     next_id: Id,
     sprite_drawings: HashMap<Id, Drawing>,
+    drawing_sprites: HashMap<Id, Id>,
     pub id: Option<Id>,
     pub key: Option<String>,
 
@@ -376,6 +377,10 @@ impl Scene {
     }
 
     pub fn add_sprite(&mut self, sprite: Sprite, layer: Id) -> Option<SceneEvent> {
+        if let SpriteVisual::Drawing { drawing, .. } = sprite.visual {
+            self.drawing_sprites.insert(drawing, sprite.id);
+        }
+
         self.layer(layer).map(|l| l.add_sprite(sprite))
     }
 
@@ -519,33 +524,25 @@ impl Scene {
     }
 
     pub fn add_drawing_point(&mut self, id: Id, point: Point) -> Option<SceneEvent> {
-        if let Some(drawing) = self.sprite_drawings.get_mut(&id) {
+        let event = if let Some(drawing) = self.sprite_drawings.get_mut(&id) {
             drawing.add_point(point);
+
             Some(SceneEvent::SpriteDrawingPoint(id, point))
         } else {
             None
-        }
-    }
-
-    pub fn finish_drawing(&mut self, drawing: Id, sprite: Id) -> Option<SceneEvent> {
-        let rect = if let Some(d) = self.sprite_drawings.get_mut(&drawing) {
-            if float_eq(d.length(), 0.0) {
-                return self.remove_sprite(sprite);
-            } else {
-                d.finished = true;
-                d.simplify()
-            }
-        } else {
-            return None;
         };
 
-        if let Some(s) = self.sprite(sprite) {
-            s.drawing_finished(rect);
-        } else {
-            return None;
+        if event.is_some()
+            && let Some(sprite) = self
+                .drawing_sprites
+                .get(&id)
+                .copied()
+                .and_then(|id| self.sprite(id))
+        {
+            sprite.rect = sprite.rect.containing(point);
         }
 
-        Some(SceneEvent::SpriteDrawingFinish(drawing, sprite))
+        event
     }
 
     pub fn apply_event(&mut self, event: SceneEvent) -> bool {
@@ -659,20 +656,6 @@ impl Scene {
                     false
                 }
             }
-            SceneEvent::SpriteDrawingFinish(d, s) => {
-                if let Some(drawing) = self.sprite_drawings.get_mut(&d) {
-                    let rect = drawing.simplify();
-
-                    if let Some(sprite) = self.sprite(s) {
-                        sprite.drawing_finished(rect);
-                        true
-                    } else {
-                        false
-                    }
-                } else {
-                    false
-                }
-            }
             SceneEvent::SpriteDrawingPoint(id, at) => self.add_drawing_point(id, at).is_some(),
             SceneEvent::SpriteNew(s, l) => {
                 if self.sprite(s.id).is_none() {
@@ -770,7 +753,6 @@ impl Scene {
                 None
             }
             SceneEvent::SpriteDrawingStart(..) => None,
-            SceneEvent::SpriteDrawingFinish(..) => None,
             SceneEvent::SpriteDrawingPoint(..) => None,
             SceneEvent::SpriteNew(s, _) => self.remove_sprite(s.id),
             SceneEvent::SpriteLayer(id, old_layer, new_layer) => {
@@ -804,6 +786,7 @@ impl Default for Scene {
             key: None,
             next_id: 4,
             sprite_drawings: HashMap::new(),
+            drawing_sprites: HashMap::new(),
             canon: false,
             layers: vec![
                 Layer::new(1, "Foreground", Self::FOREGROUND_Z),

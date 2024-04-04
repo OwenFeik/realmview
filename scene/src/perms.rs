@@ -61,8 +61,7 @@ impl Perm {
             SceneEvent::GroupAdd(..)
             | SceneEvent::GroupRemove(..)
             | SceneEvent::SpriteMove(..)
-            | SceneEvent::SpriteVisual(..)
-            | SceneEvent::SpriteDrawingFinish(..) => Perm::SpriteEdit,
+            | SceneEvent::SpriteVisual(..) => Perm::SpriteEdit,
             SceneEvent::SpriteDrawingStart(..) | SceneEvent::SpriteDrawingPoint(..) => {
                 Perm::DrawingEdit
             }
@@ -322,7 +321,6 @@ mod test {
     fn test_drawing_handling() {
         let user = 1;
         let drawing = 2;
-        let sprite = 3;
         let layer = 4;
 
         let mut perms = Perms::new();
@@ -332,11 +330,6 @@ mod test {
             user,
             &SceneEvent::SpriteDrawingPoint(drawing, crate::Point::same(1.)),
             None
-        ));
-        assert!(perms.permitted(
-            user,
-            &SceneEvent::SpriteDrawingFinish(drawing, sprite),
-            Some(layer)
         ));
     }
 

@@ -399,7 +399,7 @@ impl DrawingRenderer {
         // 32 bits for the rect width
         // 32 bits for the rect height
         // 32 bits for the stroke width
-        // 27 bits counting the number of points in the drawing
+        // 28 bits counting the number of points in the drawing
         // 2 bits for the starting cap
         // 2 bits for the ending cap
         // 1 bit for whether the drawing is finished
@@ -425,12 +425,11 @@ impl DrawingRenderer {
         // Last 28 bits. We've already shifted the first 100 across by 100.
         let mut low = 0u32;
         low |= drawing.n_points();
-        low <<= 27; // Assume n_points is smaller than 27 bits.
+        low <<= 28; // Assume n_points is smaller than 28 bits.
         low |= cap_start as u32; // allow 2 bits
         low <<= 2;
         low |= cap_end as u32; // 2 bits
         key |= low as u128;
-        key |= drawing.finished as u128; // final single bit
 
         key
     }
@@ -444,27 +443,20 @@ impl DrawingRenderer {
         cap_start: scene::Cap,
         cap_end: scene::Cap,
     ) -> anyhow::Result<()> {
-        // Before drawing is finished the sprite will always be 1*1. Only after
-        // it is finished do we need to think about it being resized.
-        let points_rect = drawing.rect();
-        let (scale_x, scale_y) = if drawing.finished {
-            (
-                self.grid_size * rect.w / points_rect.w,
-                self.grid_size * rect.h / points_rect.h,
-            )
-        } else {
-            (self.grid_size, self.grid_size)
-        };
-
         let points = match drawing.mode {
-            scene::DrawingMode::Freehand => super::shapes::freehand(
-                drawing.points().unwrap(),
-                stroke,
-                cap_start,
-                cap_end,
-                scale_x,
-                scale_y,
-            ),
+            scene::DrawingMode::Freehand => {
+                let points_rect = drawing.rect();
+                super::shapes::freehand(
+                    drawing.points().unwrap(),
+                    stroke,
+                    cap_start,
+                    cap_end,
+                    (
+                        self.grid_size * rect.w / points_rect.w,
+                        self.grid_size * rect.h / points_rect.h,
+                    ),
+                )
+            }
             scene::DrawingMode::Line => {
                 super::shapes::line(drawing.line(), stroke, cap_start, cap_end, self.grid_size)
             }

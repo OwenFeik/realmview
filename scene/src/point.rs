@@ -140,6 +140,15 @@ impl Sub for Point {
     }
 }
 
+impl From<(f32, f32)> for Point {
+    fn from(value: (f32, f32)) -> Self {
+        Point {
+            x: value.0,
+            y: value.1,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct PointVector {
     pub data: Vec<f32>,

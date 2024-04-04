@@ -270,6 +270,5 @@ mod test {
             player,
             SceneEvent::SpriteDrawingPoint(drawing, Point::same(1.))
         ));
-        assert!(game.handle_event(player, SceneEvent::SpriteDrawingFinish(drawing, sprite)));
     }
 }

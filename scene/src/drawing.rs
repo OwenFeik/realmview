@@ -9,7 +9,7 @@ pub enum DrawingMode {
     Line,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 enum DrawingInner {
     Freehand(PointVector),
     Line(Point, Point),
@@ -140,10 +140,9 @@ impl DrawingInner {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Drawing {
     pub id: Id,
-    pub finished: bool,
     pub mode: DrawingMode,
     inner: DrawingInner,
 }
@@ -152,7 +151,6 @@ impl Drawing {
     pub fn new(id: Id, mode: DrawingMode) -> Self {
         Self {
             id,
-            finished: false,
             mode,
             inner: DrawingInner::new(mode),
         }
@@ -161,7 +159,6 @@ impl Drawing {
     pub fn from(id: Id, mode: DrawingMode, points: PointVector) -> Self {
         Self {
             id,
-            finished: true,
             mode,
             inner: DrawingInner::from(mode, points),
         }

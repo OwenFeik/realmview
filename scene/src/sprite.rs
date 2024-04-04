@@ -71,8 +71,6 @@ impl Shape {
     }
 }
 
-
-
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub enum Cap {
     Arrow,
@@ -118,6 +116,8 @@ pub enum Visual {
         drawing: Id,
         colour: Colour,
         stroke: f32,
+        dx: f32,
+        dy: f32,
         cap_start: Cap,
         cap_end: Cap,
     },
@@ -416,29 +416,8 @@ impl Sprite {
         }
     }
 
-    pub fn drawing_finished(&mut self, rect: Rect) {
-        if let Visual::Drawing { .. } = &mut self.visual {
-            self.rect = rect;
-        }
-    }
-
     pub fn outline(&self) -> Outline {
-        let rect = self.rect;
-        match self.visual {
-            Visual::Drawing { stroke, .. } => Outline {
-                rect: Rect {
-                    x: self.rect.x - stroke,
-                    y: self.rect.y - stroke,
-                    w: self.rect.w + stroke * 2.0,
-                    h: self.rect.h + stroke * 2.0,
-                },
-                shape: Shape::Rectangle,
-            },
-            _ => Outline {
-                rect,
-                shape: Shape::Rectangle,
-            },
-        }
+        Outline::rect(self.rect)
     }
 }
 

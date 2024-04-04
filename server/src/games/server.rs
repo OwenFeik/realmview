@@ -283,7 +283,7 @@ impl Server {
         let perms = self.game.client_perms();
         let mut events = vec![
             ServerEvent::UserId(user),
-            ServerEvent::SceneChange(scene),
+            ServerEvent::SceneChange(Box::new(scene)),
             ServerEvent::PermsChange(perms),
         ];
 
@@ -464,7 +464,7 @@ impl Server {
             let (_, _, layer) = self.game.add_player(user, &name);
 
             let mut events = vec![
-                ServerEvent::SceneChange(self.game.client_scene()),
+                ServerEvent::SceneChange(Box::new(self.game.client_scene())),
                 ServerEvent::PermsChange(self.game.client_perms()),
             ];
 

@@ -1,5 +1,16 @@
 use super::*;
 
+fn add_player_layer(int: &mut Interactor, player: Id) -> Id {
+    // New layer behind foreground.
+    let Some(SceneEvent::LayerNew(layer, ..)) =
+        int.scene.new_layer("player", Scene::FOREGROUND_Z - 1)
+    else {
+        panic!("Layer not created.");
+    };
+    int.perms.grant_override(player, layer);
+    layer
+}
+
 /// Test that if there is a selectable sprite visible below a non-selectable
 /// sprite, it's possible to click on that sprite.
 #[test]
@@ -8,13 +19,7 @@ fn test_select_behind_forbidden() {
     int.user = 1;
     int.role = scene::perms::Role::Player;
 
-    // New layer behind foreground.
-    let Some(SceneEvent::LayerNew(layer, ..)) =
-        int.scene.new_layer("player", Scene::FOREGROUND_Z - 1)
-    else {
-        panic!("Layer not created.");
-    };
-    int.perms.grant_override(int.user, layer);
+    let layer = add_player_layer(&mut int, 1);
 
     let server_sprite_id = 3;
     let visual = SpriteVisual::Shape {
@@ -38,4 +43,28 @@ fn test_select_behind_forbidden() {
     let player_sprite_id = player_sprite.id;
 
     assert_eq!(int.grab_at(Point::ORIGIN, false).1, Some(player_sprite_id));
+}
+
+/// Test that a game owner can select a sprite created by another player.
+#[test]
+fn test_select_player_sprite() {
+    let owner = 1;
+    let player = 2;
+
+    let mut int = Interactor::new(None);
+    int.perms.set_owner(owner);
+    int.user = owner;
+    int.role = scene::perms::Role::Owner;
+
+    let layer = add_player_layer(&mut int, player);
+    let sprite = layer + 1;
+
+    int.process_server_event(ServerEvent::SceneUpdate(SceneEvent::SpriteNew(
+        Sprite::new(sprite, None),
+        layer,
+    )));
+    let sprite = int.scene.sprite_ref(sprite).unwrap();
+
+    assert!(int.perms.selectable(owner, sprite.id, layer));
+    assert!(int.selectable(sprite, true));
 }

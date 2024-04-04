@@ -28,7 +28,6 @@ pub enum SceneEvent {
     SceneDimensions(u32, u32, u32, u32),          // (old_w, old_h, new_w, new_h)
     SceneTitle(Option<String>, String),           // (old_title, new_title)
     SpriteDrawingStart(Id, DrawingMode),          // (drawing, mode)
-    SpriteDrawingFinish(Id, Id),                  // (drawing, sprite)
     SpriteDrawingPoint(Id, Point),                // (drawing, npoints, point)
     SpriteLayer(Id, Id, Id),                      // (sprite, old_layer, new_layer)
     SpriteMove(Id, Rect, Rect),                   // (sprite, from, to)
@@ -76,7 +75,6 @@ impl SceneEvent {
             self,
             Self::GroupAdd(..)
                 | Self::GroupRemove(..)
-                | Self::SpriteDrawingFinish(..)
                 | Self::SpriteDrawingPoint(..)
                 | Self::SpriteLayer(..)
                 | Self::SpriteMove(..)
@@ -111,8 +109,7 @@ impl SceneEvent {
             | &Self::SpriteRestore(id)
             | &Self::SpriteVisual(id, ..)
             | &Self::SpriteDrawingStart(id, ..)
-            | &Self::SpriteDrawingPoint(id, ..)
-            | &Self::SpriteDrawingFinish(_, id) => Some(id),
+            | &Self::SpriteDrawingPoint(id, ..) => Some(id),
             Self::SpriteNew(s, ..) => Some(s.id),
             Self::Dummy
             | Self::EventSet(_)
@@ -136,7 +133,6 @@ impl SceneEvent {
             &Self::SpriteRemove(id, ..) => id,
             &Self::SpriteRestore(id) => id,
             &Self::SpriteVisual(id, ..) => id,
-            &Self::SpriteDrawingFinish(_, id) => id,
             _ => return None,
         })
     }
@@ -192,7 +188,7 @@ pub enum ServerEvent {
     Rejection(Id),
     PermsChange(Perms),
     PermsUpdate(PermsEvent),
-    SceneChange(Scene),
+    SceneChange(Box<Scene>),
     SceneList(Vec<(String, String)>, String),
     SceneUpdate(SceneEvent),
     SelectedLayer(Id),

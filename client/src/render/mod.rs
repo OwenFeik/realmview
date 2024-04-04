@@ -1,8 +1,6 @@
 use std::rc::Rc;
 
-use scene::{
-    Cap, Colour, Drawing, Fog, Id, Outline, Point, Rect, Scene, Shape, Sprite,
-};
+use scene::{Cap, Colour, Drawing, Fog, Id, Outline, Point, Rect, Scene, Shape, Sprite};
 use web_sys::{HtmlImageElement, WebGl2RenderingContext};
 
 use crate::viewport::ViewportPoint;
@@ -170,9 +168,7 @@ pub trait Renderer {
                 cap_end,
             } => {
                 if let Some(drawing) = drawing {
-                    self.draw_drawing(
-                        vp, position, drawing, colour, stroke, cap_start, cap_end,
-                    );
+                    self.draw_drawing(vp, position, drawing, colour, stroke, cap_start, cap_end);
                 }
             }
         }
