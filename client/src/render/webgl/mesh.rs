@@ -47,7 +47,7 @@ impl Mesh {
         &self.coords
     }
 
-    fn set_transforms(&mut self, scale: bool, translate: bool) {
+    pub fn set_transforms(&mut self, scale: bool, translate: bool) {
         self.scale = scale;
         self.translate = translate;
     }

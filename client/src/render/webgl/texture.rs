@@ -7,6 +7,8 @@ use web_sys::{HtmlImageElement, WebGlBuffer, WebGlProgram, WebGlTexture, WebGlUn
 use super::{create_buffer, create_program, get_uniform_location, mesh::Mesh, Gl};
 use crate::render::parse_media_key;
 
+pub struct TextureRef<'a>(&'a WebGlTexture);
+
 struct Texture {
     pub width: u32,
     pub height: u32,
@@ -198,9 +200,9 @@ impl TextureManager {
 
     // Returns the requested texture, queueing it to load if necessary.
     // (yay side effects!)
-    pub fn get_texture(&mut self, id: scene::Id) -> &WebGlTexture {
+    pub fn get_texture(&mut self, id: scene::Id) -> TextureRef {
         if let Some(tex) = self.textures.get(&id) {
-            &tex.texture
+            TextureRef(&tex.texture)
         } else {
             if !self.loading.contains(&id) {
                 self.loading.push(id);
@@ -209,7 +211,7 @@ impl TextureManager {
 
             // This unwrap is safe because we always add a missing texture
             // texture as id 0 in the constructor.
-            &self.textures.get(&0).unwrap().texture
+            TextureRef(&self.textures.get(&0).unwrap().texture)
         }
     }
 }
@@ -224,7 +226,7 @@ pub struct TextureShapeRenderer {
 }
 
 impl TextureShapeRenderer {
-    fn new(gl: Rc<Gl>, shape: Shape) -> anyhow::Result<Self> {
+    pub fn new(gl: Rc<Gl>, shape: Shape) -> anyhow::Result<Self> {
         let program = create_program(
             &gl,
             include_str!("shaders/solid.vert"),
@@ -247,10 +249,10 @@ impl TextureShapeRenderer {
         })
     }
 
-    fn draw_texture(&self, texture: &WebGlTexture, viewport: Rect, position: Rect) {
+    pub fn draw_texture(&self, texture: TextureRef, viewport: Rect, position: Rect) {
         let gl = &self.gl;
 
-        gl.bind_texture(Gl::TEXTURE_2D, Some(texture));
+        gl.bind_texture(Gl::TEXTURE_2D, Some(texture.0));
         gl.use_program(Some(&self.program));
         gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&self.texcoord_buffer));
         gl.enable_vertex_attrib_array(self.texcoord_location);

@@ -1,22 +1,22 @@
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
-use crate::bridge::Gl;
+use scene::Rect;
+
+use super::webgl::{Mesh, SolidRenderer};
 
 pub struct DrawingRenderer {
-    gl: Rc<Gl>,
     grid_size: f32,
     drawings: HashMap<scene::Id, (u128, Mesh)>,
     renderer: SolidRenderer,
 }
 
 impl DrawingRenderer {
-    pub fn new(gl: Rc<Gl>) -> anyhow::Result<Self> {
-        Ok(Self {
-            gl: gl.clone(),
+    pub fn new(inner: SolidRenderer) -> Self {
+        Self {
             grid_size: 0.0,
             drawings: HashMap::new(),
-            renderer: SolidRenderer::new(gl)?,
-        })
+            renderer: inner,
+        }
     }
 
     fn create_key(
@@ -94,7 +94,7 @@ impl DrawingRenderer {
             scene::DrawingMode::Cone => super::shapes::cone(drawing.line(), self.grid_size),
         };
 
-        let mut mesh = Mesh::new(&self.gl, &self.renderer.program, &points)?;
+        let mut mesh = self.renderer.mesh(&points)?;
         mesh.set_transforms(false, true);
         self.drawings.insert(
             id,

@@ -31,13 +31,17 @@ impl SolidRenderer {
         })
     }
 
+    pub fn mesh(&self, points: &[f32]) -> anyhow::Result<Mesh> {
+        Mesh::new(&self.gl, &self.program, points)
+    }
+
     fn prepare_draw(&self, colour: Colour) {
         self.gl.use_program(Some(&self.program));
         self.gl
             .uniform4fv_with_f32_array(Some(&self.colour_location), colour.arr());
     }
 
-    fn draw(&self, shape: &Mesh, colour: Colour, viewport: Rect, position: Rect) {
+    pub fn draw(&self, shape: &Mesh, colour: Colour, viewport: Rect, position: Rect) {
         self.prepare_draw(colour);
         shape.draw(&self.gl, viewport, position);
     }

@@ -76,7 +76,7 @@ impl LineRenderer {
         );
     }
 
-    fn render_lines(&self, colour: Option<Colour>) {
+    pub fn render_lines(&self, colour: Option<Colour>) {
         self.prepare_render(colour);
         self.gl.draw_arrays(Gl::LINES, 0, self.point_count);
     }

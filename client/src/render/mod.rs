@@ -5,9 +5,13 @@ use web_sys::{HtmlImageElement, WebGl2RenderingContext};
 
 use crate::viewport::ViewportPoint;
 
-mod programs;
+mod drawing;
+mod fog;
+mod grid;
+mod hollow;
 mod shapes;
 mod text;
+mod texture;
 mod webgl;
 
 pub use webgl::Gl;
@@ -216,14 +220,14 @@ pub trait Renderer {
 
 pub struct WebGlRenderer {
     gl: Rc<WebGl2RenderingContext>,
-    texture_library: programs::TextureManager,
-    solid_renderer: programs::SolidRenderer,
-    texture_renderer: programs::TextureRenderer,
-    hollow_renderer: programs::HollowRenderer,
+    texture_library: webgl::TextureManager,
+    solid_renderer: webgl::SolidRenderer,
+    texture_renderer: texture::TextureRenderer,
+    hollow_renderer: hollow::HollowRenderer,
     drawing_renderer: drawing::DrawingRenderer,
-    line_renderer: programs::LineRenderer,
-    grid_renderer: programs::GridRenderer,
-    fog_renderer: programs::FogRenderer,
+    line_renderer: webgl::LineRenderer,
+    grid_renderer: grid::GridRenderer,
+    fog_renderer: fog::FogRenderer,
     text_manager: text::HoverTextManager,
 }
 
@@ -231,14 +235,14 @@ impl WebGlRenderer {
     pub fn new(gl: Rc<WebGl2RenderingContext>) -> anyhow::Result<Self> {
         Ok(Self {
             gl: gl.clone(),
-            texture_library: programs::TextureManager::new(gl.clone())?,
-            solid_renderer: programs::SolidRenderer::new(gl.clone())?,
-            texture_renderer: programs::TextureRenderer::new(gl.clone())?,
-            hollow_renderer: programs::HollowRenderer::new(gl.clone())?,
-            drawing_renderer: drawing::DrawingRenderer::new(gl.clone())?,
-            line_renderer: programs::LineRenderer::new(gl.clone())?,
-            grid_renderer: programs::GridRenderer::new(gl.clone())?,
-            fog_renderer: programs::FogRenderer::new(gl)?,
+            texture_library: webgl::TextureManager::new(gl.clone())?,
+            solid_renderer: webgl::SolidRenderer::new(gl.clone())?,
+            texture_renderer: texture::TextureRenderer::new(gl.clone())?,
+            hollow_renderer: hollow::HollowRenderer::new(webgl::SolidRenderer::new(gl.clone())?),
+            drawing_renderer: drawing::DrawingRenderer::new(webgl::SolidRenderer::new(gl.clone())?),
+            line_renderer: webgl::LineRenderer::new(gl.clone())?,
+            grid_renderer: grid::GridRenderer::new(webgl::LineRenderer::new(gl.clone())?),
+            fog_renderer: fog::FogRenderer::new(webgl::SolidRenderer::new(gl.clone())?),
             text_manager: text::HoverTextManager::new(),
         })
     }

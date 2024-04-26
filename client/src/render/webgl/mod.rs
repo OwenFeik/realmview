@@ -9,6 +9,7 @@ mod solid;
 mod texture;
 
 pub type Gl = WebGl2RenderingContext;
+pub type Texture<'a> = texture::TextureRef<'a>;
 
 pub use {
     line::LineRenderer, mesh::Mesh, solid::SolidRenderer, texture::TextureManager,
