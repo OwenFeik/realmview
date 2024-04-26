@@ -5,7 +5,7 @@ use wasm_bindgen::{closure::Closure, JsCast};
 use web_sys::{HtmlImageElement, WebGlBuffer, WebGlProgram, WebGlTexture, WebGlUniformLocation};
 
 use super::{create_buffer, create_program, get_uniform_location, mesh::Mesh, Gl};
-use crate::render::parse_media_key;
+use crate::{err, render::parse_media_key, Res};
 
 pub struct TextureRef<'a>(&'a WebGlTexture);
 
@@ -22,7 +22,7 @@ impl Texture {
     // Required to be 0 for textures
     const GL_TEXTURE_BORDER_WIDTH: i32 = 0;
 
-    fn new(gl: &Gl) -> anyhow::Result<Texture> {
+    fn new(gl: &Gl) -> Res<Texture> {
         Ok(Texture {
             width: 0,
             height: 0,
@@ -37,20 +37,14 @@ impl Texture {
         gl.tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MIN_FILTER, Gl::LINEAR as i32);
     }
 
-    fn create_gl_texture(gl: &Gl) -> anyhow::Result<WebGlTexture> {
+    fn create_gl_texture(gl: &Gl) -> Res<WebGlTexture> {
         match gl.create_texture() {
             Some(t) => Ok(t),
-            None => Err(anyhow::anyhow!("Unable to create texture.")),
+            None => err("Unable to create texture."),
         }
     }
 
-    fn load_u8_array(
-        &mut self,
-        gl: &Gl,
-        width: u32,
-        height: u32,
-        data: &[u8],
-    ) -> anyhow::Result<()> {
+    fn load_u8_array(&mut self, gl: &Gl, width: u32, height: u32, data: &[u8]) -> Res<()> {
         gl.bind_texture(Gl::TEXTURE_2D, Some(&self.texture));
 
         if gl
@@ -67,7 +61,7 @@ impl Texture {
             )
             .is_err()
         {
-            return Err(anyhow::anyhow!("Unable to load array as texture."));
+            return err("Unable to load array as texture.");
         }
 
         self.gen_mipmap(gl);
@@ -78,20 +72,20 @@ impl Texture {
         Ok(())
     }
 
-    fn from_u8_array(gl: &Gl, width: u32, height: u32, data: &[u8]) -> anyhow::Result<Texture> {
+    fn from_u8_array(gl: &Gl, width: u32, height: u32, data: &[u8]) -> Res<Texture> {
         let mut texture = Texture::new(gl)?;
         texture.load_u8_array(gl, width, height, data)?;
         Ok(texture)
     }
 
-    fn from_html_image(gl: &Gl, image: &HtmlImageElement) -> anyhow::Result<Texture> {
+    fn from_html_image(gl: &Gl, image: &HtmlImageElement) -> Res<Texture> {
         let mut texture = Texture::new(gl)?;
         texture.load_html_image(gl, image)?;
 
         Ok(texture)
     }
 
-    fn load_html_image(&mut self, gl: &Gl, image: &HtmlImageElement) -> anyhow::Result<()> {
+    fn load_html_image(&mut self, gl: &Gl, image: &HtmlImageElement) -> Res<()> {
         Texture::load_html_image_gl_texture(gl, image, &self.texture)?;
         self.width = image.natural_width();
         self.height = image.natural_height();
@@ -104,7 +98,7 @@ impl Texture {
         gl: &Gl,
         image: &HtmlImageElement,
         texture: &WebGlTexture,
-    ) -> anyhow::Result<()> {
+    ) -> Res<()> {
         gl.bind_texture(Gl::TEXTURE_2D, Some(texture));
 
         if gl
@@ -118,21 +112,17 @@ impl Texture {
             )
             .is_err()
         {
-            return Err(anyhow::anyhow!("Failed to create WebGL image."));
+            return err("Failed to create WebGL image.");
         }
 
         Ok(())
     }
 
-    fn from_url(
-        gl: &Gl,
-        url: &str,
-        callback: Box<dyn Fn(anyhow::Result<Texture>)>,
-    ) -> anyhow::Result<()> {
+    fn from_url(gl: &Gl, url: &str, callback: Box<dyn Fn(Res<Texture>)>) -> Res<()> {
         // Create HTML image to load image from url
         let image = match HtmlImageElement::new() {
             Ok(i) => Rc::new(i),
-            Err(_) => return Err(anyhow::anyhow!("Unable to create image element.")),
+            Err(_) => return err("Unable to create image element."),
         };
         image.set_cross_origin(Some("")); // ?
 
@@ -163,7 +153,7 @@ pub struct TextureManager {
 }
 
 impl TextureManager {
-    pub fn new(gl: Rc<Gl>) -> anyhow::Result<TextureManager> {
+    pub fn new(gl: Rc<Gl>) -> Res<TextureManager> {
         let missing_texture = Texture::from_u8_array(&gl, 1, 1, &[0, 0, 255, 255])?;
         let mut tm = TextureManager {
             gl,
@@ -226,7 +216,7 @@ pub struct TextureShapeRenderer {
 }
 
 impl TextureShapeRenderer {
-    pub fn new(gl: Rc<Gl>, shape: Shape) -> anyhow::Result<Self> {
+    pub fn new(gl: Rc<Gl>, shape: Shape) -> Res<Self> {
         let program = create_program(
             &gl,
             include_str!("shaders/solid.vert"),

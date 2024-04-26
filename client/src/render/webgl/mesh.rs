@@ -3,7 +3,7 @@ use scene::{Point, Rect};
 use web_sys::{WebGlBuffer, WebGlProgram, WebGlUniformLocation};
 
 use super::{create_buffer, get_uniform_location, Gl};
-use crate::render::shapes;
+use crate::{render::shapes, Res};
 
 pub struct Mesh {
     coords: Float32Array,
@@ -17,7 +17,7 @@ pub struct Mesh {
 
 impl Mesh {
     // Requires that the program use "a_position" and "u_matrix"
-    pub fn new(gl: &Gl, program: &WebGlProgram, points: &[f32]) -> anyhow::Result<Self> {
+    pub fn new(gl: &Gl, program: &WebGlProgram, points: &[f32]) -> Res<Self> {
         let coords = Float32Array::new_with_length(points.len() as u32);
         coords.copy_from(points);
 
@@ -39,7 +39,7 @@ impl Mesh {
         })
     }
 
-    pub fn of_shape(gl: &Gl, program: &WebGlProgram, shape: scene::Shape) -> anyhow::Result<Self> {
+    pub fn of_shape(gl: &Gl, program: &WebGlProgram, shape: scene::Shape) -> Res<Self> {
         Self::new(gl, program, &shapes::shape(shape))
     }
 

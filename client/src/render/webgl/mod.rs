@@ -16,23 +16,23 @@ pub use {
     texture::TextureShapeRenderer,
 };
 
+use crate::{err, Res};
+
 fn get_uniform_location(
     gl: &Gl,
     program: &WebGlProgram,
     location: &str,
-) -> anyhow::Result<WebGlUniformLocation> {
+) -> Res<WebGlUniformLocation> {
     match gl.get_uniform_location(program, location) {
         Some(l) => Ok(l),
-        None => Err(anyhow::anyhow!(
-            "Failed to get WebGlUniformLocation {location}."
-        )),
+        None => Err(format!("Failed to get WebGlUniformLocation {location}.")),
     }
 }
 
-fn create_buffer(gl: &Gl, data_opt: Option<&Float32Array>) -> anyhow::Result<WebGlBuffer> {
+fn create_buffer(gl: &Gl, data_opt: Option<&Float32Array>) -> Res<WebGlBuffer> {
     let buffer = match gl.create_buffer() {
         Some(b) => b,
-        None => return Err(anyhow::anyhow!("Failed to create WebGL buffer.")),
+        None => return err("Failed to create WebGL buffer."),
     };
 
     if let Some(data) = data_opt {
@@ -47,10 +47,10 @@ fn create_buffer(gl: &Gl, data_opt: Option<&Float32Array>) -> anyhow::Result<Web
     Ok(buffer)
 }
 
-fn create_shader(gl: &Gl, src: &str, stype: u32) -> anyhow::Result<WebGlShader> {
+fn create_shader(gl: &Gl, src: &str, stype: u32) -> Res<WebGlShader> {
     let shader = match gl.create_shader(stype) {
         Some(s) => s,
-        None => return Err(anyhow::anyhow!("Failed to create shader.")),
+        None => return err("Failed to create shader."),
     };
 
     gl.shader_source(&shader, src);
@@ -61,20 +61,18 @@ fn create_shader(gl: &Gl, src: &str, stype: u32) -> anyhow::Result<WebGlShader> 
         .is_falsy()
     {
         return match gl.get_shader_info_log(&shader) {
-            Some(e) => Err(anyhow::anyhow!("Shader compilation failed, log: {e}")),
-            None => Err(anyhow::anyhow!(
-                "Shader compilation failed, no error message."
-            )),
+            Some(e) => Err(format!("Shader compilation failed, log: {e}")),
+            None => err("Shader compilation failed, no error message."),
         };
     }
 
     Ok(shader)
 }
 
-fn create_program(gl: &Gl, vert: &str, frag: &str) -> anyhow::Result<WebGlProgram> {
+fn create_program(gl: &Gl, vert: &str, frag: &str) -> Res<WebGlProgram> {
     let program = match gl.create_program() {
         Some(p) => p,
-        None => return Err(anyhow::anyhow!("WebGL program creation failed.")),
+        None => return err("WebGL program creation failed."),
     };
 
     gl.attach_shader(&program, &create_shader(gl, vert, Gl::VERTEX_SHADER)?);
@@ -87,7 +85,7 @@ fn create_program(gl: &Gl, vert: &str, frag: &str) -> anyhow::Result<WebGlProgra
         .is_falsy()
     {
         gl.delete_program(Some(&program));
-        return Err(anyhow::anyhow!("WebGL program linking failed."));
+        return err("WebGL program linking failed.");
     }
 
     Ok(program)
@@ -101,7 +99,7 @@ struct Shapes {
 }
 
 impl Shapes {
-    fn new(gl: &Gl, program: &WebGlProgram) -> anyhow::Result<Self> {
+    fn new(gl: &Gl, program: &WebGlProgram) -> Res<Self> {
         Ok(Shapes {
             ellipse: Mesh::of_shape(gl, program, scene::Shape::Ellipse)?,
             hexagon: Mesh::of_shape(gl, program, scene::Shape::Hexagon)?,

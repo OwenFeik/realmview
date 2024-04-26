@@ -1,6 +1,7 @@
 use scene::{Rect, Shape};
 
 use super::webgl::{Texture, TextureShapeRenderer};
+use crate::Res;
 
 pub struct TextureRenderer {
     ellipse: TextureShapeRenderer,
@@ -10,7 +11,7 @@ pub struct TextureRenderer {
 }
 
 impl TextureRenderer {
-    pub fn new(gl: std::rc::Rc<super::webgl::Gl>) -> anyhow::Result<Self> {
+    pub fn new(gl: std::rc::Rc<super::webgl::Gl>) -> Res<Self> {
         Ok(TextureRenderer {
             ellipse: TextureShapeRenderer::new(gl.clone(), Shape::Ellipse)?,
             hexagon: TextureShapeRenderer::new(gl.clone(), Shape::Hexagon)?,

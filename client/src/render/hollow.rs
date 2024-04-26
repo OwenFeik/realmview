@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use scene::{Colour, Rect};
 
 use super::webgl::{Mesh, SolidRenderer};
+use crate::Res;
 
 pub struct HollowRenderer {
     grid_size: f32,
@@ -26,7 +27,7 @@ impl HollowRenderer {
         stroke: f32,
         viewport: Rect,
         position: Rect,
-    ) -> anyhow::Result<()> {
+    ) -> Res<()> {
         let points = super::shapes::hollow_shape(
             shape,
             Rect {

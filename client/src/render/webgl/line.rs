@@ -5,7 +5,7 @@ use scene::Colour;
 use web_sys::{WebGlBuffer, WebGlProgram, WebGlUniformLocation};
 
 use super::{create_buffer, create_program, get_uniform_location, Gl};
-use crate::render::to_unit;
+use crate::{render::to_unit, Res};
 
 pub struct LineRenderer {
     gl: Rc<Gl>,
@@ -17,7 +17,7 @@ pub struct LineRenderer {
 }
 
 impl LineRenderer {
-    pub fn new(gl: Rc<Gl>) -> anyhow::Result<LineRenderer> {
+    pub fn new(gl: Rc<Gl>) -> Res<LineRenderer> {
         let program = create_program(
             &gl,
             include_str!("shaders/pos.vert"),

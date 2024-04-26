@@ -1,7 +1,6 @@
 use std::rc::Rc;
 use std::sync::atomic::AtomicBool;
 
-use anyhow::anyhow;
 use js_sys::Array;
 use js_sys::Promise;
 use wasm_bindgen::prelude::*;
@@ -14,8 +13,10 @@ use web_sys::{
 };
 
 use crate::dom::element::Element;
+use crate::err;
 use crate::render::Gl;
 use crate::render::WebGlRenderer;
+use crate::Res;
 
 #[wasm_bindgen]
 extern "C" {
@@ -84,7 +85,7 @@ struct Canvas {
 }
 
 impl Canvas {
-    fn new(element: HtmlCanvasElement) -> anyhow::Result<Canvas> {
+    fn new(element: HtmlCanvasElement) -> Res<Canvas> {
         let gl = Rc::new(create_context(&element)?);
 
         Ok(Canvas {
@@ -95,13 +96,13 @@ impl Canvas {
     }
 
     /// Create a new canvas element and set it up to fill the screen.
-    fn new_element() -> anyhow::Result<Canvas> {
+    fn new_element() -> Res<Canvas> {
         let element = Element::by_id("canvas")
             .unwrap_or_else(|| Element::new("canvas").on_page())
             .raw();
         let canvas = match element.dyn_into::<HtmlCanvasElement>() {
             Ok(c) => Canvas::new(c)?,
-            Err(_) => return Err(anyhow!("Couldn't cast Element to HtmlCanvas.",)),
+            Err(_) => return err("Couldn't cast Element to HtmlCanvas."),
         };
 
         canvas.init()?;
@@ -111,7 +112,7 @@ impl Canvas {
 
     /// Set the canvas' dimensions to those of the viewport.
     /// This is static as it's useful to call it from closures
-    fn fill_window(canvas: &HtmlCanvasElement) -> anyhow::Result<()> {
+    fn fill_window(canvas: &HtmlCanvasElement) -> Res<()> {
         let (vp_w, vp_h) = get_window_dimensions()?;
 
         canvas.set_width(vp_w);
@@ -121,7 +122,7 @@ impl Canvas {
     }
 
     /// Set up the canvas to fill the full screen and resize with the window.
-    fn init(&self) -> anyhow::Result<()> {
+    fn init(&self) -> Res<()> {
         self.position_top_left()?;
         self.configure_resize()?;
         self.configure_events()?;
@@ -130,16 +131,16 @@ impl Canvas {
         Ok(())
     }
 
-    fn set_css(&self, property: &str, value: &str) -> anyhow::Result<()> {
+    fn set_css(&self, property: &str, value: &str) -> Res<()> {
         self.element
             .style()
             .set_property(property, value)
-            .map_err(|e| anyhow!("Failed to set canvas CSS: {e:?}."))
+            .map_err(|e| format!("Failed to set canvas CSS: {e:?}."))
     }
 
     /// Set CSS on the canvas element to ensure it fills the screen without
     /// scroll bars.
-    fn position_top_left(&self) -> anyhow::Result<()> {
+    fn position_top_left(&self) -> Res<()> {
         /*
         {
             left: 0;
@@ -156,7 +157,7 @@ impl Canvas {
 
     /// Adds an event listener to resize the canvas to fill the window on
     /// viewport resize.
-    fn configure_resize(&self) -> anyhow::Result<()> {
+    fn configure_resize(&self) -> Res<()> {
         let canvas = self.element.clone();
         let gl = self.gl.clone();
         let closure = Closure::wrap(Box::new(move |_event: UiEvent| {
@@ -167,10 +168,10 @@ impl Canvas {
         let result =
             window()?.add_event_listener_with_callback("resize", closure.as_ref().unchecked_ref());
         closure.forget();
-        result.map_err(|e| anyhow!("Failed to add resize listener: {e:?}."))
+        result.map_err(|e| format!("Failed to add resize listener: {e:?}."))
     }
 
-    fn configure_events(&self) -> anyhow::Result<()> {
+    fn configure_events(&self) -> Res<()> {
         for event_name in ["mouseenter", "mousemove"] {
             // Grab focus on mouse events
             let element = self.element.clone();
@@ -182,7 +183,7 @@ impl Canvas {
                 .add_event_listener_with_callback(event_name, listener.as_ref().unchecked_ref())
                 .is_err()
             {
-                return Err(anyhow!("Failed to add mouse event listener to canvas."));
+                return err("Failed to add mouse event listener to canvas.");
             }
             listener.forget();
         }
@@ -211,7 +212,7 @@ impl Canvas {
                 .add_event_listener_with_callback(event_name, listener.as_ref().unchecked_ref())
                 .is_err()
             {
-                return Err(anyhow!("Failed to add event listener to canvas."));
+                return err("Failed to add event listener to canvas.");
             }
 
             listener.forget();
@@ -220,7 +221,7 @@ impl Canvas {
         Ok(())
     }
 
-    fn configure_upload(&self, texture_queue: Rc<Array>) -> anyhow::Result<()> {
+    fn configure_upload(&self, texture_queue: Rc<Array>) -> Res<()> {
         let input = Rc::new(create_file_upload()?);
         let result = {
             let c_input = input.clone();
@@ -296,7 +297,7 @@ impl Canvas {
 
         match result {
             Ok(()) => (),
-            Err(_) => return Err(anyhow!("Failed to add event listener.")),
+            Err(_) => return err("Failed to add event listener."),
         };
 
         {
@@ -309,7 +310,7 @@ impl Canvas {
             closure.forget();
             result
         }
-        .map_err(|e| anyhow!("Failed to add click listener: {e:?}."))
+        .map_err(|e| format!("Failed to add click listener: {e:?}."))
     }
 }
 
@@ -332,7 +333,7 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new() -> anyhow::Result<Context> {
+    pub fn new() -> Res<Context> {
         let canvas = Canvas::new_element()?;
         let renderer = WebGlRenderer::new(canvas.gl.clone())?;
         let ctx = Context {
@@ -469,11 +470,11 @@ impl Cursor {
         css
     }
 
-    fn set_for(&self, element: &HtmlElement) -> anyhow::Result<()> {
+    fn set_for(&self, element: &HtmlElement) -> Res<()> {
         element
             .style()
             .set_property("cursor", &self.css())
-            .map_err(|e| anyhow!("Error: {e:?}"))
+            .map_err(|e| format!("Error: {e:?}"))
     }
 
     #[must_use]
@@ -486,7 +487,7 @@ impl Cursor {
     }
 }
 
-fn create_context(element: &HtmlCanvasElement) -> anyhow::Result<Gl> {
+fn create_context(element: &HtmlCanvasElement) -> Res<Gl> {
     let gl = get_webgl2_context(element);
 
     // Enable transparency
@@ -496,24 +497,24 @@ fn create_context(element: &HtmlCanvasElement) -> anyhow::Result<Gl> {
     Ok(gl)
 }
 
-fn window() -> anyhow::Result<Window> {
+fn window() -> Res<Window> {
     match web_sys::window() {
         Some(w) => Ok(w),
-        None => Err(anyhow!("No Window.")),
+        None => err("No Window."),
     }
 }
 
-pub fn get_document() -> anyhow::Result<Document> {
+pub fn get_document() -> Res<Document> {
     match window()?.document() {
         Some(d) => Ok(d),
-        None => Err(anyhow!("No Document.")),
+        None => err("No Document."),
     }
 }
 
-pub fn get_body() -> anyhow::Result<HtmlElement> {
+pub fn get_body() -> Res<HtmlElement> {
     match get_document()?.body() {
         Some(b) => Ok(b),
-        None => Err(anyhow!("No Body.")),
+        None => err("No Body."),
     }
 }
 
@@ -532,15 +533,15 @@ fn prepend_child(parent: &HtmlElement, child: &HtmlElement) {
         .ok();
 }
 
-pub fn websocket_url() -> anyhow::Result<Option<(String, String)>> {
+pub fn websocket_url() -> Res<Option<(String, String)>> {
     let win = match window() {
         Ok(w) => w,
-        Err(_) => return Err(anyhow!("Failed to read window Location.")),
+        Err(_) => return err("Failed to read window Location."),
     };
     let loc = win.location();
     let host = match loc.host() {
         Ok(h) => h,
-        Err(_) => return Err(anyhow!("Failed to read window host.")),
+        Err(_) => return err("Failed to read window host."),
     };
 
     match (loc.pathname(), loc.protocol()) {
@@ -560,23 +561,23 @@ pub fn websocket_url() -> anyhow::Result<Option<(String, String)>> {
                 _ => Ok(None),
             }
         }
-        _ => Err(anyhow!("Failed to read window pathname.")),
+        _ => err("Failed to read window pathname."),
     }
 }
 
-fn get_window_dimensions() -> anyhow::Result<(u32, u32)> {
+fn get_window_dimensions() -> Res<(u32, u32)> {
     let win = window()?;
 
     match (win.inner_width(), win.inner_height()) {
         (Ok(w), Ok(h)) => match (w.as_f64(), h.as_f64()) {
             (Some(w), Some(h)) => Ok((w as u32, h as u32)),
-            _ => Err(anyhow!("Window dimensions non-numeric.")),
+            _ => err("Window dimensions non-numeric."),
         },
-        _ => Err(anyhow!("No Window dimensions.")),
+        _ => err("No Window dimensions."),
     }
 }
 
-fn create_file_upload() -> anyhow::Result<HtmlInputElement> {
+fn create_file_upload() -> Res<HtmlInputElement> {
     let element = Element::try_new("input")?;
 
     element.set_attr("type", "file");
@@ -585,24 +586,24 @@ fn create_file_upload() -> anyhow::Result<HtmlInputElement> {
     element
         .raw()
         .dyn_into::<HtmlInputElement>()
-        .map_err(|_| anyhow!("Failed to cast element to HtmlInputElement."))
+        .map_err(|_| "Failed to cast element to HtmlInputElement.".to_string())
 }
 
-pub fn request_animation_frame(f: &Closure<dyn FnMut()>) -> anyhow::Result<()> {
+pub fn request_animation_frame(f: &Closure<dyn FnMut()>) -> Res<()> {
     match window()?.request_animation_frame(f.as_ref().unchecked_ref()) {
         Ok(_) => Ok(()),
-        Err(_) => Err(anyhow!("Failed to get animation frame.")),
+        Err(_) => err("Failed to get animation frame."),
     }
 }
 
-fn set_visible(id: &str, visible: bool) -> anyhow::Result<()> {
+fn set_visible(id: &str, visible: bool) -> Res<()> {
     Element::by_id(id)
-        .ok_or_else(|| anyhow!("Element not found: {id}."))?
+        .ok_or_else(|| format!("Element not found: {id}."))?
         .set_css("display", if visible { "" } else { "none" });
     Ok(())
 }
 
-fn set_checked(id: &str) -> anyhow::Result<()> {
+fn set_checked(id: &str) -> Res<()> {
     if let Some(element) = get_document()?.get_element_by_id(id) {
         element
             .unchecked_ref::<HtmlInputElement>()
@@ -612,15 +613,15 @@ fn set_checked(id: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn enum_to_id(tool: impl serde::Serialize, pref: &str) -> anyhow::Result<String> {
+fn enum_to_id(tool: impl serde::Serialize, pref: &str) -> Res<String> {
     if let Ok(s) = serde_json::ser::to_string(&tool) {
         Ok(format!("{pref}{}", s.to_lowercase().replace('"', "")))
     } else {
-        Err(anyhow!("Serialisation error."))
+        err("Serialisation error.")
     }
 }
 
-pub fn set_active_draw_tool(tool: impl serde::Serialize) -> anyhow::Result<()> {
+pub fn set_active_draw_tool(tool: impl serde::Serialize) -> Res<()> {
     const ID_PREFIX: &str = "draw_radio_";
     set_checked(&enum_to_id(tool, ID_PREFIX)?)
 }
@@ -652,10 +653,12 @@ pub fn timestamp_ms() -> u64 {
     js_sys::Date::new_0().get_time() as u64
 }
 
-fn err<E: JsCast>(error: E) -> anyhow::Error {
-    let js_value = error.as_ref();
-    log_js_value(js_value);
-    anyhow::anyhow!("Error: {js_value:?}")
+fn js_err(v: JsValue) -> String {
+    if let Some(s) = v.as_string() {
+        s
+    } else {
+        format!("{v:?}")
+    }
 }
 
 pub struct SaveState {
@@ -681,7 +684,7 @@ impl SaveState {
     }
 }
 
-pub fn save_scene(scene_key: &str, raw: Vec<u8>) -> anyhow::Result<SaveState> {
+pub fn save_scene(scene_key: &str, raw: Vec<u8>) -> Res<SaveState> {
     #[derive(serde_derive::Serialize)]
     struct Req {
         encoded: String,
@@ -702,14 +705,15 @@ pub fn save_scene(scene_key: &str, raw: Vec<u8>) -> anyhow::Result<SaveState> {
     const METHOD: &str = "PUT";
     const PATH: &str = "/api/scene/";
 
-    let headers = Headers::new().map_err(err)?;
+    let headers = Headers::new().map_err(js_err)?;
     headers
         .set("content-type", "application/json")
-        .map_err(err)?;
+        .map_err(js_err)?;
 
     let body = serde_json::ser::to_string(&Req {
         encoded: base64::encode(raw),
-    })?;
+    })
+    .map_err(|e| e.to_string())?;
 
     if let Some(loading) = Element::by_id("canvas_loading_icon") {
         loading.show();
@@ -723,7 +727,8 @@ pub fn save_scene(scene_key: &str, raw: Vec<u8>) -> anyhow::Result<SaveState> {
     init.method(METHOD)
         .headers(&headers)
         .body(Some(&wasm_bindgen::JsValue::from_str(&body)));
-    let req = Request::new_with_str_and_init(&format!("{PATH}{scene_key}"), &init).map_err(err)?;
+    let req = Request::new_with_str_and_init(&format!("{PATH}{scene_key}"), &init)
+        .map_err(|s| s.as_string().unwrap_or_else(|| format!("{s:?}")))?;
     let promise = window()?.fetch_with_request(&req);
 
     Ok(SaveState::new(

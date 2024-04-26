@@ -1,10 +1,10 @@
-use anyhow::anyhow;
 use wasm_bindgen::{prelude::Closure, JsCast};
 use web_sys::{HtmlElement, HtmlInputElement};
 
 use super::icon::Icon;
 use crate::bridge::{get_body, get_document};
 use crate::viewport::ViewportPoint;
+use crate::Res;
 
 pub struct Element {
     element: web_sys::HtmlElement,
@@ -15,11 +15,11 @@ impl Element {
         Self::try_new(name).expect("Failed to create an element.")
     }
 
-    pub fn try_new(name: &str) -> anyhow::Result<Element> {
+    pub fn try_new(name: &str) -> Res<Element> {
         let element = get_document()?
             .create_element(name)
             .map(|e| e.unchecked_into::<HtmlElement>())
-            .map_err(|e| anyhow!("Element creation failed: {e:?}."))?;
+            .map_err(|e| format!("Element creation failed: {e:?}."))?;
 
         Ok(Element { element })
     }
@@ -268,17 +268,17 @@ impl Element {
         self.element.unchecked_ref::<HtmlInputElement>()
     }
 
-    fn try_set_css(&self, property: &str, value: &str) -> anyhow::Result<()> {
+    fn try_set_css(&self, property: &str, value: &str) -> Res<()> {
         self.element
             .style()
             .set_property(property, value)
-            .map_err(|e| anyhow!("Failed to set element CSS: {e:?}."))
+            .map_err(|e| format!("Failed to set element CSS: {e:?}."))
     }
 
-    fn try_set_attr(&self, name: &str, value: &str) -> anyhow::Result<()> {
+    fn try_set_attr(&self, name: &str, value: &str) -> Res<()> {
         self.element
             .set_attribute(name, value)
-            .map_err(|e| anyhow!("Failed to set element attribute: {e:?}."))
+            .map_err(|e| format!("Failed to set element attribute: {e:?}."))
     }
 }
 

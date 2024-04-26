@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use scene::Rect;
 
 use super::webgl::{Mesh, SolidRenderer};
+use crate::Res;
 
 pub struct DrawingRenderer {
     grid_size: f32,
@@ -73,7 +74,7 @@ impl DrawingRenderer {
         stroke: f32,
         cap_start: scene::Cap,
         cap_end: scene::Cap,
-    ) -> anyhow::Result<()> {
+    ) -> Res<()> {
         let points = match drawing.mode {
             scene::DrawingMode::Freehand => {
                 let points_rect = drawing.rect();

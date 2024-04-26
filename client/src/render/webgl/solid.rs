@@ -4,6 +4,7 @@ use scene::{Colour, Point, Rect};
 use web_sys::{WebGlProgram, WebGlUniformLocation};
 
 use super::{create_program, get_uniform_location, mesh::Mesh, Gl, Shapes};
+use crate::Res;
 
 pub struct SolidRenderer {
     gl: Rc<Gl>,
@@ -13,7 +14,7 @@ pub struct SolidRenderer {
 }
 
 impl SolidRenderer {
-    pub fn new(gl: Rc<Gl>) -> anyhow::Result<Self> {
+    pub fn new(gl: Rc<Gl>) -> Res<Self> {
         let program = create_program(
             &gl,
             include_str!("shaders/solid.vert"),
@@ -31,7 +32,7 @@ impl SolidRenderer {
         })
     }
 
-    pub fn mesh(&self, points: &[f32]) -> anyhow::Result<Mesh> {
+    pub fn mesh(&self, points: &[f32]) -> Res<Mesh> {
         Mesh::new(&self.gl, &self.program, points)
     }
 

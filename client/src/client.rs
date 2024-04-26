@@ -1,7 +1,6 @@
 use std::rc::Rc;
 use std::sync::Mutex;
 
-use anyhow::anyhow;
 use bincode::{deserialize, serialize};
 use js_sys::{ArrayBuffer, Uint8Array};
 use wasm_bindgen::{prelude::*, JsCast};
@@ -9,6 +8,7 @@ use web_sys::{CloseEvent, ErrorEvent, MessageEvent, WebSocket};
 
 use crate::bridge::{flog, log, log_js_value, timestamp_ms, websocket_url};
 use crate::scene::comms::{ClientEvent, ClientMessage, ServerEvent};
+use crate::Res;
 
 pub struct Client {
     sock: Sock,
@@ -31,7 +31,7 @@ impl Client {
     /// to connect to the appropriate game websocket. If the URL doesn't match
     /// will return Ok(None). On successfully connection returns
     /// Ok(Some(Client)) on a failed connection returns Err.
-    pub fn new() -> anyhow::Result<Option<Client>> {
+    pub fn new() -> Res<Option<Client>> {
         let (url, game_key) = match websocket_url() {
             Ok(Some(val)) => val,
             _ => return Ok(None),
@@ -120,7 +120,7 @@ impl Sock {
     const BACKOFF_COEFFICIENT: u32 = 2;
     const RECONNECT_MAX_DURATION_MS: u64 = 60 * 1000;
 
-    fn new(url: String, events: EventsRef) -> anyhow::Result<Self> {
+    fn new(url: String, events: EventsRef) -> Res<Self> {
         let socket = create_websocket(&url, events.clone())?;
         Ok(Self {
             url,
@@ -237,21 +237,21 @@ impl Sock {
     }
 }
 
-fn deserialise_message(message: JsValue) -> anyhow::Result<ServerEvent> {
+fn deserialise_message(message: JsValue) -> Res<ServerEvent> {
     match message.dyn_into::<ArrayBuffer>() {
-        Ok(b) => Ok(deserialize(&Uint8Array::new(&b).to_vec())?),
-        Err(e) => Err(anyhow!(
+        Ok(b) => Ok(deserialize(&Uint8Array::new(&b).to_vec()).map_err(|e| e.to_string())?),
+        Err(e) => Err(format!(
             "WebSocket message could not be cast to ArrayBuffer: {e:?}."
         )),
     }
 }
 
-fn create_websocket(url: &str, events: EventsRef) -> anyhow::Result<WebSocket> {
+fn create_websocket(url: &str, events: EventsRef) -> Res<WebSocket> {
     flog!("Connecting WebSocket.");
 
     let ws = match WebSocket::new(url) {
         Ok(ws) => ws,
-        Err(e) => return Err(anyhow!("Failed to create WebSocket: {e:?}")),
+        Err(e) => return Err(format!("Failed to create WebSocket: {e:?}")),
     };
 
     // More performant than Blob for small payloads, per the wasm-bindgen

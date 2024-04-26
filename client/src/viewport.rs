@@ -1,7 +1,8 @@
 use crate::bridge::{save_scene, timestamp_ms, SaveState};
-use crate::dom::menu::{Menu, CanvasDropdownEvent};
+use crate::dom::menu::{CanvasDropdownEvent, Menu};
 use crate::render::Renderer;
 use crate::scene::{Point, Rect};
+use crate::Res;
 use crate::{
     bridge::{
         event::{Input, Key, KeyboardAction, MouseAction, MouseButton},
@@ -127,7 +128,7 @@ impl Viewport {
     const BASE_GRID_ZOOM: f32 = 50.0;
     const SAVE_INTERVAL_MS: u64 = 1000 * 60; // 1 minute.
 
-    pub fn new(client: Option<Client>) -> anyhow::Result<Self> {
+    pub fn new(client: Option<Client>) -> Res<Self> {
         let scene = Interactor::new(client);
         let mut vp = Viewport {
             scene,
@@ -178,7 +179,10 @@ impl Viewport {
         let cursor = if self.grabbed_at.is_some() {
             Cursor::Grabbing
         } else {
-            let at = self.scene_point(self.cursor_position.unwrap_or(ViewportPoint { x: 0.0, y: 0.0 }));
+            let at = self.scene_point(
+                self.cursor_position
+                    .unwrap_or(ViewportPoint { x: 0.0, y: 0.0 }),
+            );
             self.scene.cursor(at).override_default(
                 self.tool
                     .cursor()
@@ -569,12 +573,19 @@ impl Viewport {
             renderer.draw_text(vp, at, &format!("{feet}ft"));
         }
 
-        if matches!(self.tool, Tool::Fog) && let Some(position) = fog_brush_outline {
+        if matches!(self.tool, Tool::Fog)
+            && let Some(position) = fog_brush_outline
+        {
             renderer.draw_outline(
                 vp,
                 position,
                 scene::Shape::Ellipse,
-                (if self.ctrl_down { scene::Colour::RED } else { scene::Colour::GREEN }).with_opacity(0.6),
+                (if self.ctrl_down {
+                    scene::Colour::RED
+                } else {
+                    scene::Colour::GREEN
+                })
+                .with_opacity(0.6),
             )
         }
     }

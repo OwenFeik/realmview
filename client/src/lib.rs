@@ -17,3 +17,9 @@ mod interactor;
 mod render;
 mod start;
 mod viewport;
+
+type Res<T> = Result<T, String>;
+
+fn err<T, S: ToString>(s: S) -> Res<T> {
+    Err(s.to_string())
+}

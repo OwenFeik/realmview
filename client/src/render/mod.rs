@@ -3,7 +3,7 @@ use std::rc::Rc;
 use scene::{Cap, Colour, Drawing, Fog, Id, Outline, Point, Rect, Scene, Shape, Sprite};
 use web_sys::{HtmlImageElement, WebGl2RenderingContext};
 
-use crate::viewport::ViewportPoint;
+use crate::{viewport::ViewportPoint, Res};
 
 mod drawing;
 mod fog;
@@ -232,7 +232,7 @@ pub struct WebGlRenderer {
 }
 
 impl WebGlRenderer {
-    pub fn new(gl: Rc<WebGl2RenderingContext>) -> anyhow::Result<Self> {
+    pub fn new(gl: Rc<WebGl2RenderingContext>) -> Res<Self> {
         Ok(Self {
             gl: gl.clone(),
             texture_library: webgl::TextureManager::new(gl.clone())?,
