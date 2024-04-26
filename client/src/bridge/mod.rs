@@ -14,6 +14,7 @@ use web_sys::{
 };
 
 use crate::dom::element::Element;
+use crate::render::Gl;
 use crate::render::WebGlRenderer;
 
 #[wasm_bindgen]
@@ -73,8 +74,6 @@ macro_rules! flog {
 
 #[allow(unused_imports)]
 pub(crate) use flog;
-
-pub type Gl = WebGl2RenderingContext;
 
 struct Canvas {
     element: Rc<HtmlCanvasElement>,

@@ -116,8 +116,6 @@ pub enum Visual {
         drawing: Id,
         colour: Colour,
         stroke: f32,
-        dx: f32,
-        dy: f32,
         cap_start: Cap,
         cap_end: Cap,
     },

@@ -8,6 +8,9 @@ use crate::viewport::ViewportPoint;
 mod programs;
 mod shapes;
 mod text;
+mod webgl;
+
+pub use webgl::Gl;
 
 #[derive(Clone, Copy, Debug)]
 pub struct ViewInfo {
@@ -202,7 +205,12 @@ pub trait Renderer {
         }
     }
 
-    /// Draw hover text bubble at
+    /// Draw hover text bubble with given `text` at scene position `point` on
+    /// viewport with details given by `vp`.
+    ///
+    /// * `vp`   Viewport position and dimensions, tile size in pixels.
+    /// * `at`   Position in scene at with to show text bubble.
+    /// * `text` Text to display in bubble.
     fn draw_text(&mut self, vp: ViewInfo, at: Point, text: &str);
 }
 
@@ -212,7 +220,7 @@ pub struct WebGlRenderer {
     solid_renderer: programs::SolidRenderer,
     texture_renderer: programs::TextureRenderer,
     hollow_renderer: programs::HollowRenderer,
-    drawing_renderer: programs::DrawingRenderer,
+    drawing_renderer: drawing::DrawingRenderer,
     line_renderer: programs::LineRenderer,
     grid_renderer: programs::GridRenderer,
     fog_renderer: programs::FogRenderer,
@@ -227,7 +235,7 @@ impl WebGlRenderer {
             solid_renderer: programs::SolidRenderer::new(gl.clone())?,
             texture_renderer: programs::TextureRenderer::new(gl.clone())?,
             hollow_renderer: programs::HollowRenderer::new(gl.clone())?,
-            drawing_renderer: programs::DrawingRenderer::new(gl.clone())?,
+            drawing_renderer: drawing::DrawingRenderer::new(gl.clone())?,
             line_renderer: programs::LineRenderer::new(gl.clone())?,
             grid_renderer: programs::GridRenderer::new(gl.clone())?,
             fog_renderer: programs::FogRenderer::new(gl)?,
@@ -362,4 +370,9 @@ pub fn parse_media_key(key: &str) -> scene::Id {
     }
 
     i64::from_be_bytes(raw)
+}
+
+// Map value (as a proportion of scale) to [-1, 1]
+fn to_unit(value: f32, scale: f32) -> f32 {
+    ((2.0 * value) - scale) / scale
 }
