@@ -21,6 +21,7 @@ impl DrawingRenderer {
     }
 
     fn create_key(
+        rect: Rect,
         drawing: &scene::Drawing,
         stroke: f32,
         cap_start: scene::Cap,
@@ -42,8 +43,6 @@ impl DrawingRenderer {
         //
         // Is this grotesquely overcomplicated? Yes.
         let mut key = 0u128;
-
-        let rect = drawing.rect();
 
         // First 100 bits are the literal bits of the three floats.
         let mut keyf32 = |v: f32| {
@@ -99,7 +98,10 @@ impl DrawingRenderer {
         mesh.set_transforms(false, true);
         self.drawings.insert(
             id,
-            (Self::create_key(drawing, stroke, cap_start, cap_end), mesh),
+            (
+                Self::create_key(rect, drawing, stroke, cap_start, cap_end),
+                mesh,
+            ),
         );
         Ok(())
     }
@@ -107,13 +109,14 @@ impl DrawingRenderer {
     fn get_drawing(
         &self,
         id: scene::Id,
+        rect: Rect,
         drawing: &scene::Drawing,
         stroke: f32,
         start: scene::Cap,
         end: scene::Cap,
     ) -> Option<&Mesh> {
         if let Some((key, mesh)) = self.drawings.get(&id) {
-            if Self::create_key(drawing, stroke, start, end) == *key {
+            if Self::create_key(rect, drawing, stroke, start, end) == *key {
                 return Some(mesh);
             }
         }
@@ -140,9 +143,13 @@ impl DrawingRenderer {
     ) {
         self.update_grid_size(grid_size);
         let id = drawing.id;
-        if let Some(mesh) = self.get_drawing(id, drawing, stroke, start, end) {
-            self.renderer
-                .draw(mesh, colour, viewport, position * grid_size);
+        if let Some(mesh) = self.get_drawing(id, position, drawing, stroke, start, end) {
+            self.renderer.draw(
+                mesh,
+                colour,
+                viewport,
+                (position - drawing.rect()) * grid_size,
+            );
         } else if self
             .add_drawing(id, position, drawing, stroke, start, end)
             .is_ok()

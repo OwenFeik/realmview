@@ -297,6 +297,19 @@ impl Div<f32> for Rect {
     }
 }
 
+impl Div<Rect> for Rect {
+    type Output = Rect;
+
+    fn div(self, rhs: Rect) -> Rect {
+        Rect {
+            x: self.x / rhs.x,
+            y: self.y / rhs.y,
+            w: self.w / rhs.w,
+            h: self.h / rhs.h,
+        }
+    }
+}
+
 pub fn float_eq(a: f32, b: f32) -> bool {
     (a - b).abs() <= f32::EPSILON
 }
