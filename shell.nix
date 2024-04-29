@@ -1,0 +1,15 @@
+let
+  pkgs = import <nixpkgs> {};
+in
+  pkgs.mkShell rec {
+    buildInputs = with pkgs; [
+      rustup
+      wasm-pack
+      sqlite
+      # rust-analyzer
+
+      (python3.withPackages (python-pkgs: [
+        python-pkgs.urllib3
+      ]))
+    ];
+  }

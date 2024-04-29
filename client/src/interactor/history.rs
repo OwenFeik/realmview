@@ -211,8 +211,8 @@ impl History {
         };
 
         self.consume_history_until(|e| match e {
-            SceneEvent::SpriteDrawingPoint(id, ..) => *id == drawing,
-            SceneEvent::SpriteDrawingStart(id, _)
+            // SceneEvent::SpriteDrawingPoint(id, ..) => *id == drawing,
+            // SceneEvent::SpriteDrawingStart(id, _)
             _ => false,
         });
     }

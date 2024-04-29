@@ -4,7 +4,7 @@ target := ${build}/target
 content := ${build}/content
 env := CARGO_TARGET_DIR=${target} RUST_BACKTRACE=1
 cargo := ${env} cargo
-wp := ${env} ~/.cargo/bin/wasm-pack
+wp := ${env} wasm-pack
 py := python3
 
 serve: server content
