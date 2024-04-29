@@ -291,7 +291,7 @@ impl History {
     }
 
     pub fn reply_to_health_check(&mut self) {
-        crate::bridge::flog!("PING!");
+        crate::bridge::log!("PING!");
         self.issue_message(ClientEvent::Ping);
     }
 }

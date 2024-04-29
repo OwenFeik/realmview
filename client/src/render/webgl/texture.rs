@@ -176,7 +176,7 @@ impl TextureManager {
                 Err(_) => return 0,
             };
         } else {
-            crate::bridge::log("Texture manager was asked to load texture without ID.");
+            crate::bridge::console_log("Texture manager was asked to load texture without ID.");
         }
 
         id

@@ -57,7 +57,7 @@ extern "C" {
     pub fn expose_closure_array(name: &str, closure: &Closure<dyn FnMut() -> Array>);
 
     #[wasm_bindgen(js_namespace = console, js_name = log)]
-    pub fn log(s: &str);
+    pub fn console_log(s: &str);
 
     #[wasm_bindgen(js_namespace = console, js_name = log)]
     pub fn log_js_value(v: &JsValue);
@@ -67,14 +67,14 @@ pub mod event;
 
 // I want this around for debugging
 #[allow(unused_macros)]
-macro_rules! flog {
+macro_rules! log {
     ($($tts:tt)*) => {
-        crate::bridge::log(&format!($($tts)*))
+        crate::bridge::console_log(&format!($($tts)*))
     }
 }
 
 #[allow(unused_imports)]
-pub(crate) use flog;
+pub(crate) use log;
 
 struct Canvas {
     element: Rc<HtmlCanvasElement>,

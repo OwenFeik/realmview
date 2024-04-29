@@ -1,7 +1,7 @@
 use scene::{Id, Layer};
 
 use crate::{
-    bridge::log,
+    bridge::console_log,
     dom::{element::Element, icon::Icon, input::InputGroup},
     start::VpRef,
 };
@@ -53,7 +53,7 @@ impl LayersMenu {
             if let Ok(mut lock) = vp_ref.try_lock() {
                 lock.scene.new_layer();
             } else {
-                log("Failed to lock viewport to add layer.");
+                console_log("Failed to lock viewport to add layer.");
             }
         }));
 

@@ -170,7 +170,7 @@ impl Interactor {
             self.change_if(&event);
             self.history.issue_event(event);
         } else {
-            crate::bridge::flog!("forbidden: {event:?}");
+            crate::bridge::log!("forbidden: {event:?}");
             self.scene.unwind_event(event);
         }
     }

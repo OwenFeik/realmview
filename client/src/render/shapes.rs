@@ -281,8 +281,7 @@ pub fn line(
     stroke: f32,
     cap_start: scene::Cap,
     cap_end: scene::Cap,
-    scale: f32,
-) -> Vec<f32> {
+) -> PointVector {
     let mut coords = PointVector::new();
     add_line(
         &mut coords,
@@ -291,8 +290,7 @@ pub fn line(
         cap_start,
         cap_end,
     );
-    coords.scale(scale);
-    coords.data
+    coords
 }
 
 pub fn freehand(
@@ -300,15 +298,13 @@ pub fn freehand(
     stroke: f32,
     cap_start: scene::Cap,
     cap_end: scene::Cap,
-    scale: (f32, f32),
-) -> Vec<f32> {
+) -> PointVector {
     let mut coords = PointVector::new();
     add_line(&mut coords, points, stroke, cap_start, cap_end);
-    coords.scale_asymmetric(scale.0, scale.1);
-    coords.data
+    coords
 }
 
-pub fn cone((p, q): (Point, Point), scale: f32) -> Vec<f32> {
+pub fn cone((p, q): (Point, Point)) -> PointVector {
     let h = p.dist(q);
     let theta = p.angle(q);
 
@@ -317,8 +313,7 @@ pub fn cone((p, q): (Point, Point), scale: f32) -> Vec<f32> {
 
     let mut coords = PointVector::new();
     coords.add_tri(left, right, p);
-    coords.scale(scale);
-    coords.data
+    coords
 }
 
 #[cfg(test)]
@@ -332,7 +327,7 @@ mod test {
         let p = Point::same(-1.0);
         let q = Point::same(1.0);
         let stroke = 1.0;
-        let points = PointVector::from(line((p, q), stroke, Cap::None, Cap::None, 1.0));
+        let points = line((p, q), stroke, Cap::None, Cap::None);
 
         dbg!(&points.data);
 

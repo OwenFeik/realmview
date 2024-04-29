@@ -163,7 +163,7 @@ impl Key {
             "Z" => Self::Z,
             _ => {
                 if Self::LOG_UNKNOWN {
-                    crate::bridge::flog!("Unknown key: {key}");
+                    crate::bridge::log!("Unknown key: {key}");
                 }
                 Self::Unknown
             }

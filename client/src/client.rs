@@ -6,7 +6,7 @@ use js_sys::{ArrayBuffer, Uint8Array};
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{CloseEvent, ErrorEvent, MessageEvent, WebSocket};
 
-use crate::bridge::{flog, log, log_js_value, timestamp_ms, websocket_url};
+use crate::bridge::{console_log, log, log_js_value, timestamp_ms, websocket_url};
 use crate::scene::comms::{ClientEvent, ClientMessage, ServerEvent};
 use crate::Res;
 
@@ -63,7 +63,7 @@ impl Client {
     }
 
     pub fn disconnect(&mut self) {
-        log("Disconnected due to inactivity.");
+        console_log("Disconnected due to inactivity.");
         self.sock.disconnect();
         self.disconnected_redirect();
     }
@@ -137,7 +137,7 @@ impl Sock {
         match self.events.try_lock() {
             Ok(mut events) => std::mem::take(&mut *events),
             Err(_) => {
-                log("Failed to lock socket events.");
+                console_log("Failed to lock socket events.");
                 Vec::new()
             }
         }
@@ -145,7 +145,7 @@ impl Sock {
 
     fn send_message(&self, message: &ClientMessage, retry: bool) {
         if self.ready_state() != ReadyState::Open {
-            flog!(
+            log!(
                 "Not sending message as socket state is {:?}.",
                 self.ready_state()
             );
@@ -154,15 +154,15 @@ impl Sock {
 
         if let Ok(data) = serialize(message) {
             if let Err(v) = self.socket.send_with_u8_array(&data) {
-                log("Failed to send event. Reason:");
+                console_log("Failed to send event. Reason:");
                 log_js_value(&v);
                 if retry {
-                    log("Retrying send event.");
+                    console_log("Retrying send event.");
                     self.send_message(message, false);
                 }
             }
         } else {
-            log("Failed to serialise message to send.");
+            console_log("Failed to serialise message to send.");
         }
     }
 
@@ -217,7 +217,7 @@ impl Sock {
 
         self.reconnect_attempts += 1;
         self.last_reconnect_attempt = timestamp_ms();
-        flog!(
+        log!(
             "Reconnecting websocket (attempt {})",
             self.reconnect_attempts
         );
@@ -247,7 +247,7 @@ fn deserialise_message(message: JsValue) -> Res<ServerEvent> {
 }
 
 fn create_websocket(url: &str, events: EventsRef) -> Res<WebSocket> {
-    flog!("Connecting WebSocket.");
+    log!("Connecting WebSocket.");
 
     let ws = match WebSocket::new(url) {
         Ok(ws) => ws,
@@ -264,22 +264,22 @@ fn create_websocket(url: &str, events: EventsRef) -> Res<WebSocket> {
             Box::new(move |e: MessageEvent| match deserialise_message(e.data()) {
                 Ok(event) => match events.try_lock() {
                     Ok(mut lock) => lock.push(event),
-                    Err(_) => log("Failed to lock events."),
+                    Err(_) => console_log("Failed to lock events."),
                 },
-                Err(s) => flog!("WebSocket decode error: {s}"),
+                Err(s) => log!("WebSocket decode error: {s}"),
             }) as Box<dyn FnMut(MessageEvent)>,
         );
     ws.set_onmessage(Some(onmessage.as_ref().unchecked_ref()));
     onmessage.forget();
 
     let onerror = Closure::wrap(Box::new(move |e: ErrorEvent| {
-        flog!("Closed due to error: {:?}", e.as_string());
+        log!("Closed due to error: {:?}", e.as_string());
     }) as Box<dyn FnMut(ErrorEvent)>);
     ws.set_onerror(Some(onerror.as_ref().unchecked_ref()));
     onerror.forget();
 
     let onclose = Closure::wrap(Box::new(move |e: CloseEvent| {
-        flog!("WebSocket closed: {:?} (Code {})", e.as_string(), e.code())
+        log!("WebSocket closed: {:?} (Code {})", e.as_string(), e.code())
     }) as Box<dyn FnMut(CloseEvent)>);
     ws.set_onclose(Some(onclose.as_ref().unchecked_ref()));
     onclose.forget();

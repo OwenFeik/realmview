@@ -3,7 +3,7 @@ use std::{rc::Rc, sync::Mutex};
 use serde::Serialize;
 
 use super::LayerInfo;
-use crate::{bridge::log, dom::element::Element, viewport::ViewportPoint};
+use crate::{bridge::console_log, dom::element::Element, viewport::ViewportPoint};
 
 #[derive(Clone, Copy, Debug, PartialEq, serde_derive::Serialize)]
 pub enum CanvasDropdownEvent {
@@ -129,7 +129,7 @@ impl Dropdown {
             if let Ok(mut lock) = dest.try_lock() {
                 lock.replace(event);
             } else {
-                log("Failed to lock dropdown mutex.");
+                console_log("Failed to lock dropdown mutex.");
             }
         }));
 
@@ -144,7 +144,7 @@ impl Dropdown {
             }
             event
         } else {
-            log("Failed to lock dropdown event.");
+            console_log("Failed to lock dropdown event.");
             None
         }
     }

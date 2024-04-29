@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use scene::Colour;
 
 use super::{element::Element, icon::Icon};
-use crate::{bridge::log, start::VpRef, viewport::Viewport};
+use crate::{bridge::console_log, start::VpRef, viewport::Viewport};
 
 pub trait Handler = Fn(&mut Viewport) + 'static;
 pub trait ValueHandler<T> = Fn(&mut Viewport, T) + 'static;
@@ -175,7 +175,7 @@ impl InputGroup {
                     if let Ok(mut lock) = vp_ref.try_lock() {
                         action(&mut lock, el);
                     } else {
-                        log("Failed to lock viewport for input event.");
+                        console_log("Failed to lock viewport for input event.");
                     }
                 }
             }));
@@ -290,7 +290,7 @@ impl InputGroup {
 
                 action(&mut lock, value);
             } else {
-                log("Failed to lock viewport for toggle button click.");
+                console_log("Failed to lock viewport for toggle button click.");
             }
         }));
 
@@ -306,7 +306,7 @@ impl InputGroup {
             if let Ok(mut lock) = vp.try_lock() {
                 action(&mut lock);
             } else {
-                log("Failed to lock viewport for button click.");
+                console_log("Failed to lock viewport for button click.");
             }
         }));
 
@@ -415,7 +415,7 @@ impl InputGroup {
                 if let Ok(mut lock) = vp_ref.lock() {
                     action_ref(&mut lock, icon);
                 } else {
-                    log("Failed to lock viewport for icon radio input.");
+                    console_log("Failed to lock viewport for icon radio input.");
                 }
             }));
         }

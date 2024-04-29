@@ -8,7 +8,7 @@ use std::sync::Mutex;
 use wasm_bindgen::{prelude::*, JsCast};
 
 use crate::bridge::{
-    expose_closure_f64, expose_closure_f64x2_string, expose_closure_string_in, flog, log,
+    console_log, expose_closure_f64, expose_closure_f64x2_string, expose_closure_string_in, log,
     request_animation_frame,
 };
 use crate::client::Client;
@@ -21,12 +21,12 @@ fn lock_and<T: FnOnce(&mut Viewport)>(vp: &VpRef, action: T) {
     if let Ok(mut lock) = vp.try_lock() {
         action(&mut lock);
     } else {
-        log("Failed to lock for handler.");
+        console_log("Failed to lock for handler.");
     }
 }
 
 fn logged_error<T>(error_message: &str) -> Result<T, JsValue> {
-    log(error_message);
+    console_log(error_message);
     Err(wasm_bindgen::JsValue::from_str(error_message))
 }
 
@@ -34,7 +34,7 @@ fn parse_json<'a, T: serde::Deserialize<'a>>(json: &'a str) -> Option<T> {
     if let Ok(val) = serde_json::from_str::<T>(json) {
         Some(val)
     } else {
-        flog!("Failed to parse JSON: {json}");
+        log!("Failed to parse JSON: {json}");
         None
     }
 }
@@ -117,7 +117,7 @@ pub fn start() -> Result<(), JsValue> {
         if let Ok(mut lock) = vp.lock() {
             lock.animation_frame();
         } else {
-            log("Failed to lock viewport for animation frame.");
+            console_log("Failed to lock viewport for animation frame.");
         }
         request_animation_frame(f.borrow().as_ref().unwrap()).unwrap();
     }) as Box<dyn FnMut()>));
