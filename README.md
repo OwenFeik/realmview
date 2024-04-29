@@ -37,7 +37,6 @@
 * Editor can't remove lines added by player during game.
 * Drawings sometimes vibrate a bit as they are drawn.
 * Drawing labels are positioned incorrectly.
-* Resized drawings are rendered incorrectly.
 
 ### Low priority
 

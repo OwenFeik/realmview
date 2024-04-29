@@ -209,3 +209,15 @@ impl Drawing {
         self.inner.clone().encode()
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_freehand_has_points() {
+        let drawing = Drawing::new(1, DrawingMode::Freehand);
+        assert!(drawing.points().is_some());
+        drawing.points().unwrap();
+    }
+}
