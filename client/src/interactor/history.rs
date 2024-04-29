@@ -206,28 +206,15 @@ impl History {
     }
 
     fn group_moves_drawing(&mut self, last: SceneEvent) {
-        // TODO
-        // let (drawing, sprite) = if let SceneEvent::SpriteDrawingFinish(drawing, sprite) = last {
-        //     (drawing, sprite)
-        // } else {
-        //     return;
-        // };
+        let SceneEvent::SpriteDrawingPoint(drawing, _) = last else {
+            return;
+        };
 
-        // let mut opt = None;
-        // self.consume_history_until(|e| match e {
-        //     SceneEvent::SpriteDrawingPoint(id, ..) => *id == drawing,
-        //     SceneEvent::SpriteNew(s, ..) => {
-        //         if s.id == sprite {
-        //             opt = Some(e.clone());
-        //         }
-        //         false
-        //     }
-        //     _ => false,
-        // });
-
-        // if let Some(event) = opt {
-        //     self.history.push(event);
-        // }
+        self.consume_history_until(|e| match e {
+            SceneEvent::SpriteDrawingPoint(id, ..) => *id == drawing,
+            SceneEvent::SpriteDrawingStart(id, _)
+            _ => false,
+        });
     }
 
     fn group_moves_set(&mut self, last: SceneEvent) {
