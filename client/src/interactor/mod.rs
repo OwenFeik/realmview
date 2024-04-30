@@ -519,7 +519,6 @@ impl Interactor {
                 if let Some(sprite_id) =
                     self.new_sprite_at(Some(visual), None, Rect::at(at, 0.0, 0.0))
                 {
-                    self.history.start_move_group();
                     self.holding = HeldObject::Drawing(drawing_id, sprite_id, ephemeral, !alt);
                 }
             }
@@ -720,13 +719,6 @@ impl Interactor {
         self.changes.sprite_selected_change();
     }
 
-    fn finish_draw(&mut self, drawing: Id, sprite: Id) {
-        // let opt = self.scene.finish_drawing(drawing, sprite);
-        // self.scene_option(opt);
-        // TODO
-        self.history.end_move_group();
-    }
-
     fn finish_circle(&mut self, id: Id, snap_to_grid: bool) {
         if snap_to_grid && let Some(sprite) = self.scene.sprite(id) {
             let event = sprite.snap_size();
@@ -744,7 +736,7 @@ impl Interactor {
                 self.history.erase_item(sprite);
             }
             HeldObject::Circle(id, _, _) => self.finish_circle(id, !alt),
-            HeldObject::Drawing(drawing, sprite, _, _) => self.finish_draw(drawing, sprite),
+            HeldObject::Drawing(..) => self.history.end_move_group(),
             HeldObject::None => {}
             HeldObject::Marquee(_) => {
                 if !ctrl {

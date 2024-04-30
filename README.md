@@ -29,7 +29,6 @@
     excess points when done?
 * Allow manual saving in game.
 * Add a playground for non-logged-in users.
-* Refactor to remove SpriteDrawingFinish; awful hack.
 
 ## Bugs
 
@@ -57,8 +56,6 @@
 * `wasm-pack` (`cargo install wasm-pack`)
     * Requires `pkg-config` (`apt install pkg-config`)
     * Requires OpenSSL (`apt install libssl-dev` / `yum install openssl-devel`)
-    * Note: `0.10.2`, `0.10.3` found to segfault when building. `0.9.0` known
-        working. (`cargo install wasm-pack@0.9.0`)
 * Sqlite3 (`apt install sqlite3`)
 * Python 3.6 or greater.
     * `urllib3` (`python3 -m pip install urllib3`)

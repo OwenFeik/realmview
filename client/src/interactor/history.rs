@@ -205,16 +205,61 @@ impl History {
         self.history.push(event);
     }
 
-    fn group_moves_drawing(&mut self, last: SceneEvent) {
+    pub fn group_moves_drawing(&mut self, last: SceneEvent) {
         let SceneEvent::SpriteDrawingPoint(drawing, _) = last else {
             return;
         };
 
+        // Just remove all sprite drawing point events. To undo a drawing, we
+        let mut sprite_event = None;
+        let mut drawing_event = None;
         self.consume_history_until(|e| match e {
-            // SceneEvent::SpriteDrawingPoint(id, ..) => *id == drawing,
-            // SceneEvent::SpriteDrawingStart(id, _)
+            SceneEvent::SpriteDrawingPoint(id, ..) => *id == drawing,
+            SceneEvent::SpriteNew(sprite, _) => {
+                if let Some(id) = sprite.visual.drawing() {
+                    if id == drawing {
+                        sprite_event = Some(e.clone());
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            }
+            SceneEvent::SpriteDrawingStart(id, _) => {
+                if *id == drawing {
+                    drawing_event = Some(e.clone());
+                    true
+                } else {
+                    false
+                }
+            }
+            SceneEvent::EventSet(events) => {
+                let mut ret = false;
+                for e in events {
+                    if let SceneEvent::SpriteDrawingStart(id, _) = e {
+                        if *id == drawing {
+                            drawing_event = Some(e.clone());
+                            ret = true;
+                        }
+                    }
+                }
+                ret
+            }
             _ => false,
         });
+
+        let mut events = Vec::new();
+        if let Some(e) = sprite_event {
+            events.push(e);
+        }
+        if let Some(e) = drawing_event {
+            events.push(e);
+        }
+        if !events.is_empty() {
+            self.history.push(SceneEvent::EventSet(events));
+        }
     }
 
     fn group_moves_set(&mut self, last: SceneEvent) {
@@ -249,6 +294,7 @@ impl History {
             match event {
                 SceneEvent::SpriteMove(..) => self.group_moves_single(event),
                 SceneEvent::EventSet(..) => self.group_moves_set(event),
+                SceneEvent::SpriteDrawingPoint(..) => self.group_moves_drawing(event),
                 _ => self.history.push(event),
             };
         }
@@ -280,5 +326,37 @@ impl History {
     pub fn reply_to_health_check(&mut self) {
         crate::bridge::log!("PING!");
         self.issue_message(ClientEvent::Ping);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use scene::Point;
+
+    use crate::interactor::Interactor;
+
+    #[test]
+    fn test_group_drawing_events() {
+        let mut int = Interactor::new(None);
+
+        int.start_draw(
+            Point::ORIGIN,
+            false,
+            false,
+            Default::default(),
+            crate::viewport::DrawTool::Freehand,
+        );
+        int.drag(Point::same(0.5), false);
+        int.drag(Point::same(1.0), false);
+        int.drag(Point::same(1.5), false);
+
+        // new drawing, new sprite, 3 points
+        assert!(int.history.history.len() == 5);
+
+        int.release(false, false);
+
+        // events should all be grouped to undo as one
+        dbg!(&int.history.history);
+        assert!(int.history.history.len() == 1);
     }
 }
