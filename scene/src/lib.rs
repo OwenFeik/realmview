@@ -524,25 +524,24 @@ impl Scene {
     }
 
     pub fn add_drawing_point(&mut self, id: Id, point: Point) -> Option<SceneEvent> {
-        let event = if let Some(drawing) = self.sprite_drawings.get_mut(&id) {
+        let (event, rect) = if let Some(drawing) = self.sprite_drawings.get_mut(&id) {
             drawing.add_point(point);
 
-            Some(SceneEvent::SpriteDrawingPoint(id, point))
+            (SceneEvent::SpriteDrawingPoint(id, point), drawing.rect())
         } else {
-            None
+            return None;
         };
 
-        if event.is_some()
-            && let Some(sprite) = self
-                .drawing_sprites
-                .get(&id)
-                .copied()
-                .and_then(|id| self.sprite(id))
+        if let Some(sprite) = self
+            .drawing_sprites
+            .get(&id)
+            .copied()
+            .and_then(|id| self.sprite(id))
         {
-            sprite.rect = sprite.rect.containing(point);
+            sprite.rect = rect;
         }
 
-        event
+        Some(event)
     }
 
     pub fn apply_event(&mut self, event: SceneEvent) -> bool {

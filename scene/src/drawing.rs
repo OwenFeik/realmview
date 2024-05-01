@@ -62,7 +62,7 @@ impl DrawingInner {
     fn line(&self) -> (Point, Point) {
         match self {
             DrawingInner::Freehand(points) => {
-                let p = points.nth(1).unwrap_or(Point::ORIGIN);
+                let p = points.first().unwrap_or(Point::ORIGIN);
                 let q = points.last().unwrap_or(Point::ORIGIN);
                 (p, q)
             }

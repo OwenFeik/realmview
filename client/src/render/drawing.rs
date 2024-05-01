@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use scene::Rect;
+use scene::{Point, Rect};
 
 use super::webgl::{Mesh, SolidRenderer};
 use crate::Res;
@@ -34,28 +34,34 @@ impl DrawingRenderer {
         //
         // 8 bits for the rect width
         // 8 bits for the rect height
-        // 12 bits for the stroke width
-        // 32 bits counting the number of points in the drawing
+        // 8 bits for the last point x
+        // 8 bits for the last point y
+        // 8 bits for the stroke width
+        // 20 bits counting the number of points in the drawing
         // 2 bits for the starting cap
         // 2 bits for the ending cap
         //
         // Like so:
-        // WIDTH000HEIGHT00STROKE000000N_POINTS000000000000000000000000CSCE
+        // WIDTH000HEIGHT00LAST_X00LAST_Y00STROKE00N_POINTS000000000000CSCE
         //
         // Is this grotesquely overcomplicated? Yes.
         let mut key = 0u64;
 
-        key |= ((rect.w.to_bits() << 7) >> 24) as u64;
-        key <<= 8;
+        let mut key_f32 = |v: f32| {
+            key |= ((v.to_bits() << 7) >> 24) as u64;
+            key <<= 8;
+        };
 
-        key |= ((rect.h.to_bits() << 7) >> 24) as u64;
-        key <<= 8;
+        let last = drawing.line().1;
 
-        key |= ((stroke.to_bits() << 7) >> 20) as u64;
-        key <<= 12;
+        key_f32(rect.w);
+        key_f32(rect.h);
+        key_f32(last.x);
+        key_f32(last.y);
+        key_f32(stroke);
 
         key |= drawing.n_points() as u64;
-        key <<= 32;
+        key <<= 20;
 
         key |= cap_start as u64;
         key <<= 2;
@@ -63,6 +69,24 @@ impl DrawingRenderer {
         key |= cap_end as u64; // last 2 bits
 
         key
+    }
+
+    fn drawing_line(position: Rect, drawing: &scene::Drawing) -> (Point, Point) {
+        let rect = drawing.rect();
+        let origin = rect.top_left();
+        let scale_x = position.w / rect.w;
+        let scale_y = position.h / rect.h;
+        let (p, q) = drawing.line();
+        (
+            Point {
+                x: (p.x - origin.x) * scale_x,
+                y: (p.y - origin.y) * scale_y,
+            },
+            Point {
+                x: (q.x - origin.x) * scale_x,
+                y: (q.y - origin.y) * scale_y,
+            },
+        )
     }
 
     fn add_drawing(
@@ -87,10 +111,13 @@ impl DrawingRenderer {
 
                 super::shapes::freehand(&points, stroke, cap_start, cap_end)
             }
-            scene::DrawingMode::Line => {
-                super::shapes::line(drawing.line(), stroke, cap_start, cap_end)
-            }
-            scene::DrawingMode::Cone => super::shapes::cone(drawing.line()),
+            scene::DrawingMode::Line => super::shapes::line(
+                Self::drawing_line(position, drawing),
+                stroke,
+                cap_start,
+                cap_end,
+            ),
+            scene::DrawingMode::Cone => super::shapes::cone(Self::drawing_line(position, drawing)),
         };
 
         points.scale(self.grid_size);
