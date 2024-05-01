@@ -88,9 +88,6 @@ function load_texture(media_key) {
 // function set_selected_sprite(sprite_json: string)
 // function clear_selected_sprite()
 
-// scene/game/role.js
-// function update_interface(role: number)
-
 // scene/project/project.js
 // function set_active_scene(scene_key: string)
 

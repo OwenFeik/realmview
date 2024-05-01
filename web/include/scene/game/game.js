@@ -37,6 +37,25 @@ window.addEventListener("load", () => {
     document.getElementById("launch_game_tab").style.display = "none";
 });
 
+function end_game() {
+    const game_key = url_parts()[1];
+    const error = error_fn("end_game_error");
+    post(
+        Api.EndGame(game_key),
+        null,
+        resp => {
+            if (resp?.success) {
+                window.location.href = Pages.GameOver;
+            } else if (resp?.message) {
+                error(resp.message);
+            } else {
+                error("Server error.");
+            }
+        },
+        () => error("Network error.")
+    );
+}
+
 function set_up_copy_link_btn() {
     const join_game_link = document.getElementById("join_game_link");
     const btn = document.getElementById("copy_join_game_link_btn");

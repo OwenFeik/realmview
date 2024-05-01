@@ -10,7 +10,6 @@
 * Measurements, persistent measurements
 * Hold a button to rotate a sprite
 * Save perms, reload when the same scene is loaded
-* Simplify perms.
 * Added tokens can't be edited by players
 * Token health bars
 * Better database abstraction
@@ -32,7 +31,6 @@
 
 ## Bugs
 
-* If someone else resizes a drawing the drawing isn't re-rendered for others.
 * Editor can't remove lines added by player during game.
 * Drawings sometimes vibrate a bit as they are drawn.
 * Drawing labels are positioned incorrectly.

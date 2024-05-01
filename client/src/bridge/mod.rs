@@ -30,9 +30,6 @@ extern "C" {
     // the texture queue once ready.
     pub fn load_texture(media_key: String);
 
-    // Shows or hides the relevant UI elements given a role integer.
-    pub fn update_interface(role: i32);
-
     // Load and set as active scene by scene key
     #[wasm_bindgen]
     pub fn set_active_scene(scene_key: &str);

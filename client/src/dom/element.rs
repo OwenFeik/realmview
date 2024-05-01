@@ -113,11 +113,11 @@ impl Element {
     }
 
     pub fn hide(&self) {
-        self.set_css("display", "none");
+        self.add_class("d-none");
     }
 
     pub fn show(&self) {
-        self.set_css("display", "");
+        self.remove_class("d-none");
     }
 
     pub fn get_attr(&self, name: &str) -> Option<String> {

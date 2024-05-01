@@ -23,6 +23,19 @@
     <div class="tab-content">
       <Tab tab="current_game">
         <div class="p-2">
+          <div class="row py-2">
+            <button
+              class="btn btn-danger py-2"
+              id="end_game_btn"
+              onclick="end_game();"
+            >End Game <Icon name="x-square"></button>
+          </div>
+          <div class="row py-2">
+            <p
+              id="end_game_error"
+              class="form-text text-danger d-none"
+            >Error message.</p>
+          </div>         
           <h3>Invite Players</h3>
           <p><a target="_blank" id="join_game_link"></a></p>
           <button

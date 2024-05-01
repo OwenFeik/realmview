@@ -2,7 +2,7 @@ use ::scene::{perms::Role, Id};
 
 pub use self::dropdown::CanvasDropdownEvent;
 pub use self::layers::LayerInfo;
-use super::element::Element;
+use super::{element::Element, set_visible};
 use crate::{interactor::details::SceneDetails, start::VpRef, viewport::ViewportPoint};
 
 mod draw;
@@ -63,13 +63,7 @@ fn add_accordion(el: &Element, key: &str, inputs: &Element) {
 }
 
 fn set_accordion_display(key: &str, visible: bool) {
-    if let Some(item) = Element::by_id(&accordion_id(key)) {
-        if visible {
-            item.remove_class("d-none");
-        } else {
-            item.add_class("d-none");
-        }
-    }
+    set_visible(&accordion_id(key), visible);
 }
 
 fn toggle_accordion_if<F: Fn(&Element) -> bool>(key: &str, condition: F) {

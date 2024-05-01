@@ -4,7 +4,7 @@ use actix_web::{web, HttpRequest, HttpResponse};
 use sqlx::SqlitePool;
 use tokio::sync::RwLock;
 
-use super::{res_failure, res_json, Res};
+use super::{res_failure, res_json, res_success, Res};
 use crate::{
     games::{close_ws, connect_client, generate_game_key, launch_server, GameHandle},
     models::{SceneRecord, User},
@@ -16,6 +16,7 @@ type Games = RwLock<HashMap<String, GameHandle>>;
 pub fn routes() -> actix_web::Scope {
     web::scope("/game")
         .route("/new", web::post().to(new))
+        .route("/{game_key}/end", web::post().to(end))
         .route("/{game_key}", web::post().to(test))
         .route("/{game_key}", web::to(join))
 }
@@ -82,6 +83,21 @@ async fn new(
         Ok(resp)
     } else {
         res_failure("Scene project unknown.")
+    }
+}
+
+async fn end(games: web::Data<Games>, user: User, path: web::Path<(String,)>) -> Res {
+    let game_key = path.into_inner().0;
+
+    if let Some(handle) = games.read().await.get(&game_key) {
+        if handle.owner == user.id {
+            handle.close();
+            res_success("Game closed.")
+        } else {
+            res_failure("A game may only be closed by its owner.")
+        }
+    } else {
+        res_success("Game already closed.")
     }
 }
 

@@ -5,6 +5,7 @@ const Pages = {
 };
 
 const Api = {
+    EndGame: game_key => `/api/game/${game_key}/end`,
     NewGame: '/api/game/new',
     SceneDetails: '/api/scene/details',
     TestClient: (game_key, client_key) => `/api/game/${game_key}/${client_key}`
@@ -214,13 +215,17 @@ function get(path, onload = null, onerror = null, icon_id = null) {
     req.send();
 }
 
-function post(path, data, onload = null, onerror = null, icon_id = null) {
+function post(path, data = null, onload = null, onerror = null, icon_id = null) {
     let req = new XMLHttpRequest();
     request_icon_handling(req, onload, onerror, icon_id);
     req.responseType = "json";
     req.open("POST", path);
     req.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-    req.send(JSON.stringify(data));
+    if (data) {
+        req.send(JSON.stringify(data));
+    } else {
+        req.send();
+    }
 }
 
 function template_to_element(html) {

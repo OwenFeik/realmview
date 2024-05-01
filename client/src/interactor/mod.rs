@@ -283,6 +283,7 @@ impl Interactor {
 
     fn update_role(&mut self) {
         self.role = self.perms.get_role(self.user);
+        crate::dom::update_interface(self.role);
         self.changes.role_change();
     }
 

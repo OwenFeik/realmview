@@ -35,6 +35,7 @@ pub enum ServerCommand {
 
 #[derive(Clone)]
 pub struct GameHandle {
+    pub owner: i64,
     open: Arc<AtomicBool>,
     chan: UnboundedSender<ServerCommand>,
 }
@@ -43,6 +44,15 @@ impl GameHandle {
     fn send(&self, command: ServerCommand) -> anyhow::Result<()> {
         self.chan.send(command)?;
         Ok(())
+    }
+
+    pub fn close(&self) {
+        // If this is an error, the other end is already closed, implying the
+        // server has stopped. Otherwise the server will stop when it receives
+        // our command. In either case, we can mark this game as closed to
+        // prevent new players from joining, etc.
+        self.send(ServerCommand::Close).ok();
+        self.open.store(false, std::sync::atomic::Ordering::Release);
     }
 
     pub fn open(&self) -> bool {
@@ -77,7 +87,11 @@ pub fn launch(key: String, owner: i64, project: i64, scene: Scene, pool: SqliteP
         server.run().await;
     });
 
-    GameHandle { open, chan: send }
+    GameHandle {
+        owner,
+        open,
+        chan: send,
+    }
 }
 
 struct Client {
@@ -160,7 +174,10 @@ impl Server {
         loop {
             match tokio::time::timeout(CHECK_INTERVAL, self.handle.recv()).await {
                 Ok(Some(command)) => match command {
-                    ServerCommand::Close => break,
+                    ServerCommand::Close => {
+                        self.log(LogLevel::Debug, "Closed by user.");
+                        break;
+                    }
                     ServerCommand::Join {
                         sender,
                         user,
@@ -171,20 +188,26 @@ impl Server {
                         continue; // Skip checks on a message.
                     }
                 },
-                Ok(None) => break, // All server handles dropped. Closed.
-                Err(_) => {}       // Timeout expired. Just check inactivity and save.
+                Ok(None) => {
+                    // All server handles dropped. Closed.
+                    self.log(LogLevel::Debug, "Closing as no handles remain.");
+                    break;
+                }
+                Err(_) => {} // Timeout expired. Just check inactivity and save.
             }
 
             // Check if any clients have died.
             self.health_check();
 
             if self.last_action.elapsed() >= INACTIVITY_TIMEOUT {
+                self.log(LogLevel::Debug, "Closing due to inactivity.");
                 break; // Inactive for timeout duration. Close server.
             }
 
             if let Some(empty_time) = self.empty_time
                 && empty_time.elapsed() >= EMPTY_TIMEOUT
             {
+                self.log(LogLevel::Debug, "Closing due to emptiness.");
                 break; // Inactive for timeout duration. Close server.
             }
 
