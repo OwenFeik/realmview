@@ -7,13 +7,11 @@
 * Place media in directories
 * Manage fog of war by player
 * Specify which users are allowed to join the game
-* Measurements, persistent measurements
 * Hold a button to rotate a sprite
 * Save perms, reload when the same scene is loaded
 * Added tokens can't be edited by players
 * Token health bars
 * Better database abstraction
-* Should avoid creating duplicate layers when players are joining.
 * Queue messages when websocket isn't open.
 * Loading screen when websocket disconnected for some duration.
 * Aura
@@ -23,9 +21,6 @@
     * Image pattern in aura
 * Preview snapping, show dimensions
 * Scale battlemap by dragging 3*3 on grid.
-* Better positioning for line / cone labels (just put near head?)
-* Better bounding boxes for lines / cones. Probably just update rect, remove
-    excess points when done?
 * Add a playground for non-logged-in users.
 
 ## Bugs
@@ -36,6 +31,8 @@
     * When rendered with opacity have overlapping triangles visible.
     * Have wrong dimensions after resizing window until zoom.
     * Have varying stroke, obvious at higher stroke levels.
+* A user with the same name as a default layer will be granted permission over
+    that layer.
 
 # Documentation
 

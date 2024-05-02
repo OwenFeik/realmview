@@ -1,7 +1,7 @@
 use scene::{Colour, PointVector};
 
 use super::webgl::{Mesh, SolidRenderer};
-use crate::scene::{Point, Rect};
+use crate::scene::Rect;
 
 pub struct FogRenderer {
     solid_renderer: SolidRenderer,
@@ -29,25 +29,72 @@ impl FogRenderer {
 
         let d = grid_size;
 
-        let mut fill_tile = |x, y| {
-            let x = (x as f32) * d - vp.x;
-            let y = (y as f32) * d - vp.y;
-
-            let tl = Point::new(x, y);
-            let tr = Point::new(x + d, y);
-            let bl = Point::new(x, y + d);
-            let br = Point::new(x + d, y + d);
-
-            points.add_tri(tl, tr, br);
-            points.add_tri(tl, bl, br);
+        let mut fill_tiles = |x, y, h| {
+            points.add_rect(Rect {
+                x: (x as f32) * d - vp.x,
+                y: (y as f32) * d - vp.y,
+                w: d,
+                h: (h as f32) * d,
+            });
         };
 
+        let mut y_start = None;
         for x in 0..fog.w {
             for y in 0..fog.h {
                 if fog.occluded(x, y) {
-                    fill_tile(x, y);
+                    if y_start.is_none() {
+                        y_start = Some(y);
+                    }
+                } else {
+                    if let Some(y_start) = y_start {
+                        fill_tiles(x, y_start, y - y_start);
+                    }
+                    y_start = None;
                 }
             }
+            if let Some(y_start) = y_start {
+                fill_tiles(x, y_start, fog.h - y_start);
+            }
+            y_start = None;
+        }
+
+        let grid_w = fog.w as f32 * grid_size;
+        let grid_h = fog.h as f32 * grid_size;
+
+        if vp.x < 0.0 {
+            points.add_rect(Rect {
+                x: 0.0,
+                y: if vp.y < 0.0 { vp.y.abs() } else { 0.0 },
+                w: if vp.x < 0.0 { vp.x.abs() } else { 0.0 },
+                h: vp.h,
+            });
+        }
+
+        if vp.y < 0.0 {
+            points.add_rect(Rect {
+                x: 0.0,
+                y: 0.0,
+                w: grid_w - vp.x,
+                h: -vp.y,
+            });
+        }
+
+        if vp.x + vp.w > grid_w {
+            points.add_rect(Rect {
+                x: grid_w - vp.x,
+                y: 0.0,
+                w: vp.w - (grid_w - vp.x),
+                h: grid_h - vp.y,
+            })
+        }
+
+        if vp.y + vp.h > grid_h {
+            points.add_rect(Rect {
+                x: -vp.x,
+                y: grid_h - vp.y,
+                w: vp.w + vp.x,
+                h: vp.h - (grid_h - vp.y),
+            })
         }
 
         self.current_vp = Some(vp);

@@ -256,6 +256,16 @@ impl PointVector {
         self.add(c);
     }
 
+    pub fn add_rect(&mut self, rect: Rect) {
+        let tl = rect.top_left();
+        let tr = Point::new(tl.x + rect.w, tl.y);
+        let bl = Point::new(tl.x, tl.y + rect.h);
+        let br = Point::new(tr.x, bl.y);
+
+        self.add_tri(tl, tr, bl);
+        self.add_tri(tr, bl, br);
+    }
+
     fn find_limits(&mut self) {
         let mut x_min = std::f32::MAX;
         let mut x_max = std::f32::MIN;
