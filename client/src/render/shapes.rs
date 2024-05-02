@@ -329,8 +329,6 @@ mod test {
         let stroke = 1.0;
         let points = line((p, q), stroke, Cap::None, Cap::None);
 
-        dbg!(&points.data);
-
         // Should have two triangles, splitting the diagonal of the line.
         assert_eq!(points.data.len(), 6 * 2);
 

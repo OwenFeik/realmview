@@ -699,12 +699,19 @@ impl SaveState {
     }
 }
 
-pub fn save_scene(scene_key: &str, raw: Vec<u8>) -> Res<SaveState> {
+pub fn save_request_body(raw: &[u8]) -> Res<String> {
     #[derive(serde_derive::Serialize)]
     struct Req {
         encoded: String,
     }
 
+    serde_json::ser::to_string(&Req {
+        encoded: base64::encode(raw),
+    })
+    .map_err(|e| e.to_string())
+}
+
+pub fn save_scene(scene_key: &str, raw: Vec<u8>) -> Res<SaveState> {
     #[derive(serde_derive::Deserialize)]
     struct Resp {
         message: String,
@@ -717,7 +724,7 @@ pub fn save_scene(scene_key: &str, raw: Vec<u8>) -> Res<SaveState> {
         title: String,
     }
 
-    const METHOD: &str = "PUT";
+    const METHOD: &str = "POST";
     const PATH: &str = "/api/scene/";
 
     let headers = Headers::new().map_err(js_err)?;
@@ -725,10 +732,7 @@ pub fn save_scene(scene_key: &str, raw: Vec<u8>) -> Res<SaveState> {
         .set("content-type", "application/json")
         .map_err(js_err)?;
 
-    let body = serde_json::ser::to_string(&Req {
-        encoded: base64::encode(raw),
-    })
-    .map_err(|e| e.to_string())?;
+    let body = save_request_body(&raw)?;
 
     if let Some(loading) = Element::by_id("canvas_loading_icon") {
         loading.show();

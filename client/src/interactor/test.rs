@@ -1,3 +1,4 @@
+use self::details::SceneDetails;
 use super::*;
 
 fn add_player_layer(int: &mut Interactor, player: Id) -> Id {
@@ -67,4 +68,18 @@ fn test_select_player_sprite() {
 
     assert!(int.perms.selectable(owner, sprite.id, layer));
     assert!(int.selectable(sprite, true));
+}
+
+#[test]
+fn test_fog_active_triggers_scene() {
+    let mut int = Interactor::new(None);
+    int.scene_details(SceneDetails {
+        fog: Some(false),
+        ..Default::default()
+    });
+    int.scene_details(SceneDetails {
+        fog: Some(true),
+        ..Default::default()
+    });
+    assert!(int.save_required());
 }

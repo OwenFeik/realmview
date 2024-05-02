@@ -356,7 +356,6 @@ mod test {
         int.release(false, false);
 
         // events should all be grouped to undo as one
-        dbg!(&int.history.history);
         assert!(int.history.history.len() == 1);
     }
 }

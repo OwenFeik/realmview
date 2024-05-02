@@ -17,11 +17,12 @@ use crate::viewport::Viewport;
 
 pub type VpRef = Rc<Mutex<Viewport>>;
 
-fn lock_and<T: FnOnce(&mut Viewport)>(vp: &VpRef, action: T) {
+fn lock_and<T: Default, F: FnOnce(&mut Viewport) -> T>(vp: &VpRef, action: F) -> T {
     if let Ok(mut lock) = vp.try_lock() {
-        action(&mut lock);
+        action(&mut lock)
     } else {
         console_log("Failed to lock for handler.");
+        Default::default()
     }
 }
 
@@ -103,8 +104,16 @@ pub fn start() -> Result<(), JsValue> {
     set_scene_list_closure.forget();
 
     let vp_ref = vp.clone();
-    let before_unload_closure: Closure<dyn FnMut()> =
-        Closure::new(move || lock_and(&vp_ref, |vp| vp.save_scene()));
+    let before_unload_closure: Closure<dyn FnMut() -> Option<String>> = Closure::new(move || {
+        lock_and(&vp_ref, |vp| {
+            if vp.scene.save_required() {
+                vp.save_scene();
+                Some(String::new())
+            } else {
+                None
+            }
+        })
+    });
     web_sys::window()
         .unwrap()
         .set_onbeforeunload(Some(before_unload_closure.as_ref().unchecked_ref()));

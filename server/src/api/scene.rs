@@ -9,7 +9,7 @@ pub fn routes() -> actix_web::Scope {
         .route("/save", web::post().to(save))
         .route("/details", web::post().to(details))
         .route("/load/{scene_key}", web::get().to(load))
-        .route("/{scene_key}", web::put().to(save))
+        .route("/{scene_key}", web::post().to(save))
         .route("/{scene_key}", web::delete().to(delete))
 }
 
@@ -47,7 +47,9 @@ struct SceneSaveRequest {
 }
 
 async fn save(mut conn: Conn, user: User, req: web::Json<SceneSaveRequest>) -> Res {
-    let Ok(Ok(scene)) = base64::decode(&req.encoded).map(|bytes| bincode::deserialize::<scene::Scene>(&bytes)) else {
+    let Ok(Ok(scene)) =
+        base64::decode(&req.encoded).map(|bytes| bincode::deserialize::<scene::Scene>(&bytes))
+    else {
         return res_unproc("Failed to decode scene.");
     };
 

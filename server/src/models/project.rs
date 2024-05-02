@@ -128,7 +128,7 @@ impl Project {
         conn: &mut SqliteConnection,
         mut scene: scene::Scene,
     ) -> anyhow::Result<SceneRecord> {
-        let s = scene_record::SceneRecord::get_or_create(
+        let s = scene_record::SceneRecord::update_or_create(
             conn,
             scene.id,
             self.id,
@@ -320,7 +320,7 @@ mod scene_record {
             .map_err(|e| anyhow!("Failed to create scene: {e}"))
         }
 
-        pub async fn get_or_create(
+        pub async fn update_or_create(
             conn: &mut SqliteConnection,
             id: Option<i64>,
             project: i64,
@@ -358,7 +358,7 @@ mod scene_record {
                 r#"
                 UPDATE scenes SET
                     title = ?1, updated_time = ?2, w = ?3, h = ?4, fog = ?5, fog_active = ?6
-                WHERE id = ?6;
+                WHERE id = ?7;
             "#,
             )
             .bind(title)
@@ -366,12 +366,12 @@ mod scene_record {
             .bind(width)
             .bind(height)
             .bind(fog)
-            .bind(fog_active)
+            .bind(if fog_active { 1 } else { 0 })
             .bind(self.id)
             .execute(conn)
             .await
-            .map_err(|_| anyhow!("Failed to update scene title."))?;
-            Ok(())
+            .map_err(|e| anyhow!("Failed to update scene title: {e}"))
+            .map(|_| ())
         }
 
         pub async fn load_scene(
