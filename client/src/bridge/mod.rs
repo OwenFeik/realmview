@@ -399,7 +399,7 @@ impl Context {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Cursor {
     // General
     Auto,
@@ -472,6 +472,24 @@ impl Cursor {
             .style()
             .set_property("cursor", &self.css())
             .map_err(|e| format!("Error: {e:?}"))
+    }
+
+    pub fn for_angle(theta: f32) -> Self {
+        use std::f32::consts::PI;
+
+        if (-0.262..0.262).contains(&theta) {
+            Cursor::EwResize // (-pi/12)..(pi/12)
+        } else if (0.262..1.309).contains(&theta) || (-2.880..-1.833).contains(&theta) {
+            Cursor::NwseResize // (pi/12)..(5pi/12) || (-11pi/12..-7pi/12)
+        } else if (1.309..1.833).contains(&theta) || (-1.833..-1.309).contains(&theta) {
+            Cursor::NsResize // +-(5pi/12)..(7pi/12)
+        } else if (1.833..2.880).contains(&theta) || (-1.309..-0.262).contains(&theta) {
+            Cursor::NeswResize // (7pi/12)..(11pi/12) || (-5pi/12..-pi/12)
+        } else if (2.880..=PI).contains(&theta) || (-PI..-2.880).contains(&theta) {
+            Cursor::EwResize // +-(11pi/12)..pi
+        } else {
+            Cursor::Move
+        }
     }
 
     #[must_use]

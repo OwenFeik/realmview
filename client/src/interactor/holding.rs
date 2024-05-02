@@ -119,19 +119,37 @@ impl HeldObject {
                 _ => Cursor::Move,
             },
             Self::Circle(_, centre, _) => {
-                if at.x <= centre.x && at.y <= centre.y || at.x >= centre.x && at.y >= centre.y {
-                    Cursor::NwseResize
-                } else if at.x >= centre.x && at.y <= centre.y
-                    || at.x <= centre.x && at.y >= centre.y
-                {
-                    Cursor::NeswResize
-                } else {
-                    Cursor::Move
-                }
+                let theta = centre.angle(at);
+                Cursor::for_angle(theta)
             }
             Self::Drawing(..) => Cursor::Crosshair,
             Self::Marquee(..) | Self::None => Cursor::Default,
             Self::Selection(..) | Self::Sprite(..) => Cursor::Move,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use scene::Point;
+
+    use super::HeldObject;
+    use crate::bridge::Cursor;
+
+    #[test]
+    fn test_holding_circle_directions() {
+        let h = HeldObject::Circle(1, Point::ORIGIN, true);
+        assert_eq!(h.cursor(Point::new(10., 0.1)), Cursor::EwResize);
+        assert_eq!(h.cursor(Point::new(3., 3.)), Cursor::NwseResize);
+        assert_eq!(h.cursor(Point::new(0.1, 10.)), Cursor::NsResize);
+        assert_eq!(h.cursor(Point::new(-0.1, 10.)), Cursor::NsResize);
+        assert_eq!(h.cursor(Point::new(-3., 3.)), Cursor::NeswResize);
+        assert_eq!(h.cursor(Point::new(-10., 0.1)), Cursor::EwResize);
+        assert_eq!(h.cursor(Point::new(-10., -0.1)), Cursor::EwResize);
+        assert_eq!(h.cursor(Point::new(-3., -3.)), Cursor::NwseResize);
+        assert_eq!(h.cursor(Point::new(-0.1, -10.)), Cursor::NsResize);
+        assert_eq!(h.cursor(Point::new(0.1, -10.)), Cursor::NsResize);
+        assert_eq!(h.cursor(Point::new(3., -3.)), Cursor::NeswResize);
+        assert_eq!(h.cursor(Point::new(10., -0.1)), Cursor::EwResize);
     }
 }
