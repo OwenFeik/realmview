@@ -30,7 +30,6 @@
 
 ## Bugs
 
-* Drawings sometimes vibrate a bit as they are drawn.
 * Drawing labels are positioned incorrectly.
 
 ### Low priority

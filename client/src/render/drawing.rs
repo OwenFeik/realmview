@@ -5,9 +5,56 @@ use scene::{Point, Rect};
 use super::webgl::{Mesh, SolidRenderer};
 use crate::Res;
 
+/// Key properties of a mesh for a given sprite-drawing pair. A mesh may be
+/// shared between frames or between sprites if all fields in this struct
+/// match.
+#[derive(PartialEq)]
+struct MeshProps {
+    /// Width of the sprite's rect.
+    w: f32,
+
+    /// Height of the sprite's rect.
+    h: f32,
+
+    /// Last point in the drawing.
+    last: Point,
+
+    /// Stroke width of the sprite.
+    stroke: f32,
+
+    /// Number of points in the drawing.
+    n: u32,
+
+    /// Start cap of the sprite.
+    cap_start: scene::Cap,
+
+    /// End cap of the sprite.
+    cap_end: scene::Cap,
+}
+
+impl MeshProps {
+    fn new(
+        position: Rect,
+        drawing: &scene::Drawing,
+        stroke: f32,
+        cap_start: scene::Cap,
+        cap_end: scene::Cap,
+    ) -> Self {
+        Self {
+            w: position.w,
+            h: position.h,
+            last: drawing.last_point().unwrap_or(Point::ORIGIN),
+            stroke,
+            n: drawing.n_points(),
+            cap_start,
+            cap_end,
+        }
+    }
+}
+
 pub struct DrawingRenderer {
     grid_size: f32,
-    drawings: HashMap<i64, Vec<(u64, Mesh)>>, //  { drawing_id: [(key, mesh)] }
+    drawings: HashMap<i64, Vec<(MeshProps, Mesh)>>, //  { drawing_id: [(key, mesh)] }
     renderer: SolidRenderer,
 }
 
@@ -21,54 +68,6 @@ impl DrawingRenderer {
             drawings: HashMap::new(),
             renderer: inner,
         }
-    }
-
-    fn create_key(
-        rect: Rect,
-        drawing: &scene::Drawing,
-        stroke: f32,
-        cap_start: scene::Cap,
-        cap_end: scene::Cap,
-    ) -> u64 {
-        // Key format is a u64 with the following structure:
-        //
-        // 8 bits for the rect width
-        // 8 bits for the rect height
-        // 8 bits for the last point x
-        // 8 bits for the last point y
-        // 8 bits for the stroke width
-        // 20 bits counting the number of points in the drawing
-        // 2 bits for the starting cap
-        // 2 bits for the ending cap
-        //
-        // Like so:
-        // WIDTH000HEIGHT00LAST_X00LAST_Y00STROKE00N_POINTS000000000000CSCE
-        //
-        // Is this grotesquely overcomplicated? Yes.
-        let mut key = 0u64;
-
-        let mut key_f32 = |v: f32| {
-            key |= ((v.to_bits() << 7) >> 24) as u64;
-            key <<= 8;
-        };
-
-        let last = drawing.line().1;
-
-        key_f32(rect.w);
-        key_f32(rect.h);
-        key_f32(last.x);
-        key_f32(last.y);
-        key_f32(stroke);
-
-        key |= drawing.n_points() as u64;
-        key <<= 20;
-
-        key |= cap_start as u64;
-        key <<= 2;
-
-        key |= cap_end as u64; // last 2 bits
-
-        key
     }
 
     fn drawing_line(position: Rect, drawing: &scene::Drawing) -> (Point, Point) {
@@ -124,7 +123,7 @@ impl DrawingRenderer {
         let mut mesh = self.renderer.mesh(&points.data)?;
         mesh.set_transforms(false, true);
 
-        let key = Self::create_key(position, drawing, stroke, cap_start, cap_end);
+        let key = MeshProps::new(position, drawing, stroke, cap_start, cap_end);
         let drawing_meshes = if let Some(meshes) = self.drawings.get_mut(&drawing.id) {
             meshes
         } else {
@@ -151,7 +150,7 @@ impl DrawingRenderer {
         end: scene::Cap,
     ) -> Option<&Mesh> {
         if let Some(meshes) = self.drawings.get(&drawing.id) {
-            let key = Self::create_key(position, drawing, stroke, start, end);
+            let key = MeshProps::new(position, drawing, stroke, start, end);
             for (mesh_key, mesh) in meshes {
                 if *mesh_key == key {
                     return Some(mesh);
