@@ -151,16 +151,30 @@ impl From<(f32, f32)> for Point {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct PointVector {
+    // Track the most extreme values on each axis to efficiently calculate the
+    // rect for this drawing rather than needing to interate all the points each
+    // time.
+    x_min: f32,
+    x_max: f32,
+    y_min: f32,
+    y_max: f32,
+
+    /// Vector of the form [x0, y0, x1, y1, x2, y2]
     pub data: Vec<f32>,
 }
 
 impl PointVector {
     pub fn new() -> Self {
-        Self::from(Vec::new())
+        Default::default()
     }
 
     pub fn from(data: Vec<f32>) -> Self {
-        Self { data }
+        let mut ret = Self {
+            data,
+            ..Default::default()
+        };
+        ret.find_limits();
+        ret
     }
 
     pub fn sized(n: u32) -> Self {
@@ -176,7 +190,8 @@ impl PointVector {
     }
 
     pub fn keep_n(&mut self, n: usize) {
-        self.data.truncate(n * 2)
+        self.data.truncate(n * 2);
+        self.find_limits();
     }
 
     pub fn nth(&self, i: usize) -> Option<Point> {
@@ -208,6 +223,9 @@ impl PointVector {
             self.data[i] = x;
             self.data[i + 1] = y;
         }
+
+        // Update rect.
+        self.find_limits();
     }
 
     pub fn first(&self) -> Option<Point> {
@@ -218,14 +236,18 @@ impl PointVector {
         self.nth(self.n())
     }
 
-    pub fn add(&mut self, point: Point) {
-        self.data.push(point.x);
-        self.data.push(point.y);
-    }
-
     pub fn add_point(&mut self, x: f32, y: f32) {
         self.data.push(x);
         self.data.push(y);
+
+        self.x_min = self.x_min.min(x);
+        self.x_max = self.x_max.max(x);
+        self.y_min = self.y_min.min(y);
+        self.y_max = self.y_max.max(y);
+    }
+
+    pub fn add(&mut self, point: Point) {
+        self.add_point(point.x, point.y);
     }
 
     pub fn add_tri(&mut self, a: Point, b: Point, c: Point) {
@@ -234,7 +256,7 @@ impl PointVector {
         self.add(c);
     }
 
-    pub fn rect(&self) -> Rect {
+    fn find_limits(&mut self) {
         let mut x_min = std::f32::MAX;
         let mut x_max = std::f32::MIN;
         let mut y_min = std::f32::MAX;
@@ -247,7 +269,23 @@ impl PointVector {
             y_max = y_max.max(y);
         });
 
-        Rect::new(x_min, y_min, x_max - x_min, y_max - y_min)
+        self.x_min = x_min;
+        self.x_max = x_max;
+        self.y_min = y_min;
+        self.y_max = y_max;
+    }
+
+    pub fn rect(&self) -> Rect {
+        if self.data.is_empty() {
+            Rect::zeroed()
+        } else {
+            Rect::new(
+                self.x_min,
+                self.y_min,
+                self.x_max - self.x_min,
+                self.y_max - self.y_min,
+            )
+        }
     }
 
     pub fn scale(&mut self, scale: f32) {
@@ -266,7 +304,13 @@ impl PointVector {
 
 impl Default for PointVector {
     fn default() -> Self {
-        Self::new()
+        Self {
+            x_min: f32::MAX,
+            x_max: f32::MIN,
+            y_min: f32::MAX,
+            y_max: f32::MIN,
+            data: Vec::new(),
+        }
     }
 }
 

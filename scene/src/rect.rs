@@ -44,6 +44,15 @@ impl Rect {
         }
     }
 
+    pub fn zeroed() -> Self {
+        Rect {
+            x: 0.0,
+            y: 0.0,
+            w: 0.0,
+            h: 0.0,
+        }
+    }
+
     /// Whether the rect is aligned to a full, half, or quarter tile grid cell.
     pub fn is_aligned(&self) -> bool {
         ((self.x % determine_unit_size(self.w)).abs() <= f32::EPSILON)

@@ -602,9 +602,10 @@ impl Interactor {
                 SpriteVisual::Drawing { drawing, .. } => {
                     if let Some(drawing) = self.scene.get_drawing(drawing) {
                         let sprite_at = sprite.rect.top_left();
+                        let drawing_at = drawing.rect().top_left();
                         let line_end = drawing.line().1;
                         to.push((
-                            sprite_at + line_end + Point { x: 0.0, y: 1.0 },
+                            (line_end - drawing_at) + sprite_at + Point { x: 0.0, y: 1.0 },
                             drawing.length(),
                         ));
                     }

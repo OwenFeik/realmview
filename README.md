@@ -30,15 +30,12 @@
 
 ## Bugs
 
-* Drawing labels are positioned incorrectly.
-
-### Low priority
+### Low priority.
 
 * Hollow shapes
     * When rendered with opacity have overlapping triangles visible.
     * Have wrong dimensions after resizing window until zoom.
     * Have varying stroke, obvious at higher stroke levels.
-* Resizing a drawing increases the line stroke (maybe good?).
 
 # Documentation
 
