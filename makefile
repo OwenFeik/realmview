@@ -1,3 +1,7 @@
+# All targets are just scripts; there are no file dependencies. Thus commands
+# should never be skipped.
+MAKEFLAGS += --always-make
+
 root := $(shell pwd)
 build := ${root}/build
 target := ${build}/target
@@ -6,6 +10,7 @@ env := CARGO_TARGET_DIR=${target} RUST_BACKTRACE=1
 cargo := ${env} cargo
 wp := ${env} wasm-pack
 py := python3
+dep := ${HOME}/deployment
 
 serve: server content
 	echo "Serving at http://localhost:3030/"
@@ -13,15 +18,23 @@ serve: server content
 		DATABASE_URL=${build}/database.db \
 		${build}/server ${content} 3030
 
-deploy: html
+deploy: html backupdb database
 	${cargo} build -p server --release
-	cp --remove-destination ${target}/release/server ${build}/server
-	${wp} build client/ --out-dir ${content}/pkg --target web
+	${wp} build --release client/ --out-dir ${content}/pkg --target web
+	mkdir -p ${dep}
+	cp --remove-destination ${target}/release/server ${dep}/server
+	cp --remove-destination ${build}/database.db ${dep}/database.db
+	cp -r ${content} ${dep}/content
+	sudo setcap CAP_NET_BIND_SERVICE=+eip ${dep}/server
 	echo "Serving on port 80"
-	sudo \
-		RUST_BACKTRACE=1 \
-		DATABASE_URL=${build}/database.db \
-		${build}/server ${content} 80
+	RUST_BACKTRACE=1 DATABASE_URL=${dep}/database.db \
+		${dep}/server ${dep}/content 80
+
+backupdb:
+	@if [ -f ${dep}/database.db ]; then                                     \
+		mkdir -p ${dep}/backups ;                                           \
+		cp ${dep}/database.db ${dep}/backups/$$(date "+database_%F_%T.db") ; \
+	fi
 
 server: content database
 	${cargo} build -p server
