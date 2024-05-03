@@ -278,7 +278,7 @@ impl Scene {
         self.groups.iter().find(|g| g.includes(id))
     }
 
-    pub fn group_sprites(&mut self, sprites: &[Id]) -> SceneEvent {
+    pub fn group_sprites(&mut self, sprites: &[Id]) -> Option<SceneEvent> {
         let mut events = Vec::new();
 
         for &sprite in sprites {
@@ -298,7 +298,7 @@ impl Scene {
 
         self.groups.push(new_group);
 
-        SceneEvent::EventSet(events)
+        SceneEvent::set(events)
     }
 
     /// Iterator across all selectable sprites in the scene, from top to
@@ -412,7 +412,7 @@ impl Scene {
     }
 
     pub fn add_sprites(&mut self, sprites: Vec<Sprite>, layer: Id) -> Option<SceneEvent> {
-        self.layer(layer).map(|l| l.add_sprites(sprites))
+        self.layer(layer).and_then(|l| l.add_sprites(sprites))
     }
 
     pub fn remove_sprite(&mut self, id: Id) -> Option<SceneEvent> {
@@ -425,8 +425,8 @@ impl Scene {
         None
     }
 
-    pub fn remove_sprites(&mut self, ids: &[Id]) -> SceneEvent {
-        SceneEvent::EventSet(
+    pub fn remove_sprites(&mut self, ids: &[Id]) -> Option<SceneEvent> {
+        SceneEvent::set(
             ids.iter()
                 .filter_map(|id| self.remove_sprite(*id))
                 .collect::<Vec<SceneEvent>>(),
@@ -461,8 +461,8 @@ impl Scene {
         }
     }
 
-    pub fn sprites_layer(&mut self, sprites: &[Id], layer: Id) -> SceneEvent {
-        SceneEvent::EventSet(
+    pub fn sprites_layer(&mut self, sprites: &[Id], layer: Id) -> Option<SceneEvent> {
+        SceneEvent::set(
             sprites
                 .iter()
                 .filter_map(|id| self.set_sprite_layer(*id, layer))
@@ -513,14 +513,14 @@ impl Scene {
         self.sprite_drawings.values().collect::<Vec<&Drawing>>()
     }
 
-    pub fn start_drawing(&mut self, mode: DrawingMode, at: Point) -> (Id, SceneEvent) {
+    pub fn start_drawing(&mut self, mode: DrawingMode, at: Point) -> (Id, Option<SceneEvent>) {
         let id = self.next_id();
         let creation_event = self.create_drawing(id, mode);
         let mut events = vec![creation_event];
         if let Some(event) = self.add_drawing_point(id, at) {
             events.push(event);
         };
-        (id, SceneEvent::EventSet(events))
+        (id, SceneEvent::set(events))
     }
 
     pub fn add_drawing_point(&mut self, id: Id, point: Point) -> Option<SceneEvent> {
@@ -709,12 +709,12 @@ impl Scene {
     pub fn unwind_event(&mut self, event: SceneEvent) -> Option<SceneEvent> {
         match event {
             SceneEvent::Dummy => None,
-            SceneEvent::EventSet(events) => Some(SceneEvent::EventSet(
+            SceneEvent::EventSet(events) => SceneEvent::set(
                 events
                     .into_iter()
                     .filter_map(|e| self.unwind_event(e))
                     .collect::<Vec<SceneEvent>>(),
-            )),
+            ),
             SceneEvent::FogActive(old, _) => self.fog.set_active(old),
             SceneEvent::FogOcclude(occluded, x, y) | SceneEvent::FogReveal(occluded, x, y) => {
                 self.fog.set(x, y, occluded)

@@ -176,15 +176,7 @@ impl Interactor {
     }
 
     fn scene_events(&mut self, events: Vec<SceneEvent>) {
-        if events.is_empty() {
-            return;
-        }
-
-        if events.len() == 1 {
-            self.scene_option(events.into_iter().next());
-        } else {
-            self.scene_event(SceneEvent::EventSet(events));
-        }
+        self.scene_option(SceneEvent::set(events));
     }
 
     fn scene_option(&mut self, event_option: Option<SceneEvent>) {
@@ -510,9 +502,8 @@ impl Interactor {
                 };
 
                 let mut visual = details.drawing();
-                let (drawing_id, event) = self.scene.start_drawing(mode, at);
-
-                self.scene_event(event);
+                let (drawing_id, event_option) = self.scene.start_drawing(mode, at);
+                self.scene_option(event_option);
                 if let SpriteVisual::Drawing { drawing, .. } = &mut visual {
                     *drawing = drawing_id;
                 }
@@ -838,8 +829,8 @@ impl Interactor {
     }
 
     pub fn set_fog(&mut self, at: Point, ctrl: bool) {
-        let event = self.scene.fog.set_circle(at, self.fog_brush, ctrl);
-        self.scene_event(event);
+        let event_option = self.scene.fog.set_circle(at, self.fog_brush, ctrl);
+        self.scene_option(event_option);
     }
 
     #[must_use]
@@ -1023,8 +1014,8 @@ impl Interactor {
             if self.single_selected() {
                 self.remove_sprite(self.selected_sprites[0]);
             } else {
-                let event = self.scene.remove_sprites(&self.selected_sprites);
-                self.scene_event(event);
+                let event_option = self.scene.remove_sprites(&self.selected_sprites);
+                self.scene_option(event_option);
             }
             self.clear_selection();
         } else {
@@ -1038,13 +1029,12 @@ impl Interactor {
     }
 
     pub fn sprite_layer(&mut self, sprite: Id, layer: Id) {
-        if sprite == Self::SELECTION_ID {
-            let event = self.scene.sprites_layer(&self.selected_sprites, layer);
-            self.scene_event(event);
+        let event_option = if sprite == Self::SELECTION_ID {
+            self.scene.sprites_layer(&self.selected_sprites, layer)
         } else {
-            let opt = self.scene.set_sprite_layer(sprite, layer);
-            self.scene_option(opt);
-        }
+            self.scene.set_sprite_layer(sprite, layer)
+        };
+        self.scene_option(event_option);
     }
 
     pub fn sprite_dimension(&mut self, sprite: Id, dimension: Dimension, value: f32) {
@@ -1135,8 +1125,8 @@ impl Interactor {
     }
 
     fn group_selected(&mut self) {
-        let event = self.scene.group_sprites(&self.selected_sprites);
-        self.scene_event(event);
+        let event_option = self.scene.group_sprites(&self.selected_sprites);
+        self.scene_option(event_option);
     }
 
     fn ungroup_selected(&mut self) {

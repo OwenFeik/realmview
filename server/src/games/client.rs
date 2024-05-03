@@ -55,12 +55,12 @@ pub fn connect_game_client(
                     warning(format!("WS protocol error: {e}"));
                 }
                 Either::Left((None, _)) => {
-                    debug(format!("Client ({}) disconnected without reason", user.id));
+                    debug(format!("Client ({}) disconnected without reason.", user.id));
                     break;
                 }
                 Either::Right((Some(msg), _)) => {
                     if session.binary(msg).await.is_err() {
-                        debug(format!("Client ({}) disconnected without reason", user.id));
+                        debug(format!("Client ({}) disconnected without reason.", user.id));
                         break;
                     }
                 }

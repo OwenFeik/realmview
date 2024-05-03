@@ -88,8 +88,8 @@ impl Layer {
         SceneEvent::SpriteNew(sprite, self.id)
     }
 
-    pub fn add_sprites(&mut self, sprites: Vec<Sprite>) -> SceneEvent {
-        SceneEvent::EventSet(sprites.into_iter().map(|s| self.add_sprite(s)).collect())
+    pub fn add_sprites(&mut self, sprites: Vec<Sprite>) -> Option<SceneEvent> {
+        SceneEvent::set(sprites.into_iter().map(|s| self.add_sprite(s)).collect())
     }
 
     pub fn restore_sprite(&mut self, id: Id) -> bool {

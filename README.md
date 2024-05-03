@@ -27,12 +27,10 @@
 
 ### Low priority.
 
-* Hollow shapes
-    * When rendered with opacity have overlapping triangles visible.
-    * Have wrong dimensions after resizing window until zoom.
-    * Have varying stroke, obvious at higher stroke levels.
+* Hollow shapes, when rendered with opacity, have overlapping triangles visible.
 * A user with the same name as a default layer will be granted permission over
     that layer.
+* Event sets aren't always handled correctly with permissions.
 
 # Documentation
 

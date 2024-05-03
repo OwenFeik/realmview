@@ -189,7 +189,7 @@ impl Fog {
     /// * `at`       Point around which to update tile state.
     /// * `r`        Radius around `at` to update tile state.
     /// * `occluded` New occluded state for tiles in range.
-    pub fn set_circle(&mut self, at: Point, r: f32, occluded: bool) -> SceneEvent {
+    pub fn set_circle(&mut self, at: Point, r: f32, occluded: bool) -> Option<SceneEvent> {
         let mut events = Vec::new();
 
         // Negative values become 0 through (as u32).
@@ -208,7 +208,7 @@ impl Fog {
             }
         }
 
-        SceneEvent::EventSet(events)
+        SceneEvent::set(events)
     }
 
     pub fn set_active(&mut self, active: bool) -> Option<SceneEvent> {

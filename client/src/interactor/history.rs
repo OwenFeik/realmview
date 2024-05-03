@@ -69,12 +69,10 @@ impl History {
     }
 
     fn is_pointless(event: &SceneEvent) -> bool {
-        // Empty event set. Useless.
-        if let SceneEvent::EventSet(events) = &event {
-            return events.is_empty();
+        match event {
+            SceneEvent::EventSet(events) => events.is_empty(), // Empty event set. Useless.
+            _ => false,
         }
-
-        false
     }
 
     /// Internal common backend for `issue_event` and `issue_event_no_history`,
@@ -163,7 +161,10 @@ impl History {
                 false
             }
         });
-        self.history.push(SceneEvent::EventSet(events));
+
+        if let Some(event) = SceneEvent::set(events) {
+            self.history.push(event);
+        }
     }
 
     fn group_moves_single(&mut self, last: SceneEvent) {
@@ -173,7 +174,7 @@ impl History {
             return;
         };
 
-        let mut creation_event: Option<SceneEvent> = None;
+        let mut events = Vec::new();
 
         self.consume_history_until(|e| match e {
             SceneEvent::SpriteMove(id, from, _) => {
@@ -186,7 +187,7 @@ impl History {
             }
             SceneEvent::SpriteNew(s, _) => {
                 if s.id == sprite {
-                    creation_event = Some(e.clone());
+                    events.push(e.clone());
                     true
                 } else {
                     false
@@ -195,14 +196,10 @@ impl History {
             _ => false,
         });
 
-        let move_event = SceneEvent::SpriteMove(sprite, start, finish);
-        let event = if let Some(event) = creation_event {
-            SceneEvent::EventSet(vec![event, move_event])
-        } else {
-            move_event
-        };
-
-        self.history.push(event);
+        events.push(SceneEvent::SpriteMove(sprite, start, finish));
+        if let Some(event) = SceneEvent::set(events) {
+            self.history.push(event);
+        }
     }
 
     pub fn group_moves_drawing(&mut self, last: SceneEvent) {
@@ -211,14 +208,14 @@ impl History {
         };
 
         // Just remove all sprite drawing point events. To undo a drawing, we
-        let mut sprite_event = None;
-        let mut drawing_event = None;
+        // remove the drawing and sprite.
+        let mut events = Vec::new();
         self.consume_history_until(|e| match e {
             SceneEvent::SpriteDrawingPoint(id, ..) => *id == drawing,
             SceneEvent::SpriteNew(sprite, _) => {
                 if let Some(id) = sprite.visual.drawing() {
                     if id == drawing {
-                        sprite_event = Some(e.clone());
+                        events.push(e.clone());
                         true
                     } else {
                         false
@@ -229,18 +226,18 @@ impl History {
             }
             SceneEvent::SpriteDrawingStart(id, _) => {
                 if *id == drawing {
-                    drawing_event = Some(e.clone());
+                    events.push(e.clone());
                     true
                 } else {
                     false
                 }
             }
-            SceneEvent::EventSet(events) => {
+            SceneEvent::EventSet(es) => {
                 let mut ret = false;
-                for e in events {
+                for e in es {
                     if let SceneEvent::SpriteDrawingStart(id, _) = e {
                         if *id == drawing {
-                            drawing_event = Some(e.clone());
+                            events.push(e.clone());
                             ret = true;
                         }
                     }
@@ -250,15 +247,8 @@ impl History {
             _ => false,
         });
 
-        let mut events = Vec::new();
-        if let Some(e) = sprite_event {
-            events.push(e);
-        }
-        if let Some(e) = drawing_event {
-            events.push(e);
-        }
-        if !events.is_empty() {
-            self.history.push(SceneEvent::EventSet(events));
+        if let Some(event) = SceneEvent::set(events) {
+            self.history.push(event);
         }
     }
 
@@ -283,9 +273,9 @@ impl History {
             }
         });
 
-        self.history.push(SceneEvent::EventSet(
-            moves.into_values().collect::<Vec<SceneEvent>>(),
-        ));
+        if let Some(event) = SceneEvent::set(moves.into_values().collect::<Vec<SceneEvent>>()) {
+            self.history.push(event);
+        }
     }
 
     pub fn end_move_group(&mut self) {
@@ -331,7 +321,7 @@ impl History {
 
 #[cfg(test)]
 mod test {
-    use scene::Point;
+    use scene::{comms::SceneEvent, Point};
 
     use crate::interactor::Interactor;
 
@@ -357,5 +347,16 @@ mod test {
 
         // events should all be grouped to undo as one
         assert!(int.history.history.len() == 1);
+        let event = int.history.history.first().unwrap();
+        let SceneEvent::EventSet(events) = event else {
+            panic!("Should have a SpriteDrawingStart and a SpriteNew event.");
+        };
+        assert_eq!(events.len(), 2);
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, SceneEvent::SpriteDrawingStart(..))));
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, SceneEvent::SpriteNew(..))));
     }
 }

@@ -23,7 +23,7 @@ fn test_sprite_drawing() {
     let mut client = server.non_canon();
 
     let (drawing, event) = client.start_drawing(crate::DrawingMode::Freehand, Point::ORIGIN);
-    assert!(server.apply_event(event.clone()));
+    assert!(server.apply_event(event.unwrap()));
 
     let event = client
         .new_sprite(

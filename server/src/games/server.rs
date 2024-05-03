@@ -314,7 +314,9 @@ impl Server {
             events.push(ServerEvent::SelectedLayer(layer));
         }
 
-        self.send_event(ServerEvent::EventSet(events), user);
+        if let Some(event) = ServerEvent::set(events) {
+            self.send_event(event, user);
+        }
 
         // Separate message as this will only occur after some DB queries.
         if user == self.owner {
@@ -323,13 +325,16 @@ impl Server {
             }
         }
 
-        self.log(LogLevel::Debug, format!("Client ({user}) connected"));
+        self.log(
+            LogLevel::Debug,
+            format!("Client ({user}) connected. Layer: {layer:?}."),
+        );
     }
 
     fn disconnect_client(&mut self, user: i64) {
         self.send_event(ServerEvent::Disconnect, user);
         if self.clients.remove_entry(&user).is_some() {
-            self.log(LogLevel::Debug, format!("Client ({user}) disconnected"));
+            self.log(LogLevel::Debug, format!("Client ({user}) disconnected."));
         }
         if self.clients.is_empty() {
             self.empty_time = Some(Instant::now());
@@ -415,7 +420,7 @@ impl Server {
         }
 
         for user in clients_to_disconnect {
-            self.log(LogLevel::Info, format!("User ({user}) timed out"));
+            self.log(LogLevel::Info, format!("User ({user}) timed out."));
             self.disconnect_client(user);
         }
     }
@@ -424,7 +429,7 @@ impl Server {
         if let Ok(message) = bincode::serialize(&event) {
             Some(message)
         } else {
-            log(LogLevel::Error, "Failed to encode server event as message");
+            log(LogLevel::Error, "Failed to encode server event as message.");
             None
         }
     }
@@ -455,7 +460,7 @@ impl Server {
             let duration = timestamp_us()? - start_time;
             self.log(
                 LogLevel::Debug,
-                format!("Saved scene. Save duration: {duration}us"),
+                format!("Saved scene. Save duration: {duration}us."),
             );
             Ok(())
         } else {
@@ -495,7 +500,9 @@ impl Server {
                 events.push(ServerEvent::SelectedLayer(layer));
             }
 
-            self.send_event(ServerEvent::EventSet(events), user);
+            if let Some(event) = ServerEvent::set(events) {
+                self.send_event(event, user);
+            }
         }
     }
 

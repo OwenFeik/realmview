@@ -44,11 +44,7 @@ impl SceneDetails {
             }
         }
 
-        if events.is_empty() {
-            None
-        } else {
-            Some(SceneEvent::EventSet(events))
-        }
+        SceneEvent::set(events)
     }
 }
 
@@ -252,11 +248,7 @@ impl SpriteDetails {
             events.push(event);
         }
 
-        if events.is_empty() {
-            None
-        } else {
-            Some(SceneEvent::EventSet(events))
-        }
+        SceneEvent::set(events)
     }
 
     pub fn stroke(&self) -> f32 {

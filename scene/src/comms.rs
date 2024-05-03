@@ -38,6 +38,16 @@ pub enum SceneEvent {
 }
 
 impl SceneEvent {
+    pub fn set(events: Vec<SceneEvent>) -> Option<Self> {
+        if events.is_empty() {
+            None
+        } else if events.len() == 1 {
+            Some(events.into_iter().next().unwrap())
+        } else {
+            Some(Self::EventSet(events))
+        }
+    }
+
     pub fn is_fog(&self) -> bool {
         if matches!(
             self,
@@ -193,4 +203,16 @@ pub enum ServerEvent {
     SceneUpdate(SceneEvent),
     SelectedLayer(Id),
     UserId(Id),
+}
+
+impl ServerEvent {
+    pub fn set(events: Vec<ServerEvent>) -> Option<ServerEvent> {
+        if events.is_empty() {
+            None
+        } else if events.len() == 1 {
+            Some(events.into_iter().next().unwrap())
+        } else {
+            Some(Self::EventSet(events))
+        }
+    }
 }
