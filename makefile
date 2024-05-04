@@ -22,7 +22,6 @@ deploy: html deploydb
 	${cargo} build -p server --release
 	${wp} build --release client/ --out-dir ${content}/pkg --target web
 	cp --remove-destination ${target}/release/server ${dep}/server
-	cp --remove-destination ${build}/database.db ${dep}/database.db
 	cp -r ${content} ${dep}/content
 	sudo setcap CAP_NET_BIND_SERVICE=+eip ${dep}/server
 	echo "Serving on port 80"
