@@ -12,16 +12,15 @@ wp := ${env} wasm-pack
 py := python3
 dep := ${HOME}/deployment
 
-serve: server content
+serve: server content testdb
 	echo "Serving at http://localhost:3030/"
 	RUST_BACKTRACE=1 \
 		DATABASE_URL=${build}/database.db \
 		${build}/server ${content} 3030
 
-deploy: html backupdb database
+deploy: html deploydb
 	${cargo} build -p server --release
 	${wp} build --release client/ --out-dir ${content}/pkg --target web
-	mkdir -p ${dep}
 	cp --remove-destination ${target}/release/server ${dep}/server
 	cp --remove-destination ${build}/database.db ${dep}/database.db
 	cp -r ${content} ${dep}/content
@@ -30,10 +29,21 @@ deploy: html backupdb database
 	RUST_BACKTRACE=1 DATABASE_URL=${dep}/database.db \
 		${dep}/server ${dep}/content 80
 
-backupdb:
+deploydb: database
+	mkdir -p ${dep}
 	@if [ -f ${dep}/database.db ]; then                                     \
-		mkdir -p ${dep}/backups ;                                           \
-		cp ${dep}/database.db ${dep}/backups/$$(date "+database_%F_%T.db") ; \
+		mkdir -p ${dep}/backups;                                            \
+		echo "Backing up database.";                                        \
+		cp ${dep}/database.db ${dep}/backups/$$(date "+database_%F_%T.db"); \
+	fi
+	@if                                                    \
+		[ ! -f ${dep}/schema.sql ]                         \
+		|| [ ! -f ${dep}/database.db ]                     \
+		|| ! cmp -s ${build}/schema.sql ${dep}/schema.sql; \
+	then                                                   \
+		echo "Rebuilding database. Migration required.";   \
+		cp ${build}/schema.sql ${dep}/schema.sql; 		   \
+		cp ${build}/database.db ${dep}/database.db;        \
 	fi
 
 server: content database
@@ -42,9 +52,13 @@ server: content database
 
 content: html wasm
 
-db: database
+db: testdb
 	sqlite3 ${build}/database.db --header --box || \
 		sqlite3 ${build}/database.db --header
+
+testdb: database
+	sqlite3 ${build}/database.db < ${root}/server/sql/test_data.sql \
+		2>/dev/null || true
 
 database: build-dir
 	@if \
@@ -52,11 +66,10 @@ database: build-dir
 		|| [ ! -f ${build}/database.db ] \
 		|| ! cmp -s ${root}/server/sql/schema.sql ${build}/schema.sql; \
 	then \
-		rm -rf ${content}/uploads \
+		rm -rf ${content}/uploads; \
 		rm -f ${build}/database.db; \
 		cp ${root}/server/sql/schema.sql ${build}/schema.sql; \
 		sqlite3 ${build}/database.db < ${build}/schema.sql; \
-		sqlite3 ${build}/database.db < ${root}/server/sql/test_data.sql; \
 	fi
 
 wasm: content-dir
