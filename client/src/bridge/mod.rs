@@ -30,9 +30,17 @@ extern "C" {
     // the texture queue once ready.
     pub fn load_texture(media_key: String);
 
+    #[wasm_bindgen(js_namespace = console, js_name = log)]
+    pub fn console_log(s: &str);
+
+    #[wasm_bindgen(js_namespace = console, js_name = log)]
+    pub fn log_js_value(v: &JsValue);
+
     // Load and set as active scene by scene key
-    #[wasm_bindgen]
     pub fn set_active_scene(scene_key: &str);
+
+    // Upload a thumbnail using the current canvas.
+    pub fn upload_thumbnail();
 
     // Expose closures
     #[wasm_bindgen]
@@ -52,12 +60,6 @@ extern "C" {
 
     #[wasm_bindgen(js_name = expose_closure)]
     pub fn expose_closure_array(name: &str, closure: &Closure<dyn FnMut() -> Array>);
-
-    #[wasm_bindgen(js_namespace = console, js_name = log)]
-    pub fn console_log(s: &str);
-
-    #[wasm_bindgen(js_namespace = console, js_name = log)]
-    pub fn log_js_value(v: &JsValue);
 }
 
 pub mod event;
@@ -749,6 +751,9 @@ pub fn save_scene(scene_key: &str, raw: Vec<u8>) -> Res<SaveState> {
     let req = Request::new_with_str_and_init(&format!("{PATH}{scene_key}"), &init)
         .map_err(|s| s.as_string().unwrap_or_else(|| format!("{s:?}")))?;
     let promise = window()?.fetch_with_request(&req);
+
+    // Just fire this off. Not a disaster if it fails.
+    upload_thumbnail();
 
     Ok(SaveState::new(
         |resp: JsValue| {

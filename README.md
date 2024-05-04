@@ -22,8 +22,14 @@
 * Preview snapping, show dimensions
 * Scale battlemap by dragging 3*3 on grid.
 * Add a playground for non-logged-in users.
+* Add button to project page to launch game.
 
 ## Bugs
+
+* When hitting launch game there's a navigation warning.
+* Disconnect while not doing anything is too fast.
+* Nebula image added as solid colour. Fixed on refresh.
+* Only able to select sprites created on current websocket.
 
 ### Low priority.
 

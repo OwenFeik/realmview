@@ -91,6 +91,9 @@ function load_texture(media_key) {
 // scene/project/project.js
 // function set_active_scene(scene_key: string)
 
+// /scene/project/project.js
+// function upload_thumbnail()
+
 // End :: Externs
 
 // Queue a function to be called when closure func_name is loaded.
