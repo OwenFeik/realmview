@@ -124,20 +124,6 @@ impl DrawingInner {
             },
         }
     }
-
-    fn encode(self) -> Vec<u8> {
-        let points = match self {
-            DrawingInner::Freehand(points) => points,
-            DrawingInner::Line(p, q) => {
-                let mut points = PointVector::new();
-                points.add(p);
-                points.add(q);
-                points
-            }
-        };
-
-        points.data.iter().flat_map(|f| f.to_be_bytes()).collect()
-    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -205,8 +191,16 @@ impl Drawing {
         }
     }
 
-    pub fn encode(&self) -> Vec<u8> {
-        self.inner.clone().encode()
+    pub fn points_build(&self) -> PointVector {
+        match &self.inner {
+            DrawingInner::Freehand(points) => points.clone(),
+            DrawingInner::Line(p, q) => {
+                let mut points = PointVector::new();
+                points.add(*p);
+                points.add(*q);
+                points
+            }
+        }
     }
 }
 

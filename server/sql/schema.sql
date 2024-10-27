@@ -32,68 +32,19 @@ CREATE TABLE IF NOT EXISTS media (
 
 CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY,
-    project_key CHAR(16) NOT NULL,
+    project_key CHAR(16) NOT NULL, -- Used to name files for this project.
     user INTEGER REFERENCES users(id) ON DELETE CASCADE NOT NULL,
-    title TEXT
+    updated_time INTEGER NOT NULL,
+    title TEXT,
+    UNIQUE(project_key, user) -- Keys may repeat across users.
 );
 
 CREATE TABLE IF NOT EXISTS scenes (
-    id INTEGER PRIMARY KEY,
+    id INTEGER,
     scene_key CHAR(16) NOT NULL,
     project INTEGER REFERENCES projects(id) ON DELETE CASCADE NOT NULL,
-    title TEXT,
     updated_time INTEGER NOT NULL,
-    w INTEGER NOT NULL,
-    h INTEGER NOT NULL,
-    thumbnail TEXT,
-    fog BLOB NOT NULL, -- Vec<u32>, big endian encoded
-    fog_active BOOLEAN NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS layers (
-    id INTEGER NOT NULL,
-    scene INTEGER REFERENCES scenes(id) ON DELETE CASCADE NOT NULL,
     title TEXT,
-    z INTEGER,
-    visible INTEGER,
-    locked INTEGER,
-    UNIQUE(id, scene)
-);
-
-CREATE TABLE IF NOT EXISTS sprites (
-    id INTEGER NOT NULL, -- Unique in scene, not in table
-    scene INTEGER NOT NULL,
-    layer INTEGER NOT NULL,
-    x REAL NOT NULL,
-    y REAL NOT NULL,
-    w REAL NOT NULL,
-    h REAL NOT NULL,
-    z INTEGER NOT NULL,
-    shape INTEGER,
-    stroke REAL,
-    solid BOOLEAN, 
-    media_key CHAR(16) REFERENCES media(media_key) ON DELETE SET NULL,
-    r REAL,
-    g REAL,
-    b REAL,
-    a REAL,
-    drawing INTEGER, -- References drawing ID in scene
-    cap_start INTEGER,
-    cap_end INTEGER,
-    UNIQUE(id, scene)
-);
-
-CREATE TABLE IF NOT EXISTS drawings (
-    id INTEGER NOT NULL,
-    scene INTEGER REFERENCES scenes(id) ON DELETE CASCADE NOT NULL,
-    mode INTEGER,
-    points BLOB, -- Vec<f32>, big endian encoded
-    UNIQUE(id, scene)
-);
-
-CREATE TABLE IF NOT EXISTS groups (
-    id INTEGER NOT NULL,
-    scene INTEGER REFERENCES scenes(id) ON DELETE CASCADE NOT NULL,
-    ids BLOB, -- Vec<i64>, big endian encoded
-    UNIQUE(id, scene)
+    thumbnail TEXT,
+    UNIQUE(scene_key, project) -- Keys may repeat across projects.
 );

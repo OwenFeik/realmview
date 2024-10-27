@@ -38,7 +38,7 @@ impl Game {
         self.scene.project
     }
 
-    pub fn scene_id(&self) -> Option<i64> {
+    pub fn scene_id(&self) -> i64 {
         self.scene.id
     }
 

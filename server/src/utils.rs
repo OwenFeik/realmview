@@ -3,6 +3,8 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+pub type Res<T> = Result<T, String>;
+
 #[derive(Clone, Copy)]
 pub enum LogLevel {
     Error,
@@ -72,4 +74,8 @@ pub fn timestamp_us() -> anyhow::Result<u128> {
 /// before joining.
 pub fn join_relative_path<S: AsRef<str>>(left: &Path, right: S) -> PathBuf {
     left.join(right.as_ref().trim_start_matches('/'))
+}
+
+pub fn id_to_key(id: i64) -> String {
+    format!("{:016X}", id)
 }

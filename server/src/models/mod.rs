@@ -5,6 +5,7 @@ mod tests;
 
 mod media;
 mod project;
+mod projectv2;
 mod user;
 
 pub use media::Media;

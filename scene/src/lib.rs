@@ -11,6 +11,7 @@ pub use fog::Fog;
 pub use group::Group;
 pub use layer::Layer;
 pub use point::{Point, PointVector};
+pub use project::Project;
 pub use rect::{float_eq, Dimension, Rect};
 pub use sprite::{Cap, Colour, Outline, Shape, Sprite, Visual as SpriteVisual};
 
@@ -22,6 +23,7 @@ mod fog;
 mod group;
 mod layer;
 mod point;
+mod project;
 mod rect;
 mod sprite;
 
@@ -33,11 +35,11 @@ pub type Id = i64;
 #[derive(Clone, serde_derive::Serialize, serde_derive::Deserialize)]
 pub struct Scene {
     canon: bool,
+    modified: bool,
     next_id: Id,
     sprite_drawings: HashMap<Id, Drawing>,
     drawing_sprites: HashMap<Id, Id>,
-    pub id: Option<Id>,
-    pub key: Option<String>,
+    pub id: Id,
 
     /// Layers in the scene. Sorted Highest to lowest.
     pub layers: Vec<Layer>,
@@ -781,9 +783,9 @@ impl Scene {
 impl Default for Scene {
     fn default() -> Self {
         Self {
-            id: None,
-            key: None,
+            id: -1,
             next_id: 4,
+            modified: false,
             sprite_drawings: HashMap::new(),
             drawing_sprites: HashMap::new(),
             canon: false,

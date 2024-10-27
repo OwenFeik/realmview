@@ -130,7 +130,7 @@ impl Project {
     ) -> anyhow::Result<SceneRecord> {
         let s = scene_record::SceneRecord::update_or_create(
             conn,
-            scene.id,
+            None,
             self.id,
             scene
                 .title
@@ -143,7 +143,7 @@ impl Project {
         )
         .await?;
 
-        scene.id = Some(s.id);
+        scene.id = s.id;
 
         for layer in scene.removed_layers.iter() {
             for sprite in &layer.sprites {
@@ -404,8 +404,7 @@ mod scene_record {
                 .collect();
 
             let mut scene = scene::Scene::new_with(layers, drawings);
-            scene.id = Some(self.id);
-            scene.key = Some(self.scene_key.clone());
+            scene.id = self.id;
             scene.title = Some(self.title.clone());
             scene.project = Some(self.project);
             scene.fog = scene::Fog::from_bytes(self.w, self.h, &self.fog);
@@ -778,7 +777,7 @@ mod drawing {
                 id: drawing.id,
                 scene,
                 mode: Self::drawing_mode_to_u8(drawing.mode),
-                points: drawing.encode(),
+                points: Vec::new(),
             }
         }
 
@@ -840,9 +839,7 @@ mod drawing {
             conn: &mut SqliteConnection,
             scene: &scene::Scene,
         ) -> anyhow::Result<()> {
-            let Some(scene_id) = scene.id else {
-                return Err(anyhow::anyhow!("Scene missing ID when updating drawings."));
-            };
+            let scene_id = scene.id;
 
             let mut drawings_in_use = Vec::new();
 
@@ -854,7 +851,7 @@ mod drawing {
                 }
             }
 
-            Self::delete_other_than(conn, scene.id.unwrap(), &drawings_in_use).await?;
+            Self::delete_other_than(conn, scene.id, &drawings_in_use).await?;
 
             for drawing in scene.get_drawings() {
                 Self::delete(conn, drawing.id, scene_id).await?;

@@ -38,6 +38,24 @@ impl Fog {
         }
     }
 
+    pub fn data(&self) -> Vec<u32> {
+        self.fog.clone()
+    }
+
+    pub fn from(data: Vec<u32>, active: bool, w: u32, h: u32) -> Self {
+        let mut n_revealed = 0;
+        for line in data.iter() {
+            n_revealed += line.count_ones();
+        }
+        Self {
+            active,
+            w,
+            h,
+            n_revealed,
+            fog: data,
+        }
+    }
+
     pub fn bytes(&self) -> Vec<u8> {
         self.fog.iter().flat_map(|f| f.to_be_bytes()).collect()
     }
