@@ -3,11 +3,12 @@ use std::{collections::HashMap, sync::Arc};
 use actix_web::{web, HttpRequest, HttpResponse};
 use sqlx::SqlitePool;
 use tokio::sync::RwLock;
+use uuid::Uuid;
 
 use super::{res_failure, res_json, res_success, Res};
 use crate::{
     games::{close_ws, connect_client, generate_game_key, launch_server, GameHandle},
-    models::{SceneRecord, User},
+    models::{Scene, User},
     req::e500,
 };
 
@@ -23,7 +24,7 @@ pub fn routes() -> actix_web::Scope {
 
 #[derive(serde_derive::Deserialize)]
 struct NewGameRequest {
-    scene_key: String,
+    scene: Uuid,
 }
 
 #[derive(serde_derive::Serialize)]
@@ -44,7 +45,7 @@ async fn new(
     req: web::Json<NewGameRequest>,
 ) -> Res {
     let conn = &mut pool.acquire().await.map_err(e500)?;
-    let scene = match SceneRecord::load_from_key(conn, &req.scene_key).await {
+    let scene = match Scene::load_by_uuid(conn, req.scene).await {
         Ok(r) => match r.user(conn).await {
             Ok(user_id) => {
                 if user.id == user_id {

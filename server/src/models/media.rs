@@ -1,8 +1,6 @@
 use anyhow::anyhow;
 use sqlx::{Row, SqlitePool};
 
-use crate::crypto::random_hex_string;
-
 #[derive(sqlx::FromRow)]
 pub struct Media {
     pub id: i64,
@@ -116,40 +114,5 @@ impl Media {
             .fetch_all(pool)
             .await?;
         Ok(results)
-    }
-
-    pub fn generate_key() -> anyhow::Result<String> {
-        let key = random_hex_string(Media::KEY_LENGTH)?;
-
-        // Always generate a key with a positive value.
-        // 63 / 64 keys generated should already be positive, so this is
-        // unlikely to recurse very far.
-        if Self::key_to_id(&key)? <= 0 {
-            Self::generate_key()
-        } else {
-            Ok(key)
-        }
-    }
-
-    pub fn key_to_id(key: &str) -> anyhow::Result<i64> {
-        if key.len() != Media::KEY_LENGTH {
-            return Err(anyhow!("Invalid media key."));
-        }
-
-        let mut raw = [0; 8];
-        for (i, r) in raw.iter_mut().enumerate() {
-            let j = i * 2;
-            if let Ok(b) = u8::from_str_radix(&key[j..j + 2], 16) {
-                *r = b;
-            } else {
-                return Err(anyhow!("Invalid hexadecimal."));
-            }
-        }
-
-        Ok(i64::from_be_bytes(raw))
-    }
-
-    pub fn id_to_key(id: i64) -> String {
-        format!("{:016X}", id)
     }
 }

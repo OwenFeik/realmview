@@ -14,7 +14,7 @@ pub struct SceneDetails {
 impl SceneDetails {
     pub fn from(scene: &Scene) -> Self {
         SceneDetails {
-            id: scene.id,
+            id: Some(scene.id),
             key: scene.key.clone(),
             title: scene.title.clone(),
             w: Some(scene.w()),

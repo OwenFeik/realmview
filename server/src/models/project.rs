@@ -1,985 +1,608 @@
-use anyhow::anyhow;
-use sqlx::{Row, SqliteConnection};
+use serde::{Deserialize, Serialize};
+use sqlx::SqliteConnection;
+use uuid::Uuid;
 
-use self::drawing::DrawingRecord;
-use self::group::GroupRecord;
-use self::layer::LayerRecord;
-pub use self::scene_record::SceneRecord;
-use self::sprite::SpriteRecord;
-use crate::crypto;
+use crate::utils::Res;
 
-const RECORD_KEY_LENGTH: usize = 16;
+type Conn = SqliteConnection;
+
+#[derive(Serialize, Deserialize)]
+struct Save {
+    version: u32,
+    data: Vec<u8>,
+}
 
 #[derive(sqlx::FromRow)]
-pub struct Project {
-    pub id: i64,
-    pub project_key: String,
-    pub user: i64,
-    pub title: String,
+pub struct SceneRecord {
+    uuid: Uuid,
+    project: i64,
+    updated_time: i64,
+    title: Option<String>,
+    thumbnail: Option<String>,
 }
 
-impl Project {
-    const DEFAULT_TITLE: &'static str = "Untitled";
-    const MAX_TITLE_LENGTH: usize = 256;
-
-    pub async fn new(
-        conn: &mut SqliteConnection,
-        user: i64,
-        title: &str,
-    ) -> anyhow::Result<Project> {
-        if title.len() > Self::MAX_TITLE_LENGTH {
-            return Err(anyhow!("Title too long."));
-        }
-
+impl SceneRecord {
+    pub async fn load_by_uuid(conn: &mut Conn, uuid: Uuid) -> Res<SceneRecord> {
         sqlx::query_as(
-            "INSERT INTO projects (project_key, user, title) VALUES (?1, ?2, ?3) RETURNING *;",
+            "
+            SELECT (uuid, project, updated_time, title, thumbnail)
+            FROM scenes WHERE uuid = ?1; 
+            ",
         )
-        .bind(crypto::random_hex_string(RECORD_KEY_LENGTH)?)
-        .bind(user)
-        .bind(title)
+        .bind(uuid.simple().to_string())
         .fetch_one(conn)
         .await
-        .map_err(|e| anyhow!(e))
-    }
-
-    pub async fn delete(self, conn: &mut SqliteConnection) -> anyhow::Result<()> {
-        sqlx::query(
-            r#"
-            DELETE FROM sprites WHERE scene IN (
-                SELECT id FROM scenes WHERE project = ?1
-            );
-            DELETE FROM scenes WHERE project = ?1;
-            DELETE FROM projects WHERE id = ?1;
-        "#,
-        )
-        .bind(self.id)
-        .execute(conn)
-        .await
-        .map_err(|e| anyhow!(e))?;
-        Ok(())
-    }
-
-    pub async fn load(conn: &mut SqliteConnection, id: i64) -> anyhow::Result<Project> {
-        let res = sqlx::query_as("SELECT * FROM projects WHERE id = ?1;")
-            .bind(id)
-            .fetch_optional(conn)
-            .await;
-
-        match res {
-            Ok(Some(p)) => Ok(p),
-            Ok(None) => Err(anyhow::anyhow!("Project not found.")),
-            Err(_) => Err(anyhow::anyhow!("Database error.")),
-        }
-    }
-
-    pub async fn list(conn: &mut SqliteConnection, user: i64) -> anyhow::Result<Vec<Project>> {
-        sqlx::query_as("SELECT * FROM projects WHERE user = ?1;")
-            .bind(user)
-            .fetch_all(conn)
-            .await
-            .map_err(|e| anyhow::anyhow!(format!("Database error: {}", e)))
-    }
-
-    pub async fn get_or_create(
-        conn: &mut SqliteConnection,
-        id: Option<i64>,
-        user: i64,
-    ) -> anyhow::Result<Project> {
-        match id {
-            Some(id) => Project::load(conn, id).await,
-            None => Project::new(conn, user, Self::DEFAULT_TITLE).await,
-        }
-    }
-
-    pub async fn get_by_key(
-        conn: &mut SqliteConnection,
-        project_key: &str,
-    ) -> anyhow::Result<Project> {
-        sqlx::query_as("SELECT * FROM projects WHERE project_key = ?1;")
-            .bind(project_key)
-            .fetch_one(conn)
-            .await
-            .map_err(|e| anyhow!(e))
-    }
-
-    pub async fn update_title(
-        &mut self,
-        conn: &mut SqliteConnection,
-        title: String,
-    ) -> anyhow::Result<()> {
-        let res = sqlx::query("UPDATE projects SET title = ?1 WHERE id = ?2;")
-            .bind(&title)
-            .bind(self.id)
-            .execute(conn)
-            .await;
-
-        if let Err(e) = res {
-            return Err(anyhow::anyhow!(format!(
-                "Failed to update project title: {e}"
-            )));
-        }
-
-        self.title = title;
-        Ok(())
-    }
-
-    pub async fn update_scene(
-        &self,
-        conn: &mut SqliteConnection,
-        mut scene: scene::Scene,
-    ) -> anyhow::Result<SceneRecord> {
-        let s = scene_record::SceneRecord::update_or_create(
-            conn,
-            None,
-            self.id,
-            scene
-                .title
-                .clone()
-                .unwrap_or_else(|| Self::DEFAULT_TITLE.to_owned()),
-            scene.w(),
-            scene.h(),
-            scene.fog.bytes(),
-            scene.fog.active,
-        )
-        .await?;
-
-        scene.id = s.id;
-
-        for layer in scene.removed_layers.iter() {
-            for sprite in &layer.sprites {
-                SpriteRecord::delete(conn, sprite.id, s.id).await?;
-            }
-
-            LayerRecord::delete(conn, layer.id, s.id).await?;
-        }
-
-        DrawingRecord::update_scene_drawings(conn, &scene).await?;
-
-        for layer in &scene.layers {
-            for sprite in &layer.removed_sprites {
-                SpriteRecord::delete(conn, sprite.id, s.id).await?;
-            }
-
-            let l = LayerRecord::update_or_create(conn, layer, s.id).await?;
-
-            for sprite in &layer.sprites {
-                SpriteRecord::save(conn, sprite, l.id, s.id).await?;
-            }
-        }
-
-        GroupRecord::delete_scene_groups(conn, s.id).await?;
-        for group in &scene.groups {
-            if !group.empty() {
-                GroupRecord::from(s.id, group).save(conn).await?;
-            }
-        }
-
-        Ok(s)
-    }
-
-    pub async fn list_scenes(
-        &self,
-        conn: &mut SqliteConnection,
-    ) -> anyhow::Result<Vec<SceneRecord>> {
-        SceneRecord::project_scenes(conn, self.id).await
-    }
-
-    pub async fn scene_owner(conn: &mut SqliteConnection, scene_key: &str) -> anyhow::Result<i64> {
-        let row = sqlx::query("SELECT user FROM scenes LEFT JOIN projects ON scenes.project = projects.id WHERE scenes.scene_key = ?1;")
-            .bind(scene_key)
-            .fetch_one(conn)
-            .await
-            .map_err(|_| anyhow!("Scene not found."))?;
-
-        Ok(row.get(0))
-    }
-
-    pub async fn set_scene_thumbnail(
-        conn: &mut SqliteConnection,
-        scene_key: &str,
-        thumbnail: &str,
-    ) -> anyhow::Result<()> {
-        sqlx::query("UPDATE scenes SET thumbnail = ?1 WHERE scene_key = ?2;")
-            .bind(thumbnail)
-            .bind(scene_key)
-            .execute(conn)
-            .await
-            .map_err(|e| anyhow!("Database error: {e}"))?;
-        Ok(())
-    }
-
-    pub async fn update_scene_title(
-        &self,
-        conn: &mut SqliteConnection,
-        scene_key: &str,
-        title: &str,
-    ) -> anyhow::Result<()> {
-        sqlx::query("UPDATE scenes SET title = ?1 WHERE project = ?2 AND scene_key = ?3;")
-            .bind(title)
-            .bind(self.id)
-            .bind(scene_key)
-            .execute(conn)
-            .await
-            .map_err(|e| anyhow!("Database error: {e}"))?;
-        Ok(())
-    }
-
-    pub async fn delete_scene(
-        conn: &mut SqliteConnection,
-        user: i64,
-        scene_key: &str,
-    ) -> anyhow::Result<()> {
-        sqlx::query(
-            r#"
-            DELETE FROM sprites WHERE scene IN (
-                SELECT scenes.id FROM scenes
-                LEFT JOIN projects ON scenes.project = projects.id
-                WHERE scenes.scene_key = ?1 AND projects.user = ?2
-            );
-            DELETE FROM scenes WHERE id IN (
-                SELECT scenes.id FROM scenes
-                LEFT JOIN projects ON scenes.project = projects.id
-                WHERE scenes.scene_key = ?1 AND projects.user = ?2
-            );
-        "#,
-        )
-        .bind(scene_key)
-        .bind(user)
-        .execute(conn)
-        .await
-        .map_err(|e| anyhow!(e))?;
-        Ok(())
+        .map_err(|e| e.to_string())
     }
 }
 
-mod scene_record {
-    use anyhow::anyhow;
-    use sqlx::{Row, SqliteConnection};
+#[derive(sqlx::FromRow)]
+pub struct ProjectRecord {
+    pub uuid: Uuid,
+    pub user: i64,
+    pub updated_time: i64,
+    pub title: Option<String>,
+}
 
-    use super::{
-        drawing::DrawingRecord, layer::LayerRecord, sprite::SpriteRecord, RECORD_KEY_LENGTH,
-    };
-    use crate::crypto;
-
-    #[derive(sqlx::FromRow)]
-    pub struct SceneRecord {
-        pub id: i64,
-        pub scene_key: String,
-        pub project: i64,
-        pub title: String,
-        pub updated_time: i64,
-        pub w: u32,
-        pub h: u32,
-        pub thumbnail: String,
-        pub fog: Vec<u8>,
-        pub fog_active: bool,
+impl ProjectRecord {
+    pub async fn get_by_uuid(conn: &mut Conn, uuid: Uuid) -> Res<ProjectRecord> {
+        sqlx::query_as(
+            "
+            SELECT (uuid, user, updated_time, title)
+            FROM projects WHERE uuid = ?1;
+            ",
+        )
+        .bind(uuid.simple().to_string())
+        .fetch_one(conn)
+        .await
+        .map_err(|e| e.to_string())
     }
+}
 
-    impl SceneRecord {
-        pub async fn load(conn: &mut SqliteConnection, id: i64) -> anyhow::Result<SceneRecord> {
-            sqlx::query_as("SELECT * FROM scenes WHERE id = ?1;")
-                .bind(id)
-                .fetch_one(conn)
-                .await
-                .map_err(|_| anyhow!("Failed to find scene."))
-        }
+fn bincode_serialise(val: impl Serialize) -> Res<Vec<u8>> {
+    bincode::serialize(&val).map_err(|e| e.to_string())
+}
 
-        pub async fn load_from_key(
-            conn: &mut SqliteConnection,
-            scene_key: &str,
-        ) -> anyhow::Result<SceneRecord> {
-            sqlx::query_as("SELECT * FROM scenes WHERE scene_key = ?1")
-                .bind(scene_key)
-                .fetch_one(conn)
-                .await
-                .map_err(|_| anyhow!("Failed to find scene."))
-        }
+pub fn serialise(project: &scene::Project) -> Res<Vec<u8>> {
+    let data = bincode_serialise(&v1::prepare(project))?;
+    bincode_serialise(Save { version: 1, data })
+}
 
-        async fn create(
-            conn: &mut SqliteConnection,
-            project: i64,
-            title: &str,
-            width: u32,
-            height: u32,
-            fog: Vec<u8>,
-            fog_active: bool,
-        ) -> anyhow::Result<SceneRecord> {
-            sqlx::query_as(
-                "INSERT INTO scenes (scene_key, project, title, updated_time, w, h, fog, fog_active) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) RETURNING *;",
-            )
-            .bind(crypto::random_hex_string(RECORD_KEY_LENGTH)?)
-            .bind(project)
-            .bind(title)
-            .bind(super::updated_time())
-            .bind(width)
-            .bind(height)
-            .bind(fog)
-            .bind(fog_active)
-            .fetch_one(conn)
-            .await
-            .map_err(|e| anyhow!("Failed to create scene: {e}"))
-        }
+fn bincode_deserialise<'a, T: Deserialize<'a>>(data: &'a [u8]) -> Res<T> {
+    bincode::deserialize(data).map_err(|e| e.to_string())
+}
 
-        pub async fn update_or_create(
-            conn: &mut SqliteConnection,
-            id: Option<i64>,
-            project: i64,
-            title: String,
-            width: u32,
-            height: u32,
-            fog: Vec<u8>,
-            fog_active: bool,
-        ) -> anyhow::Result<SceneRecord> {
-            Ok(match id {
-                Some(id) => {
-                    let record = SceneRecord::load(conn, id).await?;
-                    record
-                        .update_scene(conn, &title, width, height, fog, fog_active)
-                        .await?;
-                    SceneRecord::load(conn, record.id).await?
-                }
-                None => {
-                    SceneRecord::create(conn, project, &title, width, height, fog, fog_active)
-                        .await?
-                }
-            })
-        }
-
-        async fn update_scene(
-            &self,
-            conn: &mut SqliteConnection,
-            title: &str,
-            width: u32,
-            height: u32,
-            fog: Vec<u8>,
-            fog_active: bool,
-        ) -> anyhow::Result<()> {
-            sqlx::query(
-                r#"
-                UPDATE scenes SET
-                    title = ?1, updated_time = ?2, w = ?3, h = ?4, fog = ?5, fog_active = ?6
-                WHERE id = ?7;
-            "#,
-            )
-            .bind(title)
-            .bind(super::updated_time())
-            .bind(width)
-            .bind(height)
-            .bind(fog)
-            .bind(if fog_active { 1 } else { 0 })
-            .bind(self.id)
-            .execute(conn)
-            .await
-            .map_err(|e| anyhow!("Failed to update scene title: {e}"))
-            .map(|_| ())
-        }
-
-        pub async fn load_scene(
-            &self,
-            conn: &mut SqliteConnection,
-        ) -> anyhow::Result<scene::Scene> {
-            let layers = LayerRecord::load_scene_layers(conn, self.id).await?;
-            let mut sprites = SpriteRecord::load_scene_sprites(conn, self.id).await?;
-            let mut layers = layers
-                .iter()
-                .map(|lr| lr.to_layer())
-                .collect::<Vec<scene::Layer>>();
-
-            while let Some(s) = sprites.pop() {
-                if let Some(l) = layers.iter_mut().find(|l| l.id == s.layer) {
-                    l.add_sprite(s.to_sprite());
-                }
+pub fn deserialise(data: &[u8]) -> Res<scene::Project> {
+    let save: Save = bincode_deserialise(data)?;
+    match save.version {
+        1 => v1::retrieve(&save.data),
+        v => {
+            // Unknown serialisation version. Attempt to load as v1 in case
+            // just the version is wrong.
+            match v1::retrieve(&save.data) {
+                Ok(proj) => Ok(proj),
+                Err(_) => Err(format!("Unknown serialisation version: {v}")),
             }
-
-            let drawings = super::drawing::DrawingRecord::load_scene_drawings(conn, self.id)
-                .await?
-                .iter()
-                .map(DrawingRecord::drawing)
-                .collect::<Vec<scene::Drawing>>();
-
-            let groups = super::group::GroupRecord::load_scene_groups(conn, self.id)
-                .await?
-                .iter()
-                .map(|gr| gr.to_group())
-                .collect();
-
-            let mut scene = scene::Scene::new_with(layers, drawings);
-            scene.id = self.id;
-            scene.title = Some(self.title.clone());
-            scene.project = Some(self.project);
-            scene.fog = scene::Fog::from_bytes(self.w, self.h, &self.fog);
-            scene.fog.active = self.fog_active;
-            scene.groups = groups;
-            Ok(scene)
-        }
-
-        pub async fn user(&self, conn: &mut SqliteConnection) -> anyhow::Result<i64> {
-            sqlx::query(
-                "SELECT user FROM scenes LEFT JOIN projects ON scenes.project = projects.id WHERE scenes.id = ?1;"
-            )
-                .bind(self.id)
-                .fetch_one(conn)
-                .await
-                .map(|row: sqlx::sqlite::SqliteRow| row.get(0))
-                .map_err(|e| anyhow!("Failed to load scene user: {e}"))
-        }
-
-        pub async fn project_scenes(
-            conn: &mut SqliteConnection,
-            project: i64,
-        ) -> anyhow::Result<Vec<SceneRecord>> {
-            sqlx::query_as("SELECT * FROM scenes WHERE project = ?1;")
-                .bind(project)
-                .fetch_all(conn)
-                .await
-                .map_err(|e| anyhow::anyhow!(format!("Failed to load scene list: {e}")))
         }
     }
 }
 
-mod layer {
-    use anyhow::anyhow;
+mod db {
     use sqlx::SqliteConnection;
+    use uuid::Uuid;
 
-    #[derive(Debug, sqlx::FromRow)]
-    pub struct LayerRecord {
-        pub id: i64,
-        scene: i64,
+    use super::{ProjectRecord, SceneRecord};
+    use crate::utils::{timestamp_s, Res};
+
+    async fn update_database(
+        conn: &mut SqliteConnection,
+        project: &scene::Project,
+        user: i64,
+    ) -> Res<()> {
+        update_or_create_project_record(conn, project, user).await?;
+        for scene in &project.scenes {
+            update_or_create_scene_record(conn, project.id, scene).await?;
+        }
+        Ok(())
+    }
+
+    async fn remove_deleted_scenes(conn: &mut SqliteConnection, project: &scene::Project) {
+        let scene_ids = project
+            .scenes
+            .iter()
+            .map(|scene| scene.id.to_string())
+            .collect::<Vec<String>>()
+            .join(", ");
+        sqlx::query(&format!(
+            "DELETE FROM scenes WHERE project = ?1 AND id NOT IN ({})",
+            scene_ids
+        ))
+        .bind(project.id)
+        .execute(conn)
+        .await
+        .ok();
+    }
+
+    async fn update_project_record(
+        conn: &mut SqliteConnection,
+        project_id: i64,
+    ) -> Res<Option<ProjectRecord>> {
+        match sqlx::query_as(
+            "UPDATE projects SET updated_time = ?1, title = ?2 WHERE id = ?3 RETURNING *;",
+        )
+        .bind(project_id)
+        .fetch_one(conn)
+        .await
+        {
+            Ok(record) => Ok(Some(record)),
+            Err(sqlx::Error::RowNotFound) => Ok(None),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    async fn update_or_create_project_record(
+        conn: &mut SqliteConnection,
+        project: &scene::Project,
+        user: i64,
+    ) -> Res<ProjectRecord> {
+        let record = update_project_record(conn, project.id).await?;
+        let now = timestamp_s().unwrap_or(0) as i64;
+        if let Some(record) = record {
+            Ok(record)
+        } else {
+            sqlx::query_as(
+                r#"
+                INSERT INTO projects (project_key, user, updated_time, title)
+                VALUES (?1, ?2, ?3, ?4) RETURNING *;
+                "#,
+            )
+            .bind(&project.key)
+            .bind(user)
+            .bind(now)
+            .bind(&project.title)
+            .fetch_one(conn)
+            .await
+            .map_err(|e| e.to_string())
+        }
+    }
+
+    async fn update_scene_record(
+        conn: &mut SqliteConnection,
+        scene: &scene::Scene,
+        project: Uuid,
+    ) -> Res<Option<ProjectRecord>> {
+        match sqlx::query_as(
+            "UPDATE scenes SET updated_time = ?1, title = ?2 WHERE id = ?3 RETURNING *;",
+        )
+        .bind(updated_timestamp())
+        .bind(&scene.title)
+        .bind(project.simple().to_string())
+        .fetch_one(conn)
+        .await
+        {
+            Ok(record) => Ok(Some(record)),
+            Err(sqlx::Error::RowNotFound) => Ok(None),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    async fn update_or_create_scene_record(
+        conn: &mut SqliteConnection,
+        project_id: i64,
+        scene: &scene::Scene,
+    ) -> Res<SceneRecord> {
+        match sqlx::query_as(
+            "UPDATE scenes SET updated_time = ?1, title = ?2 WHERE uuid = ?3 RETURNING *;",
+        )
+        .bind(updated_timestamp())
+        .bind(scene.title)
+        .bind(scene.id)
+        .fetch_one(conn)
+        .await
+        {
+            Ok(record) => Ok(Some(record)),
+            Err(sqlx::Error::RowNotFound) => Ok(None),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    fn updated_timestamp() -> i64 {
+        timestamp_s().unwrap_or(0) as i64
+    }
+}
+
+mod v1 {
+    use std::collections::HashMap;
+
+    use scene::{Id, PointVector};
+    use serde::{Deserialize, Serialize};
+
+    use super::bincode_deserialise;
+    use crate::utils::{id_to_key, Res};
+
+    type IdMap = HashMap<Id, u32>;
+
+    pub fn retrieve(data: &[u8]) -> Res<scene::Project> {
+        let project: Project = bincode_deserialise(data)?;
+        Ok(scene::Project {
+            id: project.id,
+            key: id_to_key(project.id),
+            title: project.title,
+            scenes: project
+                .scenes
+                .into_iter()
+                .map(|scene| retrieve_scene(scene, project.id))
+                .collect(),
+        })
+    }
+
+    fn retrieve_scene(scene: Scene, project_id: Id) -> scene::Scene {
+        let mut id = 1;
+
+        let mut layer_idx_to_layer = HashMap::new();
+        for (idx, layer) in scene.layers.into_iter().enumerate() {
+            layer_idx_to_layer.insert(idx as u32, scene::Layer::new(id, &layer.title, layer.z));
+            id += 1;
+        }
+
+        let mut drawing_idx_to_id = HashMap::new();
+        let mut drawings = Vec::new();
+        for (idx, drawing) in scene.drawings.into_iter().enumerate() {
+            drawings.push(scene::Drawing::from(
+                id,
+                u8_to_mode(drawing.mode),
+                PointVector::from(drawing.points),
+            ));
+            drawing_idx_to_id.insert(idx as u32, id);
+            id += 1;
+        }
+
+        let mut sprite_idx_to_id = HashMap::new();
+        for (idx, sprite) in scene.sprites.into_iter().enumerate() {
+            if let (Some(visual), Some(layer)) = (
+                retrieve_visual(&sprite, &drawing_idx_to_id),
+                layer_idx_to_layer.get_mut(&sprite.layer),
+            ) {
+                layer.add_sprite(scene::Sprite {
+                    id,
+                    rect: scene::Rect::new(sprite.x, sprite.y, sprite.w, sprite.h),
+                    z: sprite.z,
+                    visual,
+                });
+                sprite_idx_to_id.insert(idx as u32, id);
+                id += 1;
+            }
+        }
+
+        let mut groups = Vec::new();
+        for group in scene.groups {
+            let mut group_sprites = Vec::new();
+            for sprite in group.sprites {
+                if let Some(sprite_id) = sprite_idx_to_id.get(&sprite) {
+                    group_sprites.push(*sprite_id);
+                }
+            }
+            groups.push(scene::Group::new(id, group_sprites));
+            id += 1;
+        }
+
+        let layers = layer_idx_to_layer.into_values().collect();
+        let mut sc = scene::Scene::new_with(layers, drawings);
+        sc.id = scene.id;
+        sc.title = Some(scene.title);
+        sc.project = Some(project_id);
+        sc.fog = scene::Fog::from(scene.fog, scene.fog_active, scene.w, scene.h);
+        sc.groups = groups;
+        sc
+    }
+
+    fn retrieve_visual(
+        sprite: &Sprite,
+        drawings: &HashMap<u32, Id>,
+    ) -> Option<scene::SpriteVisual> {
+        match &sprite.visual {
+            SpriteVisual::Texture { shape, media } => Some(scene::SpriteVisual::Texture {
+                shape: u8_to_shape(*shape),
+                id: *media,
+            }),
+            SpriteVisual::Shape {
+                shape,
+                stroke,
+                solid,
+                colour,
+            } => Some(scene::SpriteVisual::Shape {
+                shape: u8_to_shape(*shape),
+                stroke: *stroke,
+                solid: *solid,
+                colour: scene::Colour([colour.r, colour.g, colour.b, colour.a]),
+            }),
+            SpriteVisual::Drawing {
+                drawing,
+                colour,
+                stroke,
+                cap_start,
+                cap_end,
+            } => drawings
+                .get(drawing)
+                .map(|drawing| scene::SpriteVisual::Drawing {
+                    drawing: *drawing,
+                    colour: scene::Colour([colour.r, colour.g, colour.b, colour.a]),
+                    stroke: *stroke,
+                    cap_start: u8_to_cap(*cap_start),
+                    cap_end: u8_to_cap(*cap_end),
+                }),
+        }
+    }
+
+    pub fn prepare(project: &scene::Project) -> Res<impl Serialize> {
+        Ok(Project {
+            id: project.id,
+            title: project.title.clone(),
+            scenes: project
+                .scenes
+                .iter()
+                .map(prepare_scene)
+                .collect::<Res<Vec<Scene>>>()?,
+        })
+    }
+
+    fn prepare_scene(scene: &scene::Scene) -> Res<Scene> {
+        let (drawings, drawing_ids_to_idxs) = prepare_drawings(scene);
+        let (layers, sprites, sprite_ids_to_idxs) =
+            prepare_layers_sprites(scene, &drawing_ids_to_idxs);
+        let groups = prepare_groups(scene, &sprite_ids_to_idxs);
+        Ok(Scene {
+            id: scene.id,
+            title: scene.title.clone().unwrap_or("Untitled".into()),
+            w: scene.fog.w,
+            h: scene.fog.h,
+            fog: scene.fog.data(),
+            fog_active: scene.fog.active,
+            layers,
+            drawings,
+            sprites,
+            groups,
+        })
+    }
+
+    fn prepare_drawings(scene: &scene::Scene) -> (Vec<Drawing>, IdMap) {
+        let mut drawings = Vec::new();
+        let mut id_to_idx = HashMap::new();
+        for drawing in scene.get_drawings() {
+            let idx = drawings.len();
+            drawings.push(Drawing {
+                mode: mode_to_u8(drawing.mode),
+                points: drawing.points_build().data,
+            });
+            id_to_idx.insert(drawing.id, idx as u32);
+        }
+        (drawings, id_to_idx)
+    }
+
+    fn prepare_layers_sprites(
+        scene: &scene::Scene,
+        drawings: &IdMap,
+    ) -> (Vec<Layer>, Vec<Sprite>, IdMap) {
+        let mut layers = Vec::new();
+        let mut sprites = Vec::new();
+        let mut sprite_id_to_idx = HashMap::new();
+        for layer in &scene.layers {
+            let idx = layers.len() as u32;
+            layers.push(Layer {
+                title: layer.title.clone(),
+                z: layer.z,
+                visible: layer.visible,
+                locked: layer.locked,
+            });
+
+            for sprite in &layer.sprites {
+                if let Some(prepped) = prepare_sprite(sprite, idx, drawings) {
+                    sprite_id_to_idx.insert(sprite.id, sprites.len() as u32);
+                    sprites.push(prepped);
+                }
+            }
+        }
+        (layers, sprites, sprite_id_to_idx)
+    }
+
+    fn prepare_groups(scene: &scene::Scene, sprites: &IdMap) -> Vec<Group> {
+        let mut groups = Vec::new();
+        for group in &scene.groups {
+            let mut group_idxs = Vec::new();
+            for sprite in group.sprites() {
+                if let Some(idx) = sprites.get(sprite) {
+                    group_idxs.push(*idx);
+                }
+            }
+            if !group_idxs.is_empty() {
+                groups.push(Group {
+                    sprites: group_idxs,
+                });
+            }
+        }
+        groups
+    }
+
+    fn prepare_sprite(sprite: &scene::Sprite, layer: u32, drawings: &IdMap) -> Option<Sprite> {
+        let visual = match sprite.visual {
+            scene::SpriteVisual::Texture { shape, id } => SpriteVisual::Texture {
+                shape: shape_to_u8(shape),
+                media: id,
+            },
+            scene::SpriteVisual::Shape {
+                shape,
+                stroke,
+                solid,
+                colour,
+            } => SpriteVisual::Shape {
+                shape: shape_to_u8(shape),
+                stroke,
+                solid,
+                colour: prepare_colour(&colour),
+            },
+            scene::SpriteVisual::Drawing {
+                drawing,
+                colour,
+                stroke,
+                cap_start,
+                cap_end,
+            } => SpriteVisual::Drawing {
+                drawing: drawings.get(&drawing).copied()?,
+                colour: prepare_colour(&colour),
+                stroke,
+                cap_start: cap_to_u8(cap_start),
+                cap_end: cap_to_u8(cap_end),
+            },
+        };
+
+        Some(Sprite {
+            layer,
+            x: sprite.rect.x,
+            y: sprite.rect.y,
+            w: sprite.rect.w,
+            h: sprite.rect.h,
+            z: sprite.z,
+            visual,
+        })
+    }
+
+    fn prepare_colour(colour: &scene::Colour) -> Colour {
+        Colour {
+            r: colour.r(),
+            g: colour.g(),
+            b: colour.b(),
+            a: colour.a(),
+        }
+    }
+
+    fn mode_to_u8(mode: scene::DrawingMode) -> u8 {
+        match mode {
+            scene::DrawingMode::Cone => 1,
+            scene::DrawingMode::Freehand => 2,
+            scene::DrawingMode::Line => 3,
+        }
+    }
+
+    fn u8_to_mode(int: u8) -> scene::DrawingMode {
+        match int {
+            1 => scene::DrawingMode::Cone,
+            2 => scene::DrawingMode::Freehand,
+            3 => scene::DrawingMode::Line,
+            _ => scene::DrawingMode::Freehand,
+        }
+    }
+
+    fn shape_to_u8(shape: scene::Shape) -> u8 {
+        match shape {
+            scene::Shape::Ellipse => 1,
+            scene::Shape::Hexagon => 2,
+            scene::Shape::Triangle => 3,
+            scene::Shape::Rectangle => 4,
+        }
+    }
+
+    fn u8_to_shape(int: u8) -> scene::Shape {
+        match int {
+            1 => scene::Shape::Ellipse,
+            2 => scene::Shape::Hexagon,
+            3 => scene::Shape::Triangle,
+            _ => scene::Shape::Rectangle,
+        }
+    }
+
+    fn cap_to_u8(cap: scene::Cap) -> u8 {
+        match cap {
+            scene::Cap::Arrow => 1,
+            scene::Cap::Round => 2,
+            scene::Cap::None => u8::MAX,
+        }
+    }
+
+    fn u8_to_cap(int: u8) -> scene::Cap {
+        match int {
+            1 => scene::Cap::Arrow,
+            2 => scene::Cap::Round,
+            _ => scene::Cap::None,
+        }
+    }
+
+    #[derive(Serialize, Deserialize)]
+    struct Project {
+        id: Id,
         title: String,
-        z: i64,
+        scenes: Vec<Scene>,
+    }
+
+    #[derive(Serialize, Deserialize)]
+    struct Scene {
+        id: Id,
+        title: String,
+        w: u32,
+        h: u32,
+        fog: Vec<u32>,
+        fog_active: bool,
+        layers: Vec<Layer>,
+        drawings: Vec<Drawing>,
+        sprites: Vec<Sprite>,
+        groups: Vec<Group>,
+    }
+
+    #[derive(Serialize, Deserialize)]
+    struct Layer {
+        title: String,
+        z: i32,
         visible: bool,
         locked: bool,
     }
 
-    impl LayerRecord {
-        pub fn to_layer(&self) -> scene::Layer {
-            scene::Layer {
-                id: self.id,
-                title: self.title.clone(),
-                z: self.z as i32,
-                visible: self.visible,
-                locked: self.locked,
-                sprites: vec![],
-                removed_sprites: vec![],
-                z_min: 0,
-                z_max: 0,
-            }
-        }
-
-        async fn load(
-            conn: &mut SqliteConnection,
-            scene: i64,
-            id: i64,
-        ) -> anyhow::Result<LayerRecord> {
-            sqlx::query_as("SELECT * FROM layers WHERE scene = ?1 AND id = ?2;")
-                .bind(scene)
-                .bind(id)
-                .fetch_one(conn)
-                .await
-                .map_err(|_| anyhow!("Failed to load layer."))
-        }
-
-        async fn create(
-            conn: &mut SqliteConnection,
-            layer: &scene::Layer,
-            scene: i64,
-        ) -> anyhow::Result<LayerRecord> {
-            sqlx::query_as("INSERT INTO layers (id, scene, title, z, visible, locked) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING *;")
-                .bind(layer.id)
-                .bind(scene)
-                .bind(&layer.title)
-                .bind(layer.z as i64)
-                .bind(layer.visible)
-                .bind(layer.locked)
-                .fetch_one(conn)
-                .await
-                .map_err(|_| anyhow!("Failed to create layer."))
-        }
-
-        pub async fn delete(
-            conn: &mut SqliteConnection,
-            id: i64,
-            scene: i64,
-        ) -> anyhow::Result<()> {
-            sqlx::query("DELETE FROM layers WHERE id = ?1 AND scene = ?2;")
-                .bind(id)
-                .bind(scene)
-                .execute(conn)
-                .await
-                .map(|_| ())
-                .map_err(|e| anyhow!("Failed to delete layer: {e}"))
-        }
-
-        pub async fn update_or_create(
-            conn: &mut SqliteConnection,
-            layer: &scene::Layer,
-            scene: i64,
-        ) -> anyhow::Result<LayerRecord> {
-            LayerRecord::delete(conn, layer.id, scene).await.ok();
-            LayerRecord::create(conn, layer, scene).await
-        }
-
-        pub async fn load_scene_layers(
-            pool: &mut SqliteConnection,
-            scene: i64,
-        ) -> anyhow::Result<Vec<LayerRecord>> {
-            sqlx::query_as("SELECT * FROM layers WHERE scene = ?1;")
-                .bind(scene)
-                .fetch_all(pool)
-                .await
-                .map_err(|e| anyhow!("Failed to load scene layers: {e}"))
-        }
+    #[derive(Serialize, Deserialize)]
+    struct Group {
+        sprites: Vec<u32>, // Indices into sprites vector.
     }
-}
 
-mod sprite {
-    use anyhow::anyhow;
-    use scene::Colour;
-    use sqlx::{Row, SqliteConnection};
-
-    use crate::models::Media;
-
-    // Can't use RETURNING * with SQLite due to bug with REAL columns, which is
-    // relevant to the Sprite type because x, y, w, h are all REAL. May be
-    // resolved in a future SQLite version but error persists in 3.38.0.
-    // see: https://github.com/launchbadge/sqlx/issues/1596
-    //
-    // Confirmed not working in sqlx = 0.6.2
-
-    #[derive(Debug, sqlx::FromRow)]
-    pub struct SpriteRecord {
-        id: i64,
-        scene: i64,
-        pub layer: i64,
+    #[derive(Serialize, Deserialize)]
+    struct Sprite {
+        layer: u32, // Index into layers vector.
         x: f32,
         y: f32,
         w: f32,
         h: f32,
-        z: i64,
-        shape: Option<u8>,
-        stroke: Option<f32>,
-        solid: Option<bool>,
-        media_key: Option<String>,
-        r: Option<f32>,
-        g: Option<f32>,
-        b: Option<f32>,
-        a: Option<f32>,
-        drawing: Option<i64>,
-        cap_start: Option<u8>,
-        cap_end: Option<u8>,
+        z: i32,
+        visual: SpriteVisual,
     }
 
-    impl SpriteRecord {
-        fn from_sprite(sprite: &scene::Sprite, layer: i64, scene: i64) -> Self {
-            let (cap_start, cap_end) =
-                if let scene::SpriteVisual::Drawing {
-                    cap_start, cap_end, ..
-                } = &sprite.visual
-                {
-                    (
-                        Some(Self::cap_to_u8(*cap_start)),
-                        Some(Self::cap_to_u8(*cap_end)),
-                    )
-                } else {
-                    (None, None)
-                };
-
-            let mut record = Self {
-                id: sprite.id,
-                scene,
-                layer,
-                x: sprite.rect.x,
-                y: sprite.rect.y,
-                w: sprite.rect.w,
-                h: sprite.rect.h,
-                z: sprite.z as i64,
-                shape: sprite.visual.shape().map(Self::shape_to_u8),
-                stroke: sprite.visual.stroke(),
-                solid: sprite.visual.solid(),
-                media_key: sprite.visual.texture().map(Media::id_to_key),
-                drawing: sprite.visual.drawing(),
-                r: sprite.visual.colour().map(|c| c.r()),
-                g: sprite.visual.colour().map(|c| c.g()),
-                b: sprite.visual.colour().map(|c| c.b()),
-                a: sprite.visual.colour().map(|c| c.a()),
-                cap_start,
-                cap_end,
-            };
-
-            if let Some(Colour([r, g, b, a])) = sprite.visual.colour() {
-                record.r = Some(r);
-                record.g = Some(g);
-                record.b = Some(b);
-                record.a = Some(a);
-            }
-
-            record
-        }
-
-        fn shape_to_u8(shape: scene::Shape) -> u8 {
-            match shape {
-                scene::Shape::Ellipse => 1,
-                scene::Shape::Hexagon => 2,
-                scene::Shape::Triangle => 3,
-                scene::Shape::Rectangle => 4,
-            }
-        }
-
-        fn u8_to_shape(int: u8) -> scene::Shape {
-            match int {
-                1 => scene::Shape::Ellipse,
-                2 => scene::Shape::Hexagon,
-                3 => scene::Shape::Triangle,
-                _ => scene::Shape::Rectangle,
-            }
-        }
-
-        fn cap_to_u8(cap: scene::Cap) -> u8 {
-            match cap {
-                scene::Cap::Arrow => 1,
-                scene::Cap::Round => 2,
-                scene::Cap::None => u8::MAX,
-            }
-        }
-
-        fn u8_to_cap(int: u8) -> scene::Cap {
-            match int {
-                1 => scene::Cap::Arrow,
-                2 => scene::Cap::Round,
-                _ => scene::Cap::None,
-            }
-        }
-
-        fn visual(&self) -> Option<scene::SpriteVisual> {
-            if let Some(drawing) = self.drawing {
-                Some(scene::SpriteVisual::Drawing {
-                    drawing,
-                    stroke: self.stroke?,
-                    colour: Colour([self.r?, self.g?, self.b?, self.a?]),
-                    cap_start: Self::u8_to_cap(self.cap_start?),
-                    cap_end: Self::u8_to_cap(self.cap_end?),
-                })
-            } else if let Some(key) = &self.media_key {
-                Some(scene::SpriteVisual::Texture {
-                    shape: Self::u8_to_shape(self.shape?),
-                    id: Media::key_to_id(key).ok()?,
-                })
-            } else {
-                Some(scene::SpriteVisual::new_shape(
-                    Colour([self.r?, self.g?, self.b?, self.a?]),
-                    Self::u8_to_shape(self.shape?),
-                    self.stroke?,
-                    self.solid.unwrap_or(false),
-                ))
-            }
-        }
-
-        pub fn to_sprite(&self) -> scene::Sprite {
-            let mut sprite = scene::Sprite::new(self.id, self.visual());
-            sprite.rect = scene::Rect::new(self.x, self.y, self.w, self.h);
-            sprite.z = self.z as i32;
-            sprite
-        }
-
-        async fn create_from(
-            conn: &mut SqliteConnection,
-            sprite: &scene::Sprite,
-            layer: i64,
-            scene: i64,
-        ) -> anyhow::Result<i64> {
-            let record = Self::from_sprite(sprite, layer, scene);
-            sqlx::query(
-                r#"
-                INSERT INTO sprites (
-                    id, scene, layer, x, y, w, h, z, shape, stroke, solid, media_key, r, g, b, a, drawing, cap_start, cap_end
-                ) VALUES (
-                    ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19
-                ) RETURNING id;
-                "#,
-            )
-            .bind(record.id)
-            .bind(record.scene)
-            .bind(record.layer)
-            .bind(record.x)
-            .bind(record.y)
-            .bind(record.w)
-            .bind(record.h)
-            .bind(record.z)
-            .bind(record.shape)
-            .bind(record.stroke)
-            .bind(record.solid)
-            .bind(record.media_key)
-            .bind(record.r)
-            .bind(record.g)
-            .bind(record.b)
-            .bind(record.a)
-            .bind(record.drawing)
-            .bind(record.cap_start)
-            .bind(record.cap_end)
-            .fetch_one(conn)
-            .await
-            .map(|row: sqlx::sqlite::SqliteRow| row.get(0))
-            .map_err(|e| anyhow!("Failed to create sprite: {e}"))
-        }
-
-        pub async fn delete(
-            conn: &mut SqliteConnection,
-            id: i64,
-            scene: i64,
-        ) -> anyhow::Result<()> {
-            sqlx::query("DELETE FROM sprites WHERE id = ?1 AND scene = ?2;")
-                .bind(id)
-                .bind(scene)
-                .execute(conn)
-                .await
-                .map(|_| ())
-                .map_err(|e| anyhow!("Failed to delete sprite: {e}"))
-        }
-
-        pub async fn save(
-            conn: &mut SqliteConnection,
-            sprite: &scene::Sprite,
-            layer: i64,
-            scene: i64,
-        ) -> anyhow::Result<SpriteRecord> {
-            SpriteRecord::delete(conn, sprite.id, scene).await.ok();
-            let id = SpriteRecord::create_from(conn, sprite, layer, scene).await?;
-            Ok(SpriteRecord::from_sprite(sprite, layer, id))
-        }
-
-        pub async fn load_scene_sprites(
-            conn: &mut SqliteConnection,
-            scene: i64,
-        ) -> anyhow::Result<Vec<SpriteRecord>> {
-            sqlx::query_as("SELECT * FROM sprites WHERE scene = ?1;")
-                .bind(scene)
-                .fetch_all(conn)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to load sprite list: {e}."))
-        }
+    #[derive(Serialize, Deserialize)]
+    struct Colour {
+        r: f32,
+        g: f32,
+        b: f32,
+        a: f32,
     }
-}
 
-mod drawing {
-    use sqlx::SqliteConnection;
+    #[derive(Serialize, Deserialize)]
+    enum SpriteVisual {
+        Texture {
+            shape: u8,
+            media: Id,
+        },
+        Shape {
+            shape: u8,
+            stroke: f32,
+            solid: bool,
+            colour: Colour,
+        },
+        Drawing {
+            drawing: u32,
+            colour: Colour,
+            stroke: f32,
+            cap_start: u8,
+            cap_end: u8,
+        },
+    }
 
-    #[derive(sqlx::FromRow)]
-    pub struct DrawingRecord {
-        id: i64,
-        scene: i64,
+    #[derive(Serialize, Deserialize)]
+    struct Drawing {
         mode: u8,
-        points: Vec<u8>,
+        points: Vec<f32>,
     }
-
-    impl DrawingRecord {
-        fn from_drawing(drawing: &scene::Drawing, scene: i64) -> Self {
-            Self {
-                id: drawing.id,
-                scene,
-                mode: Self::drawing_mode_to_u8(drawing.mode),
-                points: Vec::new(),
-            }
-        }
-
-        pub async fn save(
-            conn: &mut SqliteConnection,
-            drawing: &scene::Drawing,
-            scene: i64,
-        ) -> anyhow::Result<()> {
-            let record = Self::from_drawing(drawing, scene);
-            sqlx::query("INSERT INTO drawings (id, scene, mode, points) VALUES (?1, ?2, ?3, ?4);")
-                .bind(drawing.id)
-                .bind(scene)
-                .bind(Self::drawing_mode_to_u8(drawing.mode))
-                .bind(record.points)
-                .execute(conn)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to create drawing record: {e}"))
-                .map(|_| ())
-        }
-
-        pub async fn delete(
-            conn: &mut SqliteConnection,
-            id: i64,
-            scene: i64,
-        ) -> anyhow::Result<()> {
-            sqlx::query("DELETE FROM drawings WHERE id = ?1 AND scene = ?2;")
-                .bind(id)
-                .bind(scene)
-                .execute(conn)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to delete drawing record: {e}"))
-                .map(|_| ())
-        }
-
-        pub async fn delete_other_than(
-            conn: &mut SqliteConnection,
-            scene: i64,
-            keep_ids: &[i64],
-        ) -> anyhow::Result<()> {
-            // Safe to string format this because IDs are ints.
-            let in_clause = keep_ids
-                .iter()
-                .map(i64::to_string)
-                .collect::<Vec<String>>()
-                .join(", ");
-
-            let query =
-                format!("DELETE FROM drawings WHERE scene = ?1 AND id NOT IN ({in_clause});");
-
-            sqlx::query(&query)
-                .bind(scene)
-                .execute(conn)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to delete unneeded drawings: {e}"))
-                .map(|_| ())
-        }
-
-        pub async fn update_scene_drawings(
-            conn: &mut SqliteConnection,
-            scene: &scene::Scene,
-        ) -> anyhow::Result<()> {
-            let scene_id = scene.id;
-
-            let mut drawings_in_use = Vec::new();
-
-            for layer in &scene.layers {
-                for sprite in &layer.sprites {
-                    if let Some(id) = sprite.visual.drawing() {
-                        drawings_in_use.push(id);
-                    }
-                }
-            }
-
-            Self::delete_other_than(conn, scene.id, &drawings_in_use).await?;
-
-            for drawing in scene.get_drawings() {
-                Self::delete(conn, drawing.id, scene_id).await?;
-                Self::save(conn, drawing, scene_id).await?;
-            }
-
-            Ok(())
-        }
-
-        pub async fn load_scene_drawings(
-            conn: &mut SqliteConnection,
-            scene: i64,
-        ) -> anyhow::Result<Vec<DrawingRecord>> {
-            sqlx::query_as("SELECT * FROM drawings WHERE scene = ?1")
-                .bind(scene)
-                .fetch_all(conn)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to load scene drawings: {e}"))
-        }
-
-        pub fn drawing(&self) -> scene::Drawing {
-            let points = scene::PointVector::from(
-                self.points
-                    .chunks_exact(32 / 8)
-                    .map(|b| f32::from_be_bytes([b[0], b[1], b[2], b[3]]))
-                    .collect(),
-            );
-            scene::Drawing::from(self.id, Self::u8_to_drawing_mode(self.mode), points)
-        }
-
-        fn drawing_mode_to_u8(drawing_type: scene::DrawingMode) -> u8 {
-            match drawing_type {
-                scene::DrawingMode::Freehand => 1,
-                scene::DrawingMode::Line => 2,
-                scene::DrawingMode::Cone => 3,
-            }
-        }
-
-        fn u8_to_drawing_mode(int: u8) -> scene::DrawingMode {
-            match int {
-                1 => scene::DrawingMode::Freehand,
-                2 => scene::DrawingMode::Line,
-                3 => scene::DrawingMode::Cone,
-                _ => scene::DrawingMode::Freehand,
-            }
-        }
-    }
-}
-
-mod group {
-    use sqlx::SqliteConnection;
-
-    #[derive(sqlx::FromRow)]
-    pub struct GroupRecord {
-        id: i64,
-        scene: i64,
-        ids: Vec<u8>,
-    }
-
-    impl GroupRecord {
-        pub fn from(scene: i64, group: &scene::Group) -> Self {
-            Self {
-                id: group.id,
-                scene,
-                ids: group
-                    .sprites()
-                    .iter()
-                    .flat_map(|f| f.to_be_bytes())
-                    .collect(),
-            }
-        }
-
-        pub fn to_group(&self) -> scene::Group {
-            scene::Group::new(
-                self.id,
-                self.ids
-                    .chunks_exact(64 / 8)
-                    .map(|b| i64::from_be_bytes([b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]]))
-                    .collect(),
-            )
-        }
-
-        async fn delete(&self, conn: &mut SqliteConnection) -> anyhow::Result<()> {
-            sqlx::query("DELETE FROM groups WHERE id = ?1 AND scene = ?2;")
-                .bind(self.id)
-                .bind(self.scene)
-                .execute(conn)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to delete group: {e}"))?;
-            Ok(())
-        }
-
-        pub async fn save(&self, conn: &mut SqliteConnection) -> anyhow::Result<()> {
-            sqlx::query("INSERT INTO groups (id, scene, ids) VALUES (?1, ?2, ?3);")
-                .bind(self.id)
-                .bind(self.scene)
-                .bind(&self.ids)
-                .execute(conn)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to save group: {e}"))?;
-            Ok(())
-        }
-
-        pub async fn delete_scene_groups(
-            conn: &mut SqliteConnection,
-            scene: i64,
-        ) -> anyhow::Result<()> {
-            sqlx::query("DELETE FROM groups WHERE scene = ?1;")
-                .bind(scene)
-                .execute(conn)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to delete scene groups: {e}"))?;
-            Ok(())
-        }
-
-        pub async fn load_scene_groups(
-            conn: &mut SqliteConnection,
-            scene: i64,
-        ) -> anyhow::Result<Vec<GroupRecord>> {
-            sqlx::query_as("SELECT * FROM groups WHERE scene = ?1;")
-                .bind(scene)
-                .fetch_all(conn)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to load scene groups: {e}"))
-        }
-    }
-}
-
-fn updated_time() -> i64 {
-    crate::utils::timestamp_s().unwrap_or(0) as i64
 }

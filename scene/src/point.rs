@@ -267,10 +267,10 @@ impl PointVector {
     }
 
     fn find_limits(&mut self) {
-        let mut x_min = std::f32::MAX;
-        let mut x_max = std::f32::MIN;
-        let mut y_min = std::f32::MAX;
-        let mut y_max = std::f32::MIN;
+        let mut x_min = f32::MAX;
+        let mut x_max = f32::MIN;
+        let mut y_min = f32::MAX;
+        let mut y_max = f32::MIN;
 
         self.iter(|Point { x, y }| {
             x_min = x_min.min(x);

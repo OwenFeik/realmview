@@ -228,8 +228,8 @@ impl Interactor {
         }
 
         let mut copied = Vec::with_capacity(self.selected_sprites.len());
-        let mut xmin = std::f32::MAX;
-        let mut ymin = std::f32::MAX;
+        let mut xmin = f32::MAX;
+        let mut ymin = f32::MAX;
         for id in &self.selected_sprites {
             if let Some(sprite) = self.scene.sprite_ref(*id) {
                 copied.push(sprite.clone());
@@ -835,10 +835,7 @@ impl Interactor {
 
     #[must_use]
     pub fn export(&self) -> Vec<u8> {
-        match serialize(&self.scene) {
-            Ok(v) => v,
-            Err(_) => vec![],
-        }
+        serialize(&self.scene).unwrap_or_default()
     }
 
     pub fn new_scene(&mut self, id: Id) {

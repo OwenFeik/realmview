@@ -1,7 +1,7 @@
 use actix_web::{web, HttpResponse};
 
 use super::{res_failure, res_success, res_unproc, Res};
-use crate::models::{Project, SceneRecord, User};
+use crate::models::{Project, Scene, User};
 use crate::req::{e500, Conn};
 
 pub fn routes() -> actix_web::Scope {
@@ -17,8 +17,7 @@ pub fn routes() -> actix_web::Scope {
 struct SceneResponse {
     message: String,
     project_title: String,
-    project_key: String,
-    project_id: i64,
+    project_uuid: String,
     scene: String,
     scene_key: String,
     success: bool,
@@ -26,17 +25,22 @@ struct SceneResponse {
 }
 
 impl SceneResponse {
+    const DEFAULT_TITLE: &'static str = "Untitled";
+
     fn reply(scene: scene::Scene, key: String, project: Project) -> Res {
         let scene_raw = bincode::serialize(&scene).map_err(e500)?;
         Ok(HttpResponse::Ok().json(&SceneResponse {
             message: "Scene saved.".to_string(),
-            project_title: project.title,
-            project_key: project.project_key,
-            project_id: project.id,
+            project_title: project
+                .title
+                .unwrap_or_else(|| Self::DEFAULT_TITLE.to_string()),
+            project_uuid: project.uuid.simple().to_string(),
             scene: base64::encode(scene_raw),
             scene_key: key,
             success: true,
-            title: scene.title.unwrap_or_else(|| "Untitled".to_string()),
+            title: scene
+                .title
+                .unwrap_or_else(|| Self::DEFAULT_TITLE.to_string()),
         }))
     }
 }

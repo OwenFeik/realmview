@@ -1,7 +1,7 @@
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY,
+    uuid TEXT PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
     salt CHAR(64) NOT NULL,
     hashed_password CHAR(64) NOT NULL,
@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS user_sessions (
-    id INTEGER PRIMARY KEY,
+    uuid TEXT PRIMARY KEY,
     user INTEGER REFERENCES users(id) ON DELETE CASCADE NOT NULL,
     session_key CHAR(64) NOT NULL UNIQUE,
     start_time INTEGER NOT NULL,
@@ -18,8 +18,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 );
 
 CREATE TABLE IF NOT EXISTS media (
-    id INTEGER PRIMARY KEY,
-    media_key CHAR(16) NOT NULL UNIQUE,
+    uuid TEXT PRIMARY KEY,
     user INTEGER REFERENCES users(id) ON DELETE CASCADE NOT NULL,
     relative_path TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
@@ -31,20 +30,16 @@ CREATE TABLE IF NOT EXISTS media (
 );
 
 CREATE TABLE IF NOT EXISTS projects (
-    id INTEGER PRIMARY KEY,
-    project_key CHAR(16) NOT NULL, -- Used to name files for this project.
+    uuid TEXT PRIMARY KEY,
     user INTEGER REFERENCES users(id) ON DELETE CASCADE NOT NULL,
     updated_time INTEGER NOT NULL,
-    title TEXT,
-    UNIQUE(project_key, user) -- Keys may repeat across users.
+    title TEXT
 );
 
 CREATE TABLE IF NOT EXISTS scenes (
-    id INTEGER,
-    scene_key CHAR(16) NOT NULL,
+    uuid TEXT PRIMARY KEY,
     project INTEGER REFERENCES projects(id) ON DELETE CASCADE NOT NULL,
     updated_time INTEGER NOT NULL,
     title TEXT,
-    thumbnail TEXT,
-    UNIQUE(scene_key, project) -- Keys may repeat across projects.
+    thumbnail TEXT
 );

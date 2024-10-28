@@ -5,12 +5,11 @@ mod tests;
 
 mod media;
 mod project;
-mod projectv2;
 mod user;
 
 pub use media::Media;
-pub use project::Project;
-pub use project::SceneRecord;
+pub use project::ProjectRecord as Project;
+pub use project::SceneRecord as Scene;
 pub use user::User;
 
 use crate::crypto::generate_salt;

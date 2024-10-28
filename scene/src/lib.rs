@@ -39,13 +39,13 @@ pub struct Scene {
     next_id: Id,
     sprite_drawings: HashMap<Id, Drawing>,
     drawing_sprites: HashMap<Id, Id>,
-    pub id: Id,
+    pub uuid: uuid::Uuid,
+    pub project: Option<uuid::Uuid>,
 
     /// Layers in the scene. Sorted Highest to lowest.
     pub layers: Vec<Layer>,
     pub removed_layers: Vec<Layer>,
     pub title: Option<String>,
-    pub project: Option<Id>,
     pub fog: Fog,
     pub groups: Vec<Group>,
 }
@@ -783,7 +783,7 @@ impl Scene {
 impl Default for Scene {
     fn default() -> Self {
         Self {
-            id: -1,
+            uuid: uuid::Uuid::nil(),
             next_id: 4,
             modified: false,
             sprite_drawings: HashMap::new(),

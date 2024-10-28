@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use actix_files::NamedFile;
 use actix_web::{web, FromRequest, HttpRequest, HttpResponse};
 use once_cell::sync::Lazy;
+use uuid::Uuid;
 
 use crate::{
     models::{Project, User},
@@ -73,10 +74,10 @@ async fn new_scene(
     req: HttpRequest,
     mut conn: Conn,
     user: User,
-    path: web::Path<(String,)>,
+    path: web::Path<(Uuid,)>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let project_key = path.into_inner().0;
-    let proj = Project::get_by_key(conn.acquire(), &project_key)
+    let proj = Project::get_by_uuid(conn.acquire(), project_key)
         .await
         .map_err(e500)?;
 
@@ -87,16 +88,18 @@ async fn new_scene(
             .into_response(&req));
     }
 
-    let scene = scene::Scene::new();
-    let scene_key = proj
-        .update_scene(conn.acquire(), scene)
-        .await
-        .map_err(e500)?
-        .scene_key;
+    todo!("refactor to project-based scene editor");
 
-    Ok(redirect(&format!(
-        "/project/{project_key}/scene/{scene_key}"
-    )))
+    // let scene = scene::Scene::new();
+    // let scene_key = proj
+    //     .update_scene(conn.acquire(), scene)
+    //     .await
+    //     .map_err(e500)?
+    //     .scene_key;
+
+    // Ok(redirect(&format!(
+    //     "/project/{project_key}/scene/{scene_key}"
+    // )))
 }
 
 mod files {
