@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use scene::Id;
+use uuid::Uuid;
 
 use crate::{
     scene::{
@@ -13,15 +14,15 @@ use crate::{
 
 pub struct Game {
     pub key: String,
-    pub project: i64,
+    pub project: Uuid,
 
     scene: Scene,
     perms: Perms,
-    users: HashMap<i64, String>,
+    users: HashMap<Uuid, String>,
 }
 
 impl Game {
-    pub fn new(project: i64, mut scene: Scene, owner: i64, key: &str) -> Self {
+    pub fn new(project: Uuid, mut scene: Scene, owner: Uuid, key: &str) -> Self {
         scene.canon();
         let mut perms = Perms::new();
         perms.set_owner(owner);
@@ -34,19 +35,19 @@ impl Game {
         }
     }
 
-    pub fn project_id(&self) -> Option<i64> {
+    pub fn project_uuid(&self) -> Option<Uuid> {
         self.scene.project
     }
 
-    pub fn scene_id(&self) -> i64 {
-        self.scene.id
+    pub fn scene_uuid(&self) -> Uuid {
+        self.scene.uuid
     }
 
-    pub fn handle_perms(&mut self, user: i64, event: PermsEvent) -> bool {
+    pub fn handle_perms(&mut self, user: Uuid, event: PermsEvent) -> bool {
         self.perms.handle_event(user, event)
     }
 
-    pub fn owner_is(&self, user: i64) -> bool {
+    pub fn owner_is(&self, user: Uuid) -> bool {
         matches!(self.perms.get_role(user), perms::Role::Owner)
     }
 

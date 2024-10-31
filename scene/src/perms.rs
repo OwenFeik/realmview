@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 
 use serde_derive::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::{
     comms::{PermsEvent, SceneEvent},
     Id,
 };
 
-pub const CANONICAL_UPDATER: Id = 0;
+pub const CANONICAL_UPDATER: Uuid = Uuid::nil();
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 enum Perm {
@@ -118,7 +119,7 @@ impl Role {
 /// This user is granted certain permissions over a single item.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Override {
-    user: Id,
+    user: Uuid,
     item: Id,
 }
 
@@ -127,7 +128,7 @@ impl Override {
     /// If the item is a layer, and sprite on that layer may be edited or
     /// removed, and sprites may be added to the layer (LayerEdit). If the item
     /// is a sprite, the sprite may be edited (SpriteEdit), but not removed.
-    fn allows(&self, user: Id, perm: Perm, sprite: Option<Id>, layer: Option<Id>) -> bool {
+    fn allows(&self, user: Uuid, perm: Perm, sprite: Option<Id>, layer: Option<Id>) -> bool {
         self.user == user
             && match perm {
                 Perm::LayerEdit => self.item_is(layer),
@@ -143,7 +144,7 @@ impl Override {
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Perms {
-    roles: HashMap<Id, Role>,
+    roles: HashMap<Uuid, Role>,
     overrides: Vec<Override>,
 }
 
@@ -157,21 +158,21 @@ impl Perms {
         }
     }
 
-    pub fn get_role(&self, user: Id) -> Role {
+    pub fn get_role(&self, user: Uuid) -> Role {
         *self.roles.get(&user).unwrap_or(&Role::lowest())
     }
 
-    fn set_role(&mut self, user: Id, role: Role) {
+    fn set_role(&mut self, user: Uuid, role: Role) {
         self.roles.insert(user, role);
     }
 
-    fn allowed_by_role(&self, user: Id, perm: Perm) -> bool {
+    fn allowed_by_role(&self, user: Uuid, perm: Perm) -> bool {
         self.get_role(user).allows(perm)
     }
 
     fn allowed_by_override(
         &self,
-        user: Id,
+        user: Uuid,
         perm: Perm,
         sprite: Option<Id>,
         layer: Option<Id>,
@@ -181,11 +182,11 @@ impl Perms {
             .any(|o| o.allows(user, perm, sprite, layer))
     }
 
-    pub fn set_owner(&mut self, owner: Id) {
+    pub fn set_owner(&mut self, owner: Uuid) {
         self.roles.insert(owner, Role::Owner);
     }
 
-    pub fn role_change(&mut self, updater: Id, user: Id, role: Role) -> Option<PermsEvent> {
+    pub fn role_change(&mut self, updater: Uuid, user: Uuid, role: Role) -> Option<PermsEvent> {
         let updater_role = self.get_role(updater);
         let user_role = self.get_role(user);
 
@@ -211,7 +212,7 @@ impl Perms {
         PermsEvent::NewOverride(new)
     }
 
-    pub fn new_override(&mut self, updater: Id, new: Override) -> Option<PermsEvent> {
+    pub fn new_override(&mut self, updater: Uuid, new: Override) -> Option<PermsEvent> {
         if self.get_role(updater) >= Role::Editor {
             Some(self.add_override(new))
         } else {
@@ -219,7 +220,7 @@ impl Perms {
         }
     }
 
-    pub fn handle_event(&mut self, updater: Id, event: PermsEvent) -> bool {
+    pub fn handle_event(&mut self, updater: Uuid, event: PermsEvent) -> bool {
         match event {
             PermsEvent::RoleChange(user, role) => self.role_change(updater, user, role),
             PermsEvent::NewOverride(new) => self.new_override(updater, new),
@@ -227,7 +228,7 @@ impl Perms {
         .is_some()
     }
 
-    pub fn selectable(&self, user: Id, sprite: Id, layer: Id) -> bool {
+    pub fn selectable(&self, user: Uuid, sprite: Id, layer: Id) -> bool {
         self.get_role(user).allows(Perm::SpriteEdit)
             || self
                 .overrides
@@ -238,7 +239,7 @@ impl Perms {
     /// Check if a given event is permitted for this user. The optional layer
     /// parameter should have the ID of the layer that contains the relevant
     /// sprite for the event, if applicable.
-    pub fn permitted(&self, user: Id, event: &SceneEvent, layer: Option<Id>) -> bool {
+    pub fn permitted(&self, user: Uuid, event: &SceneEvent, layer: Option<Id>) -> bool {
         if let SceneEvent::EventSet(events) = event {
             events.iter().all(|e| self.permitted(user, e, layer))
         } else {
@@ -249,7 +250,7 @@ impl Perms {
     }
 
     /// Allow a user to edit a sprite or layer.
-    pub fn grant_override(&mut self, user: Id, item: Id) -> Option<PermsEvent> {
+    pub fn grant_override(&mut self, user: Uuid, item: Id) -> Option<PermsEvent> {
         let or = Override { user, item };
         if self.overrides.contains(&or) {
             None // Skip creating redundant override.
@@ -267,8 +268,14 @@ impl Default for Perms {
 
 #[cfg(test)]
 mod test {
+    use uuid::Timestamp;
+
     use super::*;
     use crate::{Rect, Sprite};
+
+    fn gen_uuid() -> Uuid {
+        Uuid::new_v7(Timestamp::now(uuid::NoContext))
+    }
 
     #[test]
     fn test_role_precedence() {
@@ -279,7 +286,7 @@ mod test {
 
     #[test]
     fn test_override_handling() {
-        let user = 123;
+        let user = gen_uuid();
         let layer = 1;
         let sprite = 2;
         let mut perms = Perms::new();
@@ -314,12 +321,16 @@ mod test {
         assert!(perms.permitted(user, &SceneEvent::SpriteRemove(sprite, layer), Some(layer)));
         assert!(perms.permitted(user, &SceneEvent::SpriteRemove(5, layer), Some(layer)));
         assert!(!perms.permitted(user, &SceneEvent::SpriteRemove(6, 7), Some(7)));
-        assert!(!perms.permitted(124, &SceneEvent::SpriteRemove(sprite, layer), Some(layer)));
+        assert!(!perms.permitted(
+            gen_uuid(),
+            &SceneEvent::SpriteRemove(sprite, layer),
+            Some(layer)
+        ));
     }
 
     #[test]
     fn test_drawing_handling() {
-        let user = 1;
+        let user = gen_uuid();
         let drawing = 2;
         let layer = 4;
 
@@ -335,8 +346,8 @@ mod test {
 
     #[test]
     fn test_selectability() {
-        let owner = 1;
-        let player = 2;
+        let owner = gen_uuid();
+        let player = gen_uuid();
         let sprite = 3;
         let layer = 4;
 

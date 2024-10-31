@@ -1,8 +1,9 @@
-use crate::{Id, Scene};
+use uuid::Uuid;
+
+use crate::Scene;
 
 pub struct Project {
-    pub id: Id,
-    pub key: String,
+    pub uuid: Uuid,
     pub title: String,
     pub scenes: Vec<Scene>,
 }

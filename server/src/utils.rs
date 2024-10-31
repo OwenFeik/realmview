@@ -75,7 +75,3 @@ pub fn timestamp_us() -> anyhow::Result<u128> {
 pub fn join_relative_path<S: AsRef<str>>(left: &Path, right: S) -> PathBuf {
     left.join(right.as_ref().trim_start_matches('/'))
 }
-
-pub fn id_to_key(id: i64) -> String {
-    format!("{:016X}", id)
-}

@@ -8,14 +8,12 @@ use scene::comms::SceneEvent;
 use sqlx::{pool::PoolConnection, SqlitePool};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::time::Instant;
+use uuid::Uuid;
 
 use super::game::Game;
 use crate::{
-    models::{Project, SceneRecord},
-    scene::{
-        comms::{ClientEvent, ClientMessage, ServerEvent},
-        Scene,
-    },
+    models::{Project, Scene},
+    scene::comms::{ClientEvent, ClientMessage, ServerEvent},
     utils::{log, timestamp_us, LogLevel},
 };
 
@@ -23,12 +21,12 @@ use crate::{
 pub enum ServerCommand {
     Close,
     Join {
-        user: i64,
+        user: Uuid,
         username: String,
         sender: UnboundedSender<Vec<u8>>,
     },
     Message {
-        user: i64,
+        user: Uuid,
         message: ClientMessage,
     },
 }
@@ -61,7 +59,7 @@ impl GameHandle {
 
     pub fn join(
         &self,
-        user: i64,
+        user: Uuid,
         username: String,
         sender: UnboundedSender<Vec<u8>>,
     ) -> anyhow::Result<()> {
@@ -72,12 +70,18 @@ impl GameHandle {
         })
     }
 
-    pub fn message(&self, user: i64, message: ClientMessage) -> anyhow::Result<()> {
+    pub fn message(&self, user: Uuid, message: ClientMessage) -> anyhow::Result<()> {
         self.send(ServerCommand::Message { user, message })
     }
 }
 
-pub fn launch(key: String, owner: i64, project: i64, scene: Scene, pool: SqlitePool) -> GameHandle {
+pub fn launch(
+    key: String,
+    owner: Uuid,
+    project: Uuid,
+    scene: scene::Scene,
+    pool: SqlitePool,
+) -> GameHandle {
     let open = Arc::new(AtomicBool::new(true));
     let (send, recv) = unbounded_channel();
 
@@ -95,7 +99,7 @@ pub fn launch(key: String, owner: i64, project: i64, scene: Scene, pool: SqliteP
 }
 
 struct Client {
-    user: i64,
+    user: Uuid,
     username: String,
     sender: Option<UnboundedSender<Vec<u8>>>,
     check_time: Option<Instant>,
@@ -121,11 +125,11 @@ impl Client {
 
 struct Server {
     open: Arc<AtomicBool>,
-    owner: i64,
+    owner: Uuid,
     game: Game,
     pool: SqlitePool,
     handle: UnboundedReceiver<ServerCommand>,
-    clients: HashMap<i64, Client>,
+    clients: HashMap<Uuid, Client>,
     last_save: Instant,
     last_action: Instant,
     empty_time: Option<Instant>,
@@ -135,9 +139,9 @@ impl Server {
     fn new(
         open: Arc<AtomicBool>,
         key: &str,
-        owner: i64,
-        project: i64,
-        scene: Scene,
+        owner: Uuid,
+        project: Uuid,
+        scene: scene::Scene,
         pool: SqlitePool,
         handle: UnboundedReceiver<ServerCommand>,
     ) -> Self {
@@ -225,7 +229,7 @@ impl Server {
 
     /// Handles a message from a client. Returns `true` if all is good, or
     /// `false` if the client has been dropped and the socket should be closed.
-    async fn handle_message(&mut self, message: ClientMessage, from: i64) {
+    async fn handle_message(&mut self, message: ClientMessage, from: Uuid) {
         let now = Instant::now();
 
         // Keep track of last activity. Even a ping will keep the server up.
@@ -278,7 +282,7 @@ impl Server {
         };
     }
 
-    async fn connect_client(&mut self, user: i64, name: String, sender: UnboundedSender<Vec<u8>>) {
+    async fn connect_client(&mut self, user: Uuid, name: String, sender: UnboundedSender<Vec<u8>>) {
         self.disconnect_client(user);
         self.clients.insert(
             user,
@@ -331,7 +335,7 @@ impl Server {
         );
     }
 
-    fn disconnect_client(&mut self, user: i64) {
+    fn disconnect_client(&mut self, user: Uuid) {
         self.send_event(ServerEvent::Disconnect, user);
         if self.clients.remove_entry(&user).is_some() {
             self.log(LogLevel::Debug, format!("Client ({user}) disconnected."));
@@ -341,7 +345,7 @@ impl Server {
         }
     }
 
-    fn client_active(&mut self, user: i64, time: Instant) -> bool {
+    fn client_active(&mut self, user: Uuid, time: Instant) -> bool {
         if let Some(client) = self.clients.get_mut(&user) {
             client.last_event = time;
             client.active()
@@ -350,15 +354,15 @@ impl Server {
         }
     }
 
-    fn send_approval(&mut self, event_id: i64, user: i64) {
+    fn send_approval(&mut self, event_id: i64, user: Uuid) {
         self.send_event(ServerEvent::Approval(event_id), user);
     }
 
-    fn send_rejection(&mut self, event_id: i64, user: i64) {
+    fn send_rejection(&mut self, event_id: i64, user: Uuid) {
         self.send_event(ServerEvent::Rejection(event_id), user);
     }
 
-    fn send_event(&mut self, event: ServerEvent, user: i64) {
+    fn send_event(&mut self, event: ServerEvent, user: Uuid) {
         let Some(message) = self.serialise(event) else {
             return;
         };
@@ -443,7 +447,7 @@ impl Server {
 
     async fn load_scene(&mut self, scene_key: &str) -> anyhow::Result<()> {
         let conn = &mut self.acquire_conn().await?;
-        let record = SceneRecord::load_from_key(conn, scene_key).await?;
+        let record = Scene::load_by_uuid(conn, scene_key).await?;
         let scene = record.load_scene(conn).await?;
 
         self.replace_scene(scene).await;
@@ -476,7 +480,7 @@ impl Server {
         }
     }
 
-    async fn replace_scene(&mut self, scene: Scene) {
+    async fn replace_scene(&mut self, scene: scene::Scene) {
         self.save_scene().await;
 
         // Replace the local scene with the new one
@@ -509,7 +513,7 @@ impl Server {
     async fn scene_list(&self) -> anyhow::Result<ServerEvent> {
         let conn = &mut self.acquire_conn().await?;
         if let Some(id) = self.game.project_id() {
-            let project = Project::load(conn, id).await?;
+            let project = Project::load_by_uuid(conn, id).await?;
             let current_scene_id = self.game.scene_id();
             let mut current = String::from("");
             let scenes = project

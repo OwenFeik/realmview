@@ -5,6 +5,7 @@ mod game;
 mod server;
 
 pub use server::GameHandle;
+use uuid::Uuid;
 
 pub const GAME_KEY_LENGTH: usize = 10;
 
@@ -14,8 +15,8 @@ pub fn generate_game_key() -> anyhow::Result<String> {
 
 pub fn launch_server(
     key: String,
-    owner: i64,
-    project: i64,
+    owner: Uuid,
+    project: Uuid,
     scene: scene::Scene,
     pool: sqlx::SqlitePool,
 ) -> GameHandle {

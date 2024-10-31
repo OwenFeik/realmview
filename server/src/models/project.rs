@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqliteConnection;
 use uuid::Uuid;
 
+use super::{format_uuid, Project, Scene};
 use crate::utils::Res;
 
 type Conn = SqliteConnection;
@@ -12,47 +13,30 @@ struct Save {
     data: Vec<u8>,
 }
 
-#[derive(sqlx::FromRow)]
-pub struct SceneRecord {
-    uuid: Uuid,
-    project: i64,
-    updated_time: i64,
-    title: Option<String>,
-    thumbnail: Option<String>,
-}
-
-impl SceneRecord {
-    pub async fn load_by_uuid(conn: &mut Conn, uuid: Uuid) -> Res<SceneRecord> {
+impl Scene {
+    pub async fn load_by_uuid(conn: &mut Conn, uuid: Uuid) -> Res<Self> {
         sqlx::query_as(
             "
             SELECT (uuid, project, updated_time, title, thumbnail)
             FROM scenes WHERE uuid = ?1; 
             ",
         )
-        .bind(uuid.simple().to_string())
+        .bind(format_uuid(uuid))
         .fetch_one(conn)
         .await
         .map_err(|e| e.to_string())
     }
 }
 
-#[derive(sqlx::FromRow)]
-pub struct ProjectRecord {
-    pub uuid: Uuid,
-    pub user: i64,
-    pub updated_time: i64,
-    pub title: Option<String>,
-}
-
-impl ProjectRecord {
-    pub async fn get_by_uuid(conn: &mut Conn, uuid: Uuid) -> Res<ProjectRecord> {
+impl Project {
+    pub async fn load_by_uuid(conn: &mut Conn, uuid: Uuid) -> Res<Self> {
         sqlx::query_as(
             "
             SELECT (uuid, user, updated_time, title)
             FROM projects WHERE uuid = ?1;
             ",
         )
-        .bind(uuid.simple().to_string())
+        .bind(format_uuid(uuid))
         .fetch_one(conn)
         .await
         .map_err(|e| e.to_string())
@@ -91,8 +75,11 @@ mod db {
     use sqlx::SqliteConnection;
     use uuid::Uuid;
 
-    use super::{ProjectRecord, SceneRecord};
-    use crate::utils::{timestamp_s, Res};
+    use super::{Project, Scene};
+    use crate::{
+        models::format_uuid,
+        utils::{timestamp_s, Res},
+    };
 
     async fn update_database(
         conn: &mut SqliteConnection,
@@ -101,7 +88,7 @@ mod db {
     ) -> Res<()> {
         update_or_create_project_record(conn, project, user).await?;
         for scene in &project.scenes {
-            update_or_create_scene_record(conn, project.id, scene).await?;
+            update_or_create_scene_record(conn, scene).await?;
         }
         Ok(())
     }
@@ -110,14 +97,14 @@ mod db {
         let scene_ids = project
             .scenes
             .iter()
-            .map(|scene| scene.id.to_string())
+            .map(|scene| format!("'{}'", scene.uuid.simple()))
             .collect::<Vec<String>>()
             .join(", ");
         sqlx::query(&format!(
-            "DELETE FROM scenes WHERE project = ?1 AND id NOT IN ({})",
+            "DELETE FROM scenes WHERE project = ?1 AND uuid NOT IN ({})",
             scene_ids
         ))
-        .bind(project.id)
+        .bind(project.uuid)
         .execute(conn)
         .await
         .ok();
@@ -125,12 +112,12 @@ mod db {
 
     async fn update_project_record(
         conn: &mut SqliteConnection,
-        project_id: i64,
-    ) -> Res<Option<ProjectRecord>> {
+        uuid: Uuid,
+    ) -> Res<Option<Project>> {
         match sqlx::query_as(
-            "UPDATE projects SET updated_time = ?1, title = ?2 WHERE id = ?3 RETURNING *;",
+            "UPDATE projects SET updated_time = ?1, title = ?2 WHERE uuid = ?3 RETURNING *;",
         )
-        .bind(project_id)
+        .bind(format_uuid(uuid))
         .fetch_one(conn)
         .await
         {
@@ -144,19 +131,19 @@ mod db {
         conn: &mut SqliteConnection,
         project: &scene::Project,
         user: i64,
-    ) -> Res<ProjectRecord> {
-        let record = update_project_record(conn, project.id).await?;
+    ) -> Res<Project> {
+        let record = update_project_record(conn, project.uuid).await?;
         let now = timestamp_s().unwrap_or(0) as i64;
         if let Some(record) = record {
             Ok(record)
         } else {
             sqlx::query_as(
                 r#"
-                INSERT INTO projects (project_key, user, updated_time, title)
+                INSERT INTO projects (uuid, user, updated_time, title)
                 VALUES (?1, ?2, ?3, ?4) RETURNING *;
                 "#,
             )
-            .bind(&project.key)
+            .bind(format_uuid(project.uuid))
             .bind(user)
             .bind(now)
             .bind(&project.title)
@@ -170,13 +157,13 @@ mod db {
         conn: &mut SqliteConnection,
         scene: &scene::Scene,
         project: Uuid,
-    ) -> Res<Option<ProjectRecord>> {
+    ) -> Res<Option<Project>> {
         match sqlx::query_as(
             "UPDATE scenes SET updated_time = ?1, title = ?2 WHERE id = ?3 RETURNING *;",
         )
         .bind(updated_timestamp())
         .bind(&scene.title)
-        .bind(project.simple().to_string())
+        .bind(format_uuid(project))
         .fetch_one(conn)
         .await
         {
@@ -188,15 +175,14 @@ mod db {
 
     async fn update_or_create_scene_record(
         conn: &mut SqliteConnection,
-        project_id: i64,
         scene: &scene::Scene,
-    ) -> Res<SceneRecord> {
+    ) -> Res<Option<Scene>> {
         match sqlx::query_as(
             "UPDATE scenes SET updated_time = ?1, title = ?2 WHERE uuid = ?3 RETURNING *;",
         )
         .bind(updated_timestamp())
-        .bind(scene.title)
-        .bind(scene.id)
+        .bind(scene.title.clone())
+        .bind(scene.uuid)
         .fetch_one(conn)
         .await
         {
@@ -216,27 +202,27 @@ mod v1 {
 
     use scene::{Id, PointVector};
     use serde::{Deserialize, Serialize};
+    use uuid::Uuid;
 
     use super::bincode_deserialise;
-    use crate::utils::{id_to_key, Res};
+    use crate::utils::Res;
 
     type IdMap = HashMap<Id, u32>;
 
     pub fn retrieve(data: &[u8]) -> Res<scene::Project> {
         let project: Project = bincode_deserialise(data)?;
         Ok(scene::Project {
-            id: project.id,
-            key: id_to_key(project.id),
+            uuid: project.uuid,
             title: project.title,
             scenes: project
                 .scenes
                 .into_iter()
-                .map(|scene| retrieve_scene(scene, project.id))
+                .map(|scene| retrieve_scene(scene, project.uuid))
                 .collect(),
         })
     }
 
-    fn retrieve_scene(scene: Scene, project_id: Id) -> scene::Scene {
+    fn retrieve_scene(scene: Scene, project: Uuid) -> scene::Scene {
         let mut id = 1;
 
         let mut layer_idx_to_layer = HashMap::new();
@@ -288,9 +274,9 @@ mod v1 {
 
         let layers = layer_idx_to_layer.into_values().collect();
         let mut sc = scene::Scene::new_with(layers, drawings);
-        sc.id = scene.id;
+        sc.uuid = scene.uuid;
         sc.title = Some(scene.title);
-        sc.project = Some(project_id);
+        sc.project = Some(project);
         sc.fog = scene::Fog::from(scene.fog, scene.fog_active, scene.w, scene.h);
         sc.groups = groups;
         sc
@@ -336,7 +322,7 @@ mod v1 {
 
     pub fn prepare(project: &scene::Project) -> Res<impl Serialize> {
         Ok(Project {
-            id: project.id,
+            uuid: project.uuid,
             title: project.title.clone(),
             scenes: project
                 .scenes
@@ -352,7 +338,7 @@ mod v1 {
             prepare_layers_sprites(scene, &drawing_ids_to_idxs);
         let groups = prepare_groups(scene, &sprite_ids_to_idxs);
         Ok(Scene {
-            id: scene.id,
+            uuid: scene.uuid,
             title: scene.title.clone().unwrap_or("Untitled".into()),
             w: scene.fog.w,
             h: scene.fog.h,
@@ -528,14 +514,14 @@ mod v1 {
 
     #[derive(Serialize, Deserialize)]
     struct Project {
-        id: Id,
+        uuid: Uuid,
         title: String,
         scenes: Vec<Scene>,
     }
 
     #[derive(Serialize, Deserialize)]
     struct Scene {
-        id: Id,
+        uuid: Uuid,
         title: String,
         w: u32,
         h: u32,

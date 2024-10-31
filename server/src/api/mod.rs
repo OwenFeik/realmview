@@ -47,8 +47,8 @@ fn cookie_resp(cookie: &str, value: &str) -> HttpResponseBuilder {
     builder
 }
 
-fn session_resp(session_key: &str) -> HttpResponseBuilder {
-    cookie_resp(crate::req::session::COOKIE_NAME, session_key)
+fn session_resp(session: &str) -> HttpResponseBuilder {
+    cookie_resp(crate::req::session::COOKIE_NAME, session)
 }
 
 fn resp_success(message: &str) -> HttpResponse {

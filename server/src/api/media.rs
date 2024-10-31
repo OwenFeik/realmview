@@ -1,5 +1,6 @@
 use actix_web::{web, HttpResponse};
 use sqlx::SqlitePool;
+use uuid::Uuid;
 
 use super::{res_failure, res_success, Res};
 use crate::{
@@ -16,12 +17,10 @@ pub fn routes() -> actix_web::Scope {
         .route("/{media_key}", web::delete().to(delete))
 }
 
-#[derive(serde_derive::Serialize, sqlx::FromRow)]
+#[derive(serde_derive::Serialize)]
 struct MediaItem {
-    media_key: String,
+    uuid: Uuid,
     title: String,
-
-    #[sqlx(rename = "relative_path")]
     url: String,
     w: f32,
     h: f32,
@@ -30,7 +29,7 @@ struct MediaItem {
 impl MediaItem {
     fn from(record: Media) -> Self {
         Self {
-            media_key: record.media_key,
+            uuid: record.uuid,
             title: record.title,
             url: record.relative_path,
             w: record.w,
@@ -55,14 +54,14 @@ impl MediaListResponse {
 }
 
 async fn list(pool: web::Data<SqlitePool>, user: User) -> Res {
-    let media = Media::user_media(&pool, user.id).await.map_err(e500)?;
+    let media = Media::user_media(&pool, user.uuid).await.map_err(e500)?;
     let items = media.into_iter().map(MediaItem::from).collect();
     Ok(HttpResponse::Ok().json(&MediaListResponse::new(items)))
 }
 
 #[derive(serde_derive::Deserialize)]
 struct DetailsUpdate {
-    media_key: String,
+    uuid: Uuid,
     title: String,
     w: f32,
     h: f32,
@@ -71,8 +70,8 @@ struct DetailsUpdate {
 async fn update(pool: web::Data<SqlitePool>, user: User, details: web::Json<DetailsUpdate>) -> Res {
     Media::update(
         &pool,
-        user.id,
-        details.media_key.clone(),
+        user.uuid,
+        details.uuid,
         details.title.clone(),
         details.w,
         details.h,
@@ -102,8 +101,11 @@ async fn retrieve(
     pool: web::Data<SqlitePool>,
     path: web::Path<(String,)>,
 ) -> impl actix_web::Responder {
-    let media_key = path.into_inner().0;
-    let media = match Media::load(&pool, &media_key).await {
+    let uuid = match Uuid::try_parse(&path.into_inner().0) {
+        Ok(uuid) => uuid,
+        _ => return res_failure("Invalid media UUID."),
+    };
+    let media = match Media::load(&pool, uuid).await {
         Ok(record) => record,
         _ => return res_failure("Media not found."),
     };
@@ -112,9 +114,12 @@ async fn retrieve(
 }
 
 async fn delete(pool: web::Data<SqlitePool>, user: User, path: web::Path<(String,)>) -> Res {
-    let media_key = path.into_inner().0;
-    if let Ok(media) = Media::load(&pool, &media_key).await {
-        if user.id == media.user && Media::delete(&pool, &media_key).await.is_ok() {
+    let uuid = match Uuid::try_parse(&path.into_inner().0) {
+        Ok(uuid) => uuid,
+        _ => return res_failure("Invalid media UUID."),
+    };
+    if let Ok(media) = Media::load(&pool, uuid).await {
+        if user.uuid == media.user && Media::delete(&pool, uuid).await.is_ok() {
             tokio::fs::remove_file(join_relative_path(
                 crate::CONTENT.as_path(),
                 media.relative_path,

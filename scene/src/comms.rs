@@ -1,4 +1,5 @@
 use serde_derive::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use super::{
     perms::{Override, Perms, Role},
@@ -166,7 +167,7 @@ impl SceneEvent {
 #[derive(Debug, Deserialize, Serialize)]
 pub enum PermsEvent {
     /// Update to the role of a user
-    RoleChange(Id, Role),
+    RoleChange(Uuid, Role),
     /// Issue a new Override
     NewOverride(Override),
 }

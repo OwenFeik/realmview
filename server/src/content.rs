@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::{
     models::{Project, User},
     req::{
-        e500, redirect,
+        e500,
         session::{Session, SessionOpt},
         Conn,
     },
@@ -77,11 +77,11 @@ async fn new_scene(
     path: web::Path<(Uuid,)>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let project_key = path.into_inner().0;
-    let proj = Project::get_by_uuid(conn.acquire(), project_key)
+    let proj = Project::load_by_uuid(conn.acquire(), project_key)
         .await
         .map_err(e500)?;
 
-    if proj.user != user.id {
+    if proj.user != user.uuid {
         return Ok(content(files::NEW_PROJECT)
             .await
             .map_err(e500)?

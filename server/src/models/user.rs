@@ -1,14 +1,8 @@
-use sqlx::{FromRow, SqlitePool};
+use sqlx::SqlitePool;
+use uuid::Uuid;
 
-#[derive(Debug, FromRow)]
-pub struct User {
-    pub id: i64,
-    pub username: String,
-    pub salt: String,
-    pub hashed_password: String,
-    pub recovery_key: String,
-    pub created_time: i64,
-}
+use super::{format_uuid, generate_uuid, User, UserSession};
+use crate::utils::timestamp_s;
 
 impl User {
     pub async fn register(
@@ -42,9 +36,9 @@ impl User {
         Ok(user)
     }
 
-    pub async fn get_by_id(pool: &SqlitePool, id: i64) -> anyhow::Result<Option<User>> {
+    pub async fn get_by_id(pool: &SqlitePool, uuid: Uuid) -> anyhow::Result<Option<User>> {
         let user = sqlx::query_as("SELECT * FROM users WHERE id = ?1;")
-            .bind(id)
+            .bind(format_uuid(uuid))
             .fetch_optional(pool)
             .await?;
         Ok(user)
@@ -83,5 +77,43 @@ impl User {
             .await?;
 
         Ok(row.is_some())
+    }
+}
+
+impl UserSession {
+    pub async fn get(pool: &SqlitePool, session: Uuid) -> anyhow::Result<Option<UserSession>> {
+        let user_session = sqlx::query_as("SELECT * FROM user_sessions WHERE uuid = ?1;")
+            .bind(format_uuid(session))
+            .fetch_optional(pool)
+            .await?;
+        Ok(user_session)
+    }
+
+    pub async fn create(pool: &SqlitePool, user: &User) -> anyhow::Result<Uuid> {
+        let session: Self = sqlx::query_as(
+            "INSERT INTO user_sessions (uuid, user, start_time) VALUES (?1, ?2, ?3) RETURNING *;",
+        )
+        .bind(format_uuid(generate_uuid()))
+        .bind(format_uuid(user.uuid))
+        .bind(timestamp_s()? as i64)
+        .fetch_one(pool)
+        .await?;
+        Ok(session.uuid)
+    }
+
+    pub async fn end(pool: &SqlitePool, session_key: &str) -> anyhow::Result<bool> {
+        let rows_affected =
+            sqlx::query("UPDATE user_sessions SET end_time = ?1 WHERE session_key = ?2")
+                .bind(timestamp_s()? as i64)
+                .bind(session_key)
+                .execute(pool)
+                .await?
+                .rows_affected();
+
+        Ok(rows_affected > 0)
+    }
+
+    pub async fn user(&self, pool: &SqlitePool) -> anyhow::Result<Option<User>> {
+        User::get_by_id(pool, self.uuid).await
     }
 }

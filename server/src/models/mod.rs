@@ -1,5 +1,3 @@
-use sqlx::{FromRow, SqlitePool};
-
 #[cfg(test)]
 mod tests;
 
@@ -7,65 +5,64 @@ mod media;
 mod project;
 mod user;
 
-pub use media::Media;
-pub use project::ProjectRecord as Project;
-pub use project::SceneRecord as Scene;
-pub use user::User;
+use sqlx::prelude::FromRow;
+use uuid::Uuid;
 
-use crate::crypto::generate_salt;
-use crate::crypto::to_hex_string;
-use crate::utils::timestamp_s;
+#[derive(Debug, FromRow)]
+pub struct User {
+    pub uuid: Uuid,
+    pub username: String,
+    pub salt: String,
+    pub hashed_password: String,
+    pub recovery_key: String,
+    pub created_time: i64,
+}
 
 #[derive(FromRow)]
 pub struct UserSession {
-    pub id: i64,
-
-    #[sqlx(rename = "user")]
-    pub user_id: i64,
-
-    pub session_key: String,
-    pub active: bool,
+    pub uuid: Uuid,
+    pub user: Uuid,
     pub start_time: i64,
     pub end_time: Option<i64>,
 }
 
-impl UserSession {
-    pub async fn get(pool: &SqlitePool, session_key: &str) -> anyhow::Result<Option<UserSession>> {
-        let user_session = sqlx::query_as("SELECT * FROM user_sessions WHERE session_key = ?1;")
-            .bind(session_key)
-            .fetch_optional(pool)
-            .await?;
-        Ok(user_session)
-    }
+#[derive(FromRow)]
+pub struct Media {
+    pub uuid: Uuid,
+    pub user: Uuid,
+    pub relative_path: String,
+    pub title: String,
+    pub hashed_value: String,
+    pub file_size: i64,
+    pub w: f32,
+    pub h: f32,
+}
 
-    pub async fn create(pool: &SqlitePool, user: &User) -> anyhow::Result<String> {
-        let session_key = to_hex_string(&generate_salt()?)?;
+#[derive(FromRow)]
+pub struct Project {
+    pub uuid: Uuid,
+    pub user: Uuid,
+    pub updated_time: i64,
+    pub title: Option<String>,
+}
 
-        sqlx::query(
-            "INSERT INTO user_sessions (user, session_key, start_time) VALUES (?1, ?2, ?3);",
-        )
-        .bind(user.id)
-        .bind(session_key.as_str())
-        .bind(timestamp_s()? as i64)
-        .execute(pool)
-        .await?;
+#[derive(FromRow)]
+pub struct Scene {
+    uuid: Uuid,
+    project: i64,
+    updated_time: i64,
+    title: Option<String>,
+    thumbnail: Option<String>,
+}
 
-        Ok(session_key)
-    }
+fn timestamp_s() -> u64 {
+    crate::utils::timestamp_s().unwrap_or(0)
+}
 
-    pub async fn end(pool: &SqlitePool, session_key: &str) -> anyhow::Result<bool> {
-        let rows_affected =
-            sqlx::query("UPDATE user_sessions SET end_time = ?1 WHERE session_key = ?2")
-                .bind(timestamp_s()? as i64)
-                .bind(session_key)
-                .execute(pool)
-                .await?
-                .rows_affected();
+fn format_uuid(uuid: Uuid) -> String {
+    uuid.simple().to_string()
+}
 
-        Ok(rows_affected > 0)
-    }
-
-    pub async fn user(&self, pool: &SqlitePool) -> anyhow::Result<Option<User>> {
-        User::get_by_id(pool, self.user_id).await
-    }
+fn generate_uuid() -> Uuid {
+    Uuid::new_v7(uuid::Timestamp::now(uuid::NoContext))
 }

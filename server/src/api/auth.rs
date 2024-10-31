@@ -34,8 +34,8 @@ struct LoginRequest {
 async fn login(pool: web::Data<SqlitePool>, req: web::Json<LoginRequest>) -> Res {
     let Some(user) = User::get(&pool, req.username.as_str())
         .await
-        .map_err(ErrorInternalServerError)? else
-    {
+        .map_err(ErrorInternalServerError)?
+    else {
         return Ok(session_resp("").json(body_failure("User does not exist.")));
     };
 
@@ -49,11 +49,11 @@ async fn login(pool: web::Data<SqlitePool>, req: web::Json<LoginRequest>) -> Res
         return Ok(session_resp("").json(body_failure("Incorrect password.")));
     };
 
-    let session_key = UserSession::create(&pool, &user)
+    let session = UserSession::create(&pool, &user)
         .await
         .map_err(ErrorInternalServerError)?;
 
-    Ok(session_resp(&session_key).json(body_success("Logged in.")))
+    Ok(session_resp(&session.simple().to_string()).json(body_success("Logged in.")))
 }
 
 async fn test(session: SessionOpt) -> HttpResponse {

@@ -22,7 +22,7 @@ pub fn connect_game_client(
     tokio::task::spawn_local(async move {
         let (send, recv) = unbounded_channel();
 
-        if server.join(user.id, user.username, send).is_err() {
+        if server.join(user.uuid, user.username, send).is_err() {
             close_ws(session).await; // Server closed.
             return;
         }
