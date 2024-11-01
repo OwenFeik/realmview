@@ -176,7 +176,7 @@ pub enum PermsEvent {
 pub enum ClientEvent {
     Ping,
     SceneUpdate(SceneEvent), // (event)
-    SceneChange(String),     // (scene_key)
+    SceneChange(Uuid),       // (scene_uuid)
 }
 
 // Events sent by Client. The client will keep track of these after sending them
@@ -200,10 +200,10 @@ pub enum ServerEvent {
     PermsChange(Perms),
     PermsUpdate(PermsEvent),
     SceneChange(Box<Scene>),
-    SceneList(Vec<(String, String)>, String),
+    SceneList(Vec<(String, Uuid)>, Uuid),
     SceneUpdate(SceneEvent),
     SelectedLayer(Id),
-    UserId(Id),
+    UserId(Uuid),
 }
 
 impl ServerEvent {

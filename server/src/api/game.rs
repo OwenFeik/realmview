@@ -5,7 +5,7 @@ use sqlx::SqlitePool;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use super::{res_failure, res_json, res_success, Res};
+use super::{res_failure, res_json, res_success, Resp};
 use crate::{
     games::{close_ws, connect_client, generate_game_key, launch_server, GameHandle},
     models::{Scene, User},
@@ -43,7 +43,7 @@ async fn new(
     games: web::Data<Games>,
     user: User,
     req: web::Json<NewGameRequest>,
-) -> Res {
+) -> Resp {
     let conn = &mut pool.acquire().await.map_err(e500)?;
     let scene = match Scene::load_by_uuid(conn, req.scene).await {
         Ok(r) => match r.user(conn).await {
@@ -87,7 +87,7 @@ async fn new(
     }
 }
 
-async fn end(games: web::Data<Games>, user: User, path: web::Path<(String,)>) -> Res {
+async fn end(games: web::Data<Games>, user: User, path: web::Path<(String,)>) -> Resp {
     let game_key = path.into_inner().0;
 
     if let Some(handle) = games.read().await.get(&game_key) {
@@ -108,7 +108,7 @@ async fn join_game(
     games: Arc<Games>,
     user: User,
     game_key: &str,
-) -> Res {
+) -> Resp {
     let (resp, mut session, msg_stream) = actix_ws::handle(&req, stream)?;
 
     match games.read().await.get(game_key) {
@@ -135,12 +135,12 @@ async fn join(
     games: web::Data<Games>,
     user: User,
     path: web::Path<(String,)>,
-) -> Res {
+) -> Resp {
     let game_key = &path.into_inner().0;
     join_game(req, stream, games.into_inner(), user, game_key).await
 }
 
-async fn test(games: web::Data<Games>, path: web::Path<(String,)>) -> Res {
+async fn test(games: web::Data<Games>, path: web::Path<(String,)>) -> Resp {
     let game_key = &path.into_inner().0;
     let url = game_url(game_key);
     if let Some(handle) = games.read().await.get(game_key) {

@@ -48,21 +48,17 @@ pub struct Project {
 
 #[derive(FromRow)]
 pub struct Scene {
-    uuid: Uuid,
-    project: i64,
-    updated_time: i64,
-    title: Option<String>,
-    thumbnail: Option<String>,
+    pub uuid: Uuid,
+    pub project: Uuid,
+    pub updated_time: i64,
+    pub title: Option<String>,
+    pub thumbnail: Option<String>,
 }
 
-fn timestamp_s() -> u64 {
-    crate::utils::timestamp_s().unwrap_or(0)
+fn timestamp_s() -> i64 {
+    crate::utils::timestamp_s().unwrap_or(0) as i64
 }
 
 fn format_uuid(uuid: Uuid) -> String {
     uuid.simple().to_string()
-}
-
-fn generate_uuid() -> Uuid {
-    Uuid::new_v7(uuid::Timestamp::now(uuid::NoContext))
 }

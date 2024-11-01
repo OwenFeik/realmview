@@ -5,6 +5,10 @@ use std::{
 
 pub type Res<T> = Result<T, String>;
 
+pub fn err<T, S: ToString>(message: S) -> Res<T> {
+    Err(message.to_string())
+}
+
 #[derive(Clone, Copy)]
 pub enum LogLevel {
     Error,
@@ -57,15 +61,17 @@ pub fn debug<A: AsRef<str>>(message: A) {
     log(LogLevel::Info, message);
 }
 
-fn current_system_time() -> anyhow::Result<Duration> {
-    Ok(SystemTime::now().duration_since(std::time::UNIX_EPOCH)?)
+fn current_system_time() -> Res<Duration> {
+    Ok(SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| e.to_string())?)
 }
 
-pub fn timestamp_s() -> anyhow::Result<u64> {
+pub fn timestamp_s() -> Res<u64> {
     Ok(current_system_time()?.as_secs())
 }
 
-pub fn timestamp_us() -> anyhow::Result<u128> {
+pub fn timestamp_us() -> Res<u128> {
     Ok(current_system_time()?.as_micros())
 }
 
@@ -74,4 +80,12 @@ pub fn timestamp_us() -> anyhow::Result<u128> {
 /// before joining.
 pub fn join_relative_path<S: AsRef<str>>(left: &Path, right: S) -> PathBuf {
     left.join(right.as_ref().trim_start_matches('/'))
+}
+
+pub fn generate_uuid() -> uuid::Uuid {
+    uuid::Uuid::new_v7(uuid::Timestamp::now(uuid::NoContext))
+}
+
+pub fn format_uuid(uuid: uuid::Uuid) -> String {
+    uuid.simple().to_string()
 }

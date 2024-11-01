@@ -1,9 +1,11 @@
 use actix_web::{error::ErrorInternalServerError, web, HttpResponse};
 use sqlx::SqliteConnection;
+use uuid::Uuid;
 
 use super::{res_failure, res_json, res_success};
-use crate::models::{Project, SceneRecord, User};
+use crate::models::{Project, Scene, User};
 use crate::req::{e500, Conn};
+use crate::utils::{format_uuid, Res};
 
 pub fn routes() -> actix_web::Scope {
     web::scope("/project")
@@ -15,17 +17,17 @@ pub fn routes() -> actix_web::Scope {
 
 #[derive(serde_derive::Serialize)]
 struct SceneListEntry {
-    scene_key: String,
+    uuid: String,
     title: String,
     updated_time: i64,
-    thumbnail: String,
+    thumbnail: Option<String>,
 }
 
 impl SceneListEntry {
-    fn from(scene: SceneRecord) -> Self {
+    fn from(scene: Scene) -> Self {
         SceneListEntry {
-            scene_key: scene.scene_key,
-            title: scene.title,
+            uuid: format_uuid(scene.uuid),
+            title: scene.title.unwrap_or_else(|| "Untitled".to_string()),
             updated_time: scene.updated_time,
             thumbnail: scene.thumbnail,
         }
@@ -34,14 +36,13 @@ impl SceneListEntry {
 
 #[derive(serde_derive::Serialize)]
 struct ProjectListEntry {
-    id: i64,
-    project_key: String,
+    uuid: String,
     title: String,
     scene_list: Vec<SceneListEntry>,
 }
 
 impl ProjectListEntry {
-    async fn from(project: Project, conn: &mut SqliteConnection) -> anyhow::Result<Self> {
+    async fn from(project: Project, conn: &mut SqliteConnection) -> Res<Self> {
         let scene_list = project
             .list_scenes(conn)
             .await?
@@ -49,9 +50,8 @@ impl ProjectListEntry {
             .map(SceneListEntry::from)
             .collect();
         Ok(ProjectListEntry {
-            id: project.id,
-            project_key: project.project_key,
-            title: project.title,
+            uuid: format_uuid(project.uuid),
+            title: project.title.unwrap_or_else(|| "Untitled".to_string()),
             scene_list,
         })
     }
@@ -72,7 +72,7 @@ struct ProjectListResponse {
 }
 
 async fn list(mut conn: Conn, user: User) -> Result<HttpResponse, actix_web::Error> {
-    let mut projects = Project::list(conn.acquire(), user.id)
+    let mut projects = Project::list_for_user(conn.acquire(), user.uuid)
         .await
         .map_err(ErrorInternalServerError)?;
 
@@ -100,7 +100,7 @@ struct NewProjectRequest {
 struct NewProjectResponse {
     message: String,
     success: bool,
-    project_key: String,
+    uuid: String,
     title: String,
 }
 
@@ -109,16 +109,21 @@ async fn new(
     user: User,
     req: web::Json<NewProjectRequest>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let project = Project::new(conn.acquire(), user.id, &req.title)
+    let project = Project::create(conn.acquire(), user.uuid, &req.title)
         .await
         .map_err(e500)?;
 
     res_json(NewProjectResponse {
         message: "Project created successfully.".to_owned(),
         success: true,
-        project_key: project.project_key,
+        uuid: format_uuid(project.uuid),
         title: req.title.clone(),
     })
+}
+
+fn retrieve_uuid_from_path(path: web::Path<(String,)>) -> Result<Uuid, actix_web::Error> {
+    Uuid::try_parse(&path.into_inner().0)
+        .map_err(|e| actix_web::error::ErrorUnprocessableEntity(format!("Invalid UUID: {e}")))
 }
 
 async fn get(
@@ -126,12 +131,12 @@ async fn get(
     user: User,
     path: web::Path<(String,)>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let project_key = path.into_inner().0;
-    let project = Project::get_by_key(conn.acquire(), &project_key)
+    let project = retrieve_uuid_from_path(path)?;
+    let project = Project::load_by_uuid(conn.acquire(), project)
         .await
         .map_err(e500)?;
 
-    if project.user != user.id {
+    if project.user != user.uuid {
         res_failure("Project not found.")
     } else {
         let list = ProjectListEntry::from(project, conn.acquire())
@@ -146,12 +151,12 @@ async fn delete(
     user: User,
     path: web::Path<(String,)>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let project_key = path.into_inner().0;
-    let project = Project::get_by_key(conn.acquire(), &project_key)
+    let project = retrieve_uuid_from_path(path)?;
+    let project = Project::load_by_uuid(conn.acquire(), project)
         .await
         .map_err(e500)?;
 
-    if project.user != user.id {
+    if project.user != user.uuid {
         res_failure("Project not found.")
     } else {
         project.delete(conn.acquire()).await.map_err(e500)?;

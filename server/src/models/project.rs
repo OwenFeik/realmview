@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqliteConnection;
 use uuid::Uuid;
 
-use super::{format_uuid, Project, Scene};
-use crate::utils::Res;
+use super::{timestamp_s, Project, Scene};
+use crate::utils::{format_uuid, generate_uuid, Res};
 
 type Conn = SqliteConnection;
 
@@ -40,6 +40,57 @@ impl Project {
         .fetch_one(conn)
         .await
         .map_err(|e| e.to_string())
+    }
+
+    pub async fn list_scenes(&self, conn: &mut Conn) -> Res<Vec<Scene>> {
+        sqlx::query_as(
+            "
+            SELECT (uuid, project, updated_time, title, thumbnail)
+            FROM scenes WHERE project = ?1;
+            ",
+        )
+        .bind(format_uuid(self.uuid))
+        .fetch_all(conn)
+        .await
+        .map_err(|e| e.to_string())
+    }
+
+    pub async fn list_for_user(conn: &mut Conn, user: Uuid) -> Res<Vec<Self>> {
+        sqlx::query_as(
+            "
+            SELECT (uuid, user, updated_time, title)
+            FROM projects WHERE user = ?1;
+            ",
+        )
+        .bind(format_uuid(user))
+        .fetch_all(conn)
+        .await
+        .map_err(|e| e.to_string())
+    }
+
+    pub async fn create(conn: &mut Conn, user: Uuid, title: &str) -> Res<Self> {
+        sqlx::query_as(
+            "
+        INSERT INTO projects (uuid, user, updated_time, title)
+        VALUES (?1, ?2, ?3, ?4) RETURNING *;
+        ",
+        )
+        .bind(format_uuid(generate_uuid()))
+        .bind(format_uuid(user))
+        .bind(timestamp_s())
+        .bind(title)
+        .fetch_one(conn)
+        .await
+        .map_err(|e| e.to_string())
+    }
+
+    pub async fn delete(self, conn: &mut Conn) -> Res<()> {
+        sqlx::query("DELETE FROM projects WHERE uuid = ?1;")
+            .bind(format_uuid(self.uuid))
+            .execute(conn)
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(())
     }
 }
 

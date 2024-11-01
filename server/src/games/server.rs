@@ -3,7 +3,6 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::anyhow;
 use scene::comms::SceneEvent;
 use sqlx::{pool::PoolConnection, SqlitePool};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
@@ -11,6 +10,7 @@ use tokio::time::Instant;
 use uuid::Uuid;
 
 use super::game::Game;
+use crate::utils::{err, Res};
 use crate::{
     models::{Project, Scene},
     scene::comms::{ClientEvent, ClientMessage, ServerEvent},
@@ -33,14 +33,14 @@ pub enum ServerCommand {
 
 #[derive(Clone)]
 pub struct GameHandle {
-    pub owner: i64,
+    pub owner: Uuid,
     open: Arc<AtomicBool>,
     chan: UnboundedSender<ServerCommand>,
 }
 
 impl GameHandle {
-    fn send(&self, command: ServerCommand) -> anyhow::Result<()> {
-        self.chan.send(command)?;
+    fn send(&self, command: ServerCommand) -> Res<()> {
+        self.chan.send(command).map_err(|e| e.to_string())?;
         Ok(())
     }
 
@@ -57,12 +57,7 @@ impl GameHandle {
         self.open.load(std::sync::atomic::Ordering::Acquire)
     }
 
-    pub fn join(
-        &self,
-        user: Uuid,
-        username: String,
-        sender: UnboundedSender<Vec<u8>>,
-    ) -> anyhow::Result<()> {
+    pub fn join(&self, user: Uuid, username: String, sender: UnboundedSender<Vec<u8>>) -> Res<()> {
         self.send(ServerCommand::Join {
             user,
             username,
@@ -70,7 +65,7 @@ impl GameHandle {
         })
     }
 
-    pub fn message(&self, user: Uuid, message: ClientMessage) -> anyhow::Result<()> {
+    pub fn message(&self, user: Uuid, message: ClientMessage) -> Res<()> {
         self.send(ServerCommand::Message { user, message })
     }
 }
@@ -247,9 +242,9 @@ impl Server {
             ClientEvent::Ping => {
                 self.send_approval(message.id, from);
             }
-            ClientEvent::SceneChange(scene_key) => {
+            ClientEvent::SceneChange(scene) => {
                 if self.game.owner_is(from) {
-                    if let Err(e) = self.load_scene(&scene_key).await {
+                    if let Err(e) = self.load_scene(scene).await {
                         self.log(LogLevel::Error, format!("Failed to load scene: {e}"));
                         self.send_rejection(message.id, from);
                     } else {
@@ -268,7 +263,7 @@ impl Server {
                     self.send_rejection(message.id, from);
                 }
 
-                // Handle layer removal by ensuring that the player still has a layer.
+                // Handle layer removal by ensuring that the player still has a layer.i64
                 if matches!(event, SceneEvent::LayerRemove(..)) {
                     if let Some((user, layer, event)) = self.game.handle_remove_layer(event) {
                         if let Some(event) = event {
@@ -372,7 +367,7 @@ impl Server {
         }
     }
 
-    fn broadcast_event(&mut self, event: ServerEvent, exclude: Option<i64>) {
+    fn broadcast_event(&mut self, event: ServerEvent, exclude: Option<Uuid>) {
         let Some(message) = self.serialise(event) else {
             return;
         };
@@ -445,22 +440,23 @@ impl Server {
         );
     }
 
-    async fn load_scene(&mut self, scene_key: &str) -> anyhow::Result<()> {
+    async fn load_scene(&mut self, scene: Uuid) -> Res<()> {
         let conn = &mut self.acquire_conn().await?;
-        let record = Scene::load_by_uuid(conn, scene_key).await?;
-        let scene = record.load_scene(conn).await?;
+        let record = Scene::load_by_uuid(conn, scene).await?;
+        let scene = todo!("load scene file based on record");
 
         self.replace_scene(scene).await;
 
         Ok(())
     }
 
-    async fn _save_scene(&self) -> anyhow::Result<()> {
+    async fn _save_scene(&self) -> Res<()> {
         let start_time = timestamp_us()?;
         let conn = &mut self.acquire_conn().await?;
-        if let Some(id) = self.game.project_id() {
-            let project = Project::load(conn, id).await?;
-            project.update_scene(conn, self.game.server_scene()).await?;
+        if let Some(id) = self.game.project_uuid() {
+            let project = Project::load_by_uuid(conn, id).await?;
+            todo!("save scene");
+            // project.update_scene(conn, self.game.server_scene()).await?;
             let duration = timestamp_us()? - start_time;
             self.log(
                 LogLevel::Debug,
@@ -468,7 +464,7 @@ impl Server {
             );
             Ok(())
         } else {
-            Err(anyhow!("Scene has no project."))
+            err("Scene has no project.")
         }
     }
 
@@ -487,7 +483,7 @@ impl Server {
         self.game.replace_scene(scene.clone(), self.owner);
 
         // Send the new scene and perms to all clients
-        let keys: Vec<(i64, String)> = self
+        let keys: Vec<(Uuid, String)> = self
             .clients
             .iter()
             .map(|(u, c)| (*u, c.username.clone()))
@@ -510,34 +506,31 @@ impl Server {
         }
     }
 
-    async fn scene_list(&self) -> anyhow::Result<ServerEvent> {
+    async fn scene_list(&self) -> Res<ServerEvent> {
         let conn = &mut self.acquire_conn().await?;
-        if let Some(id) = self.game.project_id() {
+        if let Some(id) = self.game.project_uuid() {
             let project = Project::load_by_uuid(conn, id).await?;
-            let current_scene_id = self.game.scene_id();
-            let mut current = String::from("");
             let scenes = project
                 .list_scenes(conn)
                 .await?
                 .into_iter()
                 .map(|scene| {
-                    if current_scene_id == scene.id {
-                        current.clone_from(&scene.scene_key);
-                    }
-
-                    (scene.title, scene.scene_key)
+                    (
+                        scene.title.unwrap_or_else(|| String::from("Untitled")),
+                        scene.uuid,
+                    )
                 })
                 .collect();
-            Ok(ServerEvent::SceneList(scenes, current))
+            Ok(ServerEvent::SceneList(scenes, self.game.scene_uuid()))
         } else {
-            Err(anyhow!("Failed to find project."))
+            err("Failed to find project.")
         }
     }
 
-    async fn acquire_conn(&self) -> anyhow::Result<PoolConnection<sqlx::Sqlite>> {
+    async fn acquire_conn(&self) -> Res<PoolConnection<sqlx::Sqlite>> {
         self.pool
             .acquire()
             .await
-            .map_err(|e| anyhow!("Failed to acquire connection: {e}"))
+            .map_err(|e| format!("Failed to acquire connection: {e}"))
     }
 }

@@ -19,7 +19,7 @@ pub fn routes() -> actix_web::Scope {
         .service(upload::routes())
 }
 
-type Res = Result<HttpResponse, actix_web::Error>;
+type Resp = Result<HttpResponse, actix_web::Error>;
 
 #[derive(serde_derive::Serialize)]
 struct Binary {
@@ -55,7 +55,7 @@ fn resp_success(message: &str) -> HttpResponse {
     HttpResponse::Ok().json(body_success(message))
 }
 
-fn res_success(message: &str) -> Res {
+fn res_success(message: &str) -> Resp {
     Ok(resp_success(message))
 }
 
@@ -63,7 +63,7 @@ fn resp_failure(message: &str) -> HttpResponse {
     HttpResponse::Ok().json(body_failure(message))
 }
 
-fn res_failure(message: &str) -> Res {
+fn res_failure(message: &str) -> Resp {
     Ok(resp_failure(message))
 }
 
@@ -71,7 +71,7 @@ fn resp_unproc(message: &str) -> HttpResponse {
     HttpResponse::UnprocessableEntity().json(body_failure(message))
 }
 
-fn res_unproc(message: &str) -> Res {
+fn res_unproc(message: &str) -> Resp {
     Ok(resp_unproc(message))
 }
 
@@ -83,7 +83,7 @@ fn resp(message: &str, success: bool) -> HttpResponse {
     }
 }
 
-fn res(message: &str, success: bool) -> Res {
+fn res(message: &str, success: bool) -> Resp {
     Ok(resp(message, success))
 }
 
@@ -91,6 +91,6 @@ fn resp_json(body: impl serde::Serialize) -> HttpResponse {
     HttpResponse::Ok().json(body)
 }
 
-fn res_json(body: impl serde::Serialize) -> Res {
+fn res_json(body: impl serde::Serialize) -> Resp {
     Ok(resp_json(body))
 }

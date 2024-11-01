@@ -1,8 +1,9 @@
 use actix_web::{error::ErrorInternalServerError, web, HttpResponse};
 use sqlx::SqlitePool;
 
-use super::{body_failure, body_success, resp, session_resp, Res};
+use super::{body_failure, body_success, resp, session_resp, Resp};
 use crate::req::session::{Session, SessionOpt};
+use crate::utils::Res;
 use crate::{
     crypto::{check_password, from_hex_string},
     models::{User, UserSession},
@@ -15,11 +16,7 @@ pub fn routes() -> actix_web::Scope {
         .route("/logout", web::post().to(logout))
 }
 
-fn decode_and_check_password(
-    provided: &str,
-    salt: &str,
-    hashed_password: &str,
-) -> anyhow::Result<bool> {
+fn decode_and_check_password(provided: &str, salt: &str, hashed_password: &str) -> Res<bool> {
     let salt = from_hex_string(salt)?;
     let hashed_password = from_hex_string(hashed_password)?;
     Ok(check_password(provided, &salt, &hashed_password))
@@ -31,7 +28,7 @@ struct LoginRequest {
     password: String,
 }
 
-async fn login(pool: web::Data<SqlitePool>, req: web::Json<LoginRequest>) -> Res {
+async fn login(pool: web::Data<SqlitePool>, req: web::Json<LoginRequest>) -> Resp {
     let Some(user) = User::get(&pool, req.username.as_str())
         .await
         .map_err(ErrorInternalServerError)?

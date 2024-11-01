@@ -1,4 +1,8 @@
-use crate::{crypto::random_hex_string, models::User, utils::warning};
+use crate::{
+    crypto::random_hex_string,
+    models::User,
+    utils::{warning, Res},
+};
 
 mod client;
 mod game;
@@ -9,7 +13,7 @@ use uuid::Uuid;
 
 pub const GAME_KEY_LENGTH: usize = 10;
 
-pub fn generate_game_key() -> anyhow::Result<String> {
+pub fn generate_game_key() -> Res<String> {
     random_hex_string(GAME_KEY_LENGTH)
 }
 

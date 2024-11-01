@@ -1,6 +1,6 @@
 use actix_web::{web, HttpResponse};
 
-use super::{res_failure, res_success, res_unproc, Res};
+use super::{res_failure, res_success, res_unproc, Resp};
 use crate::models::{Project, Scene, User};
 use crate::req::{e500, Conn};
 
@@ -27,7 +27,7 @@ struct SceneResponse {
 impl SceneResponse {
     const DEFAULT_TITLE: &'static str = "Untitled";
 
-    fn reply(scene: scene::Scene, key: String, project: Project) -> Res {
+    fn reply(scene: scene::Scene, key: String, project: Project) -> Resp {
         let scene_raw = bincode::serialize(&scene).map_err(e500)?;
         Ok(HttpResponse::Ok().json(&SceneResponse {
             message: "Scene saved.".to_string(),
@@ -50,7 +50,7 @@ struct SceneSaveRequest {
     encoded: String,
 }
 
-async fn save(mut conn: Conn, user: User, req: web::Json<SceneSaveRequest>) -> Res {
+async fn save(mut conn: Conn, user: User, req: web::Json<SceneSaveRequest>) -> Resp {
     let Ok(Ok(scene)) =
         base64::decode(&req.encoded).map(|bytes| bincode::deserialize::<scene::Scene>(&bytes))
     else {
@@ -78,7 +78,7 @@ struct SceneDetailsRequest {
     scene_key: Option<String>,
 }
 
-async fn details(mut conn: Conn, user: User, req: web::Json<SceneDetailsRequest>) -> Res {
+async fn details(mut conn: Conn, user: User, req: web::Json<SceneDetailsRequest>) -> Resp {
     let mut project = Project::get_by_key(conn.acquire(), &req.project_key)
         .await
         .map_err(e500)?;
@@ -104,7 +104,7 @@ async fn details(mut conn: Conn, user: User, req: web::Json<SceneDetailsRequest>
     res_success("Updated successfully.")
 }
 
-async fn load(mut conn: Conn, user: User, path: web::Path<(String,)>) -> Res {
+async fn load(mut conn: Conn, user: User, path: web::Path<(String,)>) -> Resp {
     let scene_key = path.into_inner().0;
     let record = SceneRecord::load_from_key(conn.acquire(), &scene_key)
         .await
@@ -124,7 +124,7 @@ async fn load(mut conn: Conn, user: User, path: web::Path<(String,)>) -> Res {
     }
 }
 
-async fn delete(mut conn: Conn, user: User, path: web::Path<(String,)>) -> Res {
+async fn delete(mut conn: Conn, user: User, path: web::Path<(String,)>) -> Resp {
     let scene_key = path.into_inner().0;
     match Project::delete_scene(conn.acquire(), user.id, &scene_key).await {
         Ok(_) => res_success("Scene deleted successfullly."),

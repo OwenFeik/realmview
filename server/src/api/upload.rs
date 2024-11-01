@@ -2,17 +2,16 @@ use std::path::PathBuf;
 
 use actix_multipart::{Field, Multipart};
 use actix_web::web;
-use anyhow::anyhow;
 use futures::{StreamExt, TryStreamExt};
 use ring::digest;
 use sqlx::SqlitePool;
 
-use super::{res_failure, res_json, Res};
+use super::{res_failure, res_json, Resp};
 use crate::{
     crypto::to_hex_string_unsized,
     models::{Media, User},
     req::e500,
-    utils::join_relative_path,
+    utils::{err, join_relative_path, Res},
     CONTENT,
 };
 
@@ -41,7 +40,7 @@ impl UploadImage {
     const DEFAULT_TITLE: &'static str = "untitled";
     const DEFAULT_EXT: &'static str = "png";
 
-    fn new() -> anyhow::Result<Self> {
+    fn new() -> Res<Self> {
         Ok(UploadImage {
             role: ImageRole::Media,
             data: None,
@@ -58,7 +57,7 @@ impl UploadImage {
         }
     }
 
-    fn ensure_key(&mut self) -> anyhow::Result<()> {
+    fn ensure_key(&mut self) -> Res<()> {
         if self.key.is_none() {
             self.key = Some(Media::generate_key()?);
         }
@@ -66,7 +65,7 @@ impl UploadImage {
     }
 
     /// Make sure to ensure_key() first.
-    fn relative_path(&self, user: &User) -> anyhow::Result<String> {
+    fn relative_path(&self, user: &User) -> Res<String> {
         match &self.role {
             ImageRole::Media => Ok(format!(
                 "{}/{}.{}",
@@ -83,14 +82,14 @@ impl UploadImage {
         }
     }
 
-    fn real_path(&self, user: &User) -> anyhow::Result<PathBuf> {
+    fn real_path(&self, user: &User) -> Res<PathBuf> {
         Ok(join_relative_path(
             CONTENT.as_path(),
             self.relative_path(user)?,
         ))
     }
 
-    async fn create_directory(&self, user: &User) -> anyhow::Result<()> {
+    async fn create_directory(&self, user: &User) -> Res<()> {
         let mut directory = user.upload_dir(&CONTENT.to_string_lossy());
         if matches!(self.role, ImageRole::Thumbnail(..)) {
             directory.push_str("/thumbnails");
@@ -98,10 +97,10 @@ impl UploadImage {
 
         tokio::fs::create_dir_all(directory)
             .await
-            .map_err(|e| anyhow!("Failed to create directory: {e}"))
+            .map_err(|e| format!("Failed to create directory: {e}"))
     }
 
-    async fn write_file(&self, user: &User) -> anyhow::Result<()> {
+    async fn write_file(&self, user: &User) -> Res<()> {
         self.create_directory(user).await?;
 
         match &self.data {
@@ -109,34 +108,30 @@ impl UploadImage {
                 let path = self.real_path(user)?;
                 tokio::fs::write(path, data)
                     .await
-                    .map_err(|e| anyhow!("Failed to write file: {e}"))
+                    .map_err(|e| format!("Failed to write file: {e}"))
             }
-            None => Err(anyhow!("No image data provided.")),
+            None => err("No image data provided."),
         }
     }
 
-    fn file_hash(&self) -> anyhow::Result<String> {
+    fn file_hash(&self) -> Res<String> {
         if let Some(data) = self.data.as_ref() {
             hash_file(data)
         } else {
-            Err(anyhow!("No image data provided."))
+            err("No image data provided.")
         }
     }
 
-    async fn save_thumbnail(
-        &self,
-        pool: &SqlitePool,
-        user: &User,
-    ) -> anyhow::Result<UploadResponse> {
+    async fn save_thumbnail(&self, pool: &SqlitePool, user: &User) -> Res<UploadResponse> {
         let scene_key = match &self.role {
             ImageRole::Thumbnail(key) => key,
-            _ => return Err(anyhow!("No scene ID provided.")),
+            _ => return err("No scene ID provided."),
         };
 
         let mut conn = pool
             .acquire()
             .await
-            .map_err(|e| anyhow!("Failed to get database connection: {e}"))?;
+            .map_err(|e| format!("Failed to get database connection: {e}"))?;
 
         if crate::models::Project::scene_owner(&mut conn, scene_key).await? != user.id {
             return Err(anyhow!("User does not own scene."));
@@ -155,11 +150,7 @@ impl UploadImage {
         ))
     }
 
-    async fn save_media(
-        &mut self,
-        pool: &SqlitePool,
-        user: &User,
-    ) -> anyhow::Result<UploadResponse> {
+    async fn save_media(&mut self, pool: &SqlitePool, user: &User) -> Res<UploadResponse> {
         let hash = self.file_hash()?;
 
         if let Some(existing_title) = file_exists(pool, user.id, &hash).await? {
@@ -199,7 +190,7 @@ impl UploadImage {
         }
     }
 
-    async fn save(&mut self, pool: &SqlitePool, user: &User) -> anyhow::Result<UploadResponse> {
+    async fn save(&mut self, pool: &SqlitePool, user: &User) -> Res<UploadResponse> {
         match self.role {
             ImageRole::Media => self.save_media(pool, user).await,
             ImageRole::Thumbnail(..) => self.save_thumbnail(pool, user).await,
@@ -207,11 +198,11 @@ impl UploadImage {
     }
 }
 
-fn hash_file(raw: &[u8]) -> anyhow::Result<String> {
+fn hash_file(raw: &[u8]) -> Res<String> {
     to_hex_string_unsized(digest::digest(&digest::SHA256, raw).as_ref())
 }
 
-async fn file_exists(pool: &SqlitePool, user: i64, hash: &str) -> anyhow::Result<Option<String>> {
+async fn file_exists(pool: &SqlitePool, user: i64, hash: &str) -> Res<Option<String>> {
     let row_opt = sqlx::query("SELECT title FROM media WHERE user = ?1 AND hashed_value = ?2;")
         .bind(user)
         .bind(hash)
@@ -228,7 +219,7 @@ async fn file_exists(pool: &SqlitePool, user: i64, hash: &str) -> anyhow::Result
     }
 }
 
-async fn collect_part(part: Field) -> anyhow::Result<Vec<u8>> {
+async fn collect_part(part: Field) -> Res<Vec<u8>> {
     part.try_fold(Vec::new(), |mut vec, data| {
         bytes::BufMut::put(&mut vec, data);
         async move { Ok(vec) }
@@ -281,7 +272,7 @@ impl UploadResponse {
     }
 }
 
-async fn upload(pool: web::Data<SqlitePool>, user: User, mut form: Multipart) -> Res {
+async fn upload(pool: web::Data<SqlitePool>, user: User, mut form: Multipart) -> Resp {
     let total_uploaded = Media::user_total_size(&pool, user.id).await.map_err(e500)?;
 
     // If they're already full, don't bother processing the upload.

@@ -1,11 +1,11 @@
 use actix_web::{error::ErrorInternalServerError, web};
 use sqlx::SqlitePool;
 
-use super::{res_json, Res};
+use super::{res_json, Resp};
 use crate::{
     crypto::{generate_salt, hash_password, to_hex_string, Key},
     models::User,
-    utils::timestamp_s,
+    utils::{timestamp_s, Res},
 };
 
 pub fn routes() -> actix_web::Scope {
@@ -28,7 +28,7 @@ struct RegistrationResponse {
 }
 
 impl RegistrationResponse {
-    fn success(recovery_key: String, username: String) -> Res {
+    fn success(recovery_key: String, username: String) -> Resp {
         res_json(RegistrationResponse {
             message: String::from("Registration successful."),
             recovery_key: Some(recovery_key),
@@ -38,7 +38,7 @@ impl RegistrationResponse {
         })
     }
 
-    fn failure(message: &str, problem_field: &str) -> Res {
+    fn failure(message: &str, problem_field: &str) -> Resp {
         res_json(RegistrationResponse {
             message: message.to_string(),
             recovery_key: None,
@@ -66,7 +66,7 @@ fn get_hex_strings(
     salt: &Key,
     hashed_password: &Key,
     recovery_key: &Key,
-) -> anyhow::Result<(String, String, String)> {
+) -> Res<(String, String, String)> {
     Ok((
         to_hex_string(salt)?,
         to_hex_string(hashed_password)?,
@@ -74,14 +74,14 @@ fn get_hex_strings(
     ))
 }
 
-fn generate_keys(password: &str) -> anyhow::Result<(String, String, String)> {
+fn generate_keys(password: &str) -> Res<(String, String, String)> {
     let salt = generate_salt()?;
     let hashed_password = hash_password(&salt, password);
     let recovery_key = generate_salt()?;
     get_hex_strings(&salt, &hashed_password, &recovery_key)
 }
 
-async fn register(pool: web::Data<SqlitePool>, details: web::Json<RegistrationRequest>) -> Res {
+async fn register(pool: web::Data<SqlitePool>, details: web::Json<RegistrationRequest>) -> Resp {
     if !valid_username(&details.username) {
         return RegistrationResponse::failure("Invalid username.", "username");
     }

@@ -54,7 +54,7 @@ impl Game {
     /// Given a user ID and that users name, find a layer with that users name
     /// or create one and return it. If that user is the game owner, don't do
     /// this and just return (None, None).
-    fn player_layer(&mut self, user: i64) -> (Option<SceneEvent>, Option<scene::Id>) {
+    fn player_layer(&mut self, user: Uuid) -> (Option<SceneEvent>, Option<scene::Id>) {
         let Some(name) = self.users.get(&user) else {
             warning(format!(
                 "(Game: {}) Couldn't find player (Id: {}) name.",
@@ -92,7 +92,7 @@ impl Game {
     /// Returns a tuple of (perms_event, scene_event, player_layer)
     pub fn add_player(
         &mut self,
-        user: i64,
+        user: Uuid,
         name: &str,
     ) -> (Vec<PermsEvent>, Option<SceneEvent>, Option<scene::Id>) {
         self.users.insert(user, name.to_string());
@@ -119,7 +119,7 @@ impl Game {
     pub fn handle_remove_layer(
         &mut self,
         event: SceneEvent,
-    ) -> Option<(i64, Id, Option<SceneEvent>)> {
+    ) -> Option<(Uuid, Id, Option<SceneEvent>)> {
         let SceneEvent::LayerRemove(layer) = event else {
             return None;
         };
@@ -140,12 +140,12 @@ impl Game {
         None
     }
 
-    pub fn handle_event(&mut self, user: i64, event: SceneEvent) -> bool {
+    pub fn handle_event(&mut self, user: Uuid, event: SceneEvent) -> bool {
         let layer = self.scene.event_layer(&event);
         self.perms.permitted(user, &event, layer) && self.scene.apply_event(event.clone())
     }
 
-    pub fn replace_scene(&mut self, scene: Scene, owner: i64) {
+    pub fn replace_scene(&mut self, scene: Scene, owner: Uuid) {
         self.scene = scene;
         self.scene.canon();
 
@@ -172,13 +172,14 @@ mod test {
     use scene::{comms::SceneEvent, Colour, Point, Rect, Scene, Sprite, SpriteVisual};
 
     use super::Game;
+    use crate::utils::generate_uuid;
 
     #[test]
     fn test_permissions() {
-        let project = 1;
-        let owner = 2;
-        let owner_layer = 3;
-        let player = 4;
+        let project = generate_uuid();
+        let owner = generate_uuid();
+        let owner_layer = 5;
+        let player = generate_uuid();
         let mut game = Game::new(project, Scene::new(), owner, "abcdefgh");
 
         // Owner should be able to add a new layer and a sprite to that layer.
@@ -237,10 +238,10 @@ mod test {
 
     #[test]
     fn test_drawings() {
-        let project = 1;
-        let owner = 2;
+        let project = generate_uuid();
+        let owner = generate_uuid();
         let drawing = 3;
-        let player = 4;
+        let player = generate_uuid();
         let sprite = 5;
 
         let mut game = Game::new(project, Scene::new(), owner, "ABCDEFGH");

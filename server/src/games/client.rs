@@ -34,7 +34,7 @@ pub fn connect_game_client(
                 Either::Left((Some(Ok(message)), _)) => match message {
                     Message::Binary(bytes) => match bincode::deserialize(&bytes) {
                         Ok(message) => {
-                            if server.message(user.id, message).is_err() {
+                            if server.message(user.uuid, message).is_err() {
                                 close_ws(session).await; // Server closed.
                                 break;
                             }
@@ -44,7 +44,7 @@ pub fn connect_game_client(
                     Message::Close(reason) => {
                         debug(format!(
                             "Client ({}) disconnected. Reason: {reason:?}",
-                            user.id
+                            user.uuid
                         ));
                         break;
                     }
@@ -55,12 +55,18 @@ pub fn connect_game_client(
                     warning(format!("WS protocol error: {e}"));
                 }
                 Either::Left((None, _)) => {
-                    debug(format!("Client ({}) disconnected without reason.", user.id));
+                    debug(format!(
+                        "Client ({}) disconnected without reason.",
+                        user.uuid
+                    ));
                     break;
                 }
                 Either::Right((Some(msg), _)) => {
                     if session.binary(msg).await.is_err() {
-                        debug(format!("Client ({}) disconnected without reason.", user.id));
+                        debug(format!(
+                            "Client ({}) disconnected without reason.",
+                            user.uuid
+                        ));
                         break;
                     }
                 }

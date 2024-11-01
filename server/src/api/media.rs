@@ -2,7 +2,7 @@ use actix_web::{web, HttpResponse};
 use sqlx::SqlitePool;
 use uuid::Uuid;
 
-use super::{res_failure, res_success, Res};
+use super::{res_failure, res_success, Resp};
 use crate::{
     models::{Media, User},
     req::e500,
@@ -53,7 +53,7 @@ impl MediaListResponse {
     }
 }
 
-async fn list(pool: web::Data<SqlitePool>, user: User) -> Res {
+async fn list(pool: web::Data<SqlitePool>, user: User) -> Resp {
     let media = Media::user_media(&pool, user.uuid).await.map_err(e500)?;
     let items = media.into_iter().map(MediaItem::from).collect();
     Ok(HttpResponse::Ok().json(&MediaListResponse::new(items)))
@@ -67,7 +67,11 @@ struct DetailsUpdate {
     h: f32,
 }
 
-async fn update(pool: web::Data<SqlitePool>, user: User, details: web::Json<DetailsUpdate>) -> Res {
+async fn update(
+    pool: web::Data<SqlitePool>,
+    user: User,
+    details: web::Json<DetailsUpdate>,
+) -> Resp {
     Media::update(
         &pool,
         user.uuid,
@@ -113,7 +117,7 @@ async fn retrieve(
     Ok(HttpResponse::Ok().json(&MediaItemResponse::new(MediaItem::from(media))))
 }
 
-async fn delete(pool: web::Data<SqlitePool>, user: User, path: web::Path<(String,)>) -> Res {
+async fn delete(pool: web::Data<SqlitePool>, user: User, path: web::Path<(String,)>) -> Resp {
     let uuid = match Uuid::try_parse(&path.into_inner().0) {
         Ok(uuid) => uuid,
         _ => return res_failure("Invalid media UUID."),

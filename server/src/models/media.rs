@@ -1,8 +1,8 @@
-use anyhow::anyhow;
 use sqlx::{Row, SqlitePool};
 use uuid::Uuid;
 
-use super::{format_uuid, generate_uuid, Media};
+use super::{format_uuid, Media};
+use crate::utils::{generate_uuid, Res};
 
 impl Media {
     const KEY_LENGTH: usize = 16;
@@ -21,7 +21,7 @@ impl Media {
         }
     }
 
-    pub async fn create(&self, pool: &SqlitePool) -> anyhow::Result<()> {
+    pub async fn create(&self, pool: &SqlitePool) -> Res<()> {
         sqlx::query(
             r#"
                 INSERT INTO media (
@@ -38,34 +38,36 @@ impl Media {
         .bind(self.w)
         .bind(self.h)
         .execute(pool)
-        .await?;
+        .await
+        .map_err(|e| e.to_string())?;
         Ok(())
     }
 
-    pub async fn user_total_size(pool: &SqlitePool, user: i64) -> anyhow::Result<usize> {
+    pub async fn user_total_size(pool: &SqlitePool, user: i64) -> Res<usize> {
         let row = sqlx::query("SELECT SUM(size) FROM media WHERE user = ?1;")
             .bind(user)
             .fetch_one(pool)
-            .await?;
+            .await
+            .map_err(|e| e.to_string())?;
 
         let size: i64 = row.get(0);
         Ok(size as usize)
     }
 
-    pub async fn load(pool: &SqlitePool, uuid: Uuid) -> anyhow::Result<Media> {
+    pub async fn load(pool: &SqlitePool, uuid: Uuid) -> Res<Media> {
         sqlx::query_as("SELECT * FROM media WHERE uuid = ?1;")
             .bind(uuid)
             .fetch_one(pool)
             .await
-            .map_err(|e| anyhow!("Media item not found: {e}"))
+            .map_err(|e| format!("Media item not found: {e}"))
     }
 
-    pub async fn delete(pool: &SqlitePool, uuid: Uuid) -> anyhow::Result<()> {
+    pub async fn delete(pool: &SqlitePool, uuid: Uuid) -> Res<()> {
         sqlx::query("DELETE FROM media WHERE uuid = ?1;")
             .bind(format_uuid(uuid))
             .execute(pool)
             .await
-            .map_err(|_| anyhow!("Media item not found."))?;
+            .map_err(|_| format!("Media item not found."))?;
         Ok(())
     }
 
@@ -76,7 +78,7 @@ impl Media {
         title: String,
         w: f32,
         h: f32,
-    ) -> anyhow::Result<()> {
+    ) -> Res<()> {
         sqlx::query("UPDATE media SET title = ?1, w = ?2, h = ?3 WHERE uuid = ?4 AND user = ?5;")
             .bind(&title)
             .bind(w)
@@ -84,15 +86,17 @@ impl Media {
             .bind(format_uuid(uuid))
             .bind(format_uuid(user))
             .execute(pool)
-            .await?;
+            .await
+            .map_err(|e| e.to_string())?;
         Ok(())
     }
 
-    pub async fn user_media(pool: &SqlitePool, user: Uuid) -> anyhow::Result<Vec<Media>> {
+    pub async fn user_media(pool: &SqlitePool, user: Uuid) -> Res<Vec<Media>> {
         let results = sqlx::query_as("SELECT * FROM media WHERE user = ?1;")
             .bind(format_uuid(user))
             .fetch_all(pool)
-            .await?;
+            .await
+            .map_err(|e| e.to_string())?;
         Ok(results)
     }
 }
