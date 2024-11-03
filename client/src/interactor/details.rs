@@ -1,10 +1,10 @@
 use scene::{comms::SceneEvent, Colour, Dimension, Id, Scene, Shape, Sprite, SpriteVisual};
+use uuid::Uuid;
 
 #[derive(Debug, Default, serde_derive::Deserialize, serde_derive::Serialize)]
 #[serde(default)]
 pub struct SceneDetails {
-    pub id: Option<Id>,
-    pub key: Option<String>,
+    pub uuid: Option<Uuid>,
     pub title: Option<String>,
     pub w: Option<u32>,
     pub h: Option<u32>,
@@ -14,8 +14,7 @@ pub struct SceneDetails {
 impl SceneDetails {
     pub fn from(scene: &Scene) -> Self {
         SceneDetails {
-            id: Some(scene.id),
-            key: scene.key.clone(),
+            uuid: Some(scene.uuid),
             title: scene.title.clone(),
             w: Some(scene.w()),
             h: Some(scene.h()),

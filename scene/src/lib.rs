@@ -25,6 +25,7 @@ mod layer;
 mod point;
 mod project;
 mod rect;
+mod serde;
 mod sprite;
 
 #[cfg(test)]

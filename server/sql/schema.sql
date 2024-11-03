@@ -40,5 +40,5 @@ CREATE TABLE IF NOT EXISTS scenes (
     project TEXT REFERENCES projects(uuid) ON DELETE CASCADE NOT NULL,
     updated_time INTEGER NOT NULL,
     title TEXT,
-    thumbnail TEXT
+    thumbnail TEXT -- Relative URL for thumbnail
 );

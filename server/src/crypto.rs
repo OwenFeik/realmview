@@ -29,6 +29,14 @@ pub fn to_hex_string(key: &Key) -> Res<String> {
     Ok(s)
 }
 
+pub fn format_hex(data: &[u8]) -> String {
+    let mut s = String::with_capacity(data.len() * 2);
+    for &byte in data {
+        // Can't fail as s has sufficient capacity.
+        write!(s, "{:02x}", byte).unwrap();
+    }
+    s
+}
 pub fn to_hex_string_unsized(data: &[u8]) -> Res<String> {
     let key = &<Key>::try_from(data).map_err(|e| format!("Failed to convert Vec to Key: {e}"))?;
     to_hex_string(key)

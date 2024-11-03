@@ -1,8 +1,8 @@
 use sqlx::SqlitePool;
 use uuid::Uuid;
 
-use super::{format_uuid, timestamp_s, User, UserSession};
-use crate::utils::{generate_uuid, Res};
+use super::{timestamp_s, User, UserSession};
+use crate::utils::{format_uuid, generate_uuid, Res};
 
 impl User {
     pub async fn register(
@@ -64,12 +64,12 @@ impl User {
         Ok(user)
     }
 
-    pub fn relative_dir(&self) -> String {
+    pub fn relative_upload_path(&self) -> String {
         format!("/uploads/{}", &self.username)
     }
 
-    pub fn upload_dir(&self, content_dir: &str) -> String {
-        format!("{}/{}", content_dir, &self.relative_dir())
+    pub fn absolute_upload_path(&self, content_dir: &str) -> String {
+        format!("{}/{}", content_dir, &self.relative_upload_path())
     }
 
     pub async fn username_taken(pool: &SqlitePool, username: &str) -> Res<bool> {

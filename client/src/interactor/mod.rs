@@ -1,6 +1,7 @@
 use bincode::serialize;
 use scene::comms::ServerEvent;
 use scene::Outline;
+use uuid::Uuid;
 
 use self::holding::HeldObject;
 use crate::dom::menu::CanvasDropdownEvent;
@@ -35,7 +36,7 @@ pub struct Interactor {
     /// Whether all sprites in the selection are aligned to the grid.
     selection_aligned: bool,
     selection_marquee: Option<Rect>,
-    user: Id,
+    user: Uuid,
 }
 
 impl Interactor {

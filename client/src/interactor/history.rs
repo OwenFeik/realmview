@@ -290,8 +290,8 @@ impl History {
         }
     }
 
-    pub fn change_scene(&mut self, scene_key: String) -> bool {
-        self.issue_message(ClientEvent::SceneChange(scene_key));
+    pub fn change_scene(&mut self, scene: uuid::Uuid) -> bool {
+        self.issue_message(ClientEvent::SceneChange(scene));
         self.client.is_some()
     }
 

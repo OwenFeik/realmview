@@ -8,6 +8,8 @@ mod user;
 use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
+type Conn = sqlx::SqliteConnection;
+
 #[derive(Debug, FromRow)]
 pub struct User {
     pub uuid: Uuid,
@@ -57,8 +59,4 @@ pub struct Scene {
 
 fn timestamp_s() -> i64 {
     crate::utils::timestamp_s().unwrap_or(0) as i64
-}
-
-fn format_uuid(uuid: Uuid) -> String {
-    uuid.simple().to_string()
 }

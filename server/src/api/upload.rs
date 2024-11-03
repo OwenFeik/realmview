@@ -1,17 +1,16 @@
-use std::path::PathBuf;
-
 use actix_multipart::{Field, Multipart};
 use actix_web::web;
 use futures::{StreamExt, TryStreamExt};
 use ring::digest;
-use sqlx::SqlitePool;
+use sqlx::{SqliteConnection, SqlitePool};
+use uuid::Uuid;
 
 use super::{res_failure, res_json, Resp};
 use crate::{
-    crypto::to_hex_string_unsized,
+    crypto::format_hex,
     models::{Media, User},
     req::e500,
-    utils::{err, join_relative_path, Res},
+    utils::{err, format_uuid, join_relative_path, Res},
     CONTENT,
 };
 
@@ -25,7 +24,7 @@ pub fn routes() -> actix_web::Scope {
 #[derive(Debug)]
 enum ImageRole {
     Media,
-    Thumbnail(String),
+    Thumbnail(Uuid),
 }
 
 struct UploadImage {
@@ -33,7 +32,6 @@ struct UploadImage {
     data: Option<Vec<u8>>,
     title: String,
     ext: String,
-    key: Option<String>,
 }
 
 impl UploadImage {
@@ -46,7 +44,6 @@ impl UploadImage {
             data: None,
             title: Self::DEFAULT_TITLE.to_owned(),
             ext: Self::DEFAULT_EXT.to_owned(),
-            key: None,
         })
     }
 
@@ -57,166 +54,104 @@ impl UploadImage {
         }
     }
 
-    fn ensure_key(&mut self) -> Res<()> {
-        if self.key.is_none() {
-            self.key = Some(Media::generate_key()?);
-        }
-        Ok(())
-    }
-
-    /// Make sure to ensure_key() first.
-    fn relative_path(&self, user: &User) -> Res<String> {
-        match &self.role {
-            ImageRole::Media => Ok(format!(
-                "{}/{}.{}",
-                &user.relative_dir(),
-                self.key.as_ref().unwrap(),
-                self.ext
-            )),
-            ImageRole::Thumbnail(scene_key) => Ok(format!(
-                "{}/thumbnails/{}.{}",
-                &user.relative_dir(),
-                scene_key,
-                self.ext
-            )),
-        }
-    }
-
-    fn real_path(&self, user: &User) -> Res<PathBuf> {
-        Ok(join_relative_path(
-            CONTENT.as_path(),
-            self.relative_path(user)?,
-        ))
-    }
-
-    async fn create_directory(&self, user: &User) -> Res<()> {
-        let mut directory = user.upload_dir(&CONTENT.to_string_lossy());
-        if matches!(self.role, ImageRole::Thumbnail(..)) {
-            directory.push_str("/thumbnails");
-        }
-
-        tokio::fs::create_dir_all(directory)
+    async fn submit(self, pool: &SqlitePool, user: &User) -> Res<UploadResponse> {
+        let conn = &mut pool
+            .acquire()
             .await
-            .map_err(|e| format!("Failed to create directory: {e}"))
-    }
+            .map_err(|e| format!("Failed to acquire database connection: {e} "))?;
 
-    async fn write_file(&self, user: &User) -> Res<()> {
-        self.create_directory(user).await?;
-
-        match &self.data {
-            Some(data) => {
-                let path = self.real_path(user)?;
-                tokio::fs::write(path, data)
-                    .await
-                    .map_err(|e| format!("Failed to write file: {e}"))
-            }
+        match self.data {
+            Some(data) => match self.role {
+                ImageRole::Media => save_media(conn, user, data, self.title, self.ext).await,
+                ImageRole::Thumbnail(scene) => save_thumbnail(conn, user, data, scene).await,
+            },
             None => err("No image data provided."),
         }
     }
+}
 
-    fn file_hash(&self) -> Res<String> {
-        if let Some(data) = self.data.as_ref() {
-            hash_file(data)
-        } else {
-            err("No image data provided.")
-        }
-    }
+async fn save_media(
+    conn: &mut SqliteConnection,
+    user: &User,
+    data: Vec<u8>,
+    title: String,
+    ext: String,
+) -> Res<UploadResponse> {
+    let hash = hash_file(&data);
 
-    async fn save_thumbnail(&self, pool: &SqlitePool, user: &User) -> Res<UploadResponse> {
-        let scene_key = match &self.role {
-            ImageRole::Thumbnail(key) => key,
-            _ => return err("No scene ID provided."),
-        };
-
-        let mut conn = pool
-            .acquire()
-            .await
-            .map_err(|e| format!("Failed to get database connection: {e}"))?;
-
-        if crate::models::Project::scene_owner(&mut conn, scene_key).await? != user.id {
-            return Err(anyhow!("User does not own scene."));
-        }
-
-        self.write_file(user).await?;
-
-        let relative_path = self.relative_path(user)?;
-        crate::models::Project::set_scene_thumbnail(&mut conn, scene_key, &relative_path)
-            .await
-            .ok();
-
-        Ok(UploadResponse::new(
-            None,
-            format!("/static/{}", &relative_path),
-        ))
-    }
-
-    async fn save_media(&mut self, pool: &SqlitePool, user: &User) -> Res<UploadResponse> {
-        let hash = self.file_hash()?;
-
-        if let Some(existing_title) = file_exists(pool, user.id, &hash).await? {
-            return {
-                if existing_title == self.title {
-                    Err(anyhow!("File already uploaded."))
-                } else {
-                    Err(anyhow!("File already uploaded as {}", &existing_title))
-                }
-            };
-        }
-
-        self.ensure_key()?;
-        let relative_path = self.relative_path(user)?;
-        let url = format!("/static/{}", &relative_path);
-        self.write_file(user).await?;
-        match Media::new(
-            self.key.as_ref().unwrap().clone(),
-            user.id,
-            relative_path,
-            self.title.clone(),
-            hash,
-            self.size() as i64,
-        )
-        .create(pool)
-        .await
-        {
-            Ok(()) => Ok(UploadResponse::new(
-                Some(self.key.as_ref().unwrap().clone()),
-                url,
-            )),
-            Err(e) => {
-                // Remove file as part of cleanup.
-                tokio::fs::remove_file(&self.real_path(user)?).await.ok();
-                Err(anyhow!("Database error: {e}"))
+    if let Some(existing_title) = Media::exists(conn, user.uuid, &hash).await? {
+        return {
+            if existing_title == title {
+                err("File already uploaded.")
+            } else {
+                Err(format!("File already uploaded as {}", &existing_title))
             }
-        }
+        };
     }
 
-    async fn save(&mut self, pool: &SqlitePool, user: &User) -> Res<UploadResponse> {
-        match self.role {
-            ImageRole::Media => self.save_media(pool, user).await,
-            ImageRole::Thumbnail(..) => self.save_thumbnail(pool, user).await,
+    let record = Media::prepare(
+        user.uuid,
+        &user.relative_upload_path(),
+        &ext,
+        title,
+        hash,
+        data.len() as i64,
+    );
+
+    let path = join_relative_path(&CONTENT, &record.relative_path);
+    write_file(&path, data).await?;
+
+    let url = format!("/static/{}", &record.relative_path);
+    match record.create(conn).await {
+        Ok(()) => Ok(UploadResponse::new(Some(format_uuid(record.uuid)), url)),
+        Err(e) => {
+            // Remove file as part of cleanup.
+            tokio::fs::remove_file(&path).await.ok();
+            Err(format!("Database error: {e}"))
         }
     }
 }
 
-fn hash_file(raw: &[u8]) -> Res<String> {
-    to_hex_string_unsized(digest::digest(&digest::SHA256, raw).as_ref())
+async fn save_thumbnail(
+    conn: &mut SqliteConnection,
+    user: &User,
+    data: Vec<u8>,
+    scene: Uuid,
+) -> Res<UploadResponse> {
+    if crate::models::Project::for_scene(conn, scene).await?.user != user.uuid {
+        return err("User does not own scene.");
+    }
+
+    let relative_path = format!(
+        "{}/thumbnails/{}.png",
+        &user.relative_upload_path(),
+        format_uuid(scene),
+    );
+    let absolute_path = join_relative_path(&CONTENT, &relative_path);
+    write_file(absolute_path, data).await?;
+
+    crate::models::Scene::set_thumbnail(conn, scene, &relative_path).await?;
+
+    Ok(UploadResponse::new(
+        None,
+        format!("/static/{}", &relative_path),
+    ))
 }
 
-async fn file_exists(pool: &SqlitePool, user: i64, hash: &str) -> Res<Option<String>> {
-    let row_opt = sqlx::query("SELECT title FROM media WHERE user = ?1 AND hashed_value = ?2;")
-        .bind(user)
-        .bind(hash)
-        .fetch_optional(pool)
-        .await?;
-
-    if let Some(row) = row_opt {
-        match sqlx::Row::try_get(&row, 0) {
-            Ok(s) => Ok(Some(s)),
-            Err(_) => Err(anyhow::anyhow!("Database error.")),
-        }
-    } else {
-        Ok(None)
+async fn write_file(path: impl AsRef<std::path::Path>, data: Vec<u8>) -> Res<()> {
+    if let Some(parent) = path.as_ref().parent() {
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(|e| format!("Failed to create upload directory: {e}"))?;
     }
+
+    tokio::fs::write(path, data)
+        .await
+        .map_err(|e| format!("Failed to write file: {e}"))
+}
+
+fn hash_file(raw: &[u8]) -> String {
+    format_hex(digest::digest(&digest::SHA256, raw).as_ref())
 }
 
 async fn collect_part(part: Field) -> Res<Vec<u8>> {
@@ -225,7 +160,7 @@ async fn collect_part(part: Field) -> Res<Vec<u8>> {
         async move { Ok(vec) }
     })
     .await
-    .map_err(|e| anyhow!("Failed to read part: {e}"))
+    .map_err(|e| format!("Failed to read part: {e}"))
 }
 
 fn ext_from_filename(filename: &str) -> Option<String> {
@@ -257,23 +192,25 @@ fn choose_file_extension(part: &Field) -> Option<String> {
 struct UploadResponse {
     message: String,
     success: bool,
-    media_key: Option<String>,
+    uuid: Option<String>,
     url: String,
 }
 
 impl UploadResponse {
-    fn new(key: Option<String>, url: String) -> UploadResponse {
+    fn new(uuid: Option<String>, url: String) -> UploadResponse {
         UploadResponse {
             message: String::from("Uploaded successfully."),
             success: true,
-            media_key: key,
+            uuid,
             url,
         }
     }
 }
 
 async fn upload(pool: web::Data<SqlitePool>, user: User, mut form: Multipart) -> Resp {
-    let total_uploaded = Media::user_total_size(&pool, user.id).await.map_err(e500)?;
+    let total_uploaded = Media::user_total_size(&pool, user.uuid)
+        .await
+        .map_err(e500)?;
 
     // If they're already full, don't bother processing the upload.
     if total_uploaded >= UPLOAD_LIMIT {
@@ -284,8 +221,12 @@ async fn upload(pool: web::Data<SqlitePool>, user: User, mut form: Multipart) ->
 
     while let Some(Ok(part)) = form.next().await {
         match part.name() {
-            "thumbnail" => match collect_part(part).await.map(String::from_utf8) {
-                Ok(Ok(scene_key)) => upload.role = ImageRole::Thumbnail(scene_key),
+            "thumbnail" => match collect_part(part)
+                .await
+                .and_then(|b| String::from_utf8(b).map_err(|e| e.to_string()))
+                .and_then(|s| Uuid::try_parse(&s).map_err(|e| e.to_string()))
+            {
+                Ok(uuid) => upload.role = ImageRole::Thumbnail(uuid),
                 _ => return res_failure("Bad thumbnail scene ID."),
             },
             "image" => {
@@ -310,6 +251,6 @@ async fn upload(pool: web::Data<SqlitePool>, user: User, mut form: Multipart) ->
         return res_failure("Upload limit exceeded.");
     }
 
-    let res = upload.save(&pool, &user).await.map_err(e500)?;
+    let res = upload.submit(&pool, &user).await.map_err(e500)?;
     res_json(res)
 }

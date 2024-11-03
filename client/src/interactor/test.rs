@@ -1,7 +1,13 @@
+use uuid::Uuid;
+
 use self::details::SceneDetails;
 use super::*;
 
-fn add_player_layer(int: &mut Interactor, player: Id) -> Id {
+fn generate_uuid() -> Uuid {
+    Uuid::new_v7(uuid::Timestamp::now(uuid::NoContext))
+}
+
+fn add_player_layer(int: &mut Interactor, player: Uuid) -> Id {
     // New layer behind foreground.
     let Some(SceneEvent::LayerNew(layer, ..)) =
         int.scene.new_layer("player", Scene::FOREGROUND_Z - 1)
@@ -16,11 +22,13 @@ fn add_player_layer(int: &mut Interactor, player: Id) -> Id {
 /// sprite, it's possible to click on that sprite.
 #[test]
 fn test_select_behind_forbidden() {
+    let player = generate_uuid();
+
     let mut int = Interactor::new(None);
-    int.user = 1;
+    int.user = player;
     int.role = scene::perms::Role::Player;
 
-    let layer = add_player_layer(&mut int, 1);
+    let layer = add_player_layer(&mut int, player);
 
     let server_sprite_id = 3;
     let visual = SpriteVisual::Shape {

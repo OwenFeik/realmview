@@ -1,4 +1,5 @@
 use actix_web::{web, HttpResponse};
+use uuid::Uuid;
 
 use super::{res_failure, res_success, res_unproc, Resp};
 use crate::models::{Project, Scene, User};
@@ -7,7 +8,7 @@ use crate::req::{e500, Conn};
 pub fn routes() -> actix_web::Scope {
     web::scope("/scene")
         .route("/save", web::post().to(save))
-        .route("/details", web::post().to(details))
+        .route("/details", web::post().to(update_details))
         .route("/load/{scene_key}", web::get().to(load))
         .route("/{scene_key}", web::post().to(save))
         .route("/{scene_key}", web::delete().to(delete))
@@ -73,17 +74,17 @@ async fn save(mut conn: Conn, user: User, req: web::Json<SceneSaveRequest>) -> R
 #[derive(serde_derive::Deserialize)]
 struct SceneDetailsRequest {
     project_title: Option<String>,
-    project_key: String,
+    project_uuid: Uuid,
     scene_title: Option<String>,
-    scene_key: Option<String>,
+    scene_uuid: Option<Uuid>,
 }
 
-async fn details(mut conn: Conn, user: User, req: web::Json<SceneDetailsRequest>) -> Resp {
-    let mut project = Project::get_by_key(conn.acquire(), &req.project_key)
+async fn update_details(mut conn: Conn, user: User, req: web::Json<SceneDetailsRequest>) -> Resp {
+    let mut project = Project::load_by_uuid(conn.acquire(), req.project_uuid)
         .await
         .map_err(e500)?;
 
-    if project.user != user.id {
+    if project.user != user.uuid {
         return res_failure("Project not found.");
     }
 
