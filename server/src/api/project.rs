@@ -132,7 +132,7 @@ async fn get(
     path: web::Path<(String,)>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let project = retrieve_uuid_from_path(path)?;
-    let project = Project::load_by_uuid(conn.acquire(), project)
+    let project = Project::get_by_uuid(conn.acquire(), project)
         .await
         .map_err(e500)?;
 
@@ -152,7 +152,7 @@ async fn delete(
     path: web::Path<(String,)>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let project = retrieve_uuid_from_path(path)?;
-    let project = Project::load_by_uuid(conn.acquire(), project)
+    let project = Project::get_by_uuid(conn.acquire(), project)
         .await
         .map_err(e500)?;
 

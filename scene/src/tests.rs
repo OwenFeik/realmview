@@ -1,8 +1,10 @@
+use uuid::Uuid;
+
 use crate::{Point, Scene, SpriteVisual};
 
 #[test]
 fn test_layer_move() {
-    let mut scene = Scene::new();
+    let mut scene = Scene::new(Uuid::nil());
 
     let layer_zs = |s: &Scene| s.layers.iter().map(|l| l.z).collect();
 
@@ -19,7 +21,7 @@ fn test_layer_move() {
 
 #[test]
 fn test_sprite_drawing() {
-    let mut server = Scene::new();
+    let mut server = Scene::new(Uuid::nil());
     let mut client = server.non_canon();
 
     let (drawing, event) = client.start_drawing(crate::DrawingMode::Freehand, Point::ORIGIN);

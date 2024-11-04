@@ -113,10 +113,9 @@ mod v1 {
         }
 
         let layers = layer_idx_to_layer.into_values().collect();
-        let mut sc = crate::Scene::new_with(layers, drawings);
-        sc.uuid = scene.uuid;
-        sc.title = Some(scene.title);
-        sc.project = Some(project);
+        let mut sc = crate::Scene::new_with(project, layers, drawings);
+        sc.uuid = Some(scene.uuid);
+        sc.title = scene.title;
         sc.fog = crate::Fog::from(scene.fog, scene.fog_active, scene.w, scene.h);
         sc.groups = groups;
         sc
@@ -177,9 +176,12 @@ mod v1 {
         let (layers, sprites, sprite_ids_to_idxs) =
             prepare_layers_sprites(scene, &drawing_ids_to_idxs);
         let groups = prepare_groups(scene, &sprite_ids_to_idxs);
+        let Some(uuid) = scene.uuid else {
+            return Err("Can't save scene before it's assigned a UUID.".to_string());
+        };
         Ok(Scene {
-            uuid: scene.uuid,
-            title: scene.title.clone().unwrap_or("Untitled".into()),
+            uuid,
+            title: scene.title.clone(),
             w: scene.fog.w,
             h: scene.fog.h,
             fog: scene.fog.data(),

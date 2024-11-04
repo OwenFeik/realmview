@@ -8,7 +8,7 @@ use uuid::Uuid;
 use super::{res_failure, res_json, res_success, Resp};
 use crate::{
     games::{close_ws, connect_client, generate_game_key, launch_server, GameHandle},
-    models::{Scene, User},
+    models::{Project, Scene, User},
     req::e500,
 };
 
@@ -45,16 +45,16 @@ async fn new(
     req: web::Json<NewGameRequest>,
 ) -> Resp {
     let conn = &mut pool.acquire().await.map_err(e500)?;
-    let scene = match Scene::load_by_uuid(conn, req.scene).await {
-        Ok(r) => match r.user(conn).await {
-            Ok(user_id) => {
-                if user.id == user_id {
-                    r.load_scene(conn).await.map_err(e500)?
+    let project = match Scene::get_by_uuid(conn, req.scene).await {
+        Ok(r) => match Project::for_scene(conn, r.uuid).await {
+            Ok(proj) => {
+                if user.uuid == proj.user {
+                    proj.load().await.map_err(e500)?
                 } else {
                     return res_failure("Scene owned by a different user.");
                 }
             }
-            _ => return res_failure("Scene user not found."),
+            _ => return res_failure("Project not found."),
         },
         _ => return res_failure("Scene not found."),
     };
@@ -69,29 +69,25 @@ async fn new(
         }
     };
 
-    if let Some(project) = scene.project {
-        let pool = (*pool.into_inner()).clone();
-        let server = launch_server(game_key.clone(), user.id, project, scene, pool);
-        games.write().await.insert(game_key.clone(), server);
-        let game_location = game_url(&game_key);
-        let resp = HttpResponse::Ok()
-            .insert_header(("location", game_location.as_str()))
-            .json(GameResponse {
-                message: "Game launched successfully.".to_string(),
-                success: true,
-                url: game_location,
-            });
-        Ok(resp)
-    } else {
-        res_failure("Scene project unknown.")
-    }
+    let pool = (*pool.into_inner()).clone();
+    let server = launch_server(game_key.clone(), user.uuid, project, req.scene, pool);
+    games.write().await.insert(game_key.clone(), server);
+    let game_location = game_url(&game_key);
+    let resp = HttpResponse::Ok()
+        .insert_header(("location", game_location.as_str()))
+        .json(GameResponse {
+            message: "Game launched successfully.".to_string(),
+            success: true,
+            url: game_location,
+        });
+    Ok(resp)
 }
 
 async fn end(games: web::Data<Games>, user: User, path: web::Path<(String,)>) -> Resp {
     let game_key = path.into_inner().0;
 
     if let Some(handle) = games.read().await.get(&game_key) {
-        if handle.owner == user.id {
+        if handle.owner == user.uuid {
             handle.close();
             res_success("Game closed.")
         } else {

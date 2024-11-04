@@ -4,7 +4,7 @@ use super::{timestamp_s, Conn, Project, Scene};
 use crate::utils::{format_uuid, generate_uuid, Res};
 
 impl Scene {
-    pub async fn load_by_uuid(conn: &mut Conn, uuid: Uuid) -> Res<Self> {
+    pub async fn get_by_uuid(conn: &mut Conn, uuid: Uuid) -> Res<Self> {
         sqlx::query_as(
             "
             SELECT (uuid, project, updated_time, title, thumbnail)
@@ -29,7 +29,11 @@ impl Scene {
 }
 
 impl Project {
-    pub async fn load_by_uuid(conn: &mut Conn, uuid: Uuid) -> Res<Self> {
+    pub async fn load(&self) -> Res<scene::Project> {
+        todo!()
+    }
+
+    pub async fn get_by_uuid(conn: &mut Conn, uuid: Uuid) -> Res<Self> {
         sqlx::query_as(
             "
             SELECT (uuid, user, updated_time, title)
@@ -131,7 +135,8 @@ mod db {
         let scene_ids = project
             .scenes
             .iter()
-            .map(|scene| format!("'{}'", scene.uuid.simple()))
+            .filter_map(|scene| scene.uuid)
+            .map(|uuid| format_uuid(uuid))
             .collect::<Vec<String>>()
             .join(", ");
         sqlx::query(&format!(

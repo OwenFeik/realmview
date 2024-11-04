@@ -27,7 +27,7 @@ pub enum SceneEvent {
     LayerRestore(Id),                             // (layer)
     LayerVisibility(Id, bool),                    // (layer, status)
     SceneDimensions(u32, u32, u32, u32),          // (old_w, old_h, new_w, new_h)
-    SceneTitle(Option<String>, String),           // (old_title, new_title)
+    SceneTitle(String, String),                   // (old_title, new_title)
     SpriteDrawingStart(Id, DrawingMode),          // (drawing, mode)
     SpriteDrawingPoint(Id, Point),                // (drawing, npoints, point)
     SpriteLayer(Id, Id, Id),                      // (sprite, old_layer, new_layer)

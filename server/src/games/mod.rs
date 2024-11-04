@@ -20,8 +20,8 @@ pub fn generate_game_key() -> Res<String> {
 pub fn launch_server(
     key: String,
     owner: Uuid,
-    project: Uuid,
-    scene: scene::Scene,
+    project: scene::Project,
+    scene: Uuid,
     pool: sqlx::SqlitePool,
 ) -> GameHandle {
     server::launch(key, owner, project, scene, pool)

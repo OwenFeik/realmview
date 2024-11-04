@@ -32,13 +32,13 @@ CREATE TABLE IF NOT EXISTS projects (
     uuid TEXT PRIMARY KEY,
     user TEXT REFERENCES users(uuid) ON DELETE CASCADE NOT NULL,
     updated_time INTEGER NOT NULL,
-    title TEXT
+    title TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS scenes (
     uuid TEXT PRIMARY KEY,
     project TEXT REFERENCES projects(uuid) ON DELETE CASCADE NOT NULL,
     updated_time INTEGER NOT NULL,
-    title TEXT,
+    title TEXT NOT NULL,
     thumbnail TEXT -- Relative URL for thumbnail
 );

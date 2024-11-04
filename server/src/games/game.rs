@@ -7,22 +7,21 @@ use crate::{
     scene::{
         comms::{PermsEvent, SceneEvent},
         perms::{self, Perms},
-        Scene,
     },
     utils::warning,
 };
 
 pub struct Game {
     pub key: String,
-    pub project: Uuid,
-
-    scene: Scene,
+    project: scene::Project,
+    scene: scene::Scene,
     perms: Perms,
     users: HashMap<Uuid, String>,
 }
 
 impl Game {
-    pub fn new(project: Uuid, mut scene: Scene, owner: Uuid, key: &str) -> Self {
+    pub fn new(project: scene::Project, scene: Uuid, owner: Uuid, key: &str) -> Self {
+        let mut scene = project.get_scene(scene).unwrap().clone();
         scene.canon();
         let mut perms = Perms::new();
         perms.set_owner(owner);
@@ -35,11 +34,11 @@ impl Game {
         }
     }
 
-    pub fn project_uuid(&self) -> Option<Uuid> {
+    pub fn project_uuid(&self) -> Uuid {
         self.scene.project
     }
 
-    pub fn scene_uuid(&self) -> Uuid {
+    pub fn scene_uuid(&self) -> Option<Uuid> {
         self.scene.uuid
     }
 
@@ -73,7 +72,7 @@ impl Game {
             }
         }
 
-        if let Some(event) = self.scene.new_layer(name, Scene::FOREGROUND_Z) {
+        if let Some(event) = self.scene.new_layer(name, scene::Scene::FOREGROUND_Z) {
             let id = if let &SceneEvent::LayerNew(id, ..) = &event {
                 id
             } else {
@@ -145,7 +144,7 @@ impl Game {
         self.perms.permitted(user, &event, layer) && self.scene.apply_event(event.clone())
     }
 
-    pub fn replace_scene(&mut self, scene: Scene, owner: Uuid) {
+    pub fn replace_scene(&mut self, scene: scene::Scene, owner: Uuid) {
         self.scene = scene;
         self.scene.canon();
 
@@ -154,11 +153,11 @@ impl Game {
         self.perms = perms;
     }
 
-    pub fn server_scene(&self) -> Scene {
+    pub fn server_scene(&self) -> scene::Scene {
         self.scene.clone()
     }
 
-    pub fn client_scene(&mut self) -> Scene {
+    pub fn client_scene(&mut self) -> scene::Scene {
         self.scene.non_canon()
     }
 
@@ -180,7 +179,7 @@ mod test {
         let owner = generate_uuid();
         let owner_layer = 5;
         let player = generate_uuid();
-        let mut game = Game::new(project, Scene::new(), owner, "abcdefgh");
+        let mut game = Game::new(project, Scene::new(project), owner, "abcdefgh");
 
         // Owner should be able to add a new layer and a sprite to that layer.
         let owner_sprite = 6;
@@ -244,7 +243,7 @@ mod test {
         let player = generate_uuid();
         let sprite = 5;
 
-        let mut game = Game::new(project, Scene::new(), owner, "ABCDEFGH");
+        let mut game = Game::new(project, Scene::new(project), owner, "ABCDEFGH");
         let (_, _, layer) = game.add_player(player, "player");
         let layer = layer.unwrap();
 

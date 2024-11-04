@@ -57,8 +57,8 @@ fn test_select_behind_forbidden() {
 /// Test that a game owner can select a sprite created by another player.
 #[test]
 fn test_select_player_sprite() {
-    let owner = 1;
-    let player = 2;
+    let owner = generate_uuid();
+    let player = generate_uuid();
 
     let mut int = Interactor::new(None);
     int.perms.set_owner(owner);

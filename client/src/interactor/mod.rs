@@ -66,8 +66,8 @@ impl Interactor {
         }
     }
 
-    pub fn scene_key(&self) -> Option<String> {
-        self.scene.key.clone()
+    pub fn scene_uuid(&self) -> Option<String> {
+        self.scene.uuid.map(|uuid| uuid.simple().to_string())
     }
 
     pub fn process_server_events(&mut self) -> Option<(Vec<(String, String)>, String)> {

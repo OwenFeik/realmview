@@ -80,7 +80,7 @@ struct SceneDetailsRequest {
 }
 
 async fn update_details(mut conn: Conn, user: User, req: web::Json<SceneDetailsRequest>) -> Resp {
-    let mut project = Project::load_by_uuid(conn.acquire(), req.project_uuid)
+    let mut project = Project::get_by_uuid(conn.acquire(), req.project_uuid)
         .await
         .map_err(e500)?;
 

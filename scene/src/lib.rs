@@ -14,6 +14,7 @@ pub use point::{Point, PointVector};
 pub use project::Project;
 pub use rect::{float_eq, Dimension, Rect};
 pub use sprite::{Cap, Colour, Outline, Shape, Sprite, Visual as SpriteVisual};
+use uuid::Uuid;
 
 pub mod comms;
 pub mod perms;
@@ -40,13 +41,13 @@ pub struct Scene {
     next_id: Id,
     sprite_drawings: HashMap<Id, Drawing>,
     drawing_sprites: HashMap<Id, Id>,
-    pub uuid: uuid::Uuid,
-    pub project: Option<uuid::Uuid>,
+    pub uuid: Option<uuid::Uuid>,
+    pub project: uuid::Uuid,
 
     /// Layers in the scene. Sorted Highest to lowest.
     pub layers: Vec<Layer>,
     pub removed_layers: Vec<Layer>,
-    pub title: Option<String>,
+    pub title: String,
     pub fog: Fog,
     pub groups: Vec<Group>,
 }
@@ -60,8 +61,11 @@ impl Scene {
     // set aside for use by that client.
     const ID_SPACE_INCREMENT: i64 = 2_i64.pow(24);
 
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(project: Uuid) -> Self {
+        Self {
+            project,
+            ..Default::default()
+        }
     }
 
     pub fn h(&self) -> u32 {
@@ -105,8 +109,9 @@ impl Scene {
         self.next_id = max_id + 1;
     }
 
-    pub fn new_with(layers: Vec<Layer>, drawings: Vec<Drawing>) -> Self {
+    pub fn new_with(project: Uuid, layers: Vec<Layer>, drawings: Vec<Drawing>) -> Self {
         let mut scene = Self {
+            project,
             layers,
             ..Default::default()
         };
@@ -644,7 +649,7 @@ impl Scene {
             }
             SceneEvent::SceneTitle(old, new) => {
                 if self.title == old {
-                    self.title = Some(new);
+                    self.title = new;
                     true
                 } else {
                     false
@@ -746,11 +751,9 @@ impl Scene {
                 }
             }
             SceneEvent::SceneTitle(old, new) => {
-                if self.title == Some(new.clone()) {
+                if self.title == new {
                     self.title = old;
-                    if let Some(title) = &self.title {
-                        return Some(SceneEvent::SceneTitle(Some(new), title.clone()));
-                    }
+                    return Some(SceneEvent::SceneTitle(new, self.title.clone()));
                 }
                 None
             }
@@ -784,7 +787,7 @@ impl Scene {
 impl Default for Scene {
     fn default() -> Self {
         Self {
-            uuid: uuid::Uuid::nil(),
+            uuid: None,
             next_id: 4,
             modified: false,
             sprite_drawings: HashMap::new(),
@@ -796,8 +799,8 @@ impl Default for Scene {
                 Layer::new(3, "Background", -2),
             ],
             removed_layers: vec![],
-            title: None,
-            project: None,
+            title: "Untitled".to_string(),
+            project: uuid::Uuid::nil(),
             fog: Fog::new(Scene::DEFAULT_SIZE, Scene::DEFAULT_SIZE),
             groups: Vec::new(),
         }

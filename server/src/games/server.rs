@@ -73,8 +73,8 @@ impl GameHandle {
 pub fn launch(
     key: String,
     owner: Uuid,
-    project: Uuid,
-    scene: scene::Scene,
+    project: scene::Project,
+    scene: Uuid,
     pool: SqlitePool,
 ) -> GameHandle {
     let open = Arc::new(AtomicBool::new(true));
@@ -135,8 +135,8 @@ impl Server {
         open: Arc<AtomicBool>,
         key: &str,
         owner: Uuid,
-        project: Uuid,
-        scene: scene::Scene,
+        project: scene::Project,
+        scene: Uuid,
         pool: SqlitePool,
         handle: UnboundedReceiver<ServerCommand>,
     ) -> Self {
@@ -442,7 +442,7 @@ impl Server {
 
     async fn load_scene(&mut self, scene: Uuid) -> Res<()> {
         let conn = &mut self.acquire_conn().await?;
-        let record = Scene::load_by_uuid(conn, scene).await?;
+        let record = Scene::get_by_uuid(conn, scene).await?;
         let scene = todo!("load scene file based on record");
 
         self.replace_scene(scene).await;
@@ -454,7 +454,7 @@ impl Server {
         let start_time = timestamp_us()?;
         let conn = &mut self.acquire_conn().await?;
         if let Some(id) = self.game.project_uuid() {
-            let project = Project::load_by_uuid(conn, id).await?;
+            let project = Project::get_by_uuid(conn, id).await?;
             todo!("save scene");
             // project.update_scene(conn, self.game.server_scene()).await?;
             let duration = timestamp_us()? - start_time;
@@ -509,7 +509,7 @@ impl Server {
     async fn scene_list(&self) -> Res<ServerEvent> {
         let conn = &mut self.acquire_conn().await?;
         if let Some(id) = self.game.project_uuid() {
-            let project = Project::load_by_uuid(conn, id).await?;
+            let project = Project::get_by_uuid(conn, id).await?;
             let scenes = project
                 .list_scenes(conn)
                 .await?

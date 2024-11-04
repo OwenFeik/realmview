@@ -77,7 +77,7 @@ async fn new_scene(
     path: web::Path<(Uuid,)>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let project_key = path.into_inner().0;
-    let proj = Project::load_by_uuid(conn.acquire(), project_key)
+    let proj = Project::get_by_uuid(conn.acquire(), project_key)
         .await
         .map_err(e500)?;
 
