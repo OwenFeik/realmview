@@ -129,7 +129,7 @@ impl Viewport {
     const SAVE_INTERVAL_MS: u64 = 1000 * 60; // 1 minute.
 
     pub fn new(client: Option<Client>) -> Res<Self> {
-        let scene = Interactor::new(client);
+        let scene = Interactor::new(client, None);
         let mut vp = Viewport {
             scene,
             context: Context::new()?,
@@ -688,9 +688,9 @@ impl Viewport {
         self.scene.replace_scene(scene);
     }
 
-    pub fn set_scene_list(&mut self, scenes: Vec<(String, String)>) {
+    fn set_scene_list(&mut self, scenes: Vec<(String, String)>) {
         self.menu().set_scene_list(scenes);
-        let scene_key = self.scene.scene_key();
-        self.menu().set_scene(scene_key);
+        let selected = self.scene.scene_uuid();
+        self.menu().set_scene(selected);
     }
 }

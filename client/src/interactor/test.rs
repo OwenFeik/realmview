@@ -7,6 +7,10 @@ fn generate_uuid() -> Uuid {
     Uuid::new_v7(uuid::Timestamp::now(uuid::NoContext))
 }
 
+fn fresh_interactor() -> Interactor {
+    Interactor::new(None, Project::new(generate_uuid()))
+}
+
 fn add_player_layer(int: &mut Interactor, player: Uuid) -> Id {
     // New layer behind foreground.
     let Some(SceneEvent::LayerNew(layer, ..)) =
@@ -24,7 +28,7 @@ fn add_player_layer(int: &mut Interactor, player: Uuid) -> Id {
 fn test_select_behind_forbidden() {
     let player = generate_uuid();
 
-    let mut int = Interactor::new(None);
+    let mut int = fresh_interactor();
     int.user = player;
     int.role = scene::perms::Role::Player;
 
@@ -60,7 +64,7 @@ fn test_select_player_sprite() {
     let owner = generate_uuid();
     let player = generate_uuid();
 
-    let mut int = Interactor::new(None);
+    let mut int = fresh_interactor();
     int.perms.set_owner(owner);
     int.user = owner;
     int.role = scene::perms::Role::Owner;
@@ -80,7 +84,7 @@ fn test_select_player_sprite() {
 
 #[test]
 fn test_fog_active_triggers_scene() {
-    let mut int = Interactor::new(None);
+    let mut int = fresh_interactor();
     int.scene_details(SceneDetails {
         fog: Some(false),
         ..Default::default()

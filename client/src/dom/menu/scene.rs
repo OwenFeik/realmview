@@ -80,7 +80,7 @@ impl SceneMenu {
         );
         self.inputs
             .set_bool("Fog of War", details.fog.unwrap_or(false));
-        self.set_scene(details.key);
+        self.set_scene(details.uuid.map(|u| u.simple().to_string()));
     }
 
     pub fn set_brush(&mut self, brush: u32) {

@@ -14,8 +14,8 @@ pub struct SceneDetails {
 impl SceneDetails {
     pub fn from(scene: &Scene) -> Self {
         SceneDetails {
-            uuid: Some(scene.uuid),
-            title: scene.title.clone(),
+            uuid: scene.uuid,
+            title: Some(scene.title.clone()),
             w: Some(scene.w()),
             h: Some(scene.h()),
             fog: Some(scene.fog.active),
@@ -24,9 +24,9 @@ impl SceneDetails {
 
     pub fn update_scene(&self, scene: &mut Scene) -> Option<SceneEvent> {
         let mut events = Vec::new();
-        if self.title.is_some() {
+        if let Some(title) = &self.title {
             let old = scene.title.clone();
-            scene.title.clone_from(&self.title);
+            scene.title.clone_from(title);
             events.push(SceneEvent::SceneTitle(old, self.title.clone().unwrap()));
         }
 

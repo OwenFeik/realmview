@@ -1,6 +1,7 @@
 use bincode::serialize;
 use scene::comms::ServerEvent;
 use scene::Outline;
+use scene::Project;
 use uuid::Uuid;
 
 use self::holding::HeldObject;
@@ -46,8 +47,9 @@ impl Interactor {
     /// to refer to all currently selected sprites.
     const SELECTION_ID: Id = -1;
 
-    pub fn new(client: Option<Client>) -> Self {
-        let scene = Scene::new();
+    pub fn new(client: Option<Client>, project: Option<Project>) -> Self {
+        let project = project.unwrap_or_else(|| Project::new(Uuid::nil()));
+        let scene = Scene::new(project.uuid);
         let selected_layer = scene.first_layer();
         Interactor {
             changes: changes::Changes::new(),
@@ -839,7 +841,7 @@ impl Interactor {
         serialize(&self.scene).unwrap_or_default()
     }
 
-    pub fn new_scene(&mut self, id: Id) {
+    pub fn new_scene(&mut self) {
         self.scene = Scene::new();
         if id != 0 {
             self.scene.project = Some(id);
@@ -849,8 +851,8 @@ impl Interactor {
 
     /// Returns true if the scene change can be effected by the client, else
     /// false.
-    pub fn change_scene(&mut self, scene_key: String) -> bool {
-        self.history.change_scene(scene_key)
+    pub fn change_scene(&mut self, scene: Uuid) -> bool {
+        self.history.change_scene(scene)
     }
 
     fn replace_perms(&mut self, new: Perms) {

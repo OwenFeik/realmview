@@ -321,13 +321,14 @@ impl History {
 
 #[cfg(test)]
 mod test {
-    use scene::{comms::SceneEvent, Point};
+    use scene::{comms::SceneEvent, Point, Project};
+    use uuid::Uuid;
 
     use crate::interactor::Interactor;
 
     #[test]
     fn test_group_drawing_events() {
-        let mut int = Interactor::new(None);
+        let mut int = Interactor::new(None, Project::new(Uuid::nil()));
 
         int.start_draw(
             Point::ORIGIN,
