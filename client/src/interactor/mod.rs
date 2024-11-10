@@ -25,6 +25,7 @@ mod test;
 pub struct Interactor {
     pub changes: changes::Changes,
     pub role: scene::perms::Role,
+    pub project: Project,
     copied: Option<Vec<Sprite>>,
     fog_brush: f32,
     history: history::History,
@@ -59,6 +60,7 @@ impl Interactor {
             history: history::History::new(client),
             holding: HeldObject::None,
             perms: Perms::new(),
+            project,
             scene,
             selected_layer,
             selected_sprites: Vec::new(),
@@ -68,8 +70,8 @@ impl Interactor {
         }
     }
 
-    pub fn scene_uuid(&self) -> Option<String> {
-        self.scene.uuid.map(|uuid| uuid.simple().to_string())
+    pub fn scene_uuid(&self) -> String {
+        self.scene.uuid.simple().to_string()
     }
 
     pub fn process_server_events(&mut self) -> Option<(Vec<(String, String)>, String)> {
@@ -123,7 +125,13 @@ impl Interactor {
                 self.replace_scene(*scene);
             }
             ServerEvent::SceneList(scenes, current) => {
-                return Some((scenes, current));
+                return Some((
+                    scenes
+                        .into_iter()
+                        .map(|(title, uuid)| (title, uuid.simple().to_string()))
+                        .collect(),
+                    current.simple().to_string(),
+                ));
             }
             ServerEvent::SceneUpdate(scene_event) => {
                 self.changes.layer_change_if(scene_event.is_layer());
@@ -842,10 +850,7 @@ impl Interactor {
     }
 
     pub fn new_scene(&mut self) {
-        self.scene = Scene::new();
-        if id != 0 {
-            self.scene.project = Some(id);
-        }
+        self.scene = self.project.new_scene().clone();
         self.changes.all_change();
     }
 

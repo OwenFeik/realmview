@@ -8,7 +8,7 @@ fn generate_uuid() -> Uuid {
 }
 
 fn fresh_interactor() -> Interactor {
-    Interactor::new(None, Project::new(generate_uuid()))
+    Interactor::new(None, Some(Project::new(generate_uuid())))
 }
 
 fn add_player_layer(int: &mut Interactor, player: Uuid) -> Id {

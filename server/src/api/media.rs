@@ -4,9 +4,9 @@ use uuid::Uuid;
 
 use super::{res_failure, res_success, Resp};
 use crate::{
+    fs::{join_relative_path, CONTENT},
     models::{Media, User},
     req::e500,
-    utils::join_relative_path,
 };
 
 pub fn routes() -> actix_web::Scope {
@@ -124,12 +124,9 @@ async fn delete(pool: web::Data<SqlitePool>, user: User, path: web::Path<(String
     };
     if let Ok(media) = Media::load(&pool, uuid).await {
         if user.uuid == media.user && Media::delete(&pool, uuid).await.is_ok() {
-            tokio::fs::remove_file(join_relative_path(
-                crate::CONTENT.as_path(),
-                media.relative_path,
-            ))
-            .await
-            .ok();
+            tokio::fs::remove_file(join_relative_path(&CONTENT, media.relative_path))
+                .await
+                .ok();
             return res_success("Media deleted successfully.");
         }
     }

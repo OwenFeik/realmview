@@ -14,7 +14,7 @@ pub struct SceneDetails {
 impl SceneDetails {
     pub fn from(scene: &Scene) -> Self {
         SceneDetails {
-            uuid: scene.uuid,
+            uuid: Some(scene.uuid),
             title: Some(scene.title.clone()),
             w: Some(scene.w()),
             h: Some(scene.h()),

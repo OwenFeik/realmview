@@ -2,17 +2,55 @@ use actix_web::{error::ErrorInternalServerError, web, HttpResponse};
 use sqlx::SqliteConnection;
 use uuid::Uuid;
 
-use super::{res_failure, res_json, res_success};
+use super::{res_failure, res_json, res_success, res_unproc};
 use crate::models::{Project, Scene, User};
-use crate::req::{e500, Conn};
+use crate::req::{e500, Pool};
 use crate::utils::{format_uuid, Res};
 
 pub fn routes() -> actix_web::Scope {
     web::scope("/project")
+        .route("/save", web::post().to(save))
         .route("/list", web::get().to(list))
         .route("/new", web::post().to(new))
         .route("/{project_id}", web::get().to(get))
         .route("/{project_id}", web::delete().to(delete))
+}
+
+#[derive(serde_derive::Serialize)]
+struct ProjectResponse {
+    message: String,
+    success: bool,
+    project: ProjectListEntry,
+}
+
+async fn save(
+    mut pool: Pool,
+    user: User,
+    body: bytes::Bytes,
+) -> Result<HttpResponse, actix_web::Error> {
+    let conn = pool.acquire();
+
+    let Ok(project) = scene::serde::deserialise(&body) else {
+        return res_unproc("Failed to decode project.");
+    };
+
+    let (record, scenes) = match Project::save(conn, user.uuid, project).await {
+        Ok(record) => record,
+        Err(e) => return Err(e500(e)),
+    };
+
+    let scene_list = scenes.into_iter().map(SceneListEntry::from).collect();
+    let project = ProjectListEntry {
+        uuid: format_uuid(record.uuid),
+        title: record.title,
+        scene_list,
+    };
+
+    Ok(HttpResponse::Ok().json(ProjectResponse {
+        message: "Project saved successfully.".to_string(),
+        success: true,
+        project,
+    }))
 }
 
 #[derive(serde_derive::Serialize)]
@@ -27,7 +65,7 @@ impl SceneListEntry {
     fn from(scene: Scene) -> Self {
         SceneListEntry {
             uuid: format_uuid(scene.uuid),
-            title: scene.title.unwrap_or_else(|| "Untitled".to_string()),
+            title: scene.title,
             updated_time: scene.updated_time,
             thumbnail: scene.thumbnail,
         }
@@ -51,17 +89,10 @@ impl ProjectListEntry {
             .collect();
         Ok(ProjectListEntry {
             uuid: format_uuid(project.uuid),
-            title: project.title.unwrap_or_else(|| "Untitled".to_string()),
+            title: project.title,
             scene_list,
         })
     }
-}
-
-#[derive(serde_derive::Serialize)]
-struct ProjectResponse {
-    message: String,
-    success: bool,
-    project: ProjectListEntry,
 }
 
 #[derive(serde_derive::Serialize)]
@@ -71,7 +102,7 @@ struct ProjectListResponse {
     list: Vec<ProjectListEntry>,
 }
 
-async fn list(mut conn: Conn, user: User) -> Result<HttpResponse, actix_web::Error> {
+async fn list(mut conn: Pool, user: User) -> Result<HttpResponse, actix_web::Error> {
     let mut projects = Project::list_for_user(conn.acquire(), user.uuid)
         .await
         .map_err(ErrorInternalServerError)?;
@@ -105,7 +136,7 @@ struct NewProjectResponse {
 }
 
 async fn new(
-    mut conn: Conn,
+    mut conn: Pool,
     user: User,
     req: web::Json<NewProjectRequest>,
 ) -> Result<HttpResponse, actix_web::Error> {
@@ -127,7 +158,7 @@ fn retrieve_uuid_from_path(path: web::Path<(String,)>) -> Result<Uuid, actix_web
 }
 
 async fn get(
-    mut conn: Conn,
+    mut conn: Pool,
     user: User,
     path: web::Path<(String,)>,
 ) -> Result<HttpResponse, actix_web::Error> {
@@ -147,7 +178,7 @@ async fn get(
 }
 
 async fn delete(
-    mut conn: Conn,
+    mut conn: Pool,
     user: User,
     path: web::Path<(String,)>,
 ) -> Result<HttpResponse, actix_web::Error> {

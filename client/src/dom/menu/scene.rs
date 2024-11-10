@@ -17,7 +17,7 @@ impl SceneMenu {
             Some(scene::Scene::MAX_SIZE as i32),
             None,
             |vp, w| {
-                vp.scene.scene_details(SceneDetails {
+                vp.int.scene_details(SceneDetails {
                     w: Some(w as u32),
                     ..Default::default()
                 });
@@ -29,7 +29,7 @@ impl SceneMenu {
             Some(scene::Scene::MAX_SIZE as i32),
             None,
             |vp, h| {
-                vp.scene.scene_details(SceneDetails {
+                vp.int.scene_details(SceneDetails {
                     h: Some(h as u32),
                     ..Default::default()
                 });
@@ -37,13 +37,13 @@ impl SceneMenu {
         );
         inputs.add_line();
         inputs.add_checkbox_handler("Fog of War", |vp, active| {
-            vp.scene.scene_details(SceneDetails {
+            vp.int.scene_details(SceneDetails {
                 fog: Some(active),
                 ..Default::default()
             });
         });
         inputs.add_float_handler("Brush", Some(1), Some(20), Some(0.5), |vp, brush| {
-            vp.scene.set_fog_brush(brush);
+            vp.int.set_fog_brush(brush);
         });
         inputs.add_line();
         inputs.add_select_handler("Change Scene", &[], |_vp, key| {
@@ -80,7 +80,9 @@ impl SceneMenu {
         );
         self.inputs
             .set_bool("Fog of War", details.fog.unwrap_or(false));
-        self.set_scene(details.uuid.map(|u| u.simple().to_string()));
+        if let Some(scene) = details.uuid {
+            self.set_scene(scene.simple().to_string());
+        }
     }
 
     pub fn set_brush(&mut self, brush: u32) {
@@ -110,9 +112,8 @@ impl SceneMenu {
         self.inputs.get_string("Change Scene")
     }
 
-    pub fn set_scene(&self, scene: Option<String>) {
-        self.inputs
-            .set_string("Change Scene", &scene.unwrap_or_default());
+    pub fn set_scene(&self, scene: String) {
+        self.inputs.set_string("Change Scene", &scene);
     }
 
     pub fn set_scene_list(&mut self, scenes: Vec<(String, String)>) {

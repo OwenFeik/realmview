@@ -5,14 +5,12 @@ mod game;
 mod media;
 mod project;
 mod register;
-mod scene;
 mod upload;
 
 pub fn routes() -> actix_web::Scope {
     actix_web::web::scope("/api")
         .service(auth::routes())
         .service(game::routes())
-        .service(scene::routes())
         .service(project::routes())
         .service(media::routes())
         .service(register::routes())

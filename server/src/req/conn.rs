@@ -6,17 +6,17 @@ use sqlx::{pool::PoolConnection, Sqlite, SqliteConnection};
 
 use super::e500;
 
-pub struct Conn(PoolConnection<Sqlite>);
+pub struct Pool(PoolConnection<Sqlite>);
 
-impl Conn {
+impl Pool {
     pub fn acquire(&mut self) -> &mut SqliteConnection {
         &mut self.0
     }
 }
 
-impl FromRequest for Conn {
+impl FromRequest for Pool {
     type Error = actix_web::Error;
-    type Future = Pin<Box<dyn Future<Output = Result<Conn, Self::Error>>>>;
+    type Future = Pin<Box<dyn Future<Output = Result<Pool, Self::Error>>>>;
 
     fn from_request(
         _req: &actix_web::HttpRequest,
@@ -24,7 +24,7 @@ impl FromRequest for Conn {
     ) -> Self::Future {
         Box::pin(async {
             if let Some(pool) = super::POOL.get() {
-                Ok(Conn(pool.acquire().await.map_err(e500)?))
+                Ok(Pool(pool.acquire().await.map_err(e500)?))
             } else {
                 Err(ErrorInternalServerError("Failed to acquire pool."))
             }

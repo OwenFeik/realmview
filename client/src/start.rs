@@ -8,7 +8,7 @@ use std::sync::Mutex;
 use wasm_bindgen::{prelude::*, JsCast};
 
 use crate::bridge::{
-    console_log, expose_closure_f64, expose_closure_f64x2_string, expose_closure_string_in, log,
+    console_log, expose_closure, expose_closure_f64x2_string, expose_closure_string_in, log,
     request_animation_frame,
 };
 use crate::client::Client;
@@ -70,10 +70,10 @@ pub fn start() -> Result<(), JsValue> {
     load_scene_closure.forget();
 
     let vp_ref = vp.clone();
-    let new_scene_closure = Closure::wrap(Box::new(move |id: f64| {
-        lock_and(&vp_ref, |vp| vp.scene.new_scene(id as i64));
-    }) as Box<dyn FnMut(f64)>);
-    expose_closure_f64("new_scene", &new_scene_closure);
+    let new_scene_closure = Closure::wrap(Box::new(move || {
+        lock_and(&vp_ref, |vp| vp.int.new_scene());
+    }) as Box<dyn FnMut()>);
+    expose_closure("new_scene", &new_scene_closure);
     new_scene_closure.forget();
 
     let vp_ref = vp.clone();
@@ -81,7 +81,7 @@ pub fn start() -> Result<(), JsValue> {
         let texture = crate::render::parse_media_key(&media_key);
         lock_and(&vp_ref, |vp| {
             let at = vp.placement_tile();
-            vp.scene.new_sprite_at(
+            vp.int.new_sprite_at(
                 Some(scene::SpriteVisual::Texture {
                     id: texture,
                     shape: scene::Shape::Rectangle,
@@ -106,8 +106,8 @@ pub fn start() -> Result<(), JsValue> {
     let vp_ref = vp.clone();
     let before_unload_closure: Closure<dyn FnMut() -> Option<String>> = Closure::new(move || {
         lock_and(&vp_ref, |vp| {
-            if vp.scene.save_required() {
-                vp.save_scene();
+            if vp.int.save_required() {
+                vp.save();
                 Some(String::new())
             } else {
                 None

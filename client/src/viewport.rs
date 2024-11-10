@@ -1,4 +1,4 @@
-use crate::bridge::{save_scene, timestamp_ms, SaveState};
+use crate::bridge::{save_project, timestamp_ms, SaveState};
 use crate::dom::menu::{CanvasDropdownEvent, Menu};
 use crate::render::Renderer;
 use crate::scene::{Point, Rect};
@@ -84,7 +84,7 @@ impl ViewportPoint {
     }
 }
 pub struct Viewport {
-    pub scene: Interactor,
+    pub int: Interactor,
 
     // Currently active tool
     tool: Tool,
@@ -131,7 +131,7 @@ impl Viewport {
     pub fn new(client: Option<Client>) -> Res<Self> {
         let scene = Interactor::new(client, None);
         let mut vp = Viewport {
-            scene,
+            int: scene,
             context: Context::new()?,
             menu: None,
             tool: Tool::Select,
@@ -159,7 +159,7 @@ impl Viewport {
 
     pub fn add_menu(&mut self, menu: Menu) {
         self.menu = Some(menu);
-        let details = self.scene.get_scene_details();
+        let details = self.int.get_scene_details();
         self.menu().set_scene_details(details);
         self.menu().set_fog_brush(Interactor::DEFAULT_FOG_BRUSH);
         self.update_layers_menu();
@@ -170,8 +170,8 @@ impl Viewport {
     }
 
     fn update_layers_menu(&mut self) {
-        let selected = self.scene.selected_layer();
-        let layers = self.scene.layer_info();
+        let selected = self.int.selected_layer();
+        let layers = self.int.layer_info();
         self.menu().set_layer_info(selected, &layers);
     }
 
@@ -183,7 +183,7 @@ impl Viewport {
                 self.cursor_position
                     .unwrap_or(ViewportPoint { x: 0.0, y: 0.0 }),
             );
-            self.scene.cursor(at).override_default(
+            self.int.cursor(at).override_default(
                 self.tool
                     .cursor()
                     .override_default(new.unwrap_or(Cursor::Default)),
@@ -207,7 +207,7 @@ impl Viewport {
             self.redraw_needed();
         }
 
-        if tool.allowed(self.scene.role) {
+        if tool.allowed(self.int.role) {
             self.tool = tool;
             self.update_cursor(None);
             self.menu().update_tool(tool);
@@ -226,12 +226,12 @@ impl Viewport {
     }
 
     fn enable_fog(&mut self) {
-        self.scene
+        self.int
             .scene_details(crate::interactor::details::SceneDetails {
                 fog: Some(true),
                 ..Default::default()
             });
-        let new_details = self.scene.get_scene_details();
+        let new_details = self.int.get_scene_details();
         self.menu().set_scene_details(new_details);
     }
 
@@ -256,7 +256,7 @@ impl Viewport {
     }
 
     fn centre_viewport(&mut self) {
-        let (w, h) = self.scene.dimensions();
+        let (w, h) = self.int.dimensions();
         self.viewport.x = (w as f32 / 2.0 - self.viewport.w / 2.0).round();
         self.viewport.y = (h as f32 / 2.0 - self.viewport.h / 2.0).round();
         self.redraw_needed();
@@ -277,7 +277,7 @@ impl Viewport {
                         let menu = self.menu();
                         let draw_details = menu.get_draw_details();
                         let draw_tool = menu.get_draw_tool();
-                        self.scene.start_draw(
+                        self.int.start_draw(
                             self.scene_point(at),
                             ctrl,
                             alt,
@@ -286,7 +286,7 @@ impl Viewport {
                         );
                     }
                     Tool::Pan => self.grab(at),
-                    Tool::Select => self.scene.grab(self.scene_point(at), ctrl),
+                    Tool::Select => self.int.grab(self.scene_point(at), ctrl),
                     _ => (),
                 };
 
@@ -294,7 +294,7 @@ impl Viewport {
                 self.mouse_down = Some(true);
             }
             MouseButton::Right => {
-                if self.scene.select_at(self.scene_point(at), ctrl) {
+                if self.int.select_at(self.scene_point(at), ctrl) {
                     self.menu().show_dropdown(at);
                 } else {
                     self.grab(at)
@@ -315,7 +315,7 @@ impl Viewport {
                 if let Tool::Pan = self.tool {
                     self.release_grab();
                 }
-                self.scene.release(alt, ctrl);
+                self.int.release(alt, ctrl);
 
                 self.mouse_down = Some(false);
             }
@@ -327,7 +327,7 @@ impl Viewport {
 
     fn handle_mouse_move(&mut self, at: ViewportPoint, ctrl: bool, shift: bool) {
         let scene_point = self.scene_point(at);
-        self.scene.drag(scene_point, shift);
+        self.int.drag(scene_point, shift);
         if let Some(from) = self.grabbed_at {
             self.viewport.x += (from.x - at.x) / self.grid_zoom;
             self.viewport.y += (from.y - at.y) / self.grid_zoom;
@@ -335,13 +335,13 @@ impl Viewport {
             self.redraw_needed();
         }
 
-        self.update_cursor(Some(self.scene.cursor_at(scene_point, ctrl)));
+        self.update_cursor(Some(self.int.cursor_at(scene_point, ctrl)));
 
         if matches!(self.mouse_down, Some(true))
             && matches!(self.tool, Tool::Fog)
-            && self.scene.fog().active
+            && self.int.fog().active
         {
-            self.scene.set_fog(scene_point, ctrl);
+            self.int.set_fog(scene_point, ctrl);
         }
     }
 
@@ -394,7 +394,7 @@ impl Viewport {
             match self.tool {
                 Tool::Draw => self.menu().handle_stroke_change(delta * STROKE_COEFFICIENT),
                 Tool::Fog => {
-                    let fog_brush = self.scene.change_fog_brush(delta);
+                    let fog_brush = self.int.change_fog_brush(delta);
                     self.menu().set_fog_brush(fog_brush);
                 }
                 _ => {}
@@ -407,7 +407,7 @@ impl Viewport {
 
         // Update the held object details for the scene for the new cursor
         // position.
-        self.scene
+        self.int
             .drag(at.scene_point(self.viewport, self.grid_zoom), shift);
     }
 
@@ -420,11 +420,11 @@ impl Viewport {
             _ => Point { x: 0.0, y: 0.0 },
         };
 
-        if ctrl || !self.scene.has_selection() {
+        if ctrl || !self.int.has_selection() {
             self.viewport.translate_in_place(delta);
             self.redraw_needed();
         } else {
-            self.scene.move_selection(delta);
+            self.int.move_selection(delta);
         }
     }
 
@@ -440,31 +440,31 @@ impl Viewport {
     fn handle_key_down(&mut self, key: Key, ctrl: bool) {
         match key {
             Key::Control => self.set_ctrl_down(true),
-            Key::Delete => self.scene.remove_selection(),
+            Key::Delete => self.int.remove_selection(),
             Key::Escape => {
-                self.scene.clear_selection();
+                self.int.clear_selection();
                 self.set_tool(Tool::Select);
             }
             Key::Plus | Key::Equals => self.zoom_in(),
             Key::Minus | Key::Underscore => self.zoom_out(),
             Key::Space => self.set_tool(Tool::Pan),
             Key::A => {
-                self.scene.select_all();
+                self.int.select_all();
                 self.set_tool(Tool::Select);
             }
-            Key::C => self.scene.copy(),
-            Key::D => self.scene.clear_selection(),
+            Key::C => self.int.copy(),
+            Key::D => self.int.clear_selection(),
             Key::E => self.set_draw_tool(DrawTool::Circle),
             Key::F => self.set_draw_tool(DrawTool::Freehand),
             Key::L => self.set_draw_tool(DrawTool::Line),
             Key::O => self.set_draw_tool(DrawTool::Cone),
             Key::Q => self.set_tool(Tool::Select),
             Key::R => self.set_draw_tool(DrawTool::Rectangle),
-            Key::S => self.save_scene(),
-            Key::V => self.scene.paste(self.target_point()),
+            Key::S => self.save(),
+            Key::V => self.int.paste(self.target_point()),
             Key::W => self.set_tool(Tool::Fog),
-            Key::Y => self.scene.redo(),
-            Key::Z => self.scene.undo(),
+            Key::Y => self.int.redo(),
+            Key::Z => self.int.undo(),
             k if k.is_arrow() => self.handle_arrow_key_down(key, ctrl),
             _ => {}
         }
@@ -500,7 +500,7 @@ impl Viewport {
             if matches!(event, CanvasDropdownEvent::Aura) {
                 self.set_tool(Tool::Select);
             }
-            self.scene.handle_dropdown_event(event, draw_details);
+            self.int.handle_dropdown_event(event, draw_details);
         }
 
         let events = match self.context.events() {
@@ -554,21 +554,21 @@ impl Viewport {
             .cursor_position
             .map(|at| self.scene_point(at))
             .map(|at| {
-                let r = self.scene.get_fog_brush();
+                let r = self.int.get_fog_brush();
                 Rect::at(at - Point::same(r), r * 2.0, r * 2.0)
             });
         let renderer = self.context.renderer();
 
         renderer.clear(vp);
-        renderer.draw_scene(vp, self.scene.scene());
+        renderer.draw_scene(vp, self.int.scene());
 
-        if self.scene.fog().active {
-            renderer.draw_fog(vp, self.scene.fog(), self.scene.role.editor());
+        if self.int.fog().active {
+            renderer.draw_fog(vp, self.int.fog(), self.int.role.editor());
         }
 
-        renderer.draw_outlines(vp, &self.scene.selections());
+        renderer.draw_outlines(vp, &self.int.selections());
 
-        for (at, measurement) in self.scene.active_measurements() {
+        for (at, measurement) in self.int.active_measurements() {
             let feet = (measurement * 5.).round();
             renderer.draw_text(vp, at, &format!("{feet}ft"));
         }
@@ -593,44 +593,44 @@ impl Viewport {
     pub fn animation_frame(&mut self) {
         // Handle incoming input events, server events and viewport changes.
         self.process_ui_events();
-        if let Some((list, scene)) = self.scene.process_server_events() {
+        if let Some((list, scene)) = self.int.process_server_events() {
             self.set_scene_list(list);
-            self.menu().set_scene(Some(scene));
+            self.menu().set_scene(scene);
         }
         self.update_viewport();
 
         // Redraw the scene if required.
         if self.redraw_needed
             || self.context.load_texture_queue()
-            || self.scene.changes.handle_sprite_change()
+            || self.int.changes.handle_sprite_change()
         {
             self.redraw();
             self.redraw_needed = false;
         }
 
         // Handle layer changes by updating layers menu.
-        if self.scene.changes.handle_layer_change() {
+        if self.int.changes.handle_layer_change() {
             self.update_layers_menu();
         }
 
         // Handle selection changes by updating sprite menu.
-        if self.scene.changes.handle_selected_change() {
-            let details = self.scene.selected_details();
+        if self.int.changes.handle_selected_change() {
+            let details = self.int.selected_details();
             self.menu().set_sprite_info(details);
-            let has_selection = self.scene.has_selection();
+            let has_selection = self.int.has_selection();
             self.menu().update_selection(has_selection);
         }
 
         // Handle role changes if any by updating visible tools.
-        if self.scene.changes.handle_role_change() {
-            let new_role = self.scene.role;
+        if self.int.changes.handle_role_change() {
+            let new_role = self.int.role;
             self.menu().update_role(new_role);
         }
 
         // Save the scene every save interval, as required.
         let now = timestamp_ms();
         if now.saturating_sub(self.last_save) >= Self::SAVE_INTERVAL_MS {
-            self.save_scene();
+            self.save();
         }
     }
 
@@ -658,12 +658,12 @@ impl Viewport {
 
     pub fn placement_tile(&self) -> Point {
         let centre = self.centre_tile();
-        if self.scene.role.editor() {
+        if self.int.role.editor() {
             centre
         } else {
             let x = centre.x as u32;
             let y = centre.y as u32;
-            let nearest = self.scene.fog().nearest_clear(x, y);
+            let nearest = self.int.fog().nearest_clear(x, y);
             if nearest != (x, y) {
                 Point::new(nearest.0 as f32, nearest.1 as f32)
             } else {
@@ -672,25 +672,23 @@ impl Viewport {
         }
     }
 
-    pub fn save_scene(&mut self) {
-        if self.scene.save_required() {
-            if let Some(scene_key) = self.scene.scene_key() {
-                self.save_state = save_scene(&scene_key, self.scene.export()).ok();
-                self.last_save = timestamp_ms();
-                self.scene.save_done();
-            }
+    pub fn save(&mut self) {
+        if self.int.save_required() {
+            self.save_state = save_project(&self.int.project).ok();
+            self.last_save = timestamp_ms();
+            self.int.save_done();
         }
     }
 
     pub fn replace_scene(&mut self, scene: scene::Scene) {
         self.menu()
             .set_scene_details(crate::interactor::details::SceneDetails::from(&scene));
-        self.scene.replace_scene(scene);
+        self.int.replace_scene(scene);
     }
 
-    fn set_scene_list(&mut self, scenes: Vec<(String, String)>) {
+    pub fn set_scene_list(&mut self, scenes: Vec<(String, String)>) {
         self.menu().set_scene_list(scenes);
-        let selected = self.scene.scene_uuid();
+        let selected = self.int.scene_uuid();
         self.menu().set_scene(selected);
     }
 }

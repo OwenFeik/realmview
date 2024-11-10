@@ -26,7 +26,7 @@ mod layer;
 mod point;
 mod project;
 mod rect;
-mod serde;
+pub mod serde;
 mod sprite;
 
 #[cfg(test)]
@@ -41,7 +41,7 @@ pub struct Scene {
     next_id: Id,
     sprite_drawings: HashMap<Id, Drawing>,
     drawing_sprites: HashMap<Id, Id>,
-    pub uuid: Option<uuid::Uuid>,
+    pub uuid: uuid::Uuid,
     pub project: uuid::Uuid,
 
     /// Layers in the scene. Sorted Highest to lowest.
@@ -787,7 +787,7 @@ impl Scene {
 impl Default for Scene {
     fn default() -> Self {
         Self {
-            uuid: None,
+            uuid: uuid::Uuid::new_v7(uuid::Timestamp::now(uuid::NoContext)),
             next_id: 4,
             modified: false,
             sprite_drawings: HashMap::new(),

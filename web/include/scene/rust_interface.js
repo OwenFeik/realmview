@@ -21,11 +21,9 @@ var RustFuncs = {
 
     new_scene: missing_func,
     /*
-    function new_scene(project_id: number)
+    function new_scene()
 
-    If the current scene is an existing scene (has an ID set), replaces it with
-    an empty scene with project ID as specified. Use project ID 0 for a new
-    project.
+    Create a new scene in the current project.
     */
 
     new_sprite: missing_func,
@@ -118,9 +116,9 @@ function load_scene(scene_encoded) {
 }
 
 // Wrapper that reloads layer list as well.
-function new_scene(project_id = 0) {
+function new_scene() {
     call_when_ready("new_scene", () => {
-        RustFuncs.new_scene(project_id);
+        RustFuncs.new_scene();
     });
 }
 

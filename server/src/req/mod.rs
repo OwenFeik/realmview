@@ -7,7 +7,7 @@ use sqlx::SqlitePool;
 
 static POOL: Lazy<OnceCell<SqlitePool>> = Lazy::new(OnceCell::new);
 
-pub use conn::Conn;
+pub use conn::Pool;
 
 pub fn set_pool(pool: SqlitePool) {
     POOL.set(pool).expect("Failed to set pool reference.");

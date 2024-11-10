@@ -1,10 +1,20 @@
 use uuid::Uuid;
 
-use super::{timestamp_s, Conn, Project, Scene};
-use crate::utils::{format_uuid, generate_uuid, Res};
+use super::{timestamp_s, Conn, Project, Scene, User};
+use crate::{
+    fs::{join_relative_path, SAVES},
+    utils::{err, format_uuid, generate_uuid, Res},
+};
 
 impl Scene {
     pub async fn get_by_uuid(conn: &mut Conn, uuid: Uuid) -> Res<Self> {
+        match Self::lookup(conn, uuid).await? {
+            Some(record) => Ok(record),
+            None => err("Scene does not exist."),
+        }
+    }
+
+    async fn lookup(conn: &mut Conn, uuid: Uuid) -> Res<Option<Self>> {
         sqlx::query_as(
             "
             SELECT (uuid, project, updated_time, title, thumbnail)
@@ -12,7 +22,7 @@ impl Scene {
             ",
         )
         .bind(format_uuid(uuid))
-        .fetch_one(conn)
+        .fetch_optional(conn)
         .await
         .map_err(|e| e.to_string())
     }
@@ -26,14 +36,99 @@ impl Scene {
             .map_err(|e| e.to_string())?;
         Ok(())
     }
+
+    async fn update_or_create(
+        conn: &mut Conn,
+        project: Uuid,
+        scene: &mut scene::Scene,
+    ) -> Res<Self> {
+        let (scene_uuid, exists) = match Self::lookup(conn, scene.uuid).await? {
+            Some(record) if record.project == project => (record.uuid, true),
+            _ => (generate_uuid(), false), // Record doesn't exist or in other project.
+        };
+        scene.uuid = scene_uuid;
+
+        if exists {
+            sqlx::query_as(
+                "UPDATE scenes SET updated_time = ?1, title = ?2 WHERE uuid = ?3 RETURNING *;",
+            )
+            .bind(timestamp_s())
+            .bind(&scene.title)
+            .bind(format_uuid(scene_uuid))
+            .fetch_one(conn)
+            .await
+            .map_err(|e| e.to_string())
+        } else {
+            sqlx::query_as(
+                "
+                INSERT INTO scenes (uuid, project, updated_time, title)
+                VALUES (?1, ?2, ?3, ?4) RETURNING *;",
+            )
+            .bind(format_uuid(scene_uuid))
+            .bind(format_uuid(project))
+            .bind(timestamp_s())
+            .bind(&scene.title)
+            .fetch_one(conn)
+            .await
+            .map_err(|e| e.to_string())
+        }
+    }
 }
 
 impl Project {
+    pub async fn save(
+        conn: &mut Conn,
+        owner: Uuid,
+        mut project: scene::Project,
+    ) -> Res<(Self, Vec<Scene>)> {
+        // TODO would be good to wrap this whole thing in some kind of transaction.
+
+        let user = User::get_by_uuid(conn, owner).await?;
+
+        let record: Self = Self::update_or_create(conn, &mut project, owner).await?;
+        let mut scenes = Vec::new();
+        for scene in &mut project.scenes {
+            scenes.push(Scene::update_or_create(conn, record.uuid, scene).await?);
+        }
+        record.remove_deleted_scenes(conn, &scenes).await;
+
+        let data = scene::serde::serialise(&project)?;
+        let path = join_relative_path(&SAVES, user.relative_save_path());
+        tokio::fs::write(path, data)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        Ok((record, scenes))
+    }
+
+    async fn remove_deleted_scenes(&self, conn: &mut Conn, scenes: &[Scene]) {
+        let scene_ids = scenes
+            .iter()
+            .map(|scene| format!("'{}'", format_uuid(scene.uuid)))
+            .collect::<Vec<String>>()
+            .join(", ");
+        sqlx::query(&format!(
+            "DELETE FROM scenes WHERE project = ?1 AND uuid NOT IN ({})",
+            scene_ids
+        ))
+        .bind(self.uuid)
+        .execute(conn)
+        .await
+        .ok();
+    }
+
     pub async fn load(&self) -> Res<scene::Project> {
-        todo!()
+        todo!("Load project associated this DB record")
     }
 
     pub async fn get_by_uuid(conn: &mut Conn, uuid: Uuid) -> Res<Self> {
+        match Self::lookup(conn, uuid).await? {
+            Some(record) => Ok(record),
+            None => err("Project does not exist."),
+        }
+    }
+
+    async fn lookup(conn: &mut Conn, uuid: Uuid) -> Res<Option<Self>> {
         sqlx::query_as(
             "
             SELECT (uuid, user, updated_time, title)
@@ -41,7 +136,7 @@ impl Project {
             ",
         )
         .bind(format_uuid(uuid))
-        .fetch_one(conn)
+        .fetch_optional(conn)
         .await
         .map_err(|e| e.to_string())
     }
@@ -110,71 +205,28 @@ impl Project {
         .await
         .map_err(|e| e.to_string())
     }
-}
 
-mod db {
-    use sqlx::SqliteConnection;
-    use uuid::Uuid;
+    async fn update_or_create(
+        conn: &mut Conn,
+        project: &mut scene::Project,
+        user: Uuid,
+    ) -> Res<Self> {
+        let (project_uuid, exists) = match Self::lookup(conn, project.uuid).await? {
+            Some(record) if record.user == user => (record.uuid, true),
+            _ => (generate_uuid(), false), // Record doesn't exist or owned by another.
+        };
+        project.uuid = project_uuid;
 
-    use super::{Project, Scene};
-    use crate::utils::{format_uuid, timestamp_s, Res};
-
-    async fn update_database(
-        conn: &mut SqliteConnection,
-        project: &scene::Project,
-        user: i64,
-    ) -> Res<()> {
-        update_or_create_project_record(conn, project, user).await?;
-        for scene in &project.scenes {
-            update_or_create_scene_record(conn, scene).await?;
-        }
-        Ok(())
-    }
-
-    async fn remove_deleted_scenes(conn: &mut SqliteConnection, project: &scene::Project) {
-        let scene_ids = project
-            .scenes
-            .iter()
-            .filter_map(|scene| scene.uuid)
-            .map(|uuid| format_uuid(uuid))
-            .collect::<Vec<String>>()
-            .join(", ");
-        sqlx::query(&format!(
-            "DELETE FROM scenes WHERE project = ?1 AND uuid NOT IN ({})",
-            scene_ids
-        ))
-        .bind(project.uuid)
-        .execute(conn)
-        .await
-        .ok();
-    }
-
-    async fn update_project_record(
-        conn: &mut SqliteConnection,
-        uuid: Uuid,
-    ) -> Res<Option<Project>> {
-        match sqlx::query_as(
-            "UPDATE projects SET updated_time = ?1, title = ?2 WHERE uuid = ?3 RETURNING *;",
-        )
-        .bind(format_uuid(uuid))
-        .fetch_one(conn)
-        .await
-        {
-            Ok(record) => Ok(Some(record)),
-            Err(sqlx::Error::RowNotFound) => Ok(None),
-            Err(e) => Err(e.to_string()),
-        }
-    }
-
-    async fn update_or_create_project_record(
-        conn: &mut SqliteConnection,
-        project: &scene::Project,
-        user: i64,
-    ) -> Res<Project> {
-        let record = update_project_record(conn, project.uuid).await?;
-        let now = timestamp_s().unwrap_or(0) as i64;
-        if let Some(record) = record {
-            Ok(record)
+        if exists {
+            sqlx::query_as(
+                "UPDATE projects SET updated_time = ?1, title = ?2 WHERE uuid = ?3 RETURNING *;",
+            )
+            .bind(timestamp_s())
+            .bind(&project.title)
+            .bind(format_uuid(project_uuid))
+            .fetch_one(conn)
+            .await
+            .map_err(|e| e.to_string())
         } else {
             sqlx::query_as(
                 r#"
@@ -182,56 +234,13 @@ mod db {
                 VALUES (?1, ?2, ?3, ?4) RETURNING *;
                 "#,
             )
-            .bind(format_uuid(project.uuid))
-            .bind(user)
-            .bind(now)
+            .bind(format_uuid(project_uuid))
+            .bind(format_uuid(user))
+            .bind(timestamp_s())
             .bind(&project.title)
             .fetch_one(conn)
             .await
             .map_err(|e| e.to_string())
         }
-    }
-
-    async fn update_scene_record(
-        conn: &mut SqliteConnection,
-        scene: &scene::Scene,
-        project: Uuid,
-    ) -> Res<Option<Project>> {
-        match sqlx::query_as(
-            "UPDATE scenes SET updated_time = ?1, title = ?2 WHERE id = ?3 RETURNING *;",
-        )
-        .bind(updated_timestamp())
-        .bind(&scene.title)
-        .bind(format_uuid(project))
-        .fetch_one(conn)
-        .await
-        {
-            Ok(record) => Ok(Some(record)),
-            Err(sqlx::Error::RowNotFound) => Ok(None),
-            Err(e) => Err(e.to_string()),
-        }
-    }
-
-    async fn update_or_create_scene_record(
-        conn: &mut SqliteConnection,
-        scene: &scene::Scene,
-    ) -> Res<Option<Scene>> {
-        match sqlx::query_as(
-            "UPDATE scenes SET updated_time = ?1, title = ?2 WHERE uuid = ?3 RETURNING *;",
-        )
-        .bind(updated_timestamp())
-        .bind(scene.title.clone())
-        .bind(scene.uuid)
-        .fetch_one(conn)
-        .await
-        {
-            Ok(record) => Ok(Some(record)),
-            Err(sqlx::Error::RowNotFound) => Ok(None),
-            Err(e) => Err(e.to_string()),
-        }
-    }
-
-    fn updated_timestamp() -> i64 {
-        timestamp_s().unwrap_or(0) as i64
     }
 }

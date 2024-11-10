@@ -10,6 +10,12 @@ use uuid::Uuid;
 
 type Conn = sqlx::SqliteConnection;
 
+#[derive(Debug)]
+pub struct UserDetails {
+    pub uuid: Uuid,
+    pub username: String,
+}
+
 #[derive(Debug, FromRow)]
 pub struct User {
     pub uuid: Uuid,
@@ -45,7 +51,7 @@ pub struct Project {
     pub uuid: Uuid,
     pub user: Uuid,
     pub updated_time: i64,
-    pub title: Option<String>,
+    pub title: String,
 }
 
 #[derive(FromRow)]
@@ -53,7 +59,7 @@ pub struct Scene {
     pub uuid: Uuid,
     pub project: Uuid,
     pub updated_time: i64,
-    pub title: Option<String>,
+    pub title: String,
     pub thumbnail: Option<String>,
 }
 

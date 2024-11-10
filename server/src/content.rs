@@ -1,21 +1,16 @@
-use std::path::PathBuf;
-
 use actix_files::NamedFile;
 use actix_web::{web, FromRequest, HttpRequest, HttpResponse};
-use once_cell::sync::Lazy;
 use uuid::Uuid;
 
 use crate::{
+    fs::CONTENT,
     models::{Project, User},
     req::{
         e500,
         session::{Session, SessionOpt},
-        Conn,
+        Pool,
     },
 };
-
-pub static CONTENT: Lazy<PathBuf> =
-    Lazy::new(|| PathBuf::from(std::env::args().nth(1).expect(super::USAGE)));
 
 pub fn routes() -> actix_web::Scope {
     web::scope("")
@@ -72,7 +67,7 @@ async fn index(session: SessionOpt) -> std::io::Result<NamedFile> {
 
 async fn new_scene(
     req: HttpRequest,
-    mut conn: Conn,
+    mut conn: Pool,
     user: User,
     path: web::Path<(Uuid,)>,
 ) -> Result<HttpResponse, actix_web::Error> {

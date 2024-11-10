@@ -10,11 +10,10 @@ use tokio::time::Instant;
 use uuid::Uuid;
 
 use super::game::Game;
-use crate::utils::{err, Res};
 use crate::{
-    models::{Project, Scene},
+    models::Project,
     scene::comms::{ClientEvent, ClientMessage, ServerEvent},
-    utils::{log, timestamp_us, LogLevel},
+    utils::{log, timestamp_us, LogLevel, Res},
 };
 
 #[derive(Debug)]
@@ -211,13 +210,13 @@ impl Server {
             }
 
             if self.last_save.elapsed() >= SAVE_INTERVAL {
-                self.save_scene().await; // Save interval elapsed, save scene.
+                self.save().await; // Save interval elapsed, save scene.
             }
         }
 
         self.broadcast_event(ServerEvent::GameOver, None);
         self.clients.clear();
-        self.save_scene().await;
+        self.save().await;
         self.open.store(false, std::sync::atomic::Ordering::Release);
         self.log(LogLevel::Debug, "Closed server");
     }
@@ -244,7 +243,7 @@ impl Server {
             }
             ClientEvent::SceneChange(scene) => {
                 if self.game.owner_is(from) {
-                    if let Err(e) = self.load_scene(scene).await {
+                    if let Err(e) = self.game.switch_to_scene(scene) {
                         self.log(LogLevel::Error, format!("Failed to load scene: {e}"));
                         self.send_rejection(message.id, from);
                     } else {
@@ -319,9 +318,8 @@ impl Server {
 
         // Separate message as this will only occur after some DB queries.
         if user == self.owner {
-            if let Ok(event) = self.scene_list().await {
-                self.send_event(event, user);
-            }
+            let (list, selected) = self.game.scene_list();
+            self.send_event(ServerEvent::SceneList(list, selected), user);
         }
 
         self.log(
@@ -440,47 +438,31 @@ impl Server {
         );
     }
 
-    async fn load_scene(&mut self, scene: Uuid) -> Res<()> {
+    async fn _save(&self) -> Res<()> {
+        let start_time = timestamp_us()?;
         let conn = &mut self.acquire_conn().await?;
-        let record = Scene::get_by_uuid(conn, scene).await?;
-        let scene = todo!("load scene file based on record");
-
-        self.replace_scene(scene).await;
-
+        Project::save(conn, self.owner, self.game.copy_project()).await?;
+        let duration = timestamp_us()? - start_time;
+        self.log(
+            LogLevel::Debug,
+            format!("Saved scene. Save duration: {duration}us."),
+        );
         Ok(())
     }
 
-    async fn _save_scene(&self) -> Res<()> {
-        let start_time = timestamp_us()?;
-        let conn = &mut self.acquire_conn().await?;
-        if let Some(id) = self.game.project_uuid() {
-            let project = Project::get_by_uuid(conn, id).await?;
-            todo!("save scene");
-            // project.update_scene(conn, self.game.server_scene()).await?;
-            let duration = timestamp_us()? - start_time;
-            self.log(
-                LogLevel::Debug,
-                format!("Saved scene. Save duration: {duration}us."),
-            );
-            Ok(())
-        } else {
-            err("Scene has no project.")
-        }
-    }
-
-    async fn save_scene(&mut self) {
-        if let Err(e) = self._save_scene().await {
-            self.log(LogLevel::Error, format!("Failed to save scene: {e}"));
+    async fn save(&mut self) {
+        if let Err(e) = self._save().await {
+            self.log(LogLevel::Error, format!("Failed to save project: {e}"));
         } else {
             self.last_save = Instant::now();
         }
     }
 
-    async fn replace_scene(&mut self, scene: scene::Scene) {
-        self.save_scene().await;
-
+    async fn switch_to_scene(&mut self, scene: Uuid) {
         // Replace the local scene with the new one
-        self.game.replace_scene(scene.clone(), self.owner);
+        if self.game.switch_to_scene(scene).is_err() {
+            return;
+        }
 
         // Send the new scene and perms to all clients
         let keys: Vec<(Uuid, String)> = self
@@ -503,27 +485,6 @@ impl Server {
             if let Some(event) = ServerEvent::set(events) {
                 self.send_event(event, user);
             }
-        }
-    }
-
-    async fn scene_list(&self) -> Res<ServerEvent> {
-        let conn = &mut self.acquire_conn().await?;
-        if let Some(id) = self.game.project_uuid() {
-            let project = Project::get_by_uuid(conn, id).await?;
-            let scenes = project
-                .list_scenes(conn)
-                .await?
-                .into_iter()
-                .map(|scene| {
-                    (
-                        scene.title.unwrap_or_else(|| String::from("Untitled")),
-                        scene.uuid,
-                    )
-                })
-                .collect();
-            Ok(ServerEvent::SceneList(scenes, self.game.scene_uuid()))
-        } else {
-            err("Failed to find project.")
         }
     }
 

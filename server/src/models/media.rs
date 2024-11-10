@@ -75,7 +75,7 @@ impl Media {
             .bind(format_uuid(uuid))
             .execute(pool)
             .await
-            .map_err(|_| format!("Media item not found."))?;
+            .map_err(|_| "Media item not found.".to_string())?;
         Ok(())
     }
 

@@ -8,10 +8,10 @@ use uuid::Uuid;
 use super::{res_failure, res_json, Resp};
 use crate::{
     crypto::format_hex,
+    fs::{join_relative_path, CONTENT},
     models::{Media, User},
     req::e500,
-    utils::{err, format_uuid, join_relative_path, Res},
-    CONTENT,
+    utils::{err, format_uuid, Res},
 };
 
 // Maximum total size of media a single use can upload, in bytes

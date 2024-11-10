@@ -13,12 +13,12 @@ use tokio::sync::RwLock;
 mod api;
 mod content;
 mod crypto;
+mod fs;
 mod games;
 mod models;
 mod req;
 mod utils;
 
-pub use content::CONTENT;
 pub use scene;
 
 const USAGE: &str = "Usage: ./server content/ 80";

@@ -8,7 +8,7 @@ use crate::{
         comms::{PermsEvent, SceneEvent},
         perms::{self, Perms},
     },
-    utils::warning,
+    utils::{err, warning, Res},
 };
 
 pub struct Game {
@@ -34,11 +34,15 @@ impl Game {
         }
     }
 
+    pub fn copy_project(&self) -> scene::Project {
+        self.project.clone()
+    }
+
     pub fn project_uuid(&self) -> Uuid {
         self.scene.project
     }
 
-    pub fn scene_uuid(&self) -> Option<Uuid> {
+    pub fn scene_uuid(&self) -> Uuid {
         self.scene.uuid
     }
 
@@ -144,13 +148,19 @@ impl Game {
         self.perms.permitted(user, &event, layer) && self.scene.apply_event(event.clone())
     }
 
-    pub fn replace_scene(&mut self, scene: scene::Scene, owner: Uuid) {
-        self.scene = scene;
-        self.scene.canon();
+    pub fn switch_to_scene(&mut self, scene: Uuid) -> Res<()> {
+        let mut to_save = scene::Scene::default();
+        std::mem::swap(&mut self.scene, &mut to_save);
 
-        let mut perms = Perms::new();
-        perms.set_owner(owner);
-        self.perms = perms;
+        // If this doesn't work it's not really recoverable.
+        self.project.update_scene(to_save).ok();
+
+        if let Some(new_scene) = self.project.get_scene(scene).cloned() {
+            self.scene = new_scene;
+            Ok(())
+        } else {
+            err("Specified scene does not exist")
+        }
     }
 
     pub fn server_scene(&self) -> scene::Scene {
@@ -161,6 +171,16 @@ impl Game {
         self.scene.non_canon()
     }
 
+    pub fn scene_list(&self) -> (Vec<(String, Uuid)>, Uuid) {
+        let list = self
+            .project
+            .scenes
+            .iter()
+            .map(|s| (s.title.clone(), s.uuid))
+            .collect();
+        (list, self.scene.uuid)
+    }
+
     pub fn client_perms(&mut self) -> Perms {
         self.perms.clone()
     }
@@ -168,18 +188,19 @@ impl Game {
 
 #[cfg(test)]
 mod test {
-    use scene::{comms::SceneEvent, Colour, Point, Rect, Scene, Sprite, SpriteVisual};
+    use scene::{comms::SceneEvent, Colour, Point, Project, Rect, Sprite, SpriteVisual};
 
     use super::Game;
     use crate::utils::generate_uuid;
 
     #[test]
     fn test_permissions() {
-        let project = generate_uuid();
+        let mut project = Project::new(generate_uuid());
+        let scene = project.new_scene().uuid;
         let owner = generate_uuid();
         let owner_layer = 5;
         let player = generate_uuid();
-        let mut game = Game::new(project, Scene::new(project), owner, "abcdefgh");
+        let mut game = Game::new(project, scene, owner, "abcdefgh");
 
         // Owner should be able to add a new layer and a sprite to that layer.
         let owner_sprite = 6;
@@ -237,13 +258,14 @@ mod test {
 
     #[test]
     fn test_drawings() {
-        let project = generate_uuid();
+        let mut project = Project::new(generate_uuid());
+        let scene = project.new_scene().uuid;
         let owner = generate_uuid();
         let drawing = 3;
         let player = generate_uuid();
         let sprite = 5;
 
-        let mut game = Game::new(project, Scene::new(project), owner, "ABCDEFGH");
+        let mut game = Game::new(project, scene, owner, "ABCDEFGH");
         let (_, _, layer) = game.add_player(player, "player");
         let layer = layer.unwrap();
 

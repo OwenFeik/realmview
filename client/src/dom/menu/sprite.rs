@@ -35,7 +35,7 @@ impl SpriteMenu {
 
         let id_ref = selected_id.clone();
         inputs.add_float_handler(Self::X, None, None, None, move |vp, x| {
-            vp.scene.sprite_details(
+            vp.int.sprite_details(
                 id_ref.load(Ordering::Relaxed),
                 SpriteDetails {
                     x: Some(x),
@@ -46,7 +46,7 @@ impl SpriteMenu {
 
         let id_ref = selected_id.clone();
         inputs.add_float_handler(Self::Y, None, None, None, move |vp, y| {
-            vp.scene.sprite_details(
+            vp.int.sprite_details(
                 id_ref.load(Ordering::Relaxed),
                 SpriteDetails {
                     y: Some(y),
@@ -57,7 +57,7 @@ impl SpriteMenu {
 
         let id_ref = selected_id.clone();
         inputs.add_float_handler(Self::WIDTH, None, None, None, move |vp, w| {
-            vp.scene.sprite_details(
+            vp.int.sprite_details(
                 id_ref.load(Ordering::Relaxed),
                 SpriteDetails {
                     w: Some(w),
@@ -68,7 +68,7 @@ impl SpriteMenu {
 
         let id_ref = selected_id.clone();
         inputs.add_float_handler(Self::HEIGHT, None, None, None, move |vp, h| {
-            vp.scene.sprite_details(
+            vp.int.sprite_details(
                 id_ref.load(Ordering::Relaxed),
                 SpriteDetails {
                     h: Some(h),
@@ -81,7 +81,7 @@ impl SpriteMenu {
 
         let id_ref = selected_id.clone();
         inputs.add_colour_handler(Self::COLOUR, move |vp, colour| {
-            vp.scene.sprite_details(
+            vp.int.sprite_details(
                 id_ref.load(Ordering::Relaxed),
                 SpriteDetails {
                     colour: Some(colour),
@@ -94,7 +94,7 @@ impl SpriteMenu {
 
         let id_ref = selected_id.clone();
         inputs.add_float_handler(Self::STROKE, Some(0), None, Some(0.1), move |vp, stroke| {
-            vp.scene.sprite_details(
+            vp.int.sprite_details(
                 id_ref.load(Ordering::Relaxed),
                 SpriteDetails {
                     stroke: Some(stroke),
@@ -105,7 +105,7 @@ impl SpriteMenu {
 
         let id_ref = selected_id.clone();
         inputs.add_checkbox_handler(Self::SOLID, move |vp, solid| {
-            vp.scene.sprite_details(
+            vp.int.sprite_details(
                 id_ref.load(Ordering::Relaxed),
                 SpriteDetails {
                     solid: Some(solid),
@@ -118,7 +118,7 @@ impl SpriteMenu {
 
         let id_ref = selected_id.clone();
         inputs.add_select_handler(Self::CAP_START, super::CAP_OPTIONS, move |vp, name| {
-            vp.scene.sprite_details(
+            vp.int.sprite_details(
                 id_ref.load(Ordering::Relaxed),
                 SpriteDetails {
                     cap_start: Some(scene::Cap::from(&name)),
@@ -129,7 +129,7 @@ impl SpriteMenu {
 
         let id_ref = selected_id.clone();
         inputs.add_select_handler(Self::CAP_END, super::CAP_OPTIONS, move |vp, name| {
-            vp.scene.sprite_details(
+            vp.int.sprite_details(
                 id_ref.load(Ordering::Relaxed),
                 SpriteDetails {
                     cap_end: Some(scene::Cap::from(&name)),
@@ -147,7 +147,7 @@ impl SpriteMenu {
                 ("Hexagon", "hexagon"),
             ],
             move |vp, name| {
-                vp.scene.sprite_details(
+                vp.int.sprite_details(
                     id_ref.load(Ordering::Relaxed),
                     SpriteDetails {
                         shape: Some(scene::Shape::from(&name)),

@@ -183,8 +183,8 @@ impl Menu {
         self.scene.set_details(details);
     }
 
-    pub fn set_scene(&mut self, key: Option<String>) {
-        self.scene.set_scene(key);
+    pub fn set_scene(&mut self, uuid: String) {
+        self.scene.set_scene(uuid);
     }
 
     pub fn set_scene_list(&mut self, list: Vec<(String, String)>) {

@@ -3,6 +3,7 @@ use std::sync::atomic::AtomicBool;
 
 use js_sys::Array;
 use js_sys::Promise;
+use scene::Project;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::Headers;
@@ -711,6 +712,10 @@ pub fn save_request_body(raw: &[u8]) -> Res<String> {
         encoded: base64::encode(raw),
     })
     .map_err(|e| e.to_string())
+}
+
+pub fn save_project(project: &Project) -> Res<SaveState> {
+    todo!("Implement");
 }
 
 pub fn save_scene(scene_key: &str, raw: Vec<u8>) -> Res<SaveState> {

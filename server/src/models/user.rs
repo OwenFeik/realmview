@@ -1,4 +1,4 @@
-use sqlx::SqlitePool;
+use sqlx::{SqliteConnection, SqlitePool};
 use uuid::Uuid;
 
 use super::{timestamp_s, User, UserSession};
@@ -39,13 +39,26 @@ impl User {
         Ok(user)
     }
 
-    pub async fn get_by_id(pool: &SqlitePool, uuid: Uuid) -> Res<Option<User>> {
+    pub async fn lookup(pool: &SqlitePool, uuid: Uuid) -> Res<Option<User>> {
         let user = sqlx::query_as("SELECT * FROM users WHERE id = ?1;")
             .bind(format_uuid(uuid))
             .fetch_optional(pool)
             .await
             .map_err(|e| e.to_string())?;
         Ok(user)
+    }
+
+    pub async fn get_by_uuid(conn: &mut SqliteConnection, uuid: Uuid) -> Res<Self> {
+        sqlx::query_as(
+            "
+            SELECT (uuid, username, salt, hashed_password, recovery_key, created_time)
+            FROM users WHERE uuid = ?1;
+            ",
+        )
+        .bind(format_uuid(uuid))
+        .fetch_one(conn)
+        .await
+        .map_err(|e| e.to_string())
     }
 
     /// Given a valid session key, return the associated user. None if session
@@ -62,6 +75,10 @@ impl User {
         .await
         .map_err(|e| e.to_string())?;
         Ok(user)
+    }
+
+    pub fn relative_save_path(&self) -> String {
+        format!("/saves/{}", &self.username)
     }
 
     pub fn relative_upload_path(&self) -> String {
@@ -120,6 +137,6 @@ impl UserSession {
     }
 
     pub async fn user(&self, pool: &SqlitePool) -> Res<Option<User>> {
-        User::get_by_id(pool, self.uuid).await
+        User::lookup(pool, self.uuid).await
     }
 }

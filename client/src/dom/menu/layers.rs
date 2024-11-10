@@ -51,7 +51,7 @@ impl LayersMenu {
         let vp_ref = vp.clone();
         button.set_onclick(Box::new(move |_| {
             if let Ok(mut lock) = vp_ref.try_lock() {
-                lock.scene.new_layer();
+                lock.int.new_layer();
             } else {
                 console_log("Failed to lock viewport to add layer.");
             }
@@ -79,31 +79,31 @@ impl LayersMenu {
 
             let id = layer.id;
             input.add_radio("selected-layer", id == selected, move |vp| {
-                vp.scene.select_layer(id)
+                vp.int.select_layer(id)
             });
 
             input.add_toggle_string("Title", false, move |vp, title| {
-                vp.scene.rename_layer(id, title);
+                vp.int.rename_layer(id, title);
             });
             input.set_string("Title", &layer.title);
 
             let locked = layer.locked;
             input.add_button(if locked { Icon::Lock } else { Icon::Unlock }, move |vp| {
-                vp.scene.set_layer_locked(id, !locked)
+                vp.int.set_layer_locked(id, !locked)
             });
 
             let visible = layer.visible;
             input.add_button(
                 if visible { Icon::Eye } else { Icon::EyeSlash },
                 move |vp| {
-                    vp.scene.set_layer_visible(id, !visible);
+                    vp.int.set_layer_visible(id, !visible);
                 },
             );
 
-            input.add_button(Icon::Up, move |vp| vp.scene.move_layer(id, true));
-            input.add_button(Icon::Down, move |vp| vp.scene.move_layer(id, false));
+            input.add_button(Icon::Up, move |vp| vp.int.move_layer(id, true));
+            input.add_button(Icon::Down, move |vp| vp.int.move_layer(id, false));
 
-            input.add_button(Icon::Trash, move |vp| vp.scene.remove_layer(id));
+            input.add_button(Icon::Trash, move |vp| vp.int.remove_layer(id));
         }
     }
 }

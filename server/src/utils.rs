@@ -1,7 +1,4 @@
-use std::{
-    path::{Path, PathBuf},
-    time::{Duration, SystemTime},
-};
+use std::time::{Duration, SystemTime};
 
 pub type Res<T> = Result<T, String>;
 
@@ -62,9 +59,9 @@ pub fn debug<A: AsRef<str>>(message: A) {
 }
 
 fn current_system_time() -> Res<Duration> {
-    Ok(SystemTime::now()
+    SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())
 }
 
 pub fn timestamp_s() -> Res<u64> {
@@ -73,13 +70,6 @@ pub fn timestamp_s() -> Res<u64> {
 
 pub fn timestamp_us() -> Res<u128> {
     Ok(current_system_time()?.as_micros())
-}
-
-/// Join a path with a relative path, that may start with a slash. If the
-/// second argument starts with a slash, all leading slashes will be removed
-/// before joining.
-pub fn join_relative_path<S: AsRef<str>>(left: &Path, right: S) -> PathBuf {
-    left.join(right.as_ref().trim_start_matches('/'))
 }
 
 pub fn generate_uuid() -> uuid::Uuid {
