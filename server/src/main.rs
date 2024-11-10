@@ -7,7 +7,6 @@ use std::collections::HashMap;
 
 use actix_web::{middleware::Logger, web, App, HttpServer};
 use games::GameHandle;
-use sqlx::sqlite::SqlitePool;
 use tokio::sync::RwLock;
 
 mod api;
@@ -21,17 +20,7 @@ mod utils;
 
 pub use scene;
 
-const USAGE: &str = "Usage: ./server content/ 80";
-
-async fn connect_to_db() -> SqlitePool {
-    SqlitePool::connect(
-        std::env::var("DATABASE_URL")
-            .expect("DATABASE_URL not set")
-            .as_str(),
-    )
-    .await
-    .expect("Database pool creation failed.")
-}
+const USAGE: &str = "Usage: ./server data/ 80";
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -43,8 +32,9 @@ async fn main() -> std::io::Result<()> {
         .parse::<u16>()
         .expect("Invalid port number.");
 
-    let pool = connect_to_db().await;
-    req::set_pool(pool.clone());
+    let db = fs::initialise_database()
+        .await
+        .expect("Database initialisation failed.");
 
     let games = web::Data::new(RwLock::new(HashMap::<String, GameHandle>::new()));
 
@@ -62,7 +52,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
-            .app_data(web::Data::new(pool.clone()))
+            .app_data(web::Data::new(db.clone()))
             .app_data(web::Data::clone(&games))
             .service(api::routes())
             .service(content::routes())

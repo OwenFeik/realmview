@@ -431,3 +431,80 @@ mod v1 {
         points: Vec<f32>,
     }
 }
+
+#[cfg(test)]
+mod test {
+    use uuid::{Timestamp, Uuid};
+
+    fn test_project() -> crate::Project {
+        let mut project = crate::Project::new(Uuid::new_v7(Timestamp::now(uuid::NoContext)));
+
+        let mut scene = project.new_scene().clone();
+        scene.title = "First Scene".to_string();
+
+        scene.fog.active = true;
+        scene.set_size(64, 64);
+        scene.fog.reveal(0, 0);
+        scene.fog.reveal(10, 5);
+        scene.fog.reveal(5, 10);
+        scene.fog.reveal(27, 27);
+        scene.fog.reveal(63, 63);
+
+        let fg = scene.first_layer();
+        let bg = scene.first_background_layer();
+
+        scene.rename_layer(fg, "Renamed Foreground".to_string());
+        scene.rename_layer(bg, "Renamed Backgroudn".to_string());
+
+        scene.layer(fg).unwrap().locked = true;
+        scene.layer(bg).unwrap().visible = false;
+
+        let (drawing, ..) =
+            scene.start_drawing(crate::DrawingMode::Freehand, crate::Point::new(12., 12.));
+        scene.add_drawing_point(drawing, crate::Point::new(12.5, 12.5));
+        scene.add_drawing_point(drawing, crate::Point::new(13., 12.5));
+        scene.add_drawing_point(drawing, crate::Point::new(13., 13.));
+
+        scene.new_sprite(
+            Some(crate::SpriteVisual::new_shape(
+                crate::Colour([123., 55., 255., 1.]),
+                crate::Shape::Hexagon,
+                12.,
+                true,
+            )),
+            fg,
+        );
+        scene.new_sprite(
+            Some(crate::SpriteVisual::Drawing {
+                drawing,
+                colour: crate::Colour([1., 2., 3., 4.]),
+                stroke: 25.,
+                cap_start: crate::Cap::Arrow,
+                cap_end: crate::Cap::Round,
+            }),
+            bg,
+        );
+
+        project.update_scene(scene).expect("Update failed.");
+        project
+    }
+
+    fn check_project_equality(lhs: crate::Scene, rhs: crate::Scene) {
+        assert_eq!(lhs.layers.len(), rhs.layers.len());
+        for (ll, rl) in lhs.layers.iter().zip(rhs.layers.iter()) {
+            assert_eq!(ll.title, rl.title);
+            assert_eq!(ll.z, rl.z);
+            assert_eq!(ll.visible, rl.visible);
+            assert_eq!(ll.locked, rl.locked);
+            assert_eq!(ll.z_min, rl.z_min);
+            assert_eq!(ll.z_max, rl.z_max);
+
+            assert_eq!(ll.sprites.len(), rl.sprites.len());
+            for (ls, rs) in ll.sprites.iter().zip(rl.sprites.iter()) {
+                assert_eq!(ls.rect, rs.rect);
+                assert_eq!(ls.z, rs.z);
+                assert_eq!(ls.visual, rs.visual);
+            }
+        }
+    }
+}

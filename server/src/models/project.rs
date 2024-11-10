@@ -81,8 +81,6 @@ impl Project {
         owner: Uuid,
         mut project: scene::Project,
     ) -> Res<(Self, Vec<Scene>)> {
-        // TODO would be good to wrap this whole thing in some kind of transaction.
-
         let user = User::get_by_uuid(conn, owner).await?;
 
         let record: Self = Self::update_or_create(conn, &mut project, owner).await?;

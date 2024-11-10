@@ -47,21 +47,18 @@ fn login_redirect<T, S: ToString>(path: S) -> Result<T, actix_web::Error> {
 async fn session_from_req(req: &actix_web::HttpRequest) -> Result<SessionOpt, actix_web::Error> {
     if let Some(cookie) = req.cookie(COOKIE_NAME) {
         let key = cookie.value();
-        if let Some(pool) = super::POOL.get() {
-            let session = match User::get_by_session(pool, key)
-                .await
-                .map_err(ErrorInternalServerError)?
-            {
-                Some(user) => SessionOpt::Some(Session {
-                    key: key.to_string(),
-                    user,
-                }),
-                None => SessionOpt::None,
-            };
-            Ok(session)
-        } else {
-            Err(ErrorInternalServerError("Pool not available."))
-        }
+        let pool = crate::fs::database();
+        let session = match User::get_by_session(&pool, key)
+            .await
+            .map_err(ErrorInternalServerError)?
+        {
+            Some(user) => SessionOpt::Some(Session {
+                key: key.to_string(),
+                user,
+            }),
+            None => SessionOpt::None,
+        };
+        Ok(session)
     } else {
         Err(ErrorUnprocessableEntity("Missing cookie."))
     }

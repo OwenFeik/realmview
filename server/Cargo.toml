@@ -21,6 +21,7 @@ ring = "0.16"
 serde = "1"
 serde_derive = "1"
 sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "uuid"] }
+tempfile = "3.14"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"
 uuid = { version = "1.11.0", features = ["serde", "v7"] }
