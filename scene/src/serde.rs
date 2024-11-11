@@ -4,23 +4,23 @@ use crate::Project;
 
 type Res<T> = Result<T, String>;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct Save {
     version: u32,
     data: Vec<u8>,
 }
 
 fn bincode_serialise(val: impl Serialize) -> Res<Vec<u8>> {
-    bincode::serialize(&val).map_err(|e| e.to_string())
+    bincode::serialize(&val).map_err(|e| format!("Serialisation failed, error: {e:?}"))
 }
 
 pub fn serialise(project: &Project) -> Res<Vec<u8>> {
-    let data = bincode_serialise(&v1::prepare(project))?;
+    let data = bincode_serialise(v1::prepare(project)?)?;
     bincode_serialise(Save { version: 1, data })
 }
 
 fn bincode_deserialise<'a, T: Deserialize<'a>>(data: &'a [u8]) -> Res<T> {
-    bincode::deserialize(data).map_err(|e| e.to_string())
+    bincode::deserialize(data).map_err(|e| format!("Deserialisation failed, error: {e:?}"))
 }
 
 pub fn deserialise(data: &[u8]) -> Res<crate::Project> {
@@ -67,7 +67,10 @@ mod v1 {
 
         let mut layer_idx_to_layer = HashMap::new();
         for (idx, layer) in scene.layers.into_iter().enumerate() {
-            layer_idx_to_layer.insert(idx as u32, crate::Layer::new(id, &layer.title, layer.z));
+            let mut new = crate::Layer::new(id, &layer.title, layer.z);
+            new.locked = layer.locked;
+            new.visible = layer.visible;
+            layer_idx_to_layer.insert(idx as u32, new);
             id += 1;
         }
 
@@ -436,6 +439,8 @@ mod v1 {
 mod test {
     use uuid::{Timestamp, Uuid};
 
+    use super::{bincode_serialise, deserialise, serialise, v1};
+
     fn test_project() -> crate::Project {
         let mut project = crate::Project::new(Uuid::new_v7(Timestamp::now(uuid::NoContext)));
 
@@ -454,7 +459,7 @@ mod test {
         let bg = scene.first_background_layer();
 
         scene.rename_layer(fg, "Renamed Foreground".to_string());
-        scene.rename_layer(bg, "Renamed Backgroudn".to_string());
+        scene.rename_layer(bg, "Renamed Background".to_string());
 
         scene.layer(fg).unwrap().locked = true;
         scene.layer(bg).unwrap().visible = false;
@@ -489,7 +494,17 @@ mod test {
         project
     }
 
-    fn check_project_equality(lhs: crate::Scene, rhs: crate::Scene) {
+    fn check_scene_equality(lhs: &crate::Scene, rhs: &crate::Scene) {
+        assert_eq!(lhs.uuid, rhs.uuid);
+        assert_eq!(lhs.project, rhs.project);
+        assert_eq!(lhs.title, rhs.title);
+
+        assert_eq!(lhs.fog.active, rhs.fog.active);
+        assert_eq!(lhs.fog.w, rhs.fog.w);
+        assert_eq!(lhs.fog.h, rhs.fog.h);
+        assert_eq!(lhs.fog.n_revealed, rhs.fog.n_revealed);
+        assert_eq!(lhs.fog.data(), rhs.fog.data());
+
         assert_eq!(lhs.layers.len(), rhs.layers.len());
         for (ll, rl) in lhs.layers.iter().zip(rhs.layers.iter()) {
             assert_eq!(ll.title, rl.title);
@@ -506,5 +521,33 @@ mod test {
                 assert_eq!(ls.visual, rs.visual);
             }
         }
+
+        todo!("drawings")
+    }
+
+    fn check_project_equality(lhs: crate::Project, rhs: crate::Project) {
+        assert_eq!(lhs.uuid, rhs.uuid);
+        assert_eq!(lhs.title, rhs.title);
+
+        for (ls, rs) in lhs.scenes.iter().zip(rhs.scenes.iter()) {
+            check_scene_equality(ls, rs);
+        }
+    }
+
+    #[test]
+    fn test_bincode_serialise_deserialise() {
+        let project = test_project();
+        let prepared = v1::prepare(&project).unwrap();
+        let serialised = bincode_serialise(prepared).unwrap();
+        let deserialised = v1::retrieve(&serialised).unwrap();
+        check_project_equality(project, deserialised);
+    }
+
+    #[test]
+    fn test_serialise_deserialise() {
+        let project = test_project();
+        let serialised = serialise(&project).unwrap();
+        let deserialised = deserialise(&serialised).unwrap();
+        check_project_equality(project, deserialised);
     }
 }

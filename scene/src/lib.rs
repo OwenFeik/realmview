@@ -41,13 +41,14 @@ pub struct Scene {
     next_id: Id,
     sprite_drawings: HashMap<Id, Drawing>,
     drawing_sprites: HashMap<Id, Id>,
+
     pub uuid: uuid::Uuid,
     pub project: uuid::Uuid,
+    pub title: String,
 
     /// Layers in the scene. Sorted Highest to lowest.
     pub layers: Vec<Layer>,
     pub removed_layers: Vec<Layer>,
-    pub title: String,
     pub fog: Fog,
     pub groups: Vec<Group>,
 }

@@ -56,7 +56,7 @@ impl MediaListResponse {
 async fn list(pool: web::Data<SqlitePool>, user: User) -> Resp {
     let media = Media::user_media(&pool, user.uuid).await.map_err(e500)?;
     let items = media.into_iter().map(MediaItem::from).collect();
-    Ok(HttpResponse::Ok().json(&MediaListResponse::new(items)))
+    Ok(HttpResponse::Ok().json(MediaListResponse::new(items)))
 }
 
 #[derive(serde_derive::Deserialize)]
@@ -114,7 +114,7 @@ async fn retrieve(
         _ => return res_failure("Media not found."),
     };
 
-    Ok(HttpResponse::Ok().json(&MediaItemResponse::new(MediaItem::from(media))))
+    Ok(HttpResponse::Ok().json(MediaItemResponse::new(MediaItem::from(media))))
 }
 
 async fn delete(pool: web::Data<SqlitePool>, user: User, path: web::Path<(String,)>) -> Resp {
