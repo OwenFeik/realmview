@@ -57,16 +57,17 @@ async fn save(
 struct SceneListEntry {
     uuid: String,
     title: String,
-    updated_time: i64,
+    updated_time: u64,
     thumbnail: Option<String>,
 }
 
 impl SceneListEntry {
     fn from(scene: Scene) -> Self {
+        let updated_time = scene.updated_timestamp();
         SceneListEntry {
             uuid: format_uuid(scene.uuid),
             title: scene.title,
-            updated_time: scene.updated_time,
+            updated_time,
             thumbnail: scene.thumbnail,
         }
     }

@@ -3,12 +3,15 @@ mod tests;
 
 mod media;
 mod project;
+mod scene;
 mod user;
 
 use sqlx::prelude::FromRow;
-use uuid::Uuid;
+use sqlx::types::Uuid;
 
 type Conn = sqlx::SqliteConnection;
+
+pub use self::scene::Scene;
 
 #[derive(Debug)]
 pub struct UserDetails {
@@ -52,15 +55,6 @@ pub struct Project {
     pub user: Uuid,
     pub updated_time: i64,
     pub title: String,
-}
-
-#[derive(FromRow)]
-pub struct Scene {
-    pub uuid: Uuid,
-    pub project: Uuid,
-    pub updated_time: i64,
-    pub title: String,
-    pub thumbnail: Option<String>,
 }
 
 fn timestamp_s() -> i64 {

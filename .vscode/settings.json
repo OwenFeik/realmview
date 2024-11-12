@@ -1,6 +1,7 @@
 {
     "rust-analyzer.server.extraEnv": {
-        "CARGO_TARGET_DIR": "build/target"
+        "CARGO_TARGET_DIR": "build/target",
+        "DATABASE_URL": "sqlite://build/database.db"
     },
     "rust-analyzer.check.command": "clippy",
     "[rust]": {

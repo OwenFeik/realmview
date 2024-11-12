@@ -491,7 +491,18 @@ mod test {
         );
 
         project.update_scene(scene).expect("Update failed.");
+
+        assert_eq!(project.scenes.len(), 1);
         project
+    }
+
+    fn sort_drawings(mut drawings: Vec<&crate::Drawing>) -> Vec<&crate::Drawing> {
+        drawings.sort_by(|a, b| {
+            (a.mode as u8)
+                .cmp(&(b.mode as u8))
+                .then_with(|| a.n_points().cmp(&b.n_points()))
+        });
+        drawings
     }
 
     fn check_scene_equality(lhs: &crate::Scene, rhs: &crate::Scene) {
@@ -522,7 +533,13 @@ mod test {
             }
         }
 
-        todo!("drawings")
+        let lds = sort_drawings(lhs.sprite_drawings.values().collect());
+        let rds = sort_drawings(rhs.sprite_drawings.values().collect());
+        for (ld, rd) in lds.iter().zip(rds.iter()) {
+            assert_eq!(ld.mode, rd.mode);
+            assert_eq!(ld.n_points(), rd.n_points());
+            assert_eq!(ld.points(), rd.points());
+        }
     }
 
     fn check_project_equality(lhs: crate::Project, rhs: crate::Project) {

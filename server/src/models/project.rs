@@ -6,75 +6,6 @@ use crate::{
     utils::{err, format_uuid, generate_uuid, Res},
 };
 
-impl Scene {
-    pub async fn get_by_uuid(conn: &mut Conn, uuid: Uuid) -> Res<Self> {
-        match Self::lookup(conn, uuid).await? {
-            Some(record) => Ok(record),
-            None => err("Scene does not exist."),
-        }
-    }
-
-    async fn lookup(conn: &mut Conn, uuid: Uuid) -> Res<Option<Self>> {
-        sqlx::query_as(
-            "
-            SELECT (uuid, project, updated_time, title, thumbnail)
-            FROM scenes WHERE uuid = ?1; 
-            ",
-        )
-        .bind(format_uuid(uuid))
-        .fetch_optional(conn)
-        .await
-        .map_err(|e| e.to_string())
-    }
-
-    pub async fn set_thumbnail(conn: &mut Conn, uuid: Uuid, thumbnail: &str) -> Res<()> {
-        sqlx::query("UPDATE scenes SET thumbnail = ?1 WHERE uuid = ?2;")
-            .bind(thumbnail)
-            .bind(format_uuid(uuid))
-            .execute(conn)
-            .await
-            .map_err(|e| e.to_string())?;
-        Ok(())
-    }
-
-    async fn update_or_create(
-        conn: &mut Conn,
-        project: Uuid,
-        scene: &mut scene::Scene,
-    ) -> Res<Self> {
-        let (scene_uuid, exists) = match Self::lookup(conn, scene.uuid).await? {
-            Some(record) if record.project == project => (record.uuid, true),
-            _ => (generate_uuid(), false), // Record doesn't exist or in other project.
-        };
-        scene.uuid = scene_uuid;
-
-        if exists {
-            sqlx::query_as(
-                "UPDATE scenes SET updated_time = ?1, title = ?2 WHERE uuid = ?3 RETURNING *;",
-            )
-            .bind(timestamp_s())
-            .bind(&scene.title)
-            .bind(format_uuid(scene_uuid))
-            .fetch_one(conn)
-            .await
-            .map_err(|e| e.to_string())
-        } else {
-            sqlx::query_as(
-                "
-                INSERT INTO scenes (uuid, project, updated_time, title)
-                VALUES (?1, ?2, ?3, ?4) RETURNING *;",
-            )
-            .bind(format_uuid(scene_uuid))
-            .bind(format_uuid(project))
-            .bind(timestamp_s())
-            .bind(&scene.title)
-            .fetch_one(conn)
-            .await
-            .map_err(|e| e.to_string())
-        }
-    }
-}
-
 impl Project {
     pub async fn save(
         conn: &mut Conn,
@@ -86,7 +17,8 @@ impl Project {
         let record: Self = Self::update_or_create(conn, &mut project, owner).await?;
         let mut scenes = Vec::new();
         for scene in &mut project.scenes {
-            scenes.push(Scene::update_or_create(conn, record.uuid, scene).await?);
+            scene.project = record.uuid;
+            scenes.push(Scene::update_or_create(conn, scene).await?);
         }
         record.remove_deleted_scenes(conn, &scenes).await;
 
@@ -140,16 +72,7 @@ impl Project {
     }
 
     pub async fn list_scenes(&self, conn: &mut Conn) -> Res<Vec<Scene>> {
-        sqlx::query_as(
-            "
-            SELECT (uuid, project, updated_time, title, thumbnail)
-            FROM scenes WHERE project = ?1;
-            ",
-        )
-        .bind(format_uuid(self.uuid))
-        .fetch_all(conn)
-        .await
-        .map_err(|e| e.to_string())
+        Scene::list_for_project(conn, self.uuid).await
     }
 
     pub async fn list_for_user(conn: &mut Conn, user: Uuid) -> Res<Vec<Self>> {

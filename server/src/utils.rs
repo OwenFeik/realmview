@@ -1,5 +1,7 @@
 use std::time::{Duration, SystemTime};
 
+use uuid::Uuid;
+
 pub type Res<T> = Result<T, String>;
 
 pub fn err<T, S: ToString>(message: S) -> Res<T> {
@@ -72,10 +74,14 @@ pub fn timestamp_us() -> Res<u128> {
     Ok(current_system_time()?.as_micros())
 }
 
-pub fn generate_uuid() -> uuid::Uuid {
-    uuid::Uuid::new_v7(uuid::Timestamp::now(uuid::NoContext))
+pub fn generate_uuid() -> Uuid {
+    Uuid::new_v7(uuid::Timestamp::now(uuid::NoContext))
 }
 
-pub fn format_uuid(uuid: uuid::Uuid) -> String {
+pub fn format_uuid(uuid: Uuid) -> String {
     uuid.simple().to_string()
+}
+
+pub fn parse_uuid(text: &str) -> Res<Uuid> {
+    Uuid::try_parse(text).map_err(|e| format!("Failed to parse UUID {text}: {e}"))
 }
