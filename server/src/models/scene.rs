@@ -148,15 +148,20 @@ async fn update(conn: &mut Conn, uuid: Uuid, title: &str) -> Res<SceneRow> {
 }
 
 async fn create(conn: &mut Conn, uuid: Uuid, project: Uuid, title: &str) -> Res<SceneRow> {
-    sqlx::query_as(
+    let uuid = format_uuid(uuid);
+    let project = format_uuid(project);
+    let updated_time = timestamp_s();
+    sqlx::query_as!(
+        SceneRow,
         "
         INSERT INTO scenes (uuid, project, updated_time, title)
-        VALUES (?1, ?2, ?3, ?4) RETURNING *;",
+        VALUES (?1, ?2, ?3, ?4) RETURNING *;
+        ",
+        uuid,
+        project,
+        updated_time,
+        title,
     )
-    .bind(format_uuid(uuid))
-    .bind(format_uuid(project))
-    .bind(timestamp_s())
-    .bind(title)
     .fetch_one(conn)
     .await
     .map_err(|e| e.to_string())

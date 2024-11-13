@@ -5,7 +5,7 @@ use super::{res_json, Resp};
 use crate::{
     crypto::{generate_salt, hash_password, to_hex_string, Key},
     models::User,
-    utils::{timestamp_s, Res},
+    utils::Res,
 };
 
 pub fn routes() -> actix_web::Scope {
@@ -100,15 +100,12 @@ async fn register(pool: web::Data<SqlitePool>, details: web::Json<RegistrationRe
     let (s_salt, s_hpw, s_rkey) =
         generate_keys(details.password.as_str()).map_err(ErrorInternalServerError)?;
 
-    let created_time = timestamp_s().map_err(ErrorInternalServerError)?;
-
     User::register(
         &pool,
         details.username.as_str(),
         s_salt.as_str(),
         s_hpw.as_str(),
         s_rkey.as_str(),
-        created_time,
     )
     .await
     .map_err(ErrorInternalServerError)?;

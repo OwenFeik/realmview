@@ -95,10 +95,11 @@ lint-py:
 	${py} -m black ${root}/web/
 	MYPY_CACHE_DIR=${build}/.mypy_cache ${py} -m mypy ${root}/web/
 
-test: test-rust test-py
+test: test-py test-rust
 
-test-rust:
-	${cargo} test
+# TODO use mktemp -d to create a temporary directory for test database.
+test-rust: database
+	DATABASE_URL=sqlite://${build}/database.db ${cargo} test
 
 test-py:
 	cd ${root}/web && ${py} test.py

@@ -11,6 +11,7 @@ use sqlx::types::Uuid;
 
 type Conn = sqlx::SqliteConnection;
 
+pub use self::project::Project;
 pub use self::scene::Scene;
 
 #[derive(Debug)]
@@ -47,14 +48,6 @@ pub struct Media {
     pub file_size: i64,
     pub w: f32,
     pub h: f32,
-}
-
-#[derive(FromRow)]
-pub struct Project {
-    pub uuid: Uuid,
-    pub user: Uuid,
-    pub updated_time: i64,
-    pub title: String,
 }
 
 fn timestamp_s() -> i64 {

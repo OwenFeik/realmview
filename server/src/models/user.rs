@@ -11,7 +11,6 @@ impl User {
         salt: &str,
         hashed_password: &str,
         recovery_key: &str,
-        created_time: u64,
     ) -> Res<Uuid> {
         let uuid = generate_uuid();
         sqlx::query(
@@ -22,7 +21,7 @@ impl User {
             .bind(salt)
             .bind(hashed_password)
             .bind(recovery_key)
-            .bind(created_time as i64)
+            .bind(timestamp_s())
             .execute(pool)
             .await
             .map_err(|e| e.to_string())?;
