@@ -6,15 +6,8 @@ use tokio::sync::OnceCell;
 
 use crate::utils::Res;
 
-#[cfg(not(test))]
 static DATA: Lazy<PathBuf> =
-    Lazy::new(|| PathBuf::from(std::env::args().nth(1).expect(super::USAGE)));
-#[cfg(test)]
-static DATA: Lazy<PathBuf> = Lazy::new(|| {
-    tempfile::TempDir::new()
-        .expect("Failed to create temporary data directory")
-        .into_path()
-});
+    Lazy::new(|| PathBuf::from(std::env::var("DATA_DIR").expect(super::USAGE)));
 
 pub static CONTENT: Lazy<PathBuf> = Lazy::new(|| DATA.join("content"));
 pub static SAVES: Lazy<PathBuf> = Lazy::new(|| DATA.join("saves"));
@@ -22,7 +15,7 @@ pub static SAVES: Lazy<PathBuf> = Lazy::new(|| DATA.join("saves"));
 static DATABASE: Lazy<OnceCell<SqlitePool>> = Lazy::new(OnceCell::new);
 
 pub async fn initialise_database() -> Res<SqlitePool> {
-    let pool = SqlitePool::connect(DATA.join("database.db").to_str().expect("Invalid path"))
+    let pool = SqlitePool::connect(&std::env::var("DATABASE_URL").expect(super::USAGE))
         .await
         .expect("Database pool creation failed.");
 

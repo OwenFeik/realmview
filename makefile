@@ -14,9 +14,10 @@ dep := ${HOME}/deployment
 
 serve: server content testdb
 	echo "Serving at http://localhost:3030/"
-	RUST_BACKTRACE=1 \
+	RUST_BACKTRACE=1                      \
+		DATA_DIR=${build}                 \
 		DATABASE_URL=${build}/database.db \
-		${build}/server ${content} 3030
+		${build}/server 3030
 
 deploy: html deploydb
 	${cargo} build -p server --release
@@ -25,8 +26,8 @@ deploy: html deploydb
 	cp -r ${content} ${dep}/content
 	sudo setcap CAP_NET_BIND_SERVICE=+eip ${dep}/server
 	echo "Serving on port 80"
-	RUST_BACKTRACE=1 DATABASE_URL=${dep}/database.db \
-		${dep}/server ${dep}/content 80
+	RUST_BACKTRACE=1 DATABASE_URL=${dep}/database.db DATA_DIR=${dep} \
+		${dep}/server 80
 
 deploydb: database
 	mkdir -p ${dep}
@@ -97,9 +98,11 @@ lint-py:
 
 test: test-py test-rust
 
-# TODO use mktemp -d to create a temporary directory for test database.
 test-rust: database
-	DATABASE_URL=sqlite://${build}/database.db ${cargo} test
+	export DATA_DIR=$$(mktemp -d) \
+	&& echo "Running tests with DATA_DIR=$$DATA_DIR"                  \
+	&& sqlite3 $$DATA_DIR/database.db < ${root}/server/sql/schema.sql \
+	&& DATABASE_URL=sqlite://$$DATA_DIR/database.db ${cargo} test
 
 test-py:
 	cd ${root}/web && ${py} test.py

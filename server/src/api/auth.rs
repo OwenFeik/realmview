@@ -2,12 +2,11 @@ use actix_web::{error::ErrorInternalServerError, web, HttpResponse};
 use sqlx::SqlitePool;
 
 use super::{body_failure, body_success, resp, session_resp, Resp};
+use crate::crypto::Key;
+use crate::models::UserAuth;
 use crate::req::session::{Session, SessionOpt};
 use crate::utils::Res;
-use crate::{
-    crypto::{check_password, from_hex_string},
-    models::{User, UserSession},
-};
+use crate::{crypto::check_password, models::UserSession};
 
 pub fn routes() -> actix_web::Scope {
     actix_web::web::scope("/auth")
@@ -16,10 +15,8 @@ pub fn routes() -> actix_web::Scope {
         .route("/logout", web::post().to(logout))
 }
 
-fn decode_and_check_password(provided: &str, salt: &str, hashed_password: &str) -> Res<bool> {
-    let salt = from_hex_string(salt)?;
-    let hashed_password = from_hex_string(hashed_password)?;
-    Ok(check_password(provided, &salt, &hashed_password))
+fn decode_and_check_password(provided: &str, salt: &Key, hashed_password: &Key) -> Res<bool> {
+    Ok(check_password(provided, salt, hashed_password))
 }
 
 #[derive(serde_derive::Deserialize)]
@@ -29,19 +26,13 @@ struct LoginRequest {
 }
 
 async fn login(pool: web::Data<SqlitePool>, req: web::Json<LoginRequest>) -> Resp {
-    let Some(user) = User::get(&pool, req.username.as_str())
-        .await
-        .map_err(ErrorInternalServerError)?
-    else {
-        return Ok(session_resp("").json(body_failure("User does not exist.")));
+    let user = match UserAuth::get_by_username(&pool, req.username.as_str()).await {
+        Ok(user) => user,
+        Err(e) => return Ok(session_resp("").json(body_failure(e))),
     };
 
-    if !decode_and_check_password(
-        req.password.as_str(),
-        user.salt.as_str(),
-        user.hashed_password.as_str(),
-    )
-    .map_err(ErrorInternalServerError)?
+    if !decode_and_check_password(req.password.as_str(), &user.salt, &user.hashed_password)
+        .map_err(ErrorInternalServerError)?
     {
         return Ok(session_resp("").json(body_failure("Incorrect password.")));
     };

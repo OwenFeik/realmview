@@ -1,7 +1,7 @@
 use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
-use super::{timestamp_s, Conn, Scene, User};
+use super::{timestamp_s, timestamp_to_system, Conn, Scene, User};
 use crate::{
     fs::{join_relative_path, SAVES},
     utils::{err, format_uuid, generate_uuid, parse_uuid, Res},
@@ -135,8 +135,7 @@ impl TryFrom<ProjectRow> for Project {
         Ok(Self {
             uuid: parse_uuid(&value.uuid)?,
             user: parse_uuid(&value.user)?,
-            updated_time: std::time::UNIX_EPOCH
-                + std::time::Duration::from_secs(value.updated_time as u64),
+            updated_time: timestamp_to_system(value.updated_time),
             title: value.title,
         })
     }
@@ -240,9 +239,9 @@ mod test {
     async fn test_remove_deleted_scenes() {
         let pool = &crate::fs::initialise_database().await.unwrap();
         let conn = &mut pool.acquire().await.unwrap();
-        let user = User::register(pool, "testuser", "salt", "hashpassword", "recoverykey")
+        let user = User::generate(conn).await.unwrap();
+        let project = Project::create(conn, user.uuid, "projecttitle")
             .await
             .unwrap();
-        let project = Project::create(conn, user, "projecttitle").await.unwrap();
     }
 }

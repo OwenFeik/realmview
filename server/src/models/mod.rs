@@ -13,22 +13,7 @@ type Conn = sqlx::SqliteConnection;
 
 pub use self::project::Project;
 pub use self::scene::Scene;
-
-#[derive(Debug)]
-pub struct UserDetails {
-    pub uuid: Uuid,
-    pub username: String,
-}
-
-#[derive(Debug, FromRow)]
-pub struct User {
-    pub uuid: Uuid,
-    pub username: String,
-    pub salt: String,
-    pub hashed_password: String,
-    pub recovery_key: String,
-    pub created_time: i64,
-}
+pub use self::user::{User, UserAuth};
 
 #[derive(FromRow)]
 pub struct UserSession {
@@ -52,4 +37,8 @@ pub struct Media {
 
 fn timestamp_s() -> i64 {
     crate::utils::timestamp_s().unwrap_or(0) as i64
+}
+
+fn timestamp_to_system(timestamp: i64) -> std::time::SystemTime {
+    std::time::UNIX_EPOCH + std::time::Duration::from_secs(timestamp as u64)
 }

@@ -4,7 +4,7 @@ use sqlx::SqlitePool;
 use super::{res_json, Resp};
 use crate::{
     crypto::{generate_salt, hash_password, to_hex_string, Key},
-    models::User,
+    models::{User, UserAuth},
     utils::Res,
 };
 
@@ -74,11 +74,11 @@ fn get_hex_strings(
     ))
 }
 
-fn generate_keys(password: &str) -> Res<(String, String, String)> {
+fn generate_keys(password: &str) -> Res<(Key, Key, Key)> {
     let salt = generate_salt()?;
     let hashed_password = hash_password(&salt, password);
     let recovery_key = generate_salt()?;
-    get_hex_strings(&salt, &hashed_password, &recovery_key)
+    Ok((salt, hashed_password, recovery_key))
 }
 
 async fn register(pool: web::Data<SqlitePool>, details: web::Json<RegistrationRequest>) -> Resp {
@@ -100,15 +100,19 @@ async fn register(pool: web::Data<SqlitePool>, details: web::Json<RegistrationRe
     let (s_salt, s_hpw, s_rkey) =
         generate_keys(details.password.as_str()).map_err(ErrorInternalServerError)?;
 
-    User::register(
-        &pool,
+    let mut conn = pool.acquire().await.map_err(ErrorInternalServerError)?;
+    UserAuth::register(
+        &mut conn,
         details.username.as_str(),
-        s_salt.as_str(),
-        s_hpw.as_str(),
-        s_rkey.as_str(),
+        &s_salt,
+        &s_hpw,
+        &s_rkey,
     )
     .await
     .map_err(ErrorInternalServerError)?;
 
-    RegistrationResponse::success(s_rkey, details.username.clone())
+    RegistrationResponse::success(
+        to_hex_string(&s_rkey).map_err(ErrorInternalServerError)?,
+        details.username.clone(),
+    )
 }

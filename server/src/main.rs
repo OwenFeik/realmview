@@ -20,14 +20,14 @@ mod utils;
 
 pub use scene;
 
-const USAGE: &str = "Usage: ./server data/ 80";
+const USAGE: &str = "Usage: DATA_DIR=. ./server 80";
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
 
     let port = std::env::args()
-        .nth(2)
+        .nth(1)
         .expect(USAGE)
         .parse::<u16>()
         .expect("Invalid port number.");
