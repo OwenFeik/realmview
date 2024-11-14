@@ -1,9 +1,11 @@
+use std::path::PathBuf;
+
 use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
 use super::{timestamp_s, timestamp_to_system, Conn, Scene, User};
 use crate::{
-    fs::{join_relative_path, SAVES},
+    fs::{join_relative_path, write_file, SAVES},
     utils::{err, format_uuid, generate_uuid, parse_uuid, Res},
 };
 
@@ -30,17 +32,31 @@ impl Project {
         }
         record.remove_deleted_scenes(conn, &scenes).await;
 
+        let path = record.save_path(&user.username);
         let data = scene::serde::serialise(&project)?;
-        let path = join_relative_path(&SAVES, user.relative_save_path());
-        tokio::fs::write(path, data)
-            .await
-            .map_err(|e| e.to_string())?;
+        write_file(path, data).await?;
 
         Ok((record, scenes))
     }
 
-    pub async fn load(&self) -> Res<scene::Project> {
-        todo!("Load project associated this DB record")
+    pub async fn load(&self, conn: &mut Conn) -> Res<scene::Project> {
+        let user = User::get_by_uuid(conn, self.user).await?;
+        let path = self.save_path(&user.username);
+        let data = tokio::fs::read(path).await.map_err(|e| e.to_string())?;
+        scene::serde::deserialise(&data)
+    }
+
+    fn save_path(&self, username: &str) -> PathBuf {
+        const FILE_EXTENSION: &str = "rvp";
+        join_relative_path(
+            &SAVES,
+            format!(
+                "{}/{}.{}",
+                &username,
+                format_uuid(self.uuid),
+                FILE_EXTENSION
+            ),
+        )
     }
 
     pub async fn get_by_uuid(conn: &mut Conn, uuid: Uuid) -> Res<Self> {
@@ -233,15 +249,51 @@ async fn list_for_user(conn: &mut Conn, user: Uuid) -> Res<Vec<ProjectRow>> {
 #[cfg(test)]
 mod test {
     use super::Project;
-    use crate::models::User;
+    use crate::models::{Scene, User};
 
     #[tokio::test]
     async fn test_remove_deleted_scenes() {
         let pool = &crate::fs::initialise_database().await.unwrap();
         let conn = &mut pool.acquire().await.unwrap();
         let user = User::generate(conn).await.unwrap();
+
+        // Create a fresh project and save it.
         let project = Project::create(conn, user.uuid, "projecttitle")
             .await
             .unwrap();
+        let mut proj = scene::Project::new(project.uuid);
+        proj.new_scene();
+        proj.new_scene();
+        proj.new_scene();
+        proj.new_scene();
+        let (project, scenes) = Project::save(conn, user.uuid, proj).await.unwrap();
+
+        // Load the project, delete a couple of scenes and re-save.
+        let project = Project::get_by_uuid(conn, project.uuid).await.unwrap();
+        let mut proj = project.load(conn).await.unwrap();
+        assert_eq!(proj.scenes.len(), 4);
+        proj.delete_scene(scenes.get(1).unwrap().uuid).unwrap();
+        proj.delete_scene(scenes.get(3).unwrap().uuid).unwrap();
+        Project::save(conn, user.uuid, proj).await.unwrap();
+
+        // Load the project again and check that the scenes are gone.
+        let proj = Project::get_by_uuid(conn, project.uuid)
+            .await
+            .unwrap()
+            .load(conn)
+            .await
+            .unwrap();
+        assert_eq!(proj.scenes.len(), 2);
+        assert!(proj.get_scene(scenes.first().unwrap().uuid).is_some());
+        assert!(proj.get_scene(scenes.get(1).unwrap().uuid).is_none());
+        assert!(proj.get_scene(scenes.get(2).unwrap().uuid).is_some());
+        assert!(proj.get_scene(scenes.get(3).unwrap().uuid).is_none());
+        assert_eq!(
+            Scene::list_for_project(conn, proj.uuid)
+                .await
+                .unwrap()
+                .len(),
+            2
+        );
     }
 }

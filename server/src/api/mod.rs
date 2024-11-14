@@ -7,6 +7,9 @@ mod project;
 mod register;
 mod upload;
 
+#[cfg(test)]
+mod test;
+
 pub fn routes() -> actix_web::Scope {
     actix_web::web::scope("/api")
         .service(auth::routes())
@@ -19,6 +22,7 @@ pub fn routes() -> actix_web::Scope {
 
 type Resp = Result<HttpResponse, actix_web::Error>;
 
+#[cfg_attr(test, derive(serde_derive::Deserialize))]
 #[derive(serde_derive::Serialize)]
 struct Binary {
     message: String,

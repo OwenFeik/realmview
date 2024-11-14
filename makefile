@@ -98,8 +98,8 @@ lint-py:
 
 test: test-py test-rust
 
-test-rust: database
-	export DATA_DIR=$$(mktemp -d) \
+test-rust:
+	export DATA_DIR=$$(mktemp -d)                                     \
 	&& echo "Running tests with DATA_DIR=$$DATA_DIR"                  \
 	&& sqlite3 $$DATA_DIR/database.db < ${root}/server/sql/schema.sql \
 	&& DATABASE_URL=sqlite://$$DATA_DIR/database.db ${cargo} test

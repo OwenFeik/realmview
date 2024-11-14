@@ -4,8 +4,8 @@ use sqlx::SqlitePool;
 use super::{body_failure, body_success, resp, session_resp, Resp};
 use crate::crypto::Key;
 use crate::models::UserAuth;
-use crate::req::session::{Session, SessionOpt};
-use crate::utils::Res;
+use crate::req::session::SessionOpt;
+use crate::utils::{format_uuid, Res};
 use crate::{crypto::check_password, models::UserSession};
 
 pub fn routes() -> actix_web::Scope {
@@ -26,7 +26,8 @@ struct LoginRequest {
 }
 
 async fn login(pool: web::Data<SqlitePool>, req: web::Json<LoginRequest>) -> Resp {
-    let user = match UserAuth::get_by_username(&pool, req.username.as_str()).await {
+    let conn = &mut pool.acquire().await.map_err(ErrorInternalServerError)?;
+    let user = match UserAuth::get_by_username(conn, req.username.as_str()).await {
         Ok(user) => user,
         Err(e) => return Ok(session_resp("").json(body_failure(e))),
     };
@@ -37,11 +38,11 @@ async fn login(pool: web::Data<SqlitePool>, req: web::Json<LoginRequest>) -> Res
         return Ok(session_resp("").json(body_failure("Incorrect password.")));
     };
 
-    let session = UserSession::create(&pool, &user)
+    let session = UserSession::create(conn, user.uuid)
         .await
         .map_err(ErrorInternalServerError)?;
 
-    Ok(session_resp(&session.simple().to_string()).json(body_success("Logged in.")))
+    Ok(session_resp(&format_uuid(session.uuid)).json(body_success("Logged in.")))
 }
 
 async fn test(session: SessionOpt) -> HttpResponse {
@@ -55,10 +56,11 @@ async fn test(session: SessionOpt) -> HttpResponse {
     resp(message, success)
 }
 
-async fn logout(pool: web::Data<SqlitePool>, session: SessionOpt) -> HttpResponse {
-    if let SessionOpt::Some(Session { key, .. }) = session {
-        UserSession::end(&pool, &key).await.ok();
+async fn logout(pool: web::Data<SqlitePool>, session: SessionOpt) -> Resp {
+    if let SessionOpt::Some(session) = session {
+        let conn = &mut pool.acquire().await.map_err(ErrorInternalServerError)?;
+        session.session.end(conn).await.ok();
     }
 
-    session_resp("").json(body_success("Logged out."))
+    Ok(session_resp("").json(body_success("Logged out.")))
 }

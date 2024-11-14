@@ -86,7 +86,8 @@ async fn register(pool: web::Data<SqlitePool>, details: web::Json<RegistrationRe
         return RegistrationResponse::failure("Invalid username.", "username");
     }
 
-    if User::username_taken(&pool, details.username.as_str())
+    let conn = &mut pool.acquire().await.map_err(ErrorInternalServerError)?;
+    if User::username_taken(conn, details.username.as_str())
         .await
         .map_err(ErrorInternalServerError)?
     {
@@ -100,16 +101,9 @@ async fn register(pool: web::Data<SqlitePool>, details: web::Json<RegistrationRe
     let (s_salt, s_hpw, s_rkey) =
         generate_keys(details.password.as_str()).map_err(ErrorInternalServerError)?;
 
-    let mut conn = pool.acquire().await.map_err(ErrorInternalServerError)?;
-    UserAuth::register(
-        &mut conn,
-        details.username.as_str(),
-        &s_salt,
-        &s_hpw,
-        &s_rkey,
-    )
-    .await
-    .map_err(ErrorInternalServerError)?;
+    UserAuth::register(conn, details.username.as_str(), &s_salt, &s_hpw, &s_rkey)
+        .await
+        .map_err(ErrorInternalServerError)?;
 
     RegistrationResponse::success(
         to_hex_string(&s_rkey).map_err(ErrorInternalServerError)?,

@@ -1,13 +1,11 @@
-use sqlx::{prelude::FromRow, SqliteConnection, SqlitePool};
+use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
-use super::{timestamp_s, timestamp_to_system, Conn, UserSession};
+use super::{timestamp_s, timestamp_to_system, Conn};
 use crate::{
     crypto::{from_hex_string, to_hex_string, Key},
     utils::{err, format_uuid, generate_uuid, parse_uuid, Res},
 };
-
-type Pool = SqlitePool;
 
 #[derive(Debug)]
 pub struct User {
@@ -24,9 +22,9 @@ impl User {
         }
     }
 
-    pub async fn username_taken(pool: &SqlitePool, username: &str) -> Res<bool> {
+    pub async fn username_taken(conn: &mut Conn, username: &str) -> Res<bool> {
         sqlx::query!("SELECT uuid FROM users WHERE username = ?1;", username)
-            .fetch_optional(pool)
+            .fetch_optional(conn)
             .await
             .map_err(|e| e.to_string())
             .map(|opt| opt.is_some())
@@ -34,12 +32,7 @@ impl User {
 
     #[cfg(test)]
     pub async fn generate(conn: &mut Conn) -> Res<Self> {
-        let salt = crate::crypto::generate_salt()?;
-        let hashed_password = crate::crypto::hash_password(&salt, "password");
-        let recovery_key = crate::crypto::generate_salt()?;
-        UserAuth::register(conn, "test", &salt, &hashed_password, &recovery_key)
-            .await
-            .map(Self::from)
+        UserAuth::generate(conn).await.map(Self::from)
     }
 }
 
@@ -76,8 +69,8 @@ pub struct UserAuth {
 }
 
 impl UserAuth {
-    pub async fn get_by_username(pool: &Pool, username: &str) -> Res<Self> {
-        match lookup_by_username(pool, username).await? {
+    pub async fn get_by_username(conn: &mut Conn, username: &str) -> Res<Self> {
+        match lookup_by_username(conn, username).await? {
             Some(record) => Self::try_from(record),
             None => Err(format!("User {username} does not exist.")),
         }
@@ -100,6 +93,16 @@ impl UserAuth {
         .await
         .and_then(Self::try_from)
     }
+
+    #[cfg(test)]
+    pub async fn generate(conn: &mut Conn) -> Res<Self> {
+        let salt = crate::crypto::generate_salt()?;
+        let hashed_password = crate::crypto::hash_password(&salt, "password");
+        let recovery_key = crate::crypto::generate_salt()?;
+        Self::register(conn, "test", &salt, &hashed_password, &recovery_key)
+            .await
+            .map(Self::from)
+    }
 }
 
 impl TryFrom<UserRow> for UserAuth {
@@ -114,88 +117,6 @@ impl TryFrom<UserRow> for UserAuth {
             recovery_key: from_hex_string(&value.hashed_password)?,
             created_time: timestamp_to_system(value.created_time),
         })
-    }
-}
-
-pub async fn get_by_uuid(conn: &mut SqliteConnection, uuid: Uuid) -> Res<Self> {
-    sqlx::query_as(
-        "
-            SELECT (uuid, username, salt, hashed_password, recovery_key, created_time)
-            FROM users WHERE uuid = ?1;
-            ",
-    )
-    .bind(format_uuid(uuid))
-    .fetch_one(conn)
-    .await
-    .map_err(|e| e.to_string())
-}
-
-/// Given a valid session key, return the associated user. None if session
-/// has expired.
-pub async fn get_by_session(pool: &SqlitePool, session_key: &str) -> Res<Option<User>> {
-    let user = sqlx::query_as(concat!(
-        "SELECT u.uuid, u.username, u.salt, u.hashed_password, ",
-        "u.recovery_key, u.created_time FROM users u LEFT JOIN ",
-        "user_sessions us ON us.user = u.uuid WHERE us.session_key = ?1",
-        " AND us.end_time IS NULL;"
-    ))
-    .bind(session_key)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| e.to_string())?;
-    Ok(user)
-}
-
-pub fn relative_save_path(&self) -> String {
-    format!("/saves/{}", &self.username)
-}
-
-pub fn relative_upload_path(&self) -> String {
-    format!("/uploads/{}", &self.username)
-}
-
-pub fn absolute_upload_path(&self, content_dir: &str) -> String {
-    format!("{}/{}", content_dir, &self.relative_upload_path())
-}
-
-impl UserSession {
-    pub async fn get(pool: &SqlitePool, session: Uuid) -> Res<Option<UserSession>> {
-        let user_session = sqlx::query_as("SELECT * FROM user_sessions WHERE uuid = ?1;")
-            .bind(format_uuid(session))
-            .fetch_optional(pool)
-            .await
-            .map_err(|e| e.to_string())?;
-        Ok(user_session)
-    }
-
-    pub async fn create(pool: &SqlitePool, user: &User) -> Res<Uuid> {
-        let session: Self = sqlx::query_as(
-            "INSERT INTO user_sessions (uuid, user, start_time) VALUES (?1, ?2, ?3) RETURNING *;",
-        )
-        .bind(format_uuid(generate_uuid()))
-        .bind(format_uuid(user.uuid))
-        .bind(timestamp_s())
-        .fetch_one(pool)
-        .await
-        .map_err(|e| e.to_string())?;
-        Ok(session.uuid)
-    }
-
-    pub async fn end(pool: &SqlitePool, session_key: &str) -> Res<bool> {
-        let rows_affected =
-            sqlx::query("UPDATE user_sessions SET end_time = ?1 WHERE session_key = ?2")
-                .bind(timestamp_s())
-                .bind(session_key)
-                .execute(pool)
-                .await
-                .map_err(|e| e.to_string())?
-                .rows_affected();
-
-        Ok(rows_affected > 0)
-    }
-
-    pub async fn user(&self, pool: &SqlitePool) -> Res<Option<User>> {
-        User::lookup(pool, self.uuid).await
     }
 }
 
@@ -244,13 +165,164 @@ async fn register(
     .map_err(|e| e.to_string())
 }
 
-async fn lookup_by_username(pool: &Pool, username: &str) -> Res<Option<UserRow>> {
+async fn lookup_by_username(conn: &mut Conn, username: &str) -> Res<Option<UserRow>> {
     sqlx::query_as!(
         UserRow,
         "SELECT * FROM users WHERE username = ?1;",
         username
     )
-    .fetch_optional(pool)
+    .fetch_optional(conn)
     .await
     .map_err(|e| e.to_string())
+}
+
+#[derive(Debug)]
+pub struct UserSession {
+    pub uuid: Uuid,
+    pub user: Uuid,
+    pub start: std::time::SystemTime,
+    pub end: Option<std::time::SystemTime>,
+}
+
+impl UserSession {
+    pub async fn create(conn: &mut Conn, user: Uuid) -> Res<Self> {
+        create_user_session(conn, user)
+            .await
+            .and_then(Self::try_from)
+    }
+
+    pub async fn get_with_user(conn: &mut Conn, session: Uuid) -> Res<Option<(Self, User)>> {
+        if let Some((user_row, session_row)) = get_user_with_session(conn, session).await? {
+            let user = User::try_from(user_row)?;
+            let session = UserSession::try_from(session_row)?;
+            Ok(Some((session, user)))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub async fn end(self, conn: &mut Conn) -> Res<()> {
+        let end_time = timestamp_s();
+        let uuid = format_uuid(self.uuid);
+        sqlx::query!(
+            "UPDATE user_sessions SET end_time = ?1 WHERE uuid = ?2",
+            end_time,
+            uuid
+        )
+        .execute(conn)
+        .await
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+    }
+}
+
+impl TryFrom<UserSessionRow> for UserSession {
+    type Error = String;
+
+    fn try_from(value: UserSessionRow) -> Result<Self, Self::Error> {
+        Ok(Self {
+            uuid: parse_uuid(&value.uuid)?,
+            user: parse_uuid(&value.user)?,
+            start: timestamp_to_system(value.start_time),
+            end: value.end_time.map(timestamp_to_system),
+        })
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct UserSessionRow {
+    uuid: String,
+    user: String,
+    start_time: i64,
+    end_time: Option<i64>,
+}
+
+async fn lookup_user_session(conn: &mut Conn, session: Uuid) -> Res<Option<UserSessionRow>> {
+    let session = format_uuid(session);
+    sqlx::query_as!(
+        UserSessionRow,
+        "SELECT * FROM user_sessions WHERE uuid = ?1;",
+        session
+    )
+    .fetch_optional(conn)
+    .await
+    .map_err(|e| e.to_string())
+}
+
+async fn create_user_session(conn: &mut Conn, user: Uuid) -> Res<UserSessionRow> {
+    let uuid = format_uuid(generate_uuid());
+    let user = format_uuid(user);
+    let start_time = timestamp_s();
+    sqlx::query_as!(
+        UserSessionRow,
+        "INSERT INTO user_sessions (uuid, user, start_time) VALUES (?1, ?2, ?3) RETURNING *;",
+        uuid,
+        user,
+        start_time
+    )
+    .fetch_one(conn)
+    .await
+    .map_err(|e| e.to_string())
+}
+
+/// Given a valid session key, return the associated user. None if session
+/// has expired.
+async fn get_user_with_session(
+    conn: &mut Conn,
+    session: Uuid,
+) -> Res<Option<(UserRow, UserSessionRow)>> {
+    #[derive(FromRow)]
+    struct QueryRow {
+        user_uuid: String,
+        username: String,
+        salt: String,
+        hashed_password: String,
+        recovery_key: String,
+        created_time: i64,
+        session_uuid: String,
+        start_time: i64,
+        end_time: Option<i64>,
+    }
+
+    let session_uuid = format_uuid(session);
+    let row = sqlx::query_as!(
+        QueryRow,
+        "
+        SELECT
+            users.uuid as user_uuid,
+            username,
+            salt,
+            hashed_password,
+            recovery_key,
+            created_time,
+            user_sessions.uuid as session_uuid,
+            start_time,
+            end_time
+        FROM users LEFT JOIN user_sessions ON user_sessions.user = users.uuid
+        WHERE user_sessions.uuid = ?1 AND user_sessions.end_time IS NULL;
+        ",
+        session_uuid
+    )
+    .fetch_optional(conn)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(row.map(|row| {
+        (
+            UserRow {
+                uuid: row.user_uuid.clone(),
+                username: row.username,
+                salt: row.salt,
+                hashed_password: row.hashed_password,
+                recovery_key: row.recovery_key,
+                created_time: row.created_time,
+            },
+            UserSessionRow {
+                uuid: row.session_uuid,
+                user: row.user_uuid,
+                start_time: row.start_time,
+                end_time: row.end_time,
+            },
+        )
+    }))
 }

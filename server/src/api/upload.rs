@@ -1,5 +1,5 @@
 use actix_multipart::{Field, Multipart};
-use actix_web::web;
+use actix_web::{error::ErrorInternalServerError, web};
 use futures::{StreamExt, TryStreamExt};
 use ring::digest;
 use sqlx::{SqliteConnection, SqlitePool};
@@ -8,7 +8,7 @@ use uuid::Uuid;
 use super::{res_failure, res_json, Resp};
 use crate::{
     crypto::format_hex,
-    fs::{join_relative_path, CONTENT},
+    fs::{join_relative_path, write_file, CONTENT},
     models::{Media, User},
     req::e500,
     utils::{err, format_uuid, Res},
@@ -91,7 +91,7 @@ async fn save_media(
 
     let record = Media::prepare(
         user.uuid,
-        &user.relative_upload_path(),
+        &format!("/uploads/{}", &user.username),
         &ext,
         title,
         hash,
@@ -99,11 +99,11 @@ async fn save_media(
     );
 
     let path = join_relative_path(&CONTENT, &record.relative_path);
-    write_file(&path, data).await?;
+    write_file(&path, &data).await?;
 
     let url = format!("/static/{}", &record.relative_path);
     match record.create(conn).await {
-        Ok(()) => Ok(UploadResponse::new(Some(format_uuid(record.uuid)), url)),
+        Ok(record) => Ok(UploadResponse::new(Some(format_uuid(record.uuid)), url)),
         Err(e) => {
             // Remove file as part of cleanup.
             tokio::fs::remove_file(&path).await.ok();
@@ -123,12 +123,12 @@ async fn save_thumbnail(
     }
 
     let relative_path = format!(
-        "{}/thumbnails/{}.png",
-        &user.relative_upload_path(),
+        "/uploads/{}/thumbnails/{}.png",
+        &user.username,
         format_uuid(scene),
     );
     let absolute_path = join_relative_path(&CONTENT, &relative_path);
-    write_file(absolute_path, data).await?;
+    write_file(&absolute_path, &data).await?;
 
     crate::models::Scene::set_thumbnail(conn, scene, &relative_path).await?;
 
@@ -136,18 +136,6 @@ async fn save_thumbnail(
         None,
         format!("/static/{}", &relative_path),
     ))
-}
-
-async fn write_file(path: impl AsRef<std::path::Path>, data: Vec<u8>) -> Res<()> {
-    if let Some(parent) = path.as_ref().parent() {
-        tokio::fs::create_dir_all(parent)
-            .await
-            .map_err(|e| format!("Failed to create upload directory: {e}"))?;
-    }
-
-    tokio::fs::write(path, data)
-        .await
-        .map_err(|e| format!("Failed to write file: {e}"))
 }
 
 fn hash_file(raw: &[u8]) -> String {
@@ -208,7 +196,8 @@ impl UploadResponse {
 }
 
 async fn upload(pool: web::Data<SqlitePool>, user: User, mut form: Multipart) -> Resp {
-    let total_uploaded = Media::user_total_size(&pool, user.uuid)
+    let conn = &mut pool.acquire().await.map_err(ErrorInternalServerError)?;
+    let total_uploaded = Media::user_total_size(conn, user.uuid)
         .await
         .map_err(e500)?;
 

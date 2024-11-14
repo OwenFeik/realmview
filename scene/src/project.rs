@@ -27,6 +27,16 @@ impl Project {
         self.scenes.iter().find(|s| s.uuid == scene)
     }
 
+    pub fn delete_scene(&mut self, scene: Uuid) -> Result<(), String> {
+        let n = self.scenes.len();
+        self.scenes.retain(|sc| sc.uuid != scene);
+        if self.scenes.len() >= n {
+            Err("Scene not found".into())
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn update_scene(&mut self, scene: Scene) -> Result<(), String> {
         if let Some(to_update) = self.scenes.iter_mut().find(|s| s.uuid == scene.uuid) {
             *to_update = scene;

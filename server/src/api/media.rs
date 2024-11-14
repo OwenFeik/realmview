@@ -13,8 +13,8 @@ pub fn routes() -> actix_web::Scope {
     web::scope("/media")
         .route("/list", web::get().to(list))
         .route("/details", web::post().to(update))
-        .route("/{media_key}", web::get().to(retrieve))
-        .route("/{media_key}", web::delete().to(delete))
+        .route("/{media_uuid}", web::get().to(retrieve))
+        .route("/{media_uuid}", web::delete().to(delete))
 }
 
 #[derive(serde_derive::Serialize)]
@@ -54,7 +54,8 @@ impl MediaListResponse {
 }
 
 async fn list(pool: web::Data<SqlitePool>, user: User) -> Resp {
-    let media = Media::user_media(&pool, user.uuid).await.map_err(e500)?;
+    let conn = &mut pool.acquire().await.map_err(e500)?;
+    let media = Media::user_media(conn, user.uuid).await.map_err(e500)?;
     let items = media.into_iter().map(MediaItem::from).collect();
     Ok(HttpResponse::Ok().json(MediaListResponse::new(items)))
 }
@@ -72,11 +73,12 @@ async fn update(
     user: User,
     details: web::Json<DetailsUpdate>,
 ) -> Resp {
+    let conn = &mut pool.acquire().await.map_err(e500)?;
     Media::update(
-        &pool,
+        conn,
         user.uuid,
         details.uuid,
-        details.title.clone(),
+        &details.title,
         details.w,
         details.h,
     )
@@ -105,11 +107,12 @@ async fn retrieve(
     pool: web::Data<SqlitePool>,
     path: web::Path<(String,)>,
 ) -> impl actix_web::Responder {
+    let conn = &mut pool.acquire().await.map_err(e500)?;
     let uuid = match Uuid::try_parse(&path.into_inner().0) {
         Ok(uuid) => uuid,
         _ => return res_failure("Invalid media UUID."),
     };
-    let media = match Media::load(&pool, uuid).await {
+    let media = match Media::load(conn, uuid).await {
         Ok(record) => record,
         _ => return res_failure("Media not found."),
     };
@@ -118,12 +121,13 @@ async fn retrieve(
 }
 
 async fn delete(pool: web::Data<SqlitePool>, user: User, path: web::Path<(String,)>) -> Resp {
+    let conn = &mut pool.acquire().await.map_err(e500)?;
     let uuid = match Uuid::try_parse(&path.into_inner().0) {
         Ok(uuid) => uuid,
         _ => return res_failure("Invalid media UUID."),
     };
-    if let Ok(media) = Media::load(&pool, uuid).await {
-        if user.uuid == media.user && Media::delete(&pool, uuid).await.is_ok() {
+    if let Ok(media) = Media::load(conn, uuid).await {
+        if user.uuid == media.user && Media::delete(conn, uuid).await.is_ok() {
             tokio::fs::remove_file(join_relative_path(&CONTENT, media.relative_path))
                 .await
                 .ok();

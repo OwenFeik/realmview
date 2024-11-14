@@ -49,7 +49,7 @@ async fn new(
         Ok(r) => match Project::for_scene(conn, r.uuid).await {
             Ok(proj) => {
                 if user.uuid == proj.user {
-                    proj.load().await.map_err(e500)?
+                    proj.load(conn).await.map_err(e500)?
                 } else {
                     return res_failure("Scene owned by a different user.");
                 }

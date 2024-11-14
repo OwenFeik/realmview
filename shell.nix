@@ -6,7 +6,7 @@ in
       rustup
       wasm-pack
       sqlite
-      # rust-analyzer
+      gnumake
 
       (python3.withPackages (python-pkgs: [
         python-pkgs.urllib3

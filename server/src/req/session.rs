@@ -9,9 +9,10 @@ use actix_web::{
 };
 use futures::Future;
 
-use crate::models::User;
+use crate::models::{User, UserSession};
+use crate::utils::parse_uuid;
 
-pub const COOKIE_NAME: &str = "session_key";
+pub const COOKIE_NAME: &str = "realmview_session";
 
 #[derive(Debug)]
 struct LoginRedirect {
@@ -46,21 +47,20 @@ fn login_redirect<T, S: ToString>(path: S) -> Result<T, actix_web::Error> {
 
 async fn session_from_req(req: &actix_web::HttpRequest) -> Result<SessionOpt, actix_web::Error> {
     if let Some(cookie) = req.cookie(COOKIE_NAME) {
-        let key = cookie.value();
-        let pool = crate::fs::database();
-        let session = match User::get_by_session(&pool, key)
+        let session_uuid = parse_uuid(cookie.value()).map_err(ErrorUnprocessableEntity)?;
+        let conn = &mut crate::fs::database_connection()
+            .await
+            .map_err(ErrorInternalServerError)?;
+        let session = match UserSession::get_with_user(conn, session_uuid)
             .await
             .map_err(ErrorInternalServerError)?
         {
-            Some(user) => SessionOpt::Some(Session {
-                key: key.to_string(),
-                user,
-            }),
+            Some((session, user)) => SessionOpt::Some(Session { session, user }),
             None => SessionOpt::None,
         };
         Ok(session)
     } else {
-        Err(ErrorUnprocessableEntity("Missing cookie."))
+        Err(ErrorUnprocessableEntity("Missing session cookie."))
     }
 }
 
@@ -73,7 +73,7 @@ async fn session_or_redirect(req: &actix_web::HttpRequest) -> Result<Session, ac
 
 #[derive(Debug)]
 pub struct Session {
-    pub key: String,
+    pub session: UserSession,
     pub user: User,
 }
 
