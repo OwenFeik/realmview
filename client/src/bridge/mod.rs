@@ -714,7 +714,7 @@ pub fn save_request_body(raw: &[u8]) -> Res<String> {
     .map_err(|e| e.to_string())
 }
 
-pub fn save_project(project: &Project) -> Res<SaveState> {
+pub fn save_project(_project: &Project) -> Res<SaveState> {
     todo!("Implement");
 }
 

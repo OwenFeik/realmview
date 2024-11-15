@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
 ) STRICT;
 
 CREATE TABLE IF NOT EXISTS user_sessions (
-    uuid TEXT PRIMARY KEY,
+    session_key TEXT PRIMARY KEY, -- CHAR(64)
     user TEXT REFERENCES users(uuid) ON DELETE CASCADE NOT NULL,
     start_time INTEGER NOT NULL,
     end_time INTEGER

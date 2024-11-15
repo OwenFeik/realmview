@@ -10,7 +10,6 @@ use actix_web::{
 use futures::Future;
 
 use crate::models::{User, UserSession};
-use crate::utils::parse_uuid;
 
 pub const COOKIE_NAME: &str = "realmview_session";
 
@@ -47,11 +46,15 @@ fn login_redirect<T, S: ToString>(path: S) -> Result<T, actix_web::Error> {
 
 async fn session_from_req(req: &actix_web::HttpRequest) -> Result<SessionOpt, actix_web::Error> {
     if let Some(cookie) = req.cookie(COOKIE_NAME) {
-        let session_uuid = parse_uuid(cookie.value()).map_err(ErrorUnprocessableEntity)?;
+        let session_key = cookie.value();
+        if session_key.len() != crate::crypto::KEY_LENGTH * 2 {
+            return Err(ErrorUnprocessableEntity("Invalid session cookie."));
+        }
+
         let conn = &mut crate::fs::database_connection()
             .await
             .map_err(ErrorInternalServerError)?;
-        let session = match UserSession::get_with_user(conn, session_uuid)
+        let session = match UserSession::get_with_user(conn, session_key)
             .await
             .map_err(ErrorInternalServerError)?
         {

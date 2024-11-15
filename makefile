@@ -6,9 +6,9 @@ root := $(shell pwd)
 build := ${root}/build
 target := ${build}/target
 content := ${build}/content
-env := CARGO_TARGET_DIR=${target} RUST_BACKTRACE=1
+env := CARGO_TARGET_DIR=${target}
 cargo := ${env} cargo
-wp := ${env} wasm-pack
+wp := RUST_BACKTRACE=1 ${env} wasm-pack
 py := python3
 dep := ${HOME}/deployment
 

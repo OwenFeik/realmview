@@ -17,6 +17,8 @@ pub struct Project {
 }
 
 impl Project {
+    pub const MAX_TITLE_LENGTH: usize = 256;
+
     pub async fn save(
         conn: &mut Conn,
         owner: Uuid,
@@ -39,11 +41,14 @@ impl Project {
         Ok((record, scenes))
     }
 
-    pub async fn load(&self, conn: &mut Conn) -> Res<scene::Project> {
+    pub async fn load_file(&self, conn: &mut Conn) -> Res<Vec<u8>> {
         let user = User::get_by_uuid(conn, self.user).await?;
         let path = self.save_path(&user.username);
-        let data = tokio::fs::read(path).await.map_err(|e| e.to_string())?;
-        scene::serde::deserialise(&data)
+        tokio::fs::read(path).await.map_err(|e| e.to_string())
+    }
+
+    pub async fn load(&self, conn: &mut Conn) -> Res<scene::Project> {
+        scene::serde::deserialise(&self.load_file(conn).await?)
     }
 
     fn save_path(&self, username: &str) -> PathBuf {
@@ -66,7 +71,7 @@ impl Project {
         }
     }
 
-    async fn lookup(conn: &mut Conn, uuid: Uuid) -> Res<Option<Self>> {
+    pub async fn lookup(conn: &mut Conn, uuid: Uuid) -> Res<Option<Self>> {
         if let Some(row) = lookup(conn, uuid).await? {
             Ok(Some(Self::try_from(row)?))
         } else {
@@ -86,7 +91,20 @@ impl Project {
             .collect()
     }
 
+    pub fn validate_title(title: &str) -> Res<()> {
+        if title.len() > Self::MAX_TITLE_LENGTH {
+            Err(format!(
+                "Title too long ({} characters), max length is {}.",
+                title.len(),
+                Self::MAX_TITLE_LENGTH
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
     pub async fn create(conn: &mut Conn, user: Uuid, title: &str) -> Res<Self> {
+        Self::validate_title(title)?;
         create(conn, generate_uuid(), user, title)
             .await
             .and_then(Self::try_from)
@@ -249,12 +267,14 @@ async fn list_for_user(conn: &mut Conn, user: Uuid) -> Res<Vec<ProjectRow>> {
 #[cfg(test)]
 mod test {
     use super::Project;
-    use crate::models::{Scene, User};
+    use crate::{
+        fs::database_connection,
+        models::{Scene, User},
+    };
 
     #[tokio::test]
     async fn test_remove_deleted_scenes() {
-        let pool = &crate::fs::initialise_database().await.unwrap();
-        let conn = &mut pool.acquire().await.unwrap();
+        let conn = &mut database_connection().await.unwrap();
         let user = User::generate(conn).await.unwrap();
 
         // Create a fresh project and save it.

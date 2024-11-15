@@ -3,7 +3,7 @@ use sqlx::SqlitePool;
 
 use super::{res_json, Resp};
 use crate::{
-    crypto::{generate_salt, hash_password, to_hex_string, Key},
+    crypto::{generate_key, hash_password, to_hex_string, Key},
     models::{User, UserAuth},
     utils::Res,
 };
@@ -12,12 +12,14 @@ pub fn routes() -> actix_web::Scope {
     actix_web::web::scope("/register").default_service(web::post().to(register))
 }
 
+#[cfg_attr(test, derive(serde_derive::Serialize))]
 #[derive(serde_derive::Deserialize)]
 struct RegistrationRequest {
     username: String,
     password: String,
 }
 
+#[cfg_attr(test, derive(serde_derive::Deserialize))]
 #[derive(serde_derive::Serialize)]
 struct RegistrationResponse {
     message: String,
@@ -62,22 +64,10 @@ fn valid_password(password: &str) -> bool {
         && password.len() >= 8
 }
 
-fn get_hex_strings(
-    salt: &Key,
-    hashed_password: &Key,
-    recovery_key: &Key,
-) -> Res<(String, String, String)> {
-    Ok((
-        to_hex_string(salt)?,
-        to_hex_string(hashed_password)?,
-        to_hex_string(recovery_key)?,
-    ))
-}
-
 fn generate_keys(password: &str) -> Res<(Key, Key, Key)> {
-    let salt = generate_salt()?;
+    let salt = generate_key()?;
     let hashed_password = hash_password(&salt, password);
-    let recovery_key = generate_salt()?;
+    let recovery_key = generate_key()?;
     Ok((salt, hashed_password, recovery_key))
 }
 
@@ -105,8 +95,92 @@ async fn register(pool: web::Data<SqlitePool>, details: web::Json<RegistrationRe
         .await
         .map_err(ErrorInternalServerError)?;
 
-    RegistrationResponse::success(
-        to_hex_string(&s_rkey).map_err(ErrorInternalServerError)?,
-        details.username.clone(),
-    )
+    RegistrationResponse::success(to_hex_string(&s_rkey), details.username.clone())
+}
+
+#[cfg(test)]
+mod test {
+    use actix_web::test;
+
+    use super::{RegistrationRequest, RegistrationResponse};
+    use crate::{api::Binary, crypto::from_hex_string, fs::initialise_database};
+
+    #[actix_web::test]
+    async fn test_register() {
+        let db = initialise_database().await.unwrap();
+        let app = test::init_service(
+            actix_web::App::new()
+                .app_data(actix_web::web::Data::new(db.clone()))
+                .service(crate::api::routes()),
+        )
+        .await;
+
+        // No request body, should be a failure.
+        let req = test::TestRequest::post().uri("/api/register").to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_client_error());
+
+        // Invalid username, should be a failure.
+        let req = test::TestRequest::post()
+            .uri("/api/register")
+            .set_json(RegistrationRequest {
+                username: "!containsnonalnum".into(),
+                password: "val1dpassword".into(),
+            })
+            .to_request();
+        let resp: RegistrationResponse = test::call_and_read_body_json(&app, req).await;
+        assert!(!resp.success);
+        assert_eq!(resp.problem_field, Some("username".into()));
+
+        // Invalid password, should be a failure.
+        let req = test::TestRequest::post()
+            .uri("/api/register")
+            .set_json(RegistrationRequest {
+                username: "valid".into(),
+                password: "bad".into(),
+            })
+            .to_request();
+        let resp: RegistrationResponse = test::call_and_read_body_json(&app, req).await;
+        assert!(!resp.success);
+        assert_eq!(resp.problem_field, Some("password".into()));
+
+        // Valid username and password, should be a success.
+        let req = test::TestRequest::post()
+            .uri("/api/register")
+            .set_json(RegistrationRequest {
+                username: "valid".into(),
+                password: "p4ssword".into(),
+            })
+            .to_request();
+        let resp: RegistrationResponse = test::call_and_read_body_json(&app, req).await;
+        assert!(resp.success);
+        assert!(resp
+            .recovery_key
+            .is_some_and(|key| from_hex_string(&key).is_ok()));
+        assert_eq!(resp.username, Some("valid".into()));
+        assert!(resp.problem_field.is_none());
+
+        // Account already exists, should be a failure.
+        let req = test::TestRequest::post()
+            .uri("/api/register")
+            .set_json(RegistrationRequest {
+                username: "valid".into(),
+                password: "p4ssword".into(),
+            })
+            .to_request();
+        let resp: RegistrationResponse = test::call_and_read_body_json(&app, req).await;
+        assert!(!resp.success);
+        assert_eq!(resp.problem_field, Some("username".into()));
+
+        // Logging into account we created should work.
+        let req = test::TestRequest::post()
+            .uri("/api/auth/login")
+            .set_json(RegistrationRequest {
+                username: "valid".into(),
+                password: "p4ssword".into(),
+            })
+            .to_request();
+        let resp: Binary = test::call_and_read_body_json(&app, req).await;
+        assert!(resp.success);
+    }
 }

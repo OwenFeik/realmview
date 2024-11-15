@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use super::{timestamp_s, timestamp_to_system, Conn};
 use crate::{
-    crypto::{from_hex_string, to_hex_string, Key},
+    crypto::{from_hex_string, generate_key, to_hex_string, Key},
     utils::{err, format_uuid, generate_uuid, parse_uuid, Res},
 };
 
@@ -86,19 +86,22 @@ impl UserAuth {
         register(
             conn,
             username,
-            &to_hex_string(salt)?,
-            &to_hex_string(hashed_password)?,
-            &to_hex_string(recovery_key)?,
+            &to_hex_string(salt),
+            &to_hex_string(hashed_password),
+            &to_hex_string(recovery_key),
         )
         .await
         .and_then(Self::try_from)
     }
 
     #[cfg(test)]
+    pub const GENERATED_USER_PASSWORD: &str = "password";
+
+    #[cfg(test)]
     pub async fn generate(conn: &mut Conn) -> Res<Self> {
-        let salt = crate::crypto::generate_salt()?;
-        let hashed_password = crate::crypto::hash_password(&salt, "password");
-        let recovery_key = crate::crypto::generate_salt()?;
+        let salt = crate::crypto::generate_key()?;
+        let hashed_password = crate::crypto::hash_password(&salt, Self::GENERATED_USER_PASSWORD);
+        let recovery_key = crate::crypto::generate_key()?;
         Self::register(conn, "test", &salt, &hashed_password, &recovery_key)
             .await
             .map(Self::from)
@@ -178,21 +181,25 @@ async fn lookup_by_username(conn: &mut Conn, username: &str) -> Res<Option<UserR
 
 #[derive(Debug)]
 pub struct UserSession {
-    pub uuid: Uuid,
+    pub session_key: Key,
     pub user: Uuid,
     pub start: std::time::SystemTime,
     pub end: Option<std::time::SystemTime>,
 }
 
 impl UserSession {
+    pub fn key_text(&self) -> String {
+        to_hex_string(&self.session_key)
+    }
+
     pub async fn create(conn: &mut Conn, user: Uuid) -> Res<Self> {
         create_user_session(conn, user)
             .await
             .and_then(Self::try_from)
     }
 
-    pub async fn get_with_user(conn: &mut Conn, session: Uuid) -> Res<Option<(Self, User)>> {
-        if let Some((user_row, session_row)) = get_user_with_session(conn, session).await? {
+    pub async fn get_with_user(conn: &mut Conn, session_key: &str) -> Res<Option<(Self, User)>> {
+        if let Some((user_row, session_row)) = get_user_with_session(conn, session_key).await? {
             let user = User::try_from(user_row)?;
             let session = UserSession::try_from(session_row)?;
             Ok(Some((session, user)))
@@ -203,11 +210,11 @@ impl UserSession {
 
     pub async fn end(self, conn: &mut Conn) -> Res<()> {
         let end_time = timestamp_s();
-        let uuid = format_uuid(self.uuid);
+        let session_key = to_hex_string(&self.session_key);
         sqlx::query!(
-            "UPDATE user_sessions SET end_time = ?1 WHERE uuid = ?2",
+            "UPDATE user_sessions SET end_time = ?1 WHERE session_key = ?2",
             end_time,
-            uuid
+            session_key
         )
         .execute(conn)
         .await
@@ -221,7 +228,7 @@ impl TryFrom<UserSessionRow> for UserSession {
 
     fn try_from(value: UserSessionRow) -> Result<Self, Self::Error> {
         Ok(Self {
-            uuid: parse_uuid(&value.uuid)?,
+            session_key: from_hex_string(&value.session_key)?,
             user: parse_uuid(&value.user)?,
             start: timestamp_to_system(value.start_time),
             end: value.end_time.map(timestamp_to_system),
@@ -231,18 +238,17 @@ impl TryFrom<UserSessionRow> for UserSession {
 
 #[derive(sqlx::FromRow)]
 struct UserSessionRow {
-    uuid: String,
+    session_key: String,
     user: String,
     start_time: i64,
     end_time: Option<i64>,
 }
 
-async fn lookup_user_session(conn: &mut Conn, session: Uuid) -> Res<Option<UserSessionRow>> {
-    let session = format_uuid(session);
+async fn lookup_user_session(conn: &mut Conn, session_key: &str) -> Res<Option<UserSessionRow>> {
     sqlx::query_as!(
         UserSessionRow,
-        "SELECT * FROM user_sessions WHERE uuid = ?1;",
-        session
+        "SELECT * FROM user_sessions WHERE session_key = ?1;",
+        session_key
     )
     .fetch_optional(conn)
     .await
@@ -250,13 +256,16 @@ async fn lookup_user_session(conn: &mut Conn, session: Uuid) -> Res<Option<UserS
 }
 
 async fn create_user_session(conn: &mut Conn, user: Uuid) -> Res<UserSessionRow> {
-    let uuid = format_uuid(generate_uuid());
+    let session_key = to_hex_string(&generate_key()?);
     let user = format_uuid(user);
     let start_time = timestamp_s();
     sqlx::query_as!(
         UserSessionRow,
-        "INSERT INTO user_sessions (uuid, user, start_time) VALUES (?1, ?2, ?3) RETURNING *;",
-        uuid,
+        "
+        INSERT INTO user_sessions (session_key, user, start_time)
+        VALUES (?1, ?2, ?3) RETURNING *;
+        ",
+        session_key,
         user,
         start_time
     )
@@ -269,39 +278,38 @@ async fn create_user_session(conn: &mut Conn, user: Uuid) -> Res<UserSessionRow>
 /// has expired.
 async fn get_user_with_session(
     conn: &mut Conn,
-    session: Uuid,
+    session: &str,
 ) -> Res<Option<(UserRow, UserSessionRow)>> {
     #[derive(FromRow)]
     struct QueryRow {
-        user_uuid: String,
+        uuid: String,
         username: String,
         salt: String,
         hashed_password: String,
         recovery_key: String,
         created_time: i64,
-        session_uuid: String,
+        session_key: String,
         start_time: i64,
         end_time: Option<i64>,
     }
 
-    let session_uuid = format_uuid(session);
     let row = sqlx::query_as!(
         QueryRow,
         "
         SELECT
-            users.uuid as user_uuid,
+            uuid,
             username,
             salt,
             hashed_password,
             recovery_key,
             created_time,
-            user_sessions.uuid as session_uuid,
+            session_key,
             start_time,
             end_time
         FROM users LEFT JOIN user_sessions ON user_sessions.user = users.uuid
-        WHERE user_sessions.uuid = ?1 AND user_sessions.end_time IS NULL;
+        WHERE user_sessions.session_key = ?1 AND user_sessions.end_time IS NULL;
         ",
-        session_uuid
+        session
     )
     .fetch_optional(conn)
     .await
@@ -310,7 +318,7 @@ async fn get_user_with_session(
     Ok(row.map(|row| {
         (
             UserRow {
-                uuid: row.user_uuid.clone(),
+                uuid: row.uuid.clone(),
                 username: row.username,
                 salt: row.salt,
                 hashed_password: row.hashed_password,
@@ -318,8 +326,8 @@ async fn get_user_with_session(
                 created_time: row.created_time,
             },
             UserSessionRow {
-                uuid: row.session_uuid,
-                user: row.user_uuid,
+                session_key: row.session_key,
+                user: row.uuid,
                 start_time: row.start_time,
                 end_time: row.end_time,
             },

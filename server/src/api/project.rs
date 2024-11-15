@@ -1,3 +1,4 @@
+use actix_web::error::{ErrorNotFound, ErrorUnprocessableEntity};
 use actix_web::{error::ErrorInternalServerError, web, HttpResponse};
 use sqlx::SqliteConnection;
 use uuid::Uuid;
@@ -12,10 +13,11 @@ pub fn routes() -> actix_web::Scope {
         .route("/save", web::post().to(save))
         .route("/list", web::get().to(list))
         .route("/new", web::post().to(new))
-        .route("/{project_id}", web::get().to(get))
-        .route("/{project_id}", web::delete().to(delete))
+        .route("/{uuid}", web::get().to(get))
+        .route("/{uuid}", web::delete().to(delete))
 }
 
+#[cfg_attr(test, derive(serde_derive::Deserialize))]
 #[derive(serde_derive::Serialize)]
 struct ProjectResponse {
     message: String,
@@ -53,6 +55,7 @@ async fn save(
     }))
 }
 
+#[cfg_attr(test, derive(serde_derive::Deserialize))]
 #[derive(serde_derive::Serialize)]
 struct SceneListEntry {
     uuid: String,
@@ -73,6 +76,7 @@ impl SceneListEntry {
     }
 }
 
+#[cfg_attr(test, derive(serde_derive::Deserialize))]
 #[derive(serde_derive::Serialize)]
 struct ProjectListEntry {
     uuid: String,
@@ -96,6 +100,7 @@ impl ProjectListEntry {
     }
 }
 
+#[cfg_attr(test, derive(serde_derive::Deserialize))]
 #[derive(serde_derive::Serialize)]
 struct ProjectListResponse {
     message: String,
@@ -123,11 +128,13 @@ async fn list(mut conn: Pool, user: User) -> Result<HttpResponse, actix_web::Err
     }))
 }
 
+#[cfg_attr(test, derive(serde_derive::Serialize))]
 #[derive(serde_derive::Deserialize)]
 struct NewProjectRequest {
     title: String,
 }
 
+#[cfg_attr(test, derive(serde_derive::Deserialize))]
 #[derive(serde_derive::Serialize)]
 struct NewProjectResponse {
     message: String,
@@ -141,6 +148,10 @@ async fn new(
     user: User,
     req: web::Json<NewProjectRequest>,
 ) -> Result<HttpResponse, actix_web::Error> {
+    if let Err(e) = Project::validate_title(&req.title) {
+        return Err(ErrorUnprocessableEntity(e));
+    }
+
     let project = Project::create(conn.acquire(), user.uuid, &req.title)
         .await
         .map_err(e500)?;
@@ -155,7 +166,15 @@ async fn new(
 
 fn retrieve_uuid_from_path(path: web::Path<(String,)>) -> Result<Uuid, actix_web::Error> {
     Uuid::try_parse(&path.into_inner().0)
-        .map_err(|e| actix_web::error::ErrorUnprocessableEntity(format!("Invalid UUID: {e}")))
+        .map_err(|e| ErrorUnprocessableEntity(format!("Invalid UUID: {e}")))
+}
+
+#[cfg_attr(test, derive(serde::Deserialize))]
+#[derive(serde::Serialize)]
+struct ProjectDataResponse {
+    uuid: String,
+    title: String,
+    project: Vec<u8>,
 }
 
 async fn get(
@@ -163,19 +182,22 @@ async fn get(
     user: User,
     path: web::Path<(String,)>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let project = retrieve_uuid_from_path(path)?;
-    let project = Project::get_by_uuid(conn.acquire(), project)
-        .await
-        .map_err(e500)?;
+    let project = match Project::lookup(conn.acquire(), retrieve_uuid_from_path(path)?).await {
+        Ok(Some(record)) => record,
+        Ok(None) => return Err(ErrorNotFound("Project does not exist.")),
+        Err(e) => return Err(e500(e)),
+    };
 
     if project.user != user.uuid {
-        res_failure("Project not found.")
-    } else {
-        let list = ProjectListEntry::from(project, conn.acquire())
-            .await
-            .map_err(e500)?;
-        res_json(list)
+        return res_failure("Project not found.");
     }
+
+    let data = project.load_file(conn.acquire()).await.map_err(e500)?;
+    res_json(ProjectDataResponse {
+        uuid: format_uuid(project.uuid),
+        title: project.title,
+        project: data,
+    })
 }
 
 async fn delete(
@@ -183,15 +205,131 @@ async fn delete(
     user: User,
     path: web::Path<(String,)>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let project = retrieve_uuid_from_path(path)?;
-    let project = Project::get_by_uuid(conn.acquire(), project)
-        .await
-        .map_err(e500)?;
+    let project = match Project::lookup(conn.acquire(), retrieve_uuid_from_path(path)?).await {
+        Ok(Some(record)) => record,
+        Ok(None) => return Err(ErrorNotFound("Project does not exist.")),
+        Err(e) => return Err(e500(e)),
+    };
 
     if project.user != user.uuid {
         res_failure("Project not found.")
     } else {
         project.delete(conn.acquire()).await.map_err(e500)?;
         res_success("Project deleted successfully.")
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use actix_web::{
+        cookie::Cookie,
+        http::StatusCode,
+        test::{self, TestRequest},
+    };
+
+    use super::{NewProjectRequest, NewProjectResponse, ProjectDataResponse, ProjectListResponse};
+    use crate::{
+        models::{User, UserAuth},
+        utils::{format_uuid, generate_uuid},
+    };
+
+    #[actix_web::test]
+    async fn test_project() {
+        // Test
+        //   POST /api/project/new
+        //   GET /api/project/list
+        //   POST /api/project/save
+        //   GET /api/project/{uuid}
+        //   DELETE /api/project/{uuid}
+
+        let db = crate::fs::initialise_database().await.unwrap();
+        let app = test::init_service(
+            actix_web::App::new()
+                .app_data(actix_web::web::Data::new(db.clone()))
+                .service(crate::api::routes()),
+        )
+        .await;
+
+        // Invalid request; no sesion, no request body. Redirects to login.
+        let req = TestRequest::post().uri("/api/project/new").to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_redirection());
+
+        // Log in.
+        let conn = &mut db.acquire().await.unwrap();
+        let user = User::generate(conn).await.unwrap();
+        let req = TestRequest::post()
+            .uri("/api/auth/login")
+            .append_header(("Content-Type", "application/json"))
+            .set_payload(format!(
+                r#"{{"username":"{}","password":"{}"}}"#,
+                &user.username,
+                UserAuth::GENERATED_USER_PASSWORD
+            ))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+        let session =
+            Cookie::parse(resp.headers().get("Set-Cookie").unwrap().to_str().unwrap()).unwrap();
+
+        // Invalid request; no request body.
+        let req = TestRequest::post()
+            .uri("/api/project/new")
+            .cookie(session.clone())
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_client_error());
+
+        // Valid request, should succeed and create a project.
+        let title = "My Project".to_string();
+        let req = TestRequest::post()
+            .uri("/api/project/new")
+            .cookie(session.clone())
+            .set_json(NewProjectRequest {
+                title: title.clone(),
+            })
+            .to_request();
+        let resp: NewProjectResponse = test::call_and_read_body_json(&app, req).await;
+        assert!(resp.success);
+        assert_eq!(&resp.title, &title);
+        let project = resp.uuid;
+
+        // No session; should redirect to login.
+        let req = TestRequest::get().uri("/api/project/list").to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_redirection());
+
+        // Request with session, should return list with project we created.
+        let req = TestRequest::get()
+            .uri("/api/project/list")
+            .cookie(session.clone())
+            .to_request();
+        let resp: ProjectListResponse = test::call_and_read_body_json(&app, req).await;
+        assert!(resp.success);
+        assert_eq!(resp.list.len(), 1);
+        let record = resp.list.first().unwrap();
+        assert_eq!(record.uuid, project);
+        assert!(record.scene_list.is_empty());
+
+        // Try to get a project which doesn't exist.
+        let req = TestRequest::get()
+            .uri(&format!("/api/project/{}", format_uuid(generate_uuid())))
+            .cookie(session.clone())
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+        // Try to get project we created.
+        let req = TestRequest::get()
+            .uri(&format!("/api/project/{}", project))
+            .cookie(session.clone())
+            .to_request();
+        let resp: ProjectDataResponse = test::call_and_read_body_json(&app, req).await;
+        assert_eq!(resp.uuid, project);
+        assert_eq!(&resp.title, &title);
+        let decoded = scene::serde::deserialise(&resp.project).unwrap();
+        assert_eq!(format_uuid(decoded.uuid), project);
+        assert_eq!(&decoded.title, &title);
+        assert_eq!(decoded.scenes.len(), 0);
     }
 }

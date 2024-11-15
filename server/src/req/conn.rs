@@ -5,7 +5,7 @@ use futures::Future;
 use sqlx::{pool::PoolConnection, Sqlite, SqliteConnection};
 
 use super::e500;
-use crate::fs::initialise_database;
+use crate::fs::database_connection;
 
 pub struct Pool(PoolConnection<Sqlite>);
 
@@ -23,15 +23,6 @@ impl FromRequest for Pool {
         _req: &actix_web::HttpRequest,
         _payload: &mut actix_web::dev::Payload,
     ) -> Self::Future {
-        Box::pin(async {
-            Ok(Pool(
-                initialise_database()
-                    .await
-                    .map_err(e500)?
-                    .acquire()
-                    .await
-                    .map_err(e500)?,
-            ))
-        })
+        Box::pin(async { Ok(Pool(database_connection().await.map_err(e500)?)) })
     }
 }

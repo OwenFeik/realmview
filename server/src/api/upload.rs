@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use super::{res_failure, res_json, Resp};
 use crate::{
-    crypto::format_hex,
+    crypto::to_hex_string,
     fs::{join_relative_path, write_file, CONTENT},
     models::{Media, User},
     req::e500,
@@ -139,7 +139,7 @@ async fn save_thumbnail(
 }
 
 fn hash_file(raw: &[u8]) -> String {
-    format_hex(digest::digest(&digest::SHA256, raw).as_ref())
+    to_hex_string(digest::digest(&digest::SHA256, raw).as_ref())
 }
 
 async fn collect_part(part: Field) -> Res<Vec<u8>> {

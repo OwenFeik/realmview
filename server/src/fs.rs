@@ -12,9 +12,29 @@ static DATA: Lazy<PathBuf> =
 pub static CONTENT: Lazy<PathBuf> = Lazy::new(|| DATA.join("content"));
 pub static SAVES: Lazy<PathBuf> = Lazy::new(|| DATA.join("saves"));
 
+// For production we have a single sqlite pool, initialised once in a OnceCell
+// and then cloned for future accesses.
 #[cfg(not(test))]
 static DATABASE: Lazy<OnceCell<SqlitePool>> = Lazy::new(OnceCell::new);
 
+#[cfg(not(test))]
+pub async fn initialise_database() -> Res<SqlitePool> {
+    if DATABASE.initialized() {
+        return Ok(DATABASE.get().unwrap().clone());
+    }
+
+    let database_url = std::env::var("DATABASE_URL").expect(super::USAGE);
+    let pool = SqlitePool::connect(&database_url)
+        .await
+        .expect("Database pool creation failed.");
+
+    DATABASE.set(pool).map_err(|e| e.to_string())?;
+    Ok(DATABASE.get().unwrap().clone())
+}
+
+// For testing purposes we create a new database for each thread so that
+// parallel tests don't interfere with each other by creating and deleting
+// the same users, etc.
 #[cfg(test)]
 thread_local! {
     static DATABASE_INITIALISED: std::sync::atomic::AtomicBool = const { std::sync::atomic::AtomicBool::new(false) };
@@ -33,7 +53,7 @@ pub async fn initialise_database() -> Res<SqlitePool> {
 
         tokio::fs::copy(DATA.join("database.db"), &path)
             .await
-            .expect("Faile to copy database.");
+            .expect("Failed to copy database.");
         let database_url = format!("sqlite://{}", path.to_string_lossy());
         let pool = SqlitePool::connect(&database_url)
             .await
@@ -47,21 +67,6 @@ pub async fn initialise_database() -> Res<SqlitePool> {
             Err(e) => Err(e.to_string()),
         })
     }
-}
-
-#[cfg(not(test))]
-pub async fn initialise_database() -> Res<SqlitePool> {
-    if DATABASE.initialized() {
-        return Ok(DATABASE.get().unwrap().clone());
-    }
-
-    let database_url = std::env::var("DATABASE_URL").expect(super::USAGE);
-    let pool = SqlitePool::connect(&database_url)
-        .await
-        .expect("Database pool creation failed.");
-
-    DATABASE.set(pool).map_err(|e| e.to_string())?;
-    Ok(DATABASE.get().unwrap().clone())
 }
 
 pub async fn database_connection() -> Res<PoolConnection<Sqlite>> {

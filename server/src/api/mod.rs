@@ -7,9 +7,6 @@ mod project;
 mod register;
 mod upload;
 
-#[cfg(test)]
-mod test;
-
 pub fn routes() -> actix_web::Scope {
     actix_web::web::scope("/api")
         .service(auth::routes())
