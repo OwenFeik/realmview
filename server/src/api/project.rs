@@ -214,7 +214,7 @@ async fn delete(
     if project.user != user.uuid {
         res_failure("Project not found.")
     } else {
-        project.delete(conn.acquire()).await.map_err(e500)?;
+        project.delete(conn.acquire(), &user).await.map_err(e500)?;
         res_success("Project deleted successfully.")
     }
 }

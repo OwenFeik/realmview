@@ -22,10 +22,10 @@ impl Project {
 
     pub async fn save(
         conn: &mut Conn,
-        user: &User,
+        owner: &User,
         mut project: scene::Project,
     ) -> Res<(Self, Vec<Scene>)> {
-        let record: Self = Self::update_or_create(conn, &mut project, user.uuid).await?;
+        let record: Self = Self::update_or_create(conn, &mut project, owner.uuid).await?;
         let mut scenes = Vec::new();
         for scene in &mut project.scenes {
             scene.project = record.uuid;
@@ -33,7 +33,7 @@ impl Project {
         }
         record.remove_deleted_scenes(conn, &scenes).await;
 
-        let path = record.save_path(&user.username);
+        let path = record.save_path(&owner.username);
         let data = scene::serde::serialise(&project)?;
         write_file(path, data).await?;
 
@@ -102,21 +102,28 @@ impl Project {
         }
     }
 
-    pub async fn create(conn: &mut Conn, user: &User, title: &str) -> Res<Self> {
+    pub async fn create(conn: &mut Conn, owner: &User, title: &str) -> Res<Self> {
         Self::validate_title(title)?;
-        let record = create_project(conn, generate_uuid(), user.uuid, title)
+        let record = create_project(conn, generate_uuid(), owner.uuid, title)
             .await
             .and_then(Self::try_from)?;
         let data =
             scene::serde::serialise(&scene::Project::titled(record.uuid, title.to_string()))?;
-        write_file(record.save_path(&user.username), data).await?;
+        write_file(record.save_path(&owner.username), data).await?;
         Ok(record)
     }
 
-    pub async fn delete(self, conn: &mut Conn) -> Res<()> {
+    pub async fn delete(self, conn: &mut Conn, owner: &User) -> Res<()> {
+        if owner.uuid != self.user {
+            return err("Project can only be deleted by its owner.");
+        }
+
         let uuid = format_uuid(self.uuid);
         sqlx::query!("DELETE FROM projects WHERE uuid = ?1;", uuid)
             .execute(conn)
+            .await
+            .map_err(|e| e.to_string())?;
+        tokio::fs::remove_file(self.save_path(&owner.username))
             .await
             .map_err(|e| e.to_string())?;
         Ok(())
@@ -274,6 +281,23 @@ mod test {
         fs::database_connection,
         models::{Scene, User},
     };
+
+    #[tokio::test]
+    async fn test_create_delete() {
+        let conn = &mut database_connection().await.unwrap();
+        let user = User::generate(conn).await.unwrap();
+
+        let project = Project::create(conn, &user, "title").await.unwrap();
+        let uuid = project.uuid;
+        let path = project.save_path(&user.username);
+        assert!(Project::lookup(conn, uuid).await.unwrap().is_some());
+        assert!(tokio::fs::try_exists(&path).await.unwrap());
+        assert!(project.load_file(conn).await.is_ok());
+        assert!(project.load(conn).await.is_ok());
+        project.delete(conn, &user).await.unwrap();
+        assert!(Project::lookup(conn, uuid).await.unwrap().is_none());
+        assert!(!tokio::fs::try_exists(&path).await.unwrap());
+    }
 
     #[tokio::test]
     async fn test_remove_deleted_scenes() {
