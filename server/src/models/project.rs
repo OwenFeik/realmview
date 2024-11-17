@@ -9,6 +9,7 @@ use crate::{
     utils::{err, format_uuid, generate_uuid, parse_uuid, Res},
 };
 
+#[derive(Debug)]
 pub struct Project {
     pub uuid: Uuid,
     pub user: Uuid,
@@ -21,12 +22,10 @@ impl Project {
 
     pub async fn save(
         conn: &mut Conn,
-        owner: Uuid,
+        user: &User,
         mut project: scene::Project,
     ) -> Res<(Self, Vec<Scene>)> {
-        let user = User::get_by_uuid(conn, owner).await?;
-
-        let record: Self = Self::update_or_create(conn, &mut project, owner).await?;
+        let record: Self = Self::update_or_create(conn, &mut project, user.uuid).await?;
         let mut scenes = Vec::new();
         for scene in &mut project.scenes {
             scene.project = record.uuid;
@@ -103,11 +102,15 @@ impl Project {
         }
     }
 
-    pub async fn create(conn: &mut Conn, user: Uuid, title: &str) -> Res<Self> {
+    pub async fn create(conn: &mut Conn, user: &User, title: &str) -> Res<Self> {
         Self::validate_title(title)?;
-        create(conn, generate_uuid(), user, title)
+        let record = create_project(conn, generate_uuid(), user.uuid, title)
             .await
-            .and_then(Self::try_from)
+            .and_then(Self::try_from)?;
+        let data =
+            scene::serde::serialise(&scene::Project::titled(record.uuid, title.to_string()))?;
+        write_file(record.save_path(&user.username), data).await?;
+        Ok(record)
     }
 
     pub async fn delete(self, conn: &mut Conn) -> Res<()> {
@@ -135,11 +138,11 @@ impl Project {
         project.uuid = project_uuid;
 
         if exists {
-            update(conn, project_uuid, &project.title)
+            update_project(conn, project_uuid, &project.title)
                 .await
                 .and_then(Self::try_from)
         } else {
-            create(conn, project_uuid, user, &project.title)
+            create_project(conn, project_uuid, user, &project.title)
                 .await
                 .and_then(Self::try_from)
         }
@@ -183,7 +186,7 @@ pub struct ProjectRow {
     title: String,
 }
 
-async fn create(conn: &mut Conn, uuid: Uuid, user: Uuid, title: &str) -> Res<ProjectRow> {
+async fn create_project(conn: &mut Conn, uuid: Uuid, user: Uuid, title: &str) -> Res<ProjectRow> {
     let uuid = format_uuid(uuid);
     let user = format_uuid(user);
     let updated_time = timestamp_s();
@@ -203,7 +206,7 @@ async fn create(conn: &mut Conn, uuid: Uuid, user: Uuid, title: &str) -> Res<Pro
     .map_err(|e| e.to_string())
 }
 
-async fn update(conn: &mut Conn, uuid: Uuid, title: &str) -> Res<ProjectRow> {
+async fn update_project(conn: &mut Conn, uuid: Uuid, title: &str) -> Res<ProjectRow> {
     let updated_time = timestamp_s();
     let uuid = format_uuid(uuid);
     sqlx::query_as!(
@@ -278,15 +281,13 @@ mod test {
         let user = User::generate(conn).await.unwrap();
 
         // Create a fresh project and save it.
-        let project = Project::create(conn, user.uuid, "projecttitle")
-            .await
-            .unwrap();
+        let project = Project::create(conn, &user, "projecttitle").await.unwrap();
         let mut proj = scene::Project::new(project.uuid);
         proj.new_scene();
         proj.new_scene();
         proj.new_scene();
         proj.new_scene();
-        let (project, scenes) = Project::save(conn, user.uuid, proj).await.unwrap();
+        let (project, scenes) = Project::save(conn, &user, proj).await.unwrap();
 
         // Load the project, delete a couple of scenes and re-save.
         let project = Project::get_by_uuid(conn, project.uuid).await.unwrap();
@@ -294,7 +295,7 @@ mod test {
         assert_eq!(proj.scenes.len(), 4);
         proj.delete_scene(scenes.get(1).unwrap().uuid).unwrap();
         proj.delete_scene(scenes.get(3).unwrap().uuid).unwrap();
-        Project::save(conn, user.uuid, proj).await.unwrap();
+        Project::save(conn, &user, proj).await.unwrap();
 
         // Load the project again and check that the scenes are gone.
         let proj = Project::get_by_uuid(conn, project.uuid)

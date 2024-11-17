@@ -5,8 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT NOT NULL UNIQUE,
     salt TEXT NOT NULL, -- CHAR(64)
     hashed_password TEXT NOT NULL, -- CHAR(64)
-    recovery_key TEXT NOT NULL, -- CHAR(64)
-    created_time INTEGER NOT NULL
+    recovery_key TEXT NOT NULL -- CHAR(64)
 ) STRICT;
 
 CREATE TABLE IF NOT EXISTS user_sessions (

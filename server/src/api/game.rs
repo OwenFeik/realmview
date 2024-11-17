@@ -70,7 +70,7 @@ async fn new(
     };
 
     let pool = (*pool.into_inner()).clone();
-    let server = launch_server(game_key.clone(), user.uuid, project, req.scene, pool);
+    let server = launch_server(game_key.clone(), user, project, req.scene, pool);
     games.write().await.insert(game_key.clone(), server);
     let game_location = game_url(&game_key);
     let resp = HttpResponse::Ok()

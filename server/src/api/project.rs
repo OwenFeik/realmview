@@ -36,7 +36,7 @@ async fn save(
         return res_unproc("Failed to decode project.");
     };
 
-    let (record, scenes) = match Project::save(conn, user.uuid, project).await {
+    let (record, scenes) = match Project::save(conn, &user, project).await {
         Ok(record) => record,
         Err(e) => return Err(e500(e)),
     };
@@ -152,7 +152,7 @@ async fn new(
         return Err(ErrorUnprocessableEntity(e));
     }
 
-    let project = Project::create(conn.acquire(), user.uuid, &req.title)
+    let project = Project::create(conn.acquire(), &user, &req.title)
         .await
         .map_err(e500)?;
 
@@ -227,8 +227,12 @@ mod test {
         test::{self, TestRequest},
     };
 
-    use super::{NewProjectRequest, NewProjectResponse, ProjectDataResponse, ProjectListResponse};
+    use super::{
+        NewProjectRequest, NewProjectResponse, ProjectDataResponse, ProjectListResponse,
+        ProjectResponse,
+    };
     use crate::{
+        api::Binary,
         models::{User, UserAuth},
         utils::{format_uuid, generate_uuid},
     };
@@ -238,8 +242,8 @@ mod test {
         // Test
         //   POST /api/project/new
         //   GET /api/project/list
-        //   POST /api/project/save
         //   GET /api/project/{uuid}
+        //   POST /api/project/save
         //   DELETE /api/project/{uuid}
 
         let db = crate::fs::initialise_database().await.unwrap();
@@ -327,9 +331,54 @@ mod test {
         let resp: ProjectDataResponse = test::call_and_read_body_json(&app, req).await;
         assert_eq!(resp.uuid, project);
         assert_eq!(&resp.title, &title);
-        let decoded = scene::serde::deserialise(&resp.project).unwrap();
+        let mut decoded = scene::serde::deserialise(&resp.project).unwrap();
         assert_eq!(format_uuid(decoded.uuid), project);
         assert_eq!(&decoded.title, &title);
         assert_eq!(decoded.scenes.len(), 0);
+
+        // Create some scenes in the new project.
+        let mut scene = decoded.new_scene().clone();
+        scene.title = "First Scene".to_string();
+        scene.new_sprite(None, scene.first_layer());
+        scene.new_sprite(None, scene.first_background_layer());
+        decoded.update_scene(scene).unwrap();
+        let mut scene = decoded.new_scene().clone();
+        scene.title = "Second Scene".to_string();
+        scene.new_sprite(None, scene.layers.last().unwrap().id);
+        scene.new_sprite(None, scene.layers.last().unwrap().id);
+        decoded.update_scene(scene).unwrap();
+
+        // Save the updated project.
+        let data = scene::serde::serialise(&decoded).unwrap();
+        let req = TestRequest::post()
+            .uri("/api/project/save")
+            .cookie(session.clone())
+            .set_payload(data)
+            .to_request();
+        let resp: ProjectResponse = test::call_and_read_body_json(&app, req).await;
+        assert!(resp.success);
+        assert_eq!(&resp.project.uuid, &project);
+        assert_eq!(resp.project.scene_list.len(), 2);
+        assert_eq!(
+            resp.project.scene_list.first().unwrap().title,
+            "First Scene"
+        );
+
+        // Delete the project.
+        let req = TestRequest::delete()
+            .uri(&format!("/api/project/{}", project))
+            .cookie(session.clone())
+            .to_request();
+        let resp: Binary = test::call_and_read_body_json(&app, req).await;
+        assert!(resp.success);
+
+        // Project list should be empty.
+        let req = TestRequest::get()
+            .uri("/api/project/list")
+            .cookie(session)
+            .to_request();
+        let resp: ProjectListResponse = test::call_and_read_body_json(&app, req).await;
+        assert!(resp.success);
+        assert_eq!(resp.list.len(), 0);
     }
 }

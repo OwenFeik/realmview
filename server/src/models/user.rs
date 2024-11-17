@@ -11,7 +11,6 @@ use crate::{
 pub struct User {
     pub uuid: Uuid,
     pub username: String,
-    pub created_time: std::time::SystemTime,
 }
 
 impl User {
@@ -43,7 +42,6 @@ impl TryFrom<UserRow> for User {
         Ok(Self {
             uuid: parse_uuid(&value.uuid)?,
             username: value.username,
-            created_time: timestamp_to_system(value.created_time),
         })
     }
 }
@@ -53,7 +51,6 @@ impl From<UserAuth> for User {
         Self {
             uuid: value.uuid,
             username: value.username,
-            created_time: value.created_time,
         }
     }
 }
@@ -65,7 +62,6 @@ pub struct UserAuth {
     pub salt: Key,
     pub hashed_password: Key,
     pub recovery_key: Key,
-    pub created_time: std::time::SystemTime,
 }
 
 impl UserAuth {
@@ -95,7 +91,7 @@ impl UserAuth {
     }
 
     #[cfg(test)]
-    pub const GENERATED_USER_PASSWORD: &str = "password";
+    pub const GENERATED_USER_PASSWORD: &'static str = "password";
 
     #[cfg(test)]
     pub async fn generate(conn: &mut Conn) -> Res<Self> {
@@ -118,7 +114,6 @@ impl TryFrom<UserRow> for UserAuth {
             salt: from_hex_string(&value.salt)?,
             hashed_password: from_hex_string(&value.hashed_password)?,
             recovery_key: from_hex_string(&value.hashed_password)?,
-            created_time: timestamp_to_system(value.created_time),
         })
     }
 }
@@ -130,7 +125,6 @@ struct UserRow {
     salt: String,
     hashed_password: String,
     recovery_key: String,
-    created_time: i64,
 }
 
 async fn lookup(conn: &mut Conn, uuid: Uuid) -> Res<Option<UserRow>> {
@@ -149,19 +143,17 @@ async fn register(
     recovery_key: &str,
 ) -> Res<UserRow> {
     let uuid = format_uuid(generate_uuid());
-    let created_time = timestamp_s();
     sqlx::query_as!(
         UserRow,
         "
-        INSERT INTO users (uuid, username, salt, hashed_password, recovery_key, created_time)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING *;
+        INSERT INTO users (uuid, username, salt, hashed_password, recovery_key)
+        VALUES (?1, ?2, ?3, ?4, ?5) RETURNING *;
         ",
         uuid,
         username,
         salt,
         hashed_password,
-        recovery_key,
-        created_time
+        recovery_key
     )
     .fetch_one(conn)
     .await
@@ -287,7 +279,6 @@ async fn get_user_with_session(
         salt: String,
         hashed_password: String,
         recovery_key: String,
-        created_time: i64,
         session_key: String,
         start_time: i64,
         end_time: Option<i64>,
@@ -302,7 +293,6 @@ async fn get_user_with_session(
             salt,
             hashed_password,
             recovery_key,
-            created_time,
             session_key,
             start_time,
             end_time
@@ -323,7 +313,6 @@ async fn get_user_with_session(
                 salt: row.salt,
                 hashed_password: row.hashed_password,
                 recovery_key: row.recovery_key,
-                created_time: row.created_time,
             },
             UserSessionRow {
                 session_key: row.session_key,

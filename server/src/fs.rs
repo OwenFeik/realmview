@@ -50,6 +50,7 @@ pub async fn initialise_database() -> Res<SqlitePool> {
             "database-{}.db",
             std::thread::current().id().as_u64()
         ));
+        println!("Database path: {}", path.display());
 
         tokio::fs::copy(DATA.join("database.db"), &path)
             .await

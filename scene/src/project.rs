@@ -18,6 +18,14 @@ impl Project {
         }
     }
 
+    pub fn titled(uuid: Uuid, title: String) -> Self {
+        Self {
+            uuid,
+            title,
+            scenes: Vec::new(),
+        }
+    }
+
     pub fn new_scene(&mut self) -> &Scene {
         self.scenes.push(Scene::new(self.uuid));
         self.scenes.last().unwrap()

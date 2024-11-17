@@ -10,6 +10,7 @@ use tokio::time::Instant;
 use uuid::Uuid;
 
 use super::game::Game;
+use crate::models::User;
 use crate::{
     models::Project,
     scene::comms::{ClientEvent, ClientMessage, ServerEvent},
@@ -71,11 +72,13 @@ impl GameHandle {
 
 pub fn launch(
     key: String,
-    owner: Uuid,
+    owner: User,
     project: scene::Project,
     scene: Uuid,
     pool: SqlitePool,
 ) -> GameHandle {
+    let owner_uuid = owner.uuid;
+
     let open = Arc::new(AtomicBool::new(true));
     let (send, recv) = unbounded_channel();
 
@@ -86,7 +89,7 @@ pub fn launch(
     });
 
     GameHandle {
-        owner,
+        owner: owner_uuid,
         open,
         chan: send,
     }
@@ -119,7 +122,7 @@ impl Client {
 
 struct Server {
     open: Arc<AtomicBool>,
-    owner: Uuid,
+    owner: User,
     game: Game,
     pool: SqlitePool,
     handle: UnboundedReceiver<ServerCommand>,
@@ -133,17 +136,18 @@ impl Server {
     fn new(
         open: Arc<AtomicBool>,
         key: &str,
-        owner: Uuid,
+        owner: User,
         project: scene::Project,
         scene: Uuid,
         pool: SqlitePool,
         handle: UnboundedReceiver<ServerCommand>,
     ) -> Self {
         let now = Instant::now();
+        let owner_uuid = owner.uuid;
         Self {
             open,
             owner,
-            game: Game::new(project, scene, owner, key),
+            game: Game::new(project, scene, owner_uuid, key),
             pool,
             handle,
             clients: HashMap::new(),
@@ -317,7 +321,7 @@ impl Server {
         }
 
         // Separate message as this will only occur after some DB queries.
-        if user == self.owner {
+        if user == self.owner.uuid {
             let (list, selected) = self.game.scene_list();
             self.send_event(ServerEvent::SceneList(list, selected), user);
         }
@@ -441,7 +445,7 @@ impl Server {
     async fn _save(&self) -> Res<()> {
         let start_time = timestamp_us()?;
         let conn = &mut self.acquire_conn().await?;
-        Project::save(conn, self.owner, self.game.copy_project()).await?;
+        Project::save(conn, &self.owner, self.game.copy_project()).await?;
         let duration = timestamp_us()? - start_time;
         self.log(
             LogLevel::Debug,
