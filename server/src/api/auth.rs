@@ -79,7 +79,7 @@ mod test {
     };
 
     #[actix_web::test]
-    async fn test_auth() {
+    async fn test_auth_api() {
         // Test POST /api/auth/login, POST /api/auth/test, POST /api/auth/logout
 
         let db = initialise_database().await.unwrap();
@@ -87,7 +87,7 @@ mod test {
             test::init_service(App::new().app_data(Data::new(db.clone())).service(routes())).await;
 
         let conn = &mut db.acquire().await.unwrap();
-        let user = User::generate(conn).await.unwrap();
+        let user = User::generate(conn).await;
 
         // Test with no session should fail.
         let req = test::TestRequest::post().uri("/api/auth/test").to_request();

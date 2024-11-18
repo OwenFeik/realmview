@@ -6,7 +6,7 @@ root := $(shell pwd)
 build := ${root}/build
 target := ${build}/target
 content := ${build}/content
-env := CARGO_TARGET_DIR=${target}
+env := CARGO_TARGET_DIR=${target} RUST_LOG=INFO
 cargo := ${env} cargo
 wp := RUST_BACKTRACE=1 ${env} wasm-pack
 py := python3
@@ -26,7 +26,10 @@ deploy: html deploydb
 	cp -r ${content} ${dep}/content
 	sudo setcap CAP_NET_BIND_SERVICE=+eip ${dep}/server
 	echo "Serving on port 80"
-	RUST_BACKTRACE=1 DATABASE_URL=${dep}/database.db DATA_DIR=${dep} \
+	RUST_BACKTRACE=1                    \
+		DATABASE_URL=${dep}/database.db \
+		DATA_DIR=${dep}                 \
+		RUST_LOG=INFO                   \
 		${dep}/server 80
 
 deploydb: database
@@ -102,6 +105,7 @@ test-rust:
 	export DATA_DIR=$$(mktemp -d)                                     \
 	&& echo "Running tests with DATA_DIR=$$DATA_DIR"                  \
 	&& sqlite3 $$DATA_DIR/database.db < ${root}/server/sql/schema.sql \
+	&& mkdir -p $$DATA_DIR/content                                    \
 	&& DATABASE_URL=sqlite://$$DATA_DIR/database.db ${cargo} test
 
 test-py:

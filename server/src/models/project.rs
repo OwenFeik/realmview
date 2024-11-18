@@ -285,7 +285,7 @@ mod test {
     #[tokio::test]
     async fn test_create_delete() {
         let conn = &mut database_connection().await.unwrap();
-        let user = User::generate(conn).await.unwrap();
+        let user = User::generate(conn).await;
 
         let project = Project::create(conn, &user, "title").await.unwrap();
         let uuid = project.uuid;
@@ -302,7 +302,7 @@ mod test {
     #[tokio::test]
     async fn test_remove_deleted_scenes() {
         let conn = &mut database_connection().await.unwrap();
-        let user = User::generate(conn).await.unwrap();
+        let user = User::generate(conn).await;
 
         // Create a fresh project and save it.
         let project = Project::create(conn, &user, "projecttitle").await.unwrap();

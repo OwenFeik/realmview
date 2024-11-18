@@ -1,6 +1,6 @@
 use uuid::Uuid;
 
-use super::Conn;
+use super::{Conn, User};
 use crate::utils::{err, format_uuid, generate_uuid, parse_uuid, Res};
 
 pub struct Media {
@@ -9,7 +9,7 @@ pub struct Media {
     pub relative_path: String,
     pub title: String,
     pub hashed_value: String,
-    pub file_size: i64,
+    pub file_size: usize,
     pub w: f32,
     pub h: f32,
 }
@@ -18,21 +18,20 @@ impl Media {
     const KEY_LENGTH: usize = 16;
     const DEFAULT_SIZE: f32 = 1.0;
 
-    pub fn prepare(
-        user_uuid: Uuid,
-        directory: &str,
+    pub fn prepare<S1: ToString, S2: ToString>(
+        user: &User,
         ext: &str,
-        title: String,
-        hash: String,
-        size: i64,
+        title: S1,
+        hash: S2,
+        size: usize,
     ) -> Self {
         let uuid = generate_uuid();
         Self {
             uuid: generate_uuid(),
-            user: user_uuid,
-            relative_path: format!("{directory}/{}.{ext}", format_uuid(uuid)),
-            title,
-            hashed_value: hash,
+            user: user.uuid,
+            relative_path: format!("/uploads/{}/{}.{ext}", &user.username, format_uuid(uuid)),
+            title: title.to_string(),
+            hashed_value: hash.to_string(),
             file_size: size,
             w: Self::DEFAULT_SIZE,
             h: Self::DEFAULT_SIZE,
@@ -140,7 +139,7 @@ impl TryFrom<MediaRow> for Media {
             relative_path: value.relative_path,
             title: value.title,
             hashed_value: value.hashed_value,
-            file_size: value.file_size,
+            file_size: value.file_size as usize,
             w: value.w as f32,
             h: value.h as f32,
         })
@@ -174,12 +173,13 @@ async fn create_media(
     relative_path: &str,
     title: &str,
     hashed_value: &str,
-    file_size: i64,
+    file_size: usize,
     w: f32,
     h: f32,
 ) -> Res<MediaRow> {
     let uuid = format_uuid(uuid);
     let user = format_uuid(user);
+    let file_size = file_size as i64;
     let w = w as f64;
     let h = h as f64;
     sqlx::query_as!(

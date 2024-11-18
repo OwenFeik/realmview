@@ -30,8 +30,21 @@ impl User {
     }
 
     #[cfg(test)]
-    pub async fn generate(conn: &mut Conn) -> Res<Self> {
-        UserAuth::generate(conn).await.map(Self::from)
+    pub async fn generate(conn: &mut Conn) -> Self {
+        UserAuth::generate(conn)
+            .await
+            .map(Self::from)
+            .expect("Failed to generate user.")
+    }
+
+    #[cfg(test)]
+    pub async fn session(&self, conn: &mut Conn) -> actix_web::cookie::Cookie {
+        let session = UserSession::create(conn, self.uuid)
+            .await
+            .expect("Failed to create user session.");
+        let mut cookie = actix_web::cookie::Cookie::named(crate::req::session::COOKIE_NAME);
+        cookie.set_value(to_hex_string(&session.session_key));
+        cookie
     }
 }
 

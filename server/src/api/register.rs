@@ -106,7 +106,7 @@ mod test {
     use crate::{api::Binary, crypto::from_hex_string, fs::initialise_database};
 
     #[actix_web::test]
-    async fn test_register() {
+    async fn test_register_api() {
         let db = initialise_database().await.unwrap();
         let app = test::init_service(
             actix_web::App::new()

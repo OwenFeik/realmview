@@ -238,7 +238,7 @@ mod test {
     };
 
     #[actix_web::test]
-    async fn test_project() {
+    async fn test_project_api() {
         // Test
         //   POST /api/project/new
         //   GET /api/project/list
@@ -261,7 +261,7 @@ mod test {
 
         // Log in.
         let conn = &mut db.acquire().await.unwrap();
-        let user = User::generate(conn).await.unwrap();
+        let user = User::generate(conn).await;
         let req = TestRequest::post()
             .uri("/api/auth/login")
             .append_header(("Content-Type", "application/json"))

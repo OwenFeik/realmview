@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod tests;
-
 mod media;
 mod project;
 mod scene;

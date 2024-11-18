@@ -8,6 +8,8 @@ pub struct Scene {
     pub project: Uuid,
     pub updated_time: std::time::SystemTime,
     pub title: String,
+
+    /// Relative URI for thumbnail.
     pub thumbnail: Option<String>,
 }
 
