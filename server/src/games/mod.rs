@@ -1,31 +1,12 @@
-use crate::{
-    crypto::random_hex_string,
-    models::User,
-    utils::{warning, Res},
-};
+use crate::{models::User, utils::warning};
 
 mod client;
 mod game;
 mod server;
 
+pub use game::GameKey;
+pub use server::launch as launch_server;
 pub use server::GameHandle;
-use uuid::Uuid;
-
-pub const GAME_KEY_LENGTH: usize = 10;
-
-pub fn generate_game_key() -> Res<String> {
-    random_hex_string(GAME_KEY_LENGTH)
-}
-
-pub fn launch_server(
-    key: String,
-    owner: User,
-    project: scene::Project,
-    scene: Uuid,
-    pool: sqlx::SqlitePool,
-) -> GameHandle {
-    server::launch(key, owner, project, scene, pool)
-}
 
 pub fn connect_client(
     user: User,

@@ -9,7 +9,7 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::time::Instant;
 use uuid::Uuid;
 
-use super::game::Game;
+use super::game::{Game, GameKey};
 use crate::models::User;
 use crate::{
     models::Project,
@@ -71,7 +71,7 @@ impl GameHandle {
 }
 
 pub fn launch(
-    key: String,
+    key: GameKey,
     owner: User,
     project: scene::Project,
     scene: Uuid,
@@ -84,7 +84,7 @@ pub fn launch(
 
     let open_ref = open.clone();
     tokio::task::spawn(async move {
-        let mut server = Server::new(open_ref, &key, owner, project, scene, pool, recv);
+        let mut server = Server::new(open_ref, key, owner, project, scene, pool, recv);
         server.run().await;
     });
 
@@ -135,7 +135,7 @@ struct Server {
 impl Server {
     fn new(
         open: Arc<AtomicBool>,
-        key: &str,
+        key: GameKey,
         owner: User,
         project: scene::Project,
         scene: Uuid,

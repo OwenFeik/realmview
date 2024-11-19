@@ -58,11 +58,11 @@ fn res_success(message: &str) -> Resp {
     Ok(resp_success(message))
 }
 
-fn resp_failure(message: &str) -> HttpResponse {
+fn resp_failure<S: ToString>(message: S) -> HttpResponse {
     HttpResponse::Ok().json(body_failure(message))
 }
 
-fn res_failure(message: &str) -> Resp {
+fn res_failure<S: ToString>(message: S) -> Resp {
     Ok(resp_failure(message))
 }
 

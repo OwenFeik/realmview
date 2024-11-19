@@ -1,18 +1,18 @@
 use std::{collections::HashMap, sync::Arc};
 
-use actix_web::{web, HttpRequest, HttpResponse};
+use actix_web::{error::ErrorUnprocessableEntity, web, HttpRequest, HttpResponse};
 use sqlx::SqlitePool;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use super::{res_failure, res_json, res_success, Resp};
 use crate::{
-    games::{close_ws, connect_client, generate_game_key, launch_server, GameHandle},
+    games::{close_ws, connect_client, launch_server, GameHandle, GameKey},
     models::{Project, Scene, User},
     req::e500,
 };
 
-type Games = RwLock<HashMap<String, GameHandle>>;
+type Games = RwLock<HashMap<GameKey, GameHandle>>;
 
 pub fn routes() -> actix_web::Scope {
     web::scope("/game")
@@ -34,7 +34,7 @@ struct GameResponse {
     url: String,
 }
 
-fn game_url(game_key: &str) -> String {
+fn game_url(game_key: &GameKey) -> String {
     format!("/game/{game_key}")
 }
 
@@ -62,7 +62,7 @@ async fn new(
     let game_key = {
         let lock = games.read().await;
         loop {
-            let game_key = generate_game_key().map_err(e500)?;
+            let game_key = GameKey::new().map_err(e500)?;
             if !lock.contains_key(&game_key) {
                 break game_key;
             }
@@ -84,17 +84,20 @@ async fn new(
 }
 
 async fn end(games: web::Data<Games>, user: User, path: web::Path<(String,)>) -> Resp {
-    let game_key = path.into_inner().0;
-
-    if let Some(handle) = games.read().await.get(&game_key) {
-        if handle.owner == user.uuid {
-            handle.close();
-            res_success("Game closed.")
-        } else {
-            res_failure("A game may only be closed by its owner.")
+    match GameKey::from(path.into_inner().0) {
+        Ok(game_key) => {
+            if let Some(handle) = games.read().await.get(&game_key) {
+                if handle.owner == user.uuid {
+                    handle.close();
+                    res_success("Game closed.")
+                } else {
+                    res_failure("A game may only be closed by its owner.")
+                }
+            } else {
+                res_success("Game already closed.")
+            }
         }
-    } else {
-        res_success("Game already closed.")
+        Err(e) => res_failure(e),
     }
 }
 
@@ -103,7 +106,7 @@ async fn join_game(
     stream: web::Payload,
     games: Arc<Games>,
     user: User,
-    game_key: &str,
+    game_key: &GameKey,
 ) -> Resp {
     let (resp, mut session, msg_stream) = actix_ws::handle(&req, stream)?;
 
@@ -132,14 +135,14 @@ async fn join(
     user: User,
     path: web::Path<(String,)>,
 ) -> Resp {
-    let game_key = &path.into_inner().0;
-    join_game(req, stream, games.into_inner(), user, game_key).await
+    let game_key = GameKey::from(path.into_inner().0).map_err(ErrorUnprocessableEntity)?;
+    join_game(req, stream, games.into_inner(), user, &game_key).await
 }
 
 async fn test(games: web::Data<Games>, path: web::Path<(String,)>) -> Resp {
-    let game_key = &path.into_inner().0;
-    let url = game_url(game_key);
-    if let Some(handle) = games.read().await.get(game_key) {
+    let game_key = GameKey::from(path.into_inner().0).map_err(ErrorUnprocessableEntity)?;
+    let url = game_url(&game_key);
+    if let Some(handle) = games.read().await.get(&game_key) {
         if handle.open() {
             res_json(GameResponse {
                 message: "Game exists.".to_string(),
@@ -159,5 +162,33 @@ async fn test(games: web::Data<Games>, path: web::Path<(String,)>) -> Resp {
             success: false,
             url,
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::collections::HashMap;
+
+    use actix_web::{test, web::Data};
+
+    use super::Games;
+    use crate::{
+        api::routes,
+        games::{GameHandle, GameKey},
+    };
+
+    #[actix_web::test]
+    async fn test_game_api() {
+        let db = crate::fs::initialise_database().await.unwrap();
+        let games: Data<Games> = Data::new(tokio::sync::RwLock::new(
+            HashMap::<GameKey, GameHandle>::new(),
+        ));
+        let app = test::init_service(
+            actix_web::App::new()
+                .app_data(Data::new(db.clone()))
+                .app_data(Data::clone(&games))
+                .service(routes()),
+        )
+        .await;
     }
 }

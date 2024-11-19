@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use scene::Id;
 use uuid::Uuid;
@@ -11,8 +11,43 @@ use crate::{
     utils::{err, warning, Res},
 };
 
+#[derive(Clone, Hash, PartialEq, Eq)]
+pub struct GameKey(String);
+
+impl GameKey {
+    const GAME_KEY_LENGTH: usize = 10;
+
+    pub fn new() -> Res<Self> {
+        crate::crypto::random_hex_string(Self::GAME_KEY_LENGTH).map(Self)
+    }
+
+    pub fn from<S: AsRef<str>>(key: S) -> Res<Self> {
+        let string = key.as_ref().to_lowercase();
+        if string.len() != Self::GAME_KEY_LENGTH {
+            Err(format!(
+                "Invalid game key. Game keys are {} characters long ({} provided).",
+                Self::GAME_KEY_LENGTH,
+                string.len()
+            ))
+        } else if !string
+            .chars()
+            .all(|c| c.is_numeric() || ('A'..'F').contains(&c))
+        {
+            err("Invalid game key. Game keys contain the characters 0-9 and a-f only.")
+        } else {
+            Ok(Self(string))
+        }
+    }
+}
+
+impl Display for GameKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", &self.0)
+    }
+}
+
 pub struct Game {
-    pub key: String,
+    pub key: GameKey,
     project: scene::Project,
     scene: scene::Scene,
     perms: Perms,
@@ -20,14 +55,14 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(project: scene::Project, scene: Uuid, owner: Uuid, key: &str) -> Self {
+    pub fn new(project: scene::Project, scene: Uuid, owner: Uuid, key: GameKey) -> Self {
         let mut scene = project.get_scene(scene).unwrap().clone();
         scene.canon();
         let mut perms = Perms::new();
         perms.set_owner(owner);
         Self {
             project,
-            key: key.to_owned(),
+            key,
             scene,
             perms,
             users: HashMap::new(),
@@ -61,7 +96,7 @@ impl Game {
         let Some(name) = self.users.get(&user) else {
             warning(format!(
                 "(Game: {}) Couldn't find player (Id: {}) name.",
-                self.key, user
+                &self.key, user
             ));
             return (None, None);
         };
@@ -191,7 +226,7 @@ mod test {
     use scene::{comms::SceneEvent, Colour, Point, Project, Rect, Sprite, SpriteVisual};
 
     use super::Game;
-    use crate::utils::generate_uuid;
+    use crate::{games::game::GameKey, utils::generate_uuid};
 
     #[test]
     fn test_permissions() {
@@ -200,7 +235,7 @@ mod test {
         let owner = generate_uuid();
         let owner_layer = 5;
         let player = generate_uuid();
-        let mut game = Game::new(project, scene, owner, "abcdefgh");
+        let mut game = Game::new(project, scene, owner, GameKey::new().unwrap());
 
         // Owner should be able to add a new layer and a sprite to that layer.
         let owner_sprite = 6;
@@ -265,7 +300,7 @@ mod test {
         let player = generate_uuid();
         let sprite = 5;
 
-        let mut game = Game::new(project, scene, owner, "ABCDEFGH");
+        let mut game = Game::new(project, scene, owner, GameKey::new().unwrap());
         let (_, _, layer) = game.add_player(player, "player");
         let layer = layer.unwrap();
 

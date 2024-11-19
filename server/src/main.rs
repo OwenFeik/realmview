@@ -2,13 +2,11 @@
 #![feature(let_chains)]
 #![feature(thread_id_value)]
 #![allow(dead_code)]
-#![allow(clippy::too_many_arguments)]
 
 use std::collections::HashMap;
 
-use actix_web::{middleware::Logger, web, App, HttpServer};
-use games::GameHandle;
-use tokio::sync::RwLock;
+use actix_web::{middleware::Logger, web::Data, App, HttpServer};
+use games::{GameHandle, GameKey};
 
 mod api;
 mod content;
@@ -20,6 +18,7 @@ mod req;
 mod utils;
 
 pub use scene;
+use tokio::sync::RwLock;
 
 const USAGE: &str = "Usage: DATA_DIR=. ./server 80";
 
@@ -37,7 +36,8 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("Database initialisation failed.");
 
-    let games = web::Data::new(RwLock::new(HashMap::<String, GameHandle>::new()));
+    let games: Data<RwLock<HashMap<GameKey, GameHandle>>> =
+        Data::new(RwLock::new(HashMap::<GameKey, GameHandle>::new()));
 
     // Every interval, drop all game servers which are no longer running.
     const GAMES_CLEANUP_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
@@ -53,8 +53,8 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
-            .app_data(web::Data::new(db.clone()))
-            .app_data(web::Data::clone(&games))
+            .app_data(Data::new(db.clone()))
+            .app_data(Data::clone(&games))
             .service(api::routes())
             .service(content::routes())
     })
