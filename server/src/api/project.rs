@@ -13,7 +13,8 @@ pub fn routes() -> actix_web::Scope {
         .route("/save", web::post().to(save))
         .route("/list", web::get().to(list))
         .route("/new", web::post().to(new))
-        .route("/{uuid}", web::get().to(get))
+        .route("/{uuid}", web::get().to(info))
+        .route("/{uuid}/save", web::get().to(get))
         .route("/{uuid}", web::delete().to(delete))
 }
 
@@ -141,6 +142,7 @@ struct NewProjectResponse {
     success: bool,
     uuid: String,
     title: String,
+    url: String,
 }
 
 async fn new(
@@ -156,11 +158,14 @@ async fn new(
         .await
         .map_err(e500)?;
 
+    let uuid = format_uuid(project.uuid);
+    let url = format!("/project/{}", &uuid);
     res_json(NewProjectResponse {
         message: "Project created successfully.".to_owned(),
         success: true,
-        uuid: format_uuid(project.uuid),
+        uuid,
         title: req.title.clone(),
+        url,
     })
 }
 
@@ -169,12 +174,36 @@ fn retrieve_uuid_from_path(path: web::Path<(String,)>) -> Result<Uuid, actix_web
         .map_err(|e| ErrorUnprocessableEntity(format!("Invalid UUID: {e}")))
 }
 
-#[cfg_attr(test, derive(serde::Deserialize))]
-#[derive(serde::Serialize)]
-struct ProjectDataResponse {
-    uuid: String,
-    title: String,
-    project: Vec<u8>,
+#[cfg_attr(test, derive(serde_derive::Deserialize))]
+#[derive(serde_derive::Serialize)]
+struct ProjectInfoResponse {
+    success: bool,
+    message: String,
+    project: ProjectListEntry,
+}
+
+async fn info(
+    mut conn: Pool,
+    user: User,
+    path: web::Path<(String,)>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let project = match Project::lookup(conn.acquire(), retrieve_uuid_from_path(path)?).await {
+        Ok(Some(record)) => record,
+        Ok(None) => return Err(ErrorNotFound("Project does not exist.")),
+        Err(e) => return Err(e500(e)),
+    };
+
+    if project.user != user.uuid {
+        return res_failure("Project not found.");
+    }
+
+    res_json(ProjectInfoResponse {
+        success: true,
+        message: "Project info follows.".to_string(),
+        project: ProjectListEntry::from(project, conn.acquire())
+            .await
+            .map_err(e500)?,
+    })
 }
 
 async fn get(
@@ -198,6 +227,14 @@ async fn get(
         title: project.title,
         project: data,
     })
+}
+
+#[cfg_attr(test, derive(serde::Deserialize))]
+#[derive(serde::Serialize)]
+struct ProjectDataResponse {
+    uuid: String,
+    title: String,
+    project: Vec<u8>,
 }
 
 async fn delete(
@@ -228,8 +265,8 @@ mod test {
     };
 
     use super::{
-        NewProjectRequest, NewProjectResponse, ProjectDataResponse, ProjectListResponse,
-        ProjectResponse,
+        NewProjectRequest, NewProjectResponse, ProjectDataResponse, ProjectInfoResponse,
+        ProjectListResponse, ProjectResponse,
     };
     use crate::{
         api::Binary,
@@ -323,9 +360,20 @@ mod test {
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 
-        // Try to get project we created.
+        // Try to get a project which doesn't exist.
         let req = TestRequest::get()
             .uri(&format!("/api/project/{}", project))
+            .cookie(session.clone())
+            .to_request();
+        let resp: ProjectInfoResponse = test::call_and_read_body_json(&app, req).await;
+        assert!(resp.success);
+        assert_eq!(resp.project.uuid, project);
+        assert_eq!(resp.project.title, title);
+        assert_eq!(resp.project.scene_list.len(), 0);
+
+        // Try to load a project we created.
+        let req = TestRequest::get()
+            .uri(&format!("/api/project/{}/save", project))
             .cookie(session.clone())
             .to_request();
         let resp: ProjectDataResponse = test::call_and_read_body_json(&app, req).await;

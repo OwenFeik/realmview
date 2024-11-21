@@ -3,11 +3,15 @@
   <BootstrapJs />
   <Js src="projects/projects.js" />
   <script>
-    let project_key = window.location.pathname.match(/([\dA-Z]+)\/?/)[1];
-    fetch('/api/project/' + project_key).then(
-      resp => resp.json().then(resp => {
-        document.body.appendChild(record_to_element(resp));
-      })
-    );
+    let project = window.location.pathname.match(/([\da-f]{32})\/?/)?.[1];
+    if (project) {
+      fetch('/api/project/' + project).then(
+        resp => resp.json().then(resp => {
+          document.body.appendChild(record_to_element(resp.project));
+        })
+      );
+    } else {
+      window.location.href = '/not_found';
+    }
   </script>
 </Page>
