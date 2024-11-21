@@ -3,7 +3,7 @@
   Expects a struct ProjectListEntry object to be in scope, as well as a
   variable scene_list containing HTML for the project's list of scenes.
 -->
-<div id="project_${project.project_key}" class="container py-5">
+<div id="project_${project.uuid}" class="container py-5">
   <div class="row">
     <div class="col">
       <EditableInput
@@ -11,7 +11,7 @@
         value="${project.title}"
         action="
           v => update_titles(
-            '${project.project_key}',
+            '${project.uuid}',
             v,
             null,
             null
@@ -24,13 +24,13 @@
         class="ms-auto"
         icon="arrow-up-right-square"
         text="New scene"
-        href="/project/${project.project_key}/scene/new"
+        href="/project/${project.uuid}/scene/new"
       >
       <Button
         class="btn-danger ms-2"
         icon="trash3"
         text="Delete"
-        onclick="delete_project('${project.project_key}', '${project.title}')"
+        onclick="delete_project('${project.uuid}', '${project.title}')"
       >
     </div>
   </div>

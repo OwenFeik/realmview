@@ -42,7 +42,7 @@ if (
   );
 }
 
-const REGEX = /session_key=[\dA-Z]+/;
+const REGEX = /realmview_session=[\da-f]{64}/;
 let logged_in = document.cookie.match(REGEX);
 
 // Hide logged in pages
@@ -53,7 +53,7 @@ document.querySelectorAll('.logged-' + (logged_in ? 'out' : 'in'))
 if (link = document.querySelector(`a[href="${window.location.pathname}"]`)) {
   link.classList.add("active");
 }
-</script>  
+</script>
 IFDEF(TEST_SESSION) {{
 <TestSession
   IFDEF(REDIRECT) {{ redirect="{{ REDIRECT }}" }}

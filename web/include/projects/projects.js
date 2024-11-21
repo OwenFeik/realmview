@@ -5,7 +5,7 @@ function record_to_element(project) {
     return template_to_element(`{{ projects/project.html }}`);
 }
 
-function update_titles(project_key, project_title, scene_key, scene_title) {
+function update_titles(project_uuid, project_title, scene_uuid, scene_title) {
     let body = {
         project_key,
         project_title,
@@ -13,6 +13,7 @@ function update_titles(project_key, project_title, scene_key, scene_title) {
         scene_title
     };
 
+    // TODO!
     fetch("/api/scene/details", {
         method: "POST",
         body: JSON.stringify(body),
