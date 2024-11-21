@@ -22,11 +22,13 @@ pub fn routes() -> actix_web::Scope {
         .route("/{game_key}", web::to(join))
 }
 
+#[cfg_attr(test, derive(serde_derive::Serialize))]
 #[derive(serde_derive::Deserialize)]
 struct NewGameRequest {
     scene: Uuid,
 }
 
+#[cfg_attr(test, derive(serde_derive::Deserialize))]
 #[derive(serde_derive::Serialize)]
 struct GameResponse {
     message: String,
@@ -169,16 +171,25 @@ async fn test(games: web::Data<Games>, path: web::Path<(String,)>) -> Resp {
 mod test {
     use std::collections::HashMap;
 
-    use actix_web::{test, web::Data};
+    use actix_web::{
+        test::{self, TestRequest},
+        web::Data,
+    };
 
-    use super::Games;
+    use super::{GameResponse, Games, NewGameRequest};
     use crate::{
-        api::routes,
+        api::{routes, Binary},
         games::{GameHandle, GameKey},
+        models::{Project, User},
     };
 
     #[actix_web::test]
     async fn test_game_api() {
+        // Test
+        //   POST /api/game/new
+        //   POST /api/game/{game_key}/end
+        //   POST /api/{game_key}
+
         let db = crate::fs::initialise_database().await.unwrap();
         let games: Data<Games> = Data::new(tokio::sync::RwLock::new(
             HashMap::<GameKey, GameHandle>::new(),
@@ -186,9 +197,82 @@ mod test {
         let app = test::init_service(
             actix_web::App::new()
                 .app_data(Data::new(db.clone()))
-                .app_data(Data::clone(&games))
+                .app_data(games.clone())
                 .service(routes()),
         )
         .await;
+
+        let conn = &mut db.acquire().await.unwrap();
+        let host = User::generate(conn).await;
+        let project = Project::create(conn, &host, "project").await.unwrap();
+        let mut proj = project.load(conn).await.unwrap();
+        proj.new_scene();
+        let (_, scenes) = Project::save(conn, &host, proj).await.unwrap();
+        assert_eq!(scenes.len(), 1);
+        let scene = scenes.first().unwrap().uuid;
+
+        // Attempt to start a game with this project should fail for a user who
+        // does not own the project.
+        let other = User::generate(conn).await;
+        let other_session = other.session(conn).await;
+        let req = TestRequest::post()
+            .uri("/api/game/new")
+            .cookie(other_session.clone())
+            .set_json(NewGameRequest { scene })
+            .to_request();
+        let resp: Binary = test::call_and_read_body_json(&app, req).await;
+        assert!(!resp.success);
+
+        let host_session = host.session(conn).await;
+        let req = TestRequest::post()
+            .uri("/api/game/new")
+            .cookie(host_session.clone())
+            .set_json(NewGameRequest { scene })
+            .to_request();
+        let resp: GameResponse = test::call_and_read_body_json(&app, req).await;
+        assert!(resp.success);
+        assert_eq!(games.clone().read().await.len(), 1);
+
+        // Response url is /game/{game_key}, which is used to serve the client
+        // HTML before the client connects over the API. Skip that and just go
+        // straight to the API.
+        let client_url = resp.url;
+        let url = format!("/api{}", client_url);
+
+        // Non-host user should not be able to end the game.
+        let req = TestRequest::post()
+            .uri(&format!("{url}/end"))
+            .cookie(other_session.clone())
+            .to_request();
+        let resp: Binary = test::call_and_read_body_json(&app, req).await;
+        assert!(!resp.success);
+        assert_eq!(games.clone().read().await.len(), 1);
+
+        // Non-host user should be able to query the game status.
+        let req = TestRequest::post()
+            .uri(&url)
+            .cookie(other_session.clone())
+            .to_request();
+        let resp: GameResponse = test::call_and_read_body_json(&app, req).await;
+        assert!(resp.success);
+        assert_eq!(resp.url, client_url);
+
+        // Host should be able to query the game status.
+        let req = TestRequest::post()
+            .uri(&url)
+            .cookie(host_session.clone())
+            .to_request();
+        let resp: GameResponse = test::call_and_read_body_json(&app, req).await;
+        assert!(resp.success);
+        assert_eq!(resp.url, client_url);
+
+        // Host user should not be able to end the game.
+        let req = TestRequest::post()
+            .uri(&format!("{url}/end"))
+            .cookie(host_session.clone())
+            .to_request();
+        let resp: Binary = test::call_and_read_body_json(&app, req).await;
+        assert!(resp.success);
+        assert!(!games.clone().read().await.values().next().unwrap().open());
     }
 }

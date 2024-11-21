@@ -16,7 +16,7 @@ js-sys = "0.3"
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
-uuid = { version = "1.11.0", features = ["v7"] }
+uuid = { version = "1.11.0", features = ["serde", "v7", "js"] }
 wasm-bindgen = { version = "0.2", features = ["nightly", "serde-serialize"] }
 
 [dependencies.web-sys]

@@ -50,7 +50,7 @@ deploydb: database
 	fi
 
 server: content database
-	${cargo} build -p server
+	DATABASE_URL="sqlite://${build}/database.db" ${cargo} build -p server
 	cp --remove-destination ${target}/debug/server ${build}/server
 
 content: html wasm

@@ -4,7 +4,7 @@ use crate::Project;
 
 type Res<T> = Result<T, String>;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, serde_derive::Serialize, serde_derive::Deserialize)]
 struct Save {
     version: u32,
     data: Vec<u8>,
@@ -41,7 +41,7 @@ pub fn deserialise(data: &[u8]) -> Res<crate::Project> {
 mod v1 {
     use std::collections::HashMap;
 
-    use serde::{Deserialize, Serialize};
+    use serde_derive::{Deserialize, Serialize};
     use uuid::Uuid;
 
     use super::{bincode_deserialise, Res};
@@ -162,7 +162,7 @@ mod v1 {
         }
     }
 
-    pub fn prepare(project: &crate::Project) -> Res<impl Serialize> {
+    pub fn prepare(project: &crate::Project) -> Res<impl serde::Serialize> {
         Ok(Project {
             uuid: project.uuid,
             title: project.title.clone(),

@@ -39,19 +39,7 @@ impl Media {
     }
 
     pub async fn create(self, conn: &mut Conn) -> Res<Self> {
-        create_media(
-            conn,
-            self.uuid,
-            self.user,
-            &self.relative_path,
-            &self.title,
-            &self.hashed_value,
-            self.file_size,
-            self.w,
-            self.h,
-        )
-        .await
-        .and_then(Self::try_from)
+        create_media(conn, &self).await.and_then(Self::try_from)
     }
 
     pub async fn load(conn: &mut Conn, uuid: Uuid) -> Res<Self> {
@@ -166,22 +154,15 @@ async fn lookup(conn: &mut Conn, uuid: Uuid) -> Res<Option<MediaRow>> {
         .map_err(|e| format!("Media item not found: {e}"))
 }
 
-async fn create_media(
-    conn: &mut Conn,
-    uuid: Uuid,
-    user: Uuid,
-    relative_path: &str,
-    title: &str,
-    hashed_value: &str,
-    file_size: usize,
-    w: f32,
-    h: f32,
-) -> Res<MediaRow> {
-    let uuid = format_uuid(uuid);
-    let user = format_uuid(user);
-    let file_size = file_size as i64;
-    let w = w as f64;
-    let h = h as f64;
+async fn create_media(conn: &mut Conn, record: &Media) -> Res<MediaRow> {
+    let uuid = format_uuid(record.uuid);
+    let user = format_uuid(record.user);
+    let relative_path = &record.relative_path;
+    let title = &record.title;
+    let hashed_value = &record.hashed_value;
+    let file_size = record.file_size as i64;
+    let w = record.w as f64;
+    let h = record.h as f64;
     sqlx::query_as!(
         MediaRow,
         "

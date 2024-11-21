@@ -108,10 +108,19 @@ impl UserAuth {
 
     #[cfg(test)]
     pub async fn generate(conn: &mut Conn) -> Res<Self> {
+        // Generate user names with an incrementing counter to ensure
+        // uniqueness.
+        static I: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let i = I.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let username = format!("test{i}");
+
+        // Users all use GENERATED_USER_PASSWORD, with a randomly generated
+        // salt.
         let salt = crate::crypto::generate_key()?;
         let hashed_password = crate::crypto::hash_password(&salt, Self::GENERATED_USER_PASSWORD);
         let recovery_key = crate::crypto::generate_key()?;
-        Self::register(conn, "test", &salt, &hashed_password, &recovery_key)
+
+        Self::register(conn, &username, &salt, &hashed_password, &recovery_key)
             .await
             .map(Self::from)
     }

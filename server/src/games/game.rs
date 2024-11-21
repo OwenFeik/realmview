@@ -31,7 +31,7 @@ impl GameKey {
             ))
         } else if !string
             .chars()
-            .all(|c| c.is_numeric() || ('A'..'F').contains(&c))
+            .all(|c| c.is_numeric() || ('a'..='f').contains(&c))
         {
             err("Invalid game key. Game keys contain the characters 0-9 and a-f only.")
         } else {
