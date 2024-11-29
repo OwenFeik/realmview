@@ -14,8 +14,8 @@ pub fn routes() -> actix_web::Scope {
     web::scope("/media")
         .route("/list", web::get().to(list))
         .route("/details", web::post().to(update))
-        .route("/{media_uuid}", web::get().to(retrieve))
-        .route("/{media_uuid}", web::delete().to(delete))
+        .route("/{uuid}", web::get().to(retrieve))
+        .route("/{uuid}", web::delete().to(delete))
 }
 
 #[cfg_attr(test, derive(serde_derive::Deserialize))]

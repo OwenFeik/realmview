@@ -53,6 +53,41 @@
 * Python 3.6 or greater.
     * `urllib3` (`python3 -m pip install urllib3`)
 
+## Api
+
+- `/api`
+    - `/auth`
+        - `/login` method `POST` body `struct LoginRequest` performs login.
+        - `/test` method `POST` validates session based on cookie.
+        - `/logout` method `POST` terminates session if cookie present.
+    - `/game`
+        - `/new` method `POST` body `struct NewGameRequest` creates a new game.
+        - `/{game_key}/end` method `POST` terminates a game.
+        - `/{game_key}` method `GET` tests if a given game exists.
+        - `/{game_key}` method `POST` joins a game, upgrading to websocket.
+    - `/project`
+        - `/save` method `POST` body `struct Save` (binary), creates or updates
+            a project.
+        - `/list` method `GET` returns list of projects for authenticated user.
+        - `/new` method `POST` body `struct NewProjectRequest` creates a new
+            project.
+        - `/{uuid}` method `GET` returns information about this project.
+        - `/{uuid}/save` method `GET` returns `struct ProjectDataResponse` for
+            the requested project.
+        - `/{uuid}` method `DELETE` deletes the specified project.
+    - `/media`
+        - `/list` method `GET` returns list of media for authenticated user.
+        - `/details` method `POST` body `struct DetailsUpdate` updates metadata
+            for a media item.
+        - `/{uuid}` method `GET` returns information about a media item.
+        - `/{uuid}` method `DELETE` deletes a media item.
+    - `/register` method `POST` body `struct RegistrationRequest` registers a
+        new user.
+
+## Pages
+
+- `/project/{uuid}` is the project editor page for the given project.
+
 ## Moving Sprites
 
 * Use the select tool to drag sprites around. Click on a sprite and drag to
