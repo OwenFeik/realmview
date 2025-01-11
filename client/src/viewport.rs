@@ -1,4 +1,4 @@
-use crate::bridge::{save_project, timestamp_ms, SaveState};
+use crate::bridge::{save_project, timestamp_ms, ReqState};
 use crate::dom::menu::{CanvasDropdownEvent, Menu};
 use crate::render::Renderer;
 use crate::scene::{Point, Rect};
@@ -121,7 +121,7 @@ pub struct Viewport {
     last_save: u64,
 
     // Save progress
-    save_state: Option<SaveState>,
+    save_state: Option<ReqState>,
 }
 
 impl Viewport {

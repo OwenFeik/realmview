@@ -93,7 +93,7 @@ impl Layer {
     }
 
     pub fn restore_sprite(&mut self, id: Id) -> bool {
-        if let Some(s) = self.removed_sprites.extract_if(|s| s.id == id).last() {
+        if let Some(s) = self.removed_sprites.extract_if(.., |s| s.id == id).last() {
             self.add_sprite(s);
             true
         } else {
@@ -102,7 +102,7 @@ impl Layer {
     }
 
     pub fn take_sprite(&mut self, id: Id) -> Option<Sprite> {
-        self.sprites.extract_if(|s| s.id == id).last()
+        self.sprites.extract_if(.., |s| s.id == id).last()
     }
 
     pub fn remove_sprite(&mut self, id: Id) -> Option<SceneEvent> {

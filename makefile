@@ -9,7 +9,7 @@ content := ${build}/content
 env := CARGO_TARGET_DIR=${target} RUST_LOG=INFO
 cargo := ${env} cargo
 wp := RUST_BACKTRACE=1 ${env} wasm-pack
-py := python3
+py := .venv/bin/python
 dep := ${HOME}/deployment
 
 serve: server content testdb
@@ -111,9 +111,12 @@ test-rust:
 test-py:
 	cd ${root}/web && ${py} test.py
 
-install:
+install: venv
 	${cargo} install wasm-pack
 	${py} -m pip install -r ${root}/web/requirements.txt
+
+venv:
+	test -d .venv || python3 -m venv .venv && echo '*' > .venv/.gitignore
 
 clean:
 	rm -rf ${build}

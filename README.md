@@ -30,6 +30,7 @@
 * Disconnect while not doing anything is too fast.
 * Nebula image added as solid colour. Fixed on refresh.
 * Only able to select sprites created on current websocket.
+* Containing rect for freehand sprites should consider stroke width.
 
 ### Low priority.
 

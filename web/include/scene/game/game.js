@@ -28,11 +28,6 @@ window.addEventListener("load", () => {
     current_game_tab.style.display = "";
     current_game_tab.click();
 
-    // Hide the project offcanvas.
-    document.querySelector(
-        "button[aria-controls='project_offcanvas']"
-    ).style.display = "none";
-
     // Hide the launch game tab.
     document.getElementById("launch_game_tab").style.display = "none";
 });

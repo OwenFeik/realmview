@@ -1,4 +1,5 @@
 use crate::dom::element::Element;
+use crate::dom::icon::Icon;
 use crate::dom::input::InputGroup;
 use crate::interactor::details::SceneDetails;
 use crate::start::VpRef;
@@ -43,12 +44,16 @@ impl SceneMenu {
             });
         });
         inputs.add_float_handler("Brush", Some(1), Some(20), Some(0.5), |vp, brush| {
-            vp.int.set_fog_brush(brush);
+            vp.int.set_fog_brush(brush)
         });
         inputs.add_line();
-        inputs.add_select_handler("Change Scene", &[], |_vp, key| {
-            crate::bridge::set_active_scene(&key);
+        inputs.add_select_handler("Change Scene", &[], |vp, uuid| {
+            if let Ok(uuid) = uuid::Uuid::try_parse(&uuid) {
+                crate::bridge::upload_thumbnail(&vp.int.scene_uuid());
+                vp.int.change_scene(uuid);
+            }
         });
+        inputs.add_button(Icon::PlusSquare, |vp| vp.int.new_scene());
 
         Self { inputs }
     }

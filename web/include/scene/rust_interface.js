@@ -89,8 +89,44 @@ function load_texture(media_key) {
 // scene/project/project.js
 // function set_active_scene(scene_key: string)
 
-// /scene/project/project.js
-// function upload_thumbnail()
+// Uploads the currently visible canvas area to the server as a 256x196 png as
+// a thumbnail for the specified scene.
+function upload_thumbnail(scene_uuid) {
+    const ASPECT = 4 / 3;
+    const WIDTH = 256;
+    const HEIGHT = WIDTH / ASPECT;
+
+    // Find the largest rectangle with ASPECT ratio from the top left corner.  
+    let canvas = document.getElementById("canvas");
+    let sw, sh;
+    if (canvas.width / ASPECT > canvas.height * ASPECT) {
+        sw = canvas.width;
+        sh = Math.floor(canvas.height * ASPECT);
+    } else {
+        sw = Math.floor(canvas.width / ASPECT);
+        sh = canvas.height;
+    }
+
+    // Copy the contents of the canvas to a WIDTH * HEIGHT thumbnail.
+    let thumbnail = document.createElement("canvas");
+    thumbnail.width = WIDTH;
+    thumbnail.height = HEIGHT;
+    let ctx = thumbnail.getContext("2d");
+    ctx.fillStyle = "rgb(248, 249, 250)" // bg-light
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    ctx.drawImage(
+        canvas, 0, 0, sw, sh, 0, 0, WIDTH, HEIGHT
+    );
+
+    // Upload the thumbnail to the server.
+    thumbnail.toBlob(blob => {
+        let data = new FormData();
+        data.append("image", blob, "thumbnail.png");
+        data.append("thumbnail", scene_uuid);
+
+        fetch("/api/upload", { method: "POST", body: data });
+    });
+}
 
 // End :: Externs
 

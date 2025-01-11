@@ -167,14 +167,17 @@ impl Scene {
     }
 
     pub fn remove_layer(&mut self, layer: Id) -> Option<SceneEvent> {
-        let removed = self.layers.extract_if(|l| l.id == layer).last()?;
+        let removed = self.layers.extract_if(.., |l| l.id == layer).last()?;
         let event = SceneEvent::LayerRemove(removed.id);
         self.removed_layers.push(removed);
         Some(event)
     }
 
     fn restore_layer(&mut self, layer: Id) -> Option<SceneEvent> {
-        let l = self.removed_layers.extract_if(|l| l.id == layer).last()?;
+        let l = self
+            .removed_layers
+            .extract_if(.., |l| l.id == layer)
+            .last()?;
         self.add_layer(l);
         Some(SceneEvent::LayerRestore(layer))
     }
@@ -556,10 +559,7 @@ impl Scene {
     pub fn apply_event(&mut self, event: SceneEvent) -> bool {
         match event {
             SceneEvent::Dummy => true,
-            SceneEvent::EventSet(events) => events
-                .into_iter()
-                .map(|e| self.apply_event(e))
-                .all(std::convert::identity),
+            SceneEvent::EventSet(events) => events.into_iter().all(|e| self.apply_event(e)),
             SceneEvent::FogActive(old, new) => {
                 if self.fog.active == old {
                     self.fog.active = new;

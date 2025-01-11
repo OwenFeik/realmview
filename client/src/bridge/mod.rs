@@ -37,11 +37,8 @@ extern "C" {
     #[wasm_bindgen(js_namespace = console, js_name = log)]
     pub fn log_js_value(v: &JsValue);
 
-    // Load and set as active scene by scene key
-    pub fn set_active_scene(scene_key: &str);
-
     // Upload a thumbnail using the current canvas.
-    pub fn upload_thumbnail();
+    pub fn upload_thumbnail(scene_uuid: &str);
 
     // Expose closures
     #[wasm_bindgen]
@@ -679,14 +676,13 @@ fn js_err(v: JsValue) -> String {
     }
 }
 
-pub struct SaveState {
-    onload: Closure<dyn FnMut(JsValue)>,
-    onerror: Closure<dyn FnMut(JsValue)>,
-    promise: Promise,
+pub struct ReqState {
+    callbacks: Vec<Closure<dyn FnMut(JsValue)>>,
+    promise: Rc<Option<Promise>>,
 }
 
-impl SaveState {
-    fn new<L, E>(onload: L, onerror: E, req: Promise) -> Self
+impl ReqState {
+    fn basic<L, E>(onload: L, onerror: E, req: Promise) -> Self
     where
         L: FnMut(JsValue) + 'static,
         E: FnMut(JsValue) + 'static,
@@ -694,11 +690,34 @@ impl SaveState {
         let onload = Closure::new(onload);
         let onerror = Closure::new(onerror);
         let promise = req.then(&onload).catch(&onerror);
-        Self {
-            onload,
-            onerror,
-            promise,
+        Self { 
+            callbacks: vec![onload, onerror],
+            promise: Rc::new(Some(promise)),
         }
+    }
+
+    fn json<L, E>(onjson: L, onerrorcb: E, req: Promise) -> Self
+    where
+        L: FnMut(JsValue) + 'static,
+        E: FnMut(JsValue) + 'static,
+    {
+        let onjson = Closure::new(onjson);
+        let onerror = Closure::new(onerrorcb);
+        let mut state = Self {
+            callbacks: vec![onjson, onerror],
+            promise: Rc::new(None)
+        };
+
+        let promise_rc = state.promise.clone();
+        let onload = Closure::new(|resp: JsValue| match resp.unchecked_into::<Response>().json() {
+            Ok(promise) => {
+                *promise_rc = Some(promise.then(&onjson).catch(&onerror));
+            },
+            Err(v) => onerrorcb(v),
+        });
+        state.callbacks.push(onload);
+        *state.promise = Some(req.then(&onload).catch(&onerror));
+        state
     }
 }
 
@@ -714,32 +733,19 @@ pub fn save_request_body(raw: &[u8]) -> Res<String> {
     .map_err(|e| e.to_string())
 }
 
-pub fn save_project(_project: &Project) -> Res<SaveState> {
-    todo!("Implement");
-}
-
-pub fn save_scene(scene_key: &str, raw: Vec<u8>) -> Res<SaveState> {
-    #[derive(serde_derive::Deserialize)]
-    struct Resp {
-        message: String,
-        project_title: String,
-        project_key: String,
-        project_id: i64,
-        scene: String,
-        scene_key: String,
-        success: bool,
-        title: String,
-    }
-
-    const METHOD: &str = "POST";
-    const PATH: &str = "/api/scene/";
-
+fn headers() -> Res<Headers> {
     let headers = Headers::new().map_err(js_err)?;
     headers
         .set("content-type", "application/json")
         .map_err(js_err)?;
+    Ok(headers)
+}
 
-    let body = save_request_body(&raw)?;
+pub fn save_project(project: &Project) -> Res<ReqState> {
+    const METHOD: &str = "POST";
+    const PATH: &str = "/api/project/save";
+
+    let body = scene::serde::serialise(project)?;
 
     if let Some(loading) = Element::by_id("canvas_loading_icon") {
         loading.show();
@@ -749,18 +755,15 @@ pub fn save_scene(scene_key: &str, raw: Vec<u8>) -> Res<SaveState> {
         loading.set_attr("title", "Saving scene");
     }
 
+    let headers = headers()?;
     let mut init = RequestInit::new();
     init.method(METHOD)
         .headers(&headers)
-        .body(Some(&wasm_bindgen::JsValue::from_str(&body)));
-    let req = Request::new_with_str_and_init(&format!("{PATH}{scene_key}"), &init)
-        .map_err(|s| s.as_string().unwrap_or_else(|| format!("{s:?}")))?;
+        .body(Some(&js_sys::Uint8Array::from(body.as_slice())));
+    let req = Request::new_with_str_and_init(PATH, &init).map_err(js_err)?;
     let promise = window()?.fetch_with_request(&req);
 
-    // Just fire this off. Not a disaster if it fails.
-    upload_thumbnail();
-
-    Ok(SaveState::new(
+    Ok(ReqState::basic(
         |resp: JsValue| {
             if let Some(loading) = Element::by_id("canvas_loading_icon") {
                 loading.remove_class("loading-loading");
@@ -781,4 +784,37 @@ pub fn save_scene(scene_key: &str, raw: Vec<u8>) -> Res<SaveState> {
         },
         promise,
     ))
+}
+
+fn project_save_url() -> Res<Option<String>> {
+    let path = window()?.location().pathname().map_err(js_err)?;
+    match path.split('/').collect::<Vec<&str>>().as_slice() {
+        ["project", uuid, "editor"] => Ok(Some(format!("/api/project/{uuid}/save"))),
+        _ => Ok(None),
+    }
+}
+
+pub fn load_project(vp: crate::start::VpRef) -> Res<Option<ReqState>> {
+    #[derive(serde::Deserialize)]
+    struct Resp {
+        uuid: String,
+        title: String,
+        project: Vec<u8>,
+    }
+
+    const METHOD: &str = "GET";
+
+    let Some(path) = project_save_url()? else {
+        return Ok(None);
+    };
+
+    let headers = headers()?;
+    let mut init = RequestInit::new();
+    init.method(METHOD).headers(&headers);
+    let req = Request::new_with_str_and_init(&path, &init).map_err(js_err)?;
+    let promise = window()?.fetch_with_request(&req);
+
+    Ok(ReqState::basic(|resp| {
+        resp.unchecked_into::<Response>.blob()
+    }, onerror, req))
 }

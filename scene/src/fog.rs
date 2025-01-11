@@ -127,7 +127,7 @@ impl Fog {
         }
 
         if let Some(int) = self.fog.get(self.idx(x, y)) {
-            *int & 1 << (x % Self::BITS) == 0
+            *int & (1 << (x % Self::BITS)) == 0
         } else {
             false
         }

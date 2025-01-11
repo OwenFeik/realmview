@@ -206,6 +206,14 @@ async fn info(
     })
 }
 
+#[cfg_attr(test, derive(serde::Deserialize))]
+#[derive(serde::Serialize)]
+struct ProjectDataResponse {
+    uuid: String,
+    title: String,
+    project: Vec<u8>,
+}
+
 async fn get(
     mut conn: Pool,
     user: User,
@@ -227,14 +235,6 @@ async fn get(
         title: project.title,
         project: data,
     })
-}
-
-#[cfg_attr(test, derive(serde::Deserialize))]
-#[derive(serde::Serialize)]
-struct ProjectDataResponse {
-    uuid: String,
-    title: String,
-    project: Vec<u8>,
 }
 
 async fn delete(

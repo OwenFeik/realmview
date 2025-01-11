@@ -120,9 +120,7 @@ impl UserAuth {
         let hashed_password = crate::crypto::hash_password(&salt, Self::GENERATED_USER_PASSWORD);
         let recovery_key = crate::crypto::generate_key()?;
 
-        Self::register(conn, &username, &salt, &hashed_password, &recovery_key)
-            .await
-            .map(Self::from)
+        Self::register(conn, &username, &salt, &hashed_password, &recovery_key).await
     }
 }
 

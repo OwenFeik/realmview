@@ -1,4 +1,3 @@
-#![feature(async_closure)]
 #![feature(let_chains)]
 #![feature(thread_id_value)]
 #![allow(dead_code)]

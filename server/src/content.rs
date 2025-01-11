@@ -30,15 +30,14 @@ pub fn routes() -> actix_web::Scope {
 fn projects() -> actix_web::Scope {
     web::scope("/project")
         .route("/new", loggedin(files::NEW_PROJECT))
-        .route("/{proj_key}", loggedin(files::EDIT_PROJECT))
-        .route("/{proj_key}/scene/new", web::get().to(new_scene))
-        .route("/{proj_key}/scene/{scene_key}", loggedin(files::SCENE))
+        .route("/{uuid}", loggedin(files::EDIT_PROJECT))
+        .route("/{uuid}/edit", loggedin(files::EDITOR))
         .default_service(loggedin(files::PROJECTS))
 }
 
 fn game() -> actix_web::Scope {
     web::scope("game")
-        .route("/{game_key}", loggedin(files::SCENE))
+        .route("/{game_key}", loggedin(files::EDITOR))
         .default_service(loggedin(files::GAME))
 }
 
@@ -111,5 +110,5 @@ mod files {
     pub const NOT_FOUND: &str = "not_found.html";
     pub const PROJECTS: &str = "projects.html";
     pub const REGISTER: &str = "register.html";
-    pub const SCENE: &str = "scene.html";
+    pub const EDITOR: &str = "editor.html";
 }
