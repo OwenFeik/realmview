@@ -754,7 +754,7 @@ fn headers() -> Res<Headers> {
     Ok(headers)
 }
 
-pub fn save_project(project: &Project) -> Res<ReqState> {
+pub fn save_project(project: &Project, active_scene: &str) -> Res<ReqState> {
     const METHOD: &str = "POST";
     const PATH: &str = "/api/project/save";
 
@@ -775,6 +775,8 @@ pub fn save_project(project: &Project) -> Res<ReqState> {
         .body(Some(&js_sys::Uint8Array::from(body.as_slice())));
     let req = Request::new_with_str_and_init(PATH, &init).map_err(js_err)?;
     let promise = window()?.fetch_with_request(&req);
+
+    upload_thumbnail(active_scene);
 
     Ok(ReqState::basic(
         |resp: JsValue| {
@@ -801,8 +803,13 @@ pub fn save_project(project: &Project) -> Res<ReqState> {
 
 fn project_save_url() -> Res<Option<String>> {
     let path = window()?.location().pathname().map_err(js_err)?;
-    match path.split('/').collect::<Vec<&str>>().as_slice() {
-        ["project", uuid, "editor"] => Ok(Some(format!("/api/project/{uuid}/save"))),
+    match path
+        .split('/')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<&str>>()
+        .as_slice()
+    {
+        ["project", uuid, "edit"] => Ok(Some(format!("/api/project/{uuid}/save"))),
         _ => Ok(None),
     }
 }
@@ -811,6 +818,7 @@ pub fn load_project(vp: crate::start::VpRef) -> Res<()> {
     const METHOD: &str = "GET";
 
     let Some(path) = project_save_url()? else {
+        console_log("Not a project page, skipping project load.");
         return Ok(());
     };
 

@@ -121,8 +121,6 @@ venv:
 	    python3 -m venv .venv;                        \
 	    echo '*' > .venv/.gitignore;                  \
 	    ${py} -m pip install -r web/requirements.txt; \
-	else                                              \
-	    echo "Python venv already present";           \
 	fi
 
 clean:

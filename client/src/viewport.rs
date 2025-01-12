@@ -674,7 +674,8 @@ impl Viewport {
 
     pub fn save(&mut self) {
         if self.int.save_required() {
-            self.save_state = save_project(&self.int.project).ok();
+            let active_scene = self.int.scene_uuid();
+            self.save_state = save_project(self.int.export_project(), &active_scene).ok();
             self.last_save = timestamp_ms();
             self.int.save_done();
         }
@@ -697,6 +698,6 @@ impl Viewport {
     }
 
     pub fn set_project(&mut self, project: scene::Project) {
-        self.int.change_project(project)
+        self.int.change_project(project);
     }
 }

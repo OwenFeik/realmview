@@ -123,10 +123,11 @@ impl Project {
             .execute(conn)
             .await
             .map_err(|e| e.to_string())?;
-        tokio::fs::remove_file(self.save_path(&owner.username))
-            .await
-            .map_err(|e| e.to_string())?;
-        Ok(())
+        match tokio::fs::remove_file(self.save_path(&owner.username)).await {
+            Ok(_) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(e.to_string()),
+        }
     }
 
     pub async fn for_scene(conn: &mut Conn, scene: Uuid) -> Res<Self> {

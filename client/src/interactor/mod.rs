@@ -25,7 +25,7 @@ mod test;
 pub struct Interactor {
     pub changes: changes::Changes,
     pub role: scene::perms::Role,
-    pub project: Project,
+    project: Project,
     copied: Option<Vec<Sprite>>,
     fog_brush: f32,
     history: history::History,
@@ -853,6 +853,11 @@ impl Interactor {
         let scene = project.default_scene().uuid;
         self.project = project;
         self.change_scene(scene);
+    }
+
+    pub fn export_project(&mut self) -> &Project {
+        self.project.update_scene(self.scene.clone()).ok();
+        &self.project
     }
 
     pub fn new_scene(&mut self) {

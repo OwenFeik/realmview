@@ -10,40 +10,9 @@
       src="${scene.thumbnail}"
     >
     <div class="card-body">
-    IFDEF(DISPLAY) {{
       <div class="input-group">
         <input class="form-control" value="${scene.title}" disabled>
-    }} ELSE {{
-      <EditableInput
-        button=""
-        class="mb-1"
-        value="${scene.title}"
-        action="
-          v => update_titles(
-            '${project.project_key}',
-            null,
-            '${scene.scene_key}',
-            v
-          )
-        "
-      >
-      <div>
-    }}
-        <Button
-          IFNDEF(DISPLAY) {{ small="" }}
-          class=""
-          text="Launch"
-          href="/project/${project.project_key}/scene/${scene.scene_key}"
-        >
-      IFNDEF(DISPLAY) {{
-        <Button
-          small=""  
-          class="btn-danger"
-          text="Delete"
-          onclick="delete_scene('${scene.scene_key}', '${scene.title}')"
-        >
-      }}
-    </div>
+      </div>
     </div>
   </div>
 </div>
