@@ -61,3 +61,13 @@ impl Project {
         self.scenes.first().unwrap()
     }
 }
+
+impl std::fmt::Debug for Project {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Project")
+            .field("uuid", &self.uuid)
+            .field("title", &self.title)
+            .field("scenes", &self.scenes.len())
+            .finish()
+    }
+}

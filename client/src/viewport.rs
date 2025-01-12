@@ -680,6 +680,10 @@ impl Viewport {
         }
     }
 
+    pub fn set_save_state(&mut self, state: crate::bridge::ReqState) {
+        self.save_state = Some(state);
+    }
+
     pub fn replace_scene(&mut self, scene: scene::Scene) {
         self.menu()
             .set_scene_details(crate::interactor::details::SceneDetails::from(&scene));
@@ -690,5 +694,9 @@ impl Viewport {
         self.menu().set_scene_list(scenes);
         let selected = self.int.scene_uuid();
         self.menu().set_scene(selected);
+    }
+
+    pub fn set_project(&mut self, project: scene::Project) {
+        self.int.change_project(project)
     }
 }

@@ -206,14 +206,6 @@ async fn info(
     })
 }
 
-#[cfg_attr(test, derive(serde::Deserialize))]
-#[derive(serde::Serialize)]
-struct ProjectDataResponse {
-    uuid: String,
-    title: String,
-    project: Vec<u8>,
-}
-
 async fn get(
     mut conn: Pool,
     user: User,
@@ -230,11 +222,7 @@ async fn get(
     }
 
     let data = project.load_file(conn.acquire()).await.map_err(e500)?;
-    res_json(ProjectDataResponse {
-        uuid: format_uuid(project.uuid),
-        title: project.title,
-        project: data,
-    })
+    Ok(HttpResponse::Ok().body(data))
 }
 
 async fn delete(
@@ -265,8 +253,8 @@ mod test {
     };
 
     use super::{
-        NewProjectRequest, NewProjectResponse, ProjectDataResponse, ProjectInfoResponse,
-        ProjectListResponse, ProjectResponse,
+        NewProjectRequest, NewProjectResponse, ProjectInfoResponse, ProjectListResponse,
+        ProjectResponse,
     };
     use crate::{
         api::Binary,
@@ -376,10 +364,8 @@ mod test {
             .uri(&format!("/api/project/{}/save", project))
             .cookie(session.clone())
             .to_request();
-        let resp: ProjectDataResponse = test::call_and_read_body_json(&app, req).await;
-        assert_eq!(resp.uuid, project);
-        assert_eq!(&resp.title, &title);
-        let mut decoded = scene::serde::deserialise(&resp.project).unwrap();
+        let resp: bytes::Bytes = test::call_and_read_body(&app, req).await;
+        let mut decoded = scene::serde::deserialise(&resp).unwrap();
         assert_eq!(format_uuid(decoded.uuid), project);
         assert_eq!(&decoded.title, &title);
         assert_eq!(decoded.scenes.len(), 0);

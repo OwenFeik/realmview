@@ -5,7 +5,7 @@ use serde::Serialize;
 use super::LayerInfo;
 use crate::{bridge::console_log, dom::element::Element, viewport::ViewportPoint};
 
-#[derive(Clone, Copy, Debug, PartialEq, serde_derive::Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
 pub enum CanvasDropdownEvent {
     Aura,
     Clone,

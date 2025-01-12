@@ -3,6 +3,7 @@ use std::sync::atomic::AtomicBool;
 
 use js_sys::Array;
 use js_sys::Promise;
+use js_sys::Uint8Array;
 use scene::Project;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -33,6 +34,9 @@ extern "C" {
 
     #[wasm_bindgen(js_namespace = console, js_name = log)]
     pub fn console_log(s: &str);
+
+    #[wasm_bindgen(js_namespace = console, js_name = error)]
+    pub fn console_err(s: &str);
 
     #[wasm_bindgen(js_namespace = console, js_name = log)]
     pub fn log_js_value(v: &JsValue);
@@ -676,9 +680,11 @@ fn js_err(v: JsValue) -> String {
     }
 }
 
+type Callback = Closure<dyn FnMut(JsValue)>;
+
 pub struct ReqState {
-    callbacks: Vec<Closure<dyn FnMut(JsValue)>>,
-    promise: Rc<Option<Promise>>,
+    callbacks: Vec<Rc<Callback>>,
+    promise: Rc<std::sync::Mutex<Option<Promise>>>,
 }
 
 impl ReqState {
@@ -687,42 +693,49 @@ impl ReqState {
         L: FnMut(JsValue) + 'static,
         E: FnMut(JsValue) + 'static,
     {
-        let onload = Closure::new(onload);
-        let onerror = Closure::new(onerror);
+        let onload = Rc::new(Closure::new(onload));
+        let onerror = Rc::new(Closure::new(onerror));
         let promise = req.then(&onload).catch(&onerror);
-        Self { 
+        Self {
             callbacks: vec![onload, onerror],
-            promise: Rc::new(Some(promise)),
+            promise: Rc::new(std::sync::Mutex::new(Some(promise))),
         }
     }
 
-    fn json<L, E>(onjson: L, onerrorcb: E, req: Promise) -> Self
+    fn body<L, E>(oncomplete: L, onerror: E, req: Promise) -> Self
     where
         L: FnMut(JsValue) + 'static,
         E: FnMut(JsValue) + 'static,
     {
-        let onjson = Closure::new(onjson);
-        let onerror = Closure::new(onerrorcb);
-        let mut state = Self {
-            callbacks: vec![onjson, onerror],
-            promise: Rc::new(None)
-        };
+        let oncomplete = Rc::new(Closure::new(oncomplete));
+        let onerror = Rc::new(Closure::new(onerror));
+        let promise = Rc::new(std::sync::Mutex::new(None));
 
-        let promise_rc = state.promise.clone();
-        let onload = Closure::new(|resp: JsValue| match resp.unchecked_into::<Response>().json() {
-            Ok(promise) => {
-                *promise_rc = Some(promise.then(&onjson).catch(&onerror));
-            },
-            Err(v) => onerrorcb(v),
-        });
-        state.callbacks.push(onload);
-        *state.promise = Some(req.then(&onload).catch(&onerror));
-        state
+        let on_c = oncomplete.clone();
+        let on_e = onerror.clone();
+        let prom = promise.clone();
+        let onload = Rc::new(Closure::new(move |resp: JsValue| {
+            match resp.unchecked_into::<Response>().array_buffer() {
+                Ok(promise) => {
+                    if let Ok(mut guard) = prom.lock() {
+                        *guard = Some(promise.then(&on_c).catch(&on_e));
+                    } else {
+                        console_err("Failed to lock mutex to get response JSON.");
+                    }
+                }
+                Err(v) => console_err(&format!("Failed to call Response.blob(): {}", js_err(v))),
+            }
+        }));
+        *promise.lock().unwrap() = Some(req.then(&onload).catch(&onerror));
+        Self {
+            callbacks: vec![onload, oncomplete, onerror],
+            promise,
+        }
     }
 }
 
 pub fn save_request_body(raw: &[u8]) -> Res<String> {
-    #[derive(serde_derive::Serialize)]
+    #[derive(serde::Serialize)]
     struct Req {
         encoded: String,
     }
@@ -775,11 +788,11 @@ pub fn save_project(project: &Project) -> Res<ReqState> {
                 }
             }
         },
-        |_err| {
+        |err| {
             if let Some(loading) = Element::by_id("canvas_loading_icon") {
                 loading.remove_class("loading-loading");
                 loading.add_class("loading-error");
-                loading.set_attr("title", "Network error");
+                loading.set_attr("title", format!("Network error: {}", js_err(err)));
             }
         },
         promise,
@@ -794,18 +807,11 @@ fn project_save_url() -> Res<Option<String>> {
     }
 }
 
-pub fn load_project(vp: crate::start::VpRef) -> Res<Option<ReqState>> {
-    #[derive(serde::Deserialize)]
-    struct Resp {
-        uuid: String,
-        title: String,
-        project: Vec<u8>,
-    }
-
+pub fn load_project(vp: crate::start::VpRef) -> Res<()> {
     const METHOD: &str = "GET";
 
     let Some(path) = project_save_url()? else {
-        return Ok(None);
+        return Ok(());
     };
 
     let headers = headers()?;
@@ -814,7 +820,27 @@ pub fn load_project(vp: crate::start::VpRef) -> Res<Option<ReqState>> {
     let req = Request::new_with_str_and_init(&path, &init).map_err(js_err)?;
     let promise = window()?.fetch_with_request(&req);
 
-    Ok(ReqState::basic(|resp| {
-        resp.unchecked_into::<Response>.blob()
-    }, onerror, req))
+    let cb_vp = vp.clone();
+    let state = ReqState::body(
+        move |buf: JsValue| {
+            let bytes = Uint8Array::new(&buf).to_vec();
+            match scene::serde::deserialise(&bytes) {
+                Ok(project) => match cb_vp.lock() {
+                    Ok(mut vp) => vp.set_project(project),
+                    Err(_) => console_err("Failed to lock viewport to update project."),
+                },
+                Err(e) => console_err(&format!("Failed to decode project: {e}")),
+            }
+        },
+        |err| console_err(&js_err(err)),
+        promise,
+    );
+
+    match vp.lock() {
+        Ok(mut vp) => {
+            vp.set_save_state(state);
+            Ok(())
+        }
+        Err(_) => err("Failed to lock viewport to set request state."),
+    }
 }

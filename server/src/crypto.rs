@@ -65,3 +65,20 @@ pub fn check_password(provided: &str, salt: &Key, hashed_password: &Key) -> bool
     )
     .is_ok()
 }
+
+#[cfg(test)]
+mod test {
+    use crate::crypto::{from_hex_string, hash_password};
+
+    #[test]
+    fn test_test_user() {
+        let salt =
+            from_hex_string("fcd66c515a436c812a3230379edbbed7acfb1e67a036d58779641adec812a831")
+                .unwrap();
+        let password = "password1A";
+        let expected =
+            from_hex_string("15676f9b2df45f8afde42ffe4d7e1a5a5bc4341aae89742ed4dfca6b8c50d386")
+                .unwrap();
+        assert_eq!(hash_password(&salt, password), expected);
+    }
+}

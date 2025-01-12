@@ -124,8 +124,8 @@ impl Element {
         self.element.get_attribute(name)
     }
 
-    pub fn set_attr(&self, name: &str, value: &str) {
-        self.try_set_attr(name, value).ok();
+    pub fn set_attr<S: AsRef<str>>(&self, name: &str, value: S) {
+        self.try_set_attr(name, value.as_ref()).ok();
     }
 
     pub fn set_attrs(&self, attrs: &[(&str, &str)]) {

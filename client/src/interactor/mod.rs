@@ -849,6 +849,12 @@ impl Interactor {
         serialize(&self.scene).unwrap_or_default()
     }
 
+    pub fn change_project(&mut self, mut project: Project) {
+        let scene = project.default_scene().uuid;
+        self.project = project;
+        self.change_scene(scene);
+    }
+
     pub fn new_scene(&mut self) {
         self.scene = self.project.new_scene().clone();
         self.changes.all_change();
@@ -857,6 +863,9 @@ impl Interactor {
     /// Returns true if the scene change can be effected by the client, else
     /// false.
     pub fn change_scene(&mut self, scene: Uuid) -> bool {
+        if let Some(scene) = self.project.get_scene(scene) {
+            self.scene = scene.clone();
+        }
         self.history.change_scene(scene)
     }
 

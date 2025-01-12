@@ -3,6 +3,14 @@
         "CARGO_TARGET_DIR": "build/target",
         "DATABASE_URL": "sqlite://./build/database.db"
     },
+    "rust-analyzer.cargo.extraEnv": {
+        "CARGO_TARGET_DIR": "build/target",
+        "DATABASE_URL": "sqlite://./build/database.db"
+    },
+    "rust-analyzer.runnables.extraEnv": {
+        "CARGO_TARGET_DIR": "build/target",
+        "DATABASE_URL": "sqlite://./build/database.db"
+    },
     "rust-analyzer.check.command": "clippy",
     "[rust]": {
         "editor.formatOnSave": true,

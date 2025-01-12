@@ -78,7 +78,7 @@ database: build-dir
 wasm: content-dir
 	${wp} build client/ --out-dir ${content}/pkg --target web --dev
 
-html: content-dir
+html: content-dir venv
 	${py} ${root}/web/build.py ${content}/
 
 content-dir: build-dir
@@ -116,7 +116,14 @@ install: venv
 	${py} -m pip install -r ${root}/web/requirements.txt
 
 venv:
-	test -d .venv || python3 -m venv .venv && echo '*' > .venv/.gitignore
+	@if [ ! -d .venv ]; then                           \
+	    echo "Creating Python venv"                   \
+	    python3 -m venv .venv;                        \
+	    echo '*' > .venv/.gitignore;                  \
+	    ${py} -m pip install -r web/requirements.txt; \
+	else                                              \
+	    echo "Python venv already present";           \
+	fi
 
 clean:
 	rm -rf ${build}

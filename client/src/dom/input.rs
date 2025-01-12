@@ -115,7 +115,7 @@ impl InputGroup {
             let opacity = (value.a() * 100.0).round();
 
             colour_input.set_value_string(&colour_to_hex(value));
-            colour_input.set_attr(Self::OPACITY_ATTR, &opacity.to_string());
+            colour_input.set_attr(Self::OPACITY_ATTR, opacity.to_string());
 
             // Need to find and update the opacity input as it is a separate
             // element. Order is [colour_input, label, opacity_input] so we can
@@ -439,15 +439,15 @@ fn float(min: Option<i32>, max: Option<i32>, step: Option<f32>) -> Element {
         .with_attrs(&[("type", "number"), ("autocomplete", "off")]);
 
     if let Some(step) = step {
-        el.set_attr("step", &step.to_string())
+        el.set_attr("step", step.to_string())
     }
 
     if let Some(min) = min {
-        el.set_attr("min", &min.to_string());
+        el.set_attr("min", min.to_string());
     }
 
     if let Some(max) = max {
-        el.set_attr("max", &max.to_string());
+        el.set_attr("max", max.to_string());
     }
 
     el

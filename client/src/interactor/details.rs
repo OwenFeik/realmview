@@ -1,7 +1,7 @@
 use scene::{comms::SceneEvent, Colour, Dimension, Id, Scene, Shape, Sprite, SpriteVisual};
 use uuid::Uuid;
 
-#[derive(Debug, Default, serde_derive::Deserialize, serde_derive::Serialize)]
+#[derive(Debug, Default, serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct SceneDetails {
     pub uuid: Option<Uuid>,
@@ -47,7 +47,7 @@ impl SceneDetails {
     }
 }
 
-#[derive(Clone, Debug, Default, serde_derive::Deserialize, serde_derive::Serialize)]
+#[derive(Clone, Debug, Default, serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct SpriteDetails {
     pub id: Id,

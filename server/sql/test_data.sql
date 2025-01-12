@@ -1,4 +1,4 @@
--- Create test user
+-- Create test user (test, password1A)
 INSERT INTO users (uuid, username, salt, hashed_password, recovery_key) VALUES(
     '01934c200858726eb27c9912741d418e',
     'test',

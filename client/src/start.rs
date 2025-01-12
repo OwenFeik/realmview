@@ -8,8 +8,8 @@ use std::sync::Mutex;
 use wasm_bindgen::{prelude::*, JsCast};
 
 use crate::bridge::{
-    console_log, expose_closure, expose_closure_f64x2_string, expose_closure_string_in, log,
-    request_animation_frame,
+    console_err, console_log, expose_closure, expose_closure_f64x2_string,
+    expose_closure_string_in, load_project, log, request_animation_frame,
 };
 use crate::client::Client;
 use crate::dom::menu::Menu;
@@ -118,6 +118,10 @@ pub fn start() -> Result<(), JsValue> {
         .unwrap()
         .set_onbeforeunload(Some(before_unload_closure.as_ref().unchecked_ref()));
     before_unload_closure.forget();
+
+    if let Err(e) = load_project(vp.clone()) {
+        console_err(&e);
+    }
 
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
