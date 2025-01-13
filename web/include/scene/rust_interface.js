@@ -11,14 +11,6 @@ var RustFuncs = {
     Returns the base64 serde encoded form of the current scene.
     */
 
-    load_scene: missing_func,
-    /*
-    function load_scene(scene_encoded: string)
-
-    Given a base64 serde encoded scene, parses and sets as active this scene,
-    overwriting the current scene.
-    */
-
     new_scene: missing_func,
     /*
     function new_scene()
@@ -32,13 +24,6 @@ var RustFuncs = {
 
     Adds a new sprite with the provided texture to the scene. Will load the
     texture if necessary.
-    */
-
-    set_scene_list: missing_func,
-    /*
-    function set_scene_list(scene_list_json: string)
-
-    Sets the list of available scenes, input format [[Title, Key]]
     */
 };
 
@@ -141,14 +126,6 @@ function call_when_ready(func_name, callback) {
     }
 
     queued[func_name].push(callback);
-}
-
-// Wrapper around the exported closure that also reloads the layer list to keep
-// it reflective of the new scene.
-function load_scene(scene_encoded) {
-    call_when_ready("load_scene", () => {
-        RustFuncs.load_scene(scene_encoded)
-    });
 }
 
 // Wrapper that reloads layer list as well.

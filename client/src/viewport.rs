@@ -159,10 +159,8 @@ impl Viewport {
 
     pub fn add_menu(&mut self, menu: Menu) {
         self.menu = Some(menu);
-        let details = self.int.get_scene_details();
-        self.menu().set_scene_details(details);
-        self.menu().set_fog_brush(Interactor::DEFAULT_FOG_BRUSH);
         self.update_layers_menu();
+        self.update_scene_menu();
     }
 
     fn menu(&mut self) -> &mut Menu {
@@ -173,6 +171,20 @@ impl Viewport {
         let selected = self.int.selected_layer();
         let layers = self.int.layer_info();
         self.menu().set_layer_info(selected, &layers);
+    }
+
+    fn update_scene_menu(&mut self) {
+        let details = self.int.get_scene_details();
+        self.menu().set_scene_details(details);
+        let scenes = self.int.get_scene_list();
+        self.set_scene_list(scenes);
+        self.menu().set_fog_brush(Interactor::DEFAULT_FOG_BRUSH);
+    }
+
+    fn set_scene_list(&mut self, scenes: Vec<(String, String)>) {
+        self.menu().set_scene_list(scenes);
+        let selected = self.int.scene_uuid();
+        self.menu().set_scene(selected);
     }
 
     fn update_cursor(&mut self, new: Option<Cursor>) {
@@ -231,8 +243,6 @@ impl Viewport {
                 fog: Some(true),
                 ..Default::default()
             });
-        let new_details = self.int.get_scene_details();
-        self.menu().set_scene_details(new_details);
     }
 
     fn scene_point(&self, at: ViewportPoint) -> Point {
@@ -613,6 +623,10 @@ impl Viewport {
             self.update_layers_menu();
         }
 
+        if self.int.changes.handle_scene_change() {
+            self.update_scene_menu();
+        }
+
         // Handle selection changes by updating sprite menu.
         if self.int.changes.handle_selected_change() {
             let details = self.int.selected_details();
@@ -683,18 +697,6 @@ impl Viewport {
 
     pub fn set_save_state(&mut self, state: crate::bridge::ReqState) {
         self.save_state = Some(state);
-    }
-
-    pub fn replace_scene(&mut self, scene: scene::Scene) {
-        self.menu()
-            .set_scene_details(crate::interactor::details::SceneDetails::from(&scene));
-        self.int.replace_scene(scene);
-    }
-
-    pub fn set_scene_list(&mut self, scenes: Vec<(String, String)>) {
-        self.menu().set_scene_list(scenes);
-        let selected = self.int.scene_uuid();
-        self.menu().set_scene(selected);
     }
 
     pub fn set_project(&mut self, project: scene::Project) {

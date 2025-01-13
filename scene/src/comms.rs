@@ -96,7 +96,20 @@ impl SceneEvent {
         ) {
             true
         } else if let Self::EventSet(events) = self {
-            events.iter().any(|e| e.is_sprite())
+            events.iter().any(Self::is_sprite)
+        } else {
+            false
+        }
+    }
+
+    pub fn is_scene(&self) -> bool {
+        if matches!(
+            self,
+            Self::SceneDimensions(..) | Self::SceneTitle(..) | Self::FogActive(..)
+        ) {
+            true
+        } else if let Self::EventSet(events) = self {
+            events.iter().any(Self::is_scene)
         } else {
             false
         }

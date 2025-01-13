@@ -12,6 +12,13 @@ impl SceneMenu {
     pub fn new(vp: VpRef) -> Self {
         let mut inputs = InputGroup::new(vp);
 
+        inputs.add_toggle_string("Title", true, |vp, title| {
+            vp.int.scene_details(SceneDetails {
+                title: Some(title),
+                ..Default::default()
+            })
+        });
+        inputs.add_line();
         inputs.add_float_handler(
             "Width",
             Some(0),
@@ -62,6 +69,10 @@ impl SceneMenu {
         self.inputs.root()
     }
 
+    pub fn title(&self) -> Option<String> {
+        self.inputs.get_string("Title")
+    }
+
     pub fn width(&self) -> Option<u32> {
         self.inputs.get_u32("Width")
     }
@@ -75,6 +86,9 @@ impl SceneMenu {
     }
 
     pub fn set_details(&mut self, details: SceneDetails) {
+        if let Some(title) = details.title {
+            self.inputs.set_string("Title", &title);
+        }
         self.inputs.set_float(
             "Width",
             details.w.unwrap_or(scene::Scene::DEFAULT_SIZE) as f32,
@@ -96,6 +110,7 @@ impl SceneMenu {
 
     pub fn details(&self) -> SceneDetails {
         SceneDetails {
+            title: self.title(),
             w: self.width(),
             h: self.height(),
             fog: self.fog_of_war(),

@@ -8,8 +8,8 @@ use std::sync::Mutex;
 use wasm_bindgen::{prelude::*, JsCast};
 
 use crate::bridge::{
-    console_err, console_log, expose_closure, expose_closure_f64x2_string,
-    expose_closure_string_in, load_project, log, request_animation_frame,
+    console_err, console_log, expose_closure, expose_closure_f64x2_string, load_project, log,
+    request_animation_frame,
 };
 use crate::client::Client;
 use crate::dom::menu::Menu;
@@ -59,17 +59,6 @@ pub fn start() -> Result<(), JsValue> {
     });
 
     let vp_ref = vp.clone();
-    let load_scene_closure = Closure::wrap(Box::new(move |vp_b64: String| {
-        if let Ok(bytes) = base64::decode(vp_b64) {
-            if let Ok(scene) = bincode::deserialize(&bytes) {
-                lock_and(&vp_ref, |vp| vp.replace_scene(scene));
-            }
-        }
-    }) as Box<dyn FnMut(String)>);
-    expose_closure_string_in("load_scene", &load_scene_closure);
-    load_scene_closure.forget();
-
-    let vp_ref = vp.clone();
     let new_scene_closure = Closure::wrap(Box::new(move || {
         lock_and(&vp_ref, |vp| vp.int.new_scene());
     }) as Box<dyn FnMut()>);
@@ -93,15 +82,6 @@ pub fn start() -> Result<(), JsValue> {
     }) as Box<dyn FnMut(f64, f64, String)>);
     expose_closure_f64x2_string("new_sprite", &new_sprite_closure);
     new_sprite_closure.forget();
-
-    let vp_ref = vp.clone();
-    let set_scene_list_closure = Closure::wrap(Box::new(move |json: String| {
-        if let Some(scenes) = parse_json::<Vec<(String, String)>>(&json) {
-            lock_and(&vp_ref, move |vp| vp.set_scene_list(scenes));
-        }
-    }) as Box<dyn FnMut(String)>);
-    expose_closure_string_in("set_scene_list", &set_scene_list_closure);
-    set_scene_list_closure.forget();
 
     let vp_ref = vp.clone();
     let before_unload_closure: Closure<dyn FnMut() -> Option<String>> = Closure::new(move || {

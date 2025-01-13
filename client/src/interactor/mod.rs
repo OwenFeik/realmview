@@ -108,7 +108,7 @@ impl Interactor {
             ServerEvent::HealthCheck => self.history.reply_to_health_check(),
             ServerEvent::Rejection(id) => {
                 if let Some(event) = self.history.take_event(id) {
-                    self.unwind_event(event)
+                    self.unwind_event(event);
                 }
             }
             ServerEvent::PermsChange(perms) => self.replace_perms(perms),
@@ -166,6 +166,7 @@ impl Interactor {
         self.changes.layer_change_if(event.is_layer());
         self.changes.sprite_change_if(event.is_sprite());
         self.changes.sprite_change_if(event.is_fog());
+        self.changes.scene_change_if(event.is_scene());
         if let Some(id) = event.item() {
             self.changes.selected_change_if(self.is_selected(id));
         }
@@ -870,6 +871,7 @@ impl Interactor {
     pub fn change_scene(&mut self, scene: Uuid) -> bool {
         if let Some(scene) = self.project.get_scene(scene) {
             self.scene = scene.clone();
+            self.changes.all_change();
         }
         self.history.change_scene(scene)
     }
@@ -887,6 +889,23 @@ impl Interactor {
 
     pub fn get_scene_details(&self) -> details::SceneDetails {
         details::SceneDetails::from(&self.scene)
+    }
+
+    pub fn get_scene_list(&self) -> Vec<(String, String)> {
+        self.project
+            .scenes
+            .iter()
+            .map(|s| {
+                // Title of active scene may have been changed but not yet
+                // saved.
+                let title = if s.uuid == self.scene.uuid {
+                    self.scene.title.clone()
+                } else {
+                    s.title.clone()
+                };
+                (title, s.uuid.as_simple().to_string())
+            })
+            .collect()
     }
 
     pub fn scene_details(&mut self, details: details::SceneDetails) {

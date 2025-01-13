@@ -24,7 +24,9 @@ impl SceneDetails {
 
     pub fn update_scene(&self, scene: &mut Scene) -> Option<SceneEvent> {
         let mut events = Vec::new();
-        if let Some(title) = &self.title {
+        if let Some(title) = &self.title
+            && title != &scene.title
+        {
             let old = scene.title.clone();
             scene.title.clone_from(title);
             events.push(SceneEvent::SceneTitle(old, self.title.clone().unwrap()));
