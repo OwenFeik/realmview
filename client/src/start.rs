@@ -8,8 +8,8 @@ use std::sync::Mutex;
 use wasm_bindgen::{prelude::*, JsCast};
 
 use crate::bridge::{
-    console_err, console_log, expose_closure, expose_closure_f64x2_string, load_project, log,
-    request_animation_frame,
+    console_err, console_log, expose_closure_f64x2_string, expose_closure_string_out, load_project,
+    log, request_animation_frame,
 };
 use crate::client::Client;
 use crate::dom::menu::Menu;
@@ -59,13 +59,6 @@ pub fn start() -> Result<(), JsValue> {
     });
 
     let vp_ref = vp.clone();
-    let new_scene_closure = Closure::wrap(Box::new(move || {
-        lock_and(&vp_ref, |vp| vp.int.new_scene());
-    }) as Box<dyn FnMut()>);
-    expose_closure("new_scene", &new_scene_closure);
-    new_scene_closure.forget();
-
-    let vp_ref = vp.clone();
     let new_sprite_closure = Closure::wrap(Box::new(move |w: f64, h: f64, media_key: String| {
         let texture = crate::render::parse_media_key(&media_key);
         lock_and(&vp_ref, |vp| {
@@ -82,6 +75,15 @@ pub fn start() -> Result<(), JsValue> {
     }) as Box<dyn FnMut(f64, f64, String)>);
     expose_closure_f64x2_string("new_sprite", &new_sprite_closure);
     new_sprite_closure.forget();
+
+    let vp_ref = vp.clone();
+    let active_scene_closure =
+        Closure::wrap(
+            Box::new(move || lock_and(&vp_ref, |vp| vp.int.scene_uuid()))
+                as Box<dyn FnMut() -> String>,
+        );
+    expose_closure_string_out("active_scene", &active_scene_closure);
+    active_scene_closure.forget();
 
     let vp_ref = vp.clone();
     let before_unload_closure: Closure<dyn FnMut() -> Option<String>> = Closure::new(move || {

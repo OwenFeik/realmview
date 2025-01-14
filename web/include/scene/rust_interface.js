@@ -4,20 +4,6 @@ const missing_func = (...args) => console.error(
 
 // These functions are populated by the WASM app, in start.rs.
 var RustFuncs = {
-    export_scene: missing_func,
-    /*
-    function export_scene(): string
-
-    Returns the base64 serde encoded form of the current scene.
-    */
-
-    new_scene: missing_func,
-    /*
-    function new_scene()
-
-    Create a new scene in the current project.
-    */
-
     new_sprite: missing_func,
     /*
     function new_sprite(w: float, h: float, media_key: string)
@@ -25,6 +11,13 @@ var RustFuncs = {
     Adds a new sprite with the provided texture to the scene. Will load the
     texture if necessary.
     */
+
+    active_scene: missing_func
+    /**
+     * function active_scene(): string
+     * 
+     * Returns the UUID of the currently active scene.
+     */
 };
 
 // Array of callbacks to be performed when a given closure is available.
@@ -115,26 +108,6 @@ function upload_thumbnail(scene_uuid) {
 
 // End :: Externs
 
-// Queue a function to be called when closure func_name is loaded.
-function call_when_ready(func_name, callback) {
-    if (RustFuncs[func_name] != missing_func) {
-        callback();
-    }
-
-    if (queued[func_name] === undefined) {
-        queued[func_name] = [];
-    }
-
-    queued[func_name].push(callback);
-}
-
-// Wrapper that reloads layer list as well.
-function new_scene() {
-    call_when_ready("new_scene", () => {
-        RustFuncs.new_scene();
-    });
-}
-
 // Given an HTML image, load the texture for this image and add a sprite with
 // that image to the scene.
 function add_to_scene(image) {
@@ -146,20 +119,6 @@ function add_to_scene(image) {
     ));
 }
 
-function rename_layer(layer_id, new_title) {
-    call_when_ready(
-        "rename_layer",
-        () => {
-            RustFuncs.rename_layer(layer_id, new_title);
-        }
-    );
-}
-
-function new_layer() {
-    call_when_ready(
-        "new_layer",
-        () => {
-            RustFuncs.new_layer();
-        }
-    );
+function active_scene() {
+    return RustFuncs.active_scene();
 }

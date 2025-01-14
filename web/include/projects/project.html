@@ -9,14 +9,7 @@
       <EditableInput
         button = ""
         value="${project.title}"
-        action="
-          v => update_titles(
-            '${project.uuid}',
-            v,
-            null,
-            null
-          )
-        "
+        action="v => update_project_title('${project.uuid}', v)"
       >
     </div>
     <div class="col align-self-end d-flex">

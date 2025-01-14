@@ -5,26 +5,22 @@ function record_to_element(project) {
     return template_to_element(`{{ projects/project.html }}`);
 }
 
-function update_titles(project_uuid, project_title, scene_uuid, scene_title) {
+function update_project_title(project_uuid, project_title) {
     let body = {
-        project_key,
-        project_title,
-        scene_key,
-        scene_title
+        title: project_title,
     };
 
-    // TODO!
-    fetch("/api/scene/details", {
-        method: "POST",
+    fetch("/api/project/" + project_uuid, {
+        method: "PATCH",
         body: JSON.stringify(body),
         headers: { "Content-Type": "application/json" }
     });
 }
 
-function delete_project(project_key, project_title) {
+function delete_project(project_uuid, project_title) {
     modal_confirm(
         () => {
-            fetch("/api/project/" + project_key, { method: "DELETE" }).then(
+            fetch("/api/project/" + project_uuid, { method: "DELETE" }).then(
                 resp => resp.json().then(body => {
                     if (body.success) {
                         document
@@ -36,26 +32,6 @@ function delete_project(project_key, project_title) {
         },
         (
             `Are you sure you wish to delete your project "${project_title}"?`
-            + " This action is irreversible."
-        )
-    );
-}
-
-function delete_scene(scene_key, scene_title) {
-    modal_confirm(
-        () => {
-            fetch("/api/scene/" + scene_key, { method: "DELETE" }).then(
-                resp => resp.json().then(body => {
-                    if (body.success) {
-                        document
-                            .getElementById("scene_" + scene_key)
-                            .remove();
-                    }
-                })
-            );
-        },
-        (
-            `Are you sure you wish to delete your scene "${scene_title}"?`
             + " This action is irreversible."
         )
     );

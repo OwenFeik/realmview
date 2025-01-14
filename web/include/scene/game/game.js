@@ -83,7 +83,7 @@ function new_game() {
     const error = error_fn("launch_game_error");
     post(
         Api.NewGame,
-        { "scene_key": selected_scene() }, // TODO this has been changed in struct NewGameRequest
+        { "scene": active_scene() },
         resp => {
             if (resp?.success) {
                 window.location = resp.url;

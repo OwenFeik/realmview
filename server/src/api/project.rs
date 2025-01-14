@@ -3,7 +3,7 @@ use actix_web::{error::ErrorInternalServerError, web, HttpResponse};
 use sqlx::SqliteConnection;
 use uuid::Uuid;
 
-use super::{res_failure, res_json, res_success, res_unproc};
+use super::{res_failure, res_json, res_success, res_unproc, resp_json};
 use crate::models::{Project, Scene, User};
 use crate::req::{e500, Pool};
 use crate::utils::{format_uuid, Res};
@@ -14,6 +14,7 @@ pub fn routes() -> actix_web::Scope {
         .route("/list", web::get().to(list))
         .route("/new", web::post().to(new))
         .route("/{uuid}", web::get().to(info))
+        .route("/{uuid}", web::patch().to(edit_details))
         .route("/{uuid}/save", web::get().to(get))
         .route("/{uuid}", web::delete().to(delete))
 }
@@ -244,6 +245,45 @@ async fn delete(
     }
 }
 
+#[cfg_attr(test, derive(serde_derive::Serialize))]
+#[derive(serde_derive::Deserialize)]
+struct ProjectDetailsRequest {
+    title: String,
+}
+
+async fn edit_details(
+    mut conn: Pool,
+    user: User,
+    req: web::Json<ProjectDetailsRequest>,
+    path: web::Path<(Uuid,)>,
+) -> Result<HttpResponse, actix_web::Error> {
+    let conn = conn.acquire();
+    let project = Project::get_by_uuid(conn, path.into_inner().0)
+        .await
+        .map_err(ErrorNotFound)?;
+
+    if project.user != user.uuid {
+        return Err(ErrorNotFound("Project not found."));
+    }
+
+    // Update title and save project.
+    let mut project = project.load(conn).await.map_err(e500)?;
+    project.title = req.into_inner().title;
+    Project::save(conn, &user, project)
+        .await
+        .map(|(proj, scenes)| ProjectInfoResponse {
+            success: true,
+            message: "Project info follows".to_string(),
+            project: ProjectListEntry {
+                uuid: format_uuid(proj.uuid),
+                title: proj.title,
+                scene_list: scenes.into_iter().map(SceneListEntry::from).collect(),
+            },
+        })
+        .map(resp_json)
+        .map_err(e500)
+}
+
 #[cfg(test)]
 mod test {
     use actix_web::{
@@ -253,8 +293,8 @@ mod test {
     };
 
     use super::{
-        NewProjectRequest, NewProjectResponse, ProjectInfoResponse, ProjectListResponse,
-        ProjectResponse,
+        NewProjectRequest, NewProjectResponse, ProjectDetailsRequest, ProjectInfoResponse,
+        ProjectListResponse, ProjectResponse,
     };
     use crate::{
         api::Binary,
@@ -348,7 +388,7 @@ mod test {
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 
-        // Try to get a project which doesn't exist.
+        // Try to get our project.
         let req = TestRequest::get()
             .uri(&format!("/api/project/{}", project))
             .cookie(session.clone())
@@ -359,9 +399,22 @@ mod test {
         assert_eq!(resp.project.title, title);
         assert_eq!(resp.project.scene_list.len(), 0);
 
+        // Set the project's title and check it's updated.
+        let title = "New Title".to_string();
+        let req = TestRequest::patch()
+            .uri(&format!("/api/project/{project}"))
+            .cookie(session.clone())
+            .set_json(ProjectDetailsRequest {
+                title: title.clone(),
+            })
+            .to_request();
+        let resp: ProjectInfoResponse = test::call_and_read_body_json(&app, req).await;
+        assert!(resp.success);
+        assert_eq!(resp.project.title, title);
+
         // Try to load a project we created.
         let req = TestRequest::get()
-            .uri(&format!("/api/project/{}/save", project))
+            .uri(&format!("/api/project/{project}/save"))
             .cookie(session.clone())
             .to_request();
         let resp: bytes::Bytes = test::call_and_read_body(&app, req).await;

@@ -64,8 +64,8 @@
     - `/game`
         - `/new` method `POST` body `struct NewGameRequest` creates a new game.
         - `/{game_key}/end` method `POST` terminates a game.
-        - `/{game_key}` method `GET` tests if a given game exists.
-        - `/{game_key}` method `POST` joins a game, upgrading to websocket.
+        - `/{game_key}` method `POST` tests if a given game exists.
+        - `/{game_key}` method `GET` joins a game, upgrading to websocket.
     - `/project`
         - `/save` method `POST` body `struct Save` (binary), creates or updates
             a project.
@@ -75,6 +75,8 @@
         - `/{uuid}` method `GET` returns information about this project.
         - `/{uuid}/save` method `GET` returns `struct ProjectDataResponse` for
             the requested project.
+        - `/{uuid}` method `POST` body `struct ProjectDetailsRequest` updates
+            project title.
         - `/{uuid}` method `DELETE` deletes the specified project.
     - `/media`
         - `/list` method `GET` returns list of media for authenticated user.

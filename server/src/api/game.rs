@@ -18,8 +18,8 @@ pub fn routes() -> actix_web::Scope {
     web::scope("/game")
         .route("/new", web::post().to(new))
         .route("/{game_key}/end", web::post().to(end))
-        .route("/{game_key}", web::get().to(test))
-        .route("/{game_key}", web::post().to(join))
+        .route("/{game_key}", web::post().to(test))
+        .route("/{game_key}", web::get().to(join))
 }
 
 #[cfg_attr(test, derive(serde_derive::Serialize))]
