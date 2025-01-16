@@ -19,17 +19,19 @@
         </ul>
       </div>
     </div>
-    <div class="text-center pt-4" style="display: none;" id="scene_list_heading">
-      <p class="fs-3">Recent scenes</p>
+    <div
+      class="text-center pt-4" style="display: none;" id="project_list_heading"
+    >
+      <p class="fs-3">Recent projects</p>
     </div>
   </div>
   <div class="container">
-    <div id="scene_list" class="row px-4"></div>
+    <div id="project_list" class="px-4"></div>
   </div>
   <script>
     get("/api/project/list", resp => {
-      const SHOW_N_SCENES = 6;
-      const list = document.getElementById("scene_list");
+      const SHOW_N_PROJECTS = 3;
+      const list = document.getElementById("project_list");
 
       let projects = resp.list || [];
       let scenes = projects.flatMap(project => project.scene_list.map(
@@ -48,7 +50,7 @@
         });
 
       if (scenes.length) {
-        document.getElementById("scene_list_heading").style.display = "";
+        document.getElementById("project_list_heading").style.display = "";
       }
     });
   </script>

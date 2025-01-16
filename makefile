@@ -116,8 +116,8 @@ install: venv
 	${py} -m pip install -r ${root}/web/requirements.txt
 
 venv:
-	@if [ ! -d .venv ]; then                           \
-	    echo "Creating Python venv"                   \
+	@if [ ! -d .venv ]; then                          \
+	    echo "Creating Python venv";                  \
 	    python3 -m venv .venv;                        \
 	    echo '*' > .venv/.gitignore;                  \
 	    ${py} -m pip install -r web/requirements.txt; \
