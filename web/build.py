@@ -92,11 +92,11 @@ def ensure_cache_dir() -> str:
     return INCLUDE_CACHE_DIR
 
 
-def load_cached_file(filename: str) -> typing.Optional[str]:
+def load_cached_file(filename: str) -> typing.Optional[bytes]:
     cached_file = os.path.join(ensure_cache_dir(), filename)
     if os.path.isfile(cached_file):
         try:
-            with open(cached_file, "r") as f:
+            with open(cached_file, "rb") as f:
                 return f.read()
         except:
             # File is corrupted or something, we'll overwrite it with a new one.
@@ -104,17 +104,17 @@ def load_cached_file(filename: str) -> typing.Optional[str]:
     return None
 
 
-def cache_file(filename: str, content: str) -> None:
-    with open(os.path.join(ensure_cache_dir(), filename), "w") as f:
+def cache_file(filename: str, content: bytes) -> None:
+    with open(os.path.join(ensure_cache_dir(), filename), "wb") as f:
         f.write(content)
 
 
-def download_resource(url: str) -> str:
+def download_resource(url: str) -> bytes:
     resp = urllib3.PoolManager().request("GET", url)
     if resp.status != 200:
         print(f"[ERROR] Failed to retrieve {url} status {resp.status}.")
         exit(os.EX_DATAERR)
-    return resp.data.decode("utf-8")
+    return resp.data
 
 
 def bootstrap_icon(name: str) -> str:
@@ -123,10 +123,10 @@ def bootstrap_icon(name: str) -> str:
     filename = f"{name}.svg"
     cached_file = load_cached_file(filename)
     if cached_file:
-        return cached_file
+        return cached_file.decode()
     svg = download_resource(URL_FORMAT.format(filename))
     cache_file(filename, svg)
-    return svg
+    return svg.decode()
 
 
 def filename_from_url(url: str) -> str:
@@ -142,7 +142,7 @@ def filename_from_url(url: str) -> str:
         exit(os.EX_SOFTWARE)
 
 
-def load_url(url: str) -> str:
+def load_url(url: str) -> bytes:
     filename = filename_from_url(url)
     cached_content = load_cached_file(filename)
     if cached_content:
@@ -158,22 +158,38 @@ def is_url(poss: str) -> bool:
 
 def load_resource(resource: str) -> str:
     if is_url(resource):
-        return load_url(resource)
+        return load_url(resource).decode()
     else:
         return include_file(resource)
 
+# Test if string ends with ":<identifier>"
+ENDS_WITH_DIR = re.compile(fr".*:{IC}+$")
 
-def rehost(url: str) -> str:
-    data = load_resource(url)
+def rehost_resource(url: str) -> str:
+    directory = None
+    if ENDS_WITH_DIR.match(url):
+        (url, _, directory) = url.rpartition(":")
+
+    data = load_url(url)
     href = filename_from_url(url)
-    with open(os.path.join(output_directory(), href), "w") as f:
+    
+    outdir = output_directory()
+    if directory:
+        outdir = os.path.join(outdir, directory)
+    if not os.path.exists(outdir):
+        os.mkdir(outdir)
+
+    with open(os.path.join(outdir, href), "wb") as f:
         f.write(data)
     return "/" + href
 
+def rehost(url: str) -> str:
+    rehost_resource(url)
+    return ""
 
 def stylesheet(resource: str) -> str:
     if is_url(resource):
-        href = rehost(resource)
+        href = rehost_resource(resource)
         return f'<link rel="stylesheet" href="{href}">'
     else:
         return f"<style>{load_resource(resource)}</style>"
@@ -181,7 +197,7 @@ def stylesheet(resource: str) -> str:
 
 def javascript(resource: str) -> str:
     if is_url(resource):
-        href = rehost(resource)
+        href = rehost_resource(resource)
         return f'<script src="{href}"></script>'
     else:
         return f"<script>{load_resource(resource)}</script>"
@@ -221,6 +237,7 @@ def function_substitution(func: str, arg: str) -> str:
         bootstrap_icon,
         stylesheet,
         javascript,
+        rehost,
         constant,
         unique_string,
     ]
@@ -362,11 +379,11 @@ def kwarg_substitution(html: str, args: str = "") -> str:
         )
     }
 
-    try:
-        return process_kwarg_html(html, kwargs)
-    except (ValueError, KeyError) as e:
-        print(f"[ERROR] Substitution failed.\nReason: {e}\nArgs: {kwargs}")
-        exit(os.EX_DATAERR)
+    # try:
+    return process_kwarg_html(html, kwargs)
+    # except (ValueError, KeyError) as e:
+    #     print(f"[ERROR] Substitution failed.\nReason: {e}\nArgs: {kwargs}")
+    #     exit(os.EX_DATAERR)
 
 
 def kwarg_file_subsitution(file: str, args: str = "") -> str:

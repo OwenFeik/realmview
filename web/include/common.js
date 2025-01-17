@@ -5,10 +5,10 @@ const Pages = {
 };
 
 const Api = {
+    DeleteProject: (uuid) => `/api/project/${uuid}`,
     EndGame: game_key => `/api/game/${game_key}/end`,
+    ListProjects: '/api/project/list',    
     NewGame: '/api/game/new',
-    SceneDetails: '/api/scene/details',
-    TestClient: (game_key, client_key) => `/api/game/${game_key}/${client_key}`
 };
 
 const Icons = {

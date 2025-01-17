@@ -9,7 +9,7 @@ content := ${build}/content
 env := CARGO_TARGET_DIR=${target} RUST_LOG=INFO
 cargo := ${env} cargo
 wp := RUST_BACKTRACE=1 ${env} wasm-pack
-py := .venv/bin/python
+py := ${root}/.venv/bin/python
 dep := ${HOME}/deployment
 
 serve: server content testdb
@@ -108,7 +108,7 @@ test-rust:
 	&& mkdir -p $$DATA_DIR/content                                    \
 	&& DATABASE_URL=sqlite://$$DATA_DIR/database.db ${cargo} test
 
-test-py:
+test-py: venv
 	cd ${root}/web && ${py} test.py
 
 install: venv

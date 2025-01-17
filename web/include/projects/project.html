@@ -28,5 +28,11 @@
     </div>
   </div>
   <hr class="mb-2">
-  <div class="row">${scene_list}</div>
+  <div class="row">
+    ${
+      project.scene_list.reduce(
+        (html, scene) => html + `{{ projects/scene() }}`, ""
+      )
+    }
+  </div>
 </div>

@@ -28,28 +28,21 @@
   <div class="container">
     <div id="project_list" class="px-4"></div>
   </div>
+  <ConfirmationModal />
+  <BootstrapJs />
+  <Js src="projects/projects.js">
   <script>
-    get("/api/project/list", resp => {
+    get(Api.ListProjects, resp => {
       const SHOW_N_PROJECTS = 3;
       const list = document.getElementById("project_list");
 
       let projects = resp.list || [];
-      let scenes = projects.flatMap(project => project.scene_list.map(
-        scene => Object.assign(scene, { project })
-      ));
-      
-      scenes
-        .sort(scene => scene.updated_time || 1e12)
-        .slice(0, SHOW_N_SCENES)
-        .forEach(scene => {
-          // template uses project and scene.
-          let project = scene.project;
-          list.appendChild(
-            template_to_element(`{{ projects/scene(display=1) }}`)
-          );
-        });
+      projects  
+        .sort(proj => proj.updated_time || 1e12)
+        .slice(0, SHOW_N_PROJECTS)
+        .forEach(proj => list.appendChild(record_to_element(proj)));
 
-      if (scenes.length) {
+      if (projects.length) {
         document.getElementById("project_list_heading").style.display = "";
       }
     });

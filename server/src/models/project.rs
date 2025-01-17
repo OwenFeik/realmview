@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, time::SystemTime};
 
 use sqlx::prelude::FromRow;
 use uuid::Uuid;
@@ -19,6 +19,13 @@ pub struct Project {
 
 impl Project {
     pub const MAX_TITLE_LENGTH: usize = 256;
+
+    pub fn updated_timestamp(&self) -> u64 {
+        self.updated_time
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0)
+    }
 
     pub async fn save(
         conn: &mut Conn,

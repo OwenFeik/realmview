@@ -43,10 +43,12 @@ async fn save(
         Err(e) => return Err(e500(e)),
     };
 
+    let updated_time = record.updated_timestamp();
     let scene_list = scenes.into_iter().map(SceneListEntry::from).collect();
     let project = ProjectListEntry {
         uuid: format_uuid(record.uuid),
         title: record.title,
+        updated_time,
         scene_list,
     };
 
@@ -83,6 +85,7 @@ impl SceneListEntry {
 struct ProjectListEntry {
     uuid: String,
     title: String,
+    updated_time: u64,
     scene_list: Vec<SceneListEntry>,
 }
 
@@ -94,9 +97,11 @@ impl ProjectListEntry {
             .into_iter()
             .map(SceneListEntry::from)
             .collect();
+        let updated_time = project.updated_timestamp();
         Ok(ProjectListEntry {
             uuid: format_uuid(project.uuid),
             title: project.title,
+            updated_time,
             scene_list,
         })
     }
@@ -276,7 +281,8 @@ async fn edit_details(
             message: "Project info follows".to_string(),
             project: ProjectListEntry {
                 uuid: format_uuid(proj.uuid),
-                title: proj.title,
+                title: proj.title.clone(),
+                updated_time: proj.updated_timestamp(),
                 scene_list: scenes.into_iter().map(SceneListEntry::from).collect(),
             },
         })
