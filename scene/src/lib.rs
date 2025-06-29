@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-#![feature(extract_if)]
 #![feature(int_roundings)]
 #![feature(let_chains)]
 
