@@ -17,6 +17,7 @@ use uuid::Uuid;
 
 pub mod comms;
 pub mod perms;
+pub mod requests;
 
 mod drawing;
 mod fog;

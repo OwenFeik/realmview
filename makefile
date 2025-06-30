@@ -14,7 +14,8 @@ dep := ${HOME}/deployment
 
 serve: server content testdb
 	echo "Serving at http://localhost:3030/"
-	RUST_BACKTRACE=1                      \
+	RUST_LOG=info                         \
+		RUST_BACKTRACE=1                  \
 		DATA_DIR=${build}                 \
 		DATABASE_URL=${build}/database.db \
 		${build}/server 3030
@@ -26,7 +27,8 @@ deploy: html deploydb
 	cp -r ${content} ${dep}/content
 	sudo setcap CAP_NET_BIND_SERVICE=+eip ${dep}/server
 	echo "Serving on port 80"
-	RUST_BACKTRACE=1                    \
+	RUST_LOG=info                       \
+	    RUST_BACKTRACE=1                \
 		DATABASE_URL=${dep}/database.db \
 		DATA_DIR=${dep}                 \
 		RUST_LOG=INFO                   \

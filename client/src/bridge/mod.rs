@@ -772,11 +772,15 @@ pub fn save_project(project: &Project, active_scene: &str) -> Res<ReqState> {
 
     upload_thumbnail(active_scene);
 
-    Ok(ReqState::basic(
-        |resp: JsValue| {
+    let state = ReqState::body(
+        |buf: JsValue| {
             if let Some(loading) = Element::by_id("canvas_loading_icon") {
                 loading.remove_class("loading-loading");
-                if resp.unchecked_into::<Response>().ok() {
+                let bytes = js_sys::Uint8Array::new(&buf).to_vec();
+                if let Ok(resp) =
+                    serde_json::de::from_slice::<scene::requests::ProjectResponse>(&bytes)
+                    && resp.success
+                {
                     loading.hide();
                 } else {
                     loading.add_class("loading-error");
@@ -792,7 +796,8 @@ pub fn save_project(project: &Project, active_scene: &str) -> Res<ReqState> {
             }
         },
         promise,
-    ))
+    );
+    Ok(state)
 }
 
 fn project_save_url() -> Res<Option<String>> {

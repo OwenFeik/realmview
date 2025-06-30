@@ -44,6 +44,7 @@ features = [
     'MessageEvent',           # Receive and send WebSocket messages
     'MouseEvent',             # Interaction with canvas
     'ProgressEvent',          # Handle image loading events
+    'ReadableStream',         # Receive data in response to requests
     'Request',                # Send requests to save scene
     'RequestInit',            # Configure requests
     'Response',               # Receive responses

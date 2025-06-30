@@ -1,5 +1,6 @@
 use actix_web::error::{ErrorNotFound, ErrorUnprocessableEntity};
 use actix_web::{error::ErrorInternalServerError, web, HttpResponse};
+use scene::requests::{ProjectListEntry, SceneListEntry};
 use sqlx::SqliteConnection;
 use uuid::Uuid;
 
@@ -19,14 +20,6 @@ pub fn routes() -> actix_web::Scope {
         .route("/{uuid}", web::delete().to(delete))
 }
 
-#[cfg_attr(test, derive(serde_derive::Deserialize))]
-#[derive(serde_derive::Serialize)]
-struct ProjectResponse {
-    message: String,
-    success: bool,
-    project: ProjectListEntry,
-}
-
 async fn save(
     mut pool: Pool,
     user: User,
@@ -44,7 +37,7 @@ async fn save(
     };
 
     let updated_time = record.updated_timestamp();
-    let scene_list = scenes.into_iter().map(SceneListEntry::from).collect();
+    let scene_list = scenes.into_iter().map(scene_list_entry).collect();
     let project = ProjectListEntry {
         uuid: format_uuid(record.uuid),
         title: record.title,
@@ -52,67 +45,40 @@ async fn save(
         scene_list,
     };
 
-    Ok(HttpResponse::Ok().json(ProjectResponse {
+    Ok(HttpResponse::Ok().json(scene::requests::ProjectResponse {
         message: "Project saved successfully.".to_string(),
         success: true,
         project,
     }))
 }
 
-#[cfg_attr(test, derive(serde_derive::Deserialize))]
-#[derive(serde_derive::Serialize)]
-struct SceneListEntry {
-    uuid: String,
-    title: String,
-    updated_time: u64,
-    thumbnail: Option<String>,
-}
-
-impl SceneListEntry {
-    fn from(scene: Scene) -> Self {
-        let updated_time = scene.updated_timestamp();
-        SceneListEntry {
-            uuid: format_uuid(scene.uuid),
-            title: scene.title,
-            updated_time,
-            thumbnail: scene.thumbnail,
-        }
+fn scene_list_entry(scene: Scene) -> SceneListEntry {
+    let updated_time = scene.updated_timestamp();
+    SceneListEntry {
+        uuid: format_uuid(scene.uuid),
+        title: scene.title,
+        updated_time,
+        thumbnail: scene.thumbnail,
     }
 }
 
-#[cfg_attr(test, derive(serde_derive::Deserialize))]
-#[derive(serde_derive::Serialize)]
-struct ProjectListEntry {
-    uuid: String,
-    title: String,
-    updated_time: u64,
-    scene_list: Vec<SceneListEntry>,
-}
-
-impl ProjectListEntry {
-    async fn from(project: Project, conn: &mut SqliteConnection) -> Res<Self> {
-        let scene_list = project
-            .list_scenes(conn)
-            .await?
-            .into_iter()
-            .map(SceneListEntry::from)
-            .collect();
-        let updated_time = project.updated_timestamp();
-        Ok(ProjectListEntry {
-            uuid: format_uuid(project.uuid),
-            title: project.title,
-            updated_time,
-            scene_list,
-        })
-    }
-}
-
-#[cfg_attr(test, derive(serde_derive::Deserialize))]
-#[derive(serde_derive::Serialize)]
-struct ProjectListResponse {
-    message: String,
-    success: bool,
-    list: Vec<ProjectListEntry>,
+async fn project_list_entry(
+    project: Project,
+    conn: &mut SqliteConnection,
+) -> Res<ProjectListEntry> {
+    let scene_list = project
+        .list_scenes(conn)
+        .await?
+        .into_iter()
+        .map(scene_list_entry)
+        .collect();
+    let updated_time = project.updated_timestamp();
+    Ok(ProjectListEntry {
+        uuid: format_uuid(project.uuid),
+        title: project.title,
+        updated_time,
+        scene_list,
+    })
 }
 
 async fn list(mut conn: Pool, user: User) -> Result<HttpResponse, actix_web::Error> {
@@ -122,17 +88,19 @@ async fn list(mut conn: Pool, user: User) -> Result<HttpResponse, actix_web::Err
 
     let mut project_list = vec![];
     while let Some(project) = projects.pop() {
-        let entry = ProjectListEntry::from(project, conn.acquire())
+        let entry = project_list_entry(project, conn.acquire())
             .await
             .map_err(e500)?;
         project_list.push(entry);
     }
 
-    Ok(HttpResponse::Ok().json(&ProjectListResponse {
-        message: "Project list retrieved.".to_string(),
-        success: true,
-        list: project_list,
-    }))
+    Ok(
+        HttpResponse::Ok().json(&scene::requests::ProjectListResponse {
+            message: "Project list retrieved.".to_string(),
+            success: true,
+            list: project_list,
+        }),
+    )
 }
 
 #[cfg_attr(test, derive(serde_derive::Serialize))]
@@ -206,7 +174,7 @@ async fn info(
     res_json(ProjectInfoResponse {
         success: true,
         message: "Project info follows.".to_string(),
-        project: ProjectListEntry::from(project, conn.acquire())
+        project: project_list_entry(project, conn.acquire())
             .await
             .map_err(e500)?,
     })
@@ -283,7 +251,7 @@ async fn edit_details(
                 uuid: format_uuid(proj.uuid),
                 title: proj.title.clone(),
                 updated_time: proj.updated_timestamp(),
-                scene_list: scenes.into_iter().map(SceneListEntry::from).collect(),
+                scene_list: scenes.into_iter().map(scene_list_entry).collect(),
             },
         })
         .map(resp_json)
@@ -297,10 +265,10 @@ mod test {
         http::StatusCode,
         test::{self, TestRequest},
     };
+    use scene::requests::*;
 
     use super::{
         NewProjectRequest, NewProjectResponse, ProjectDetailsRequest, ProjectInfoResponse,
-        ProjectListResponse, ProjectResponse,
     };
     use crate::{
         api::Binary,

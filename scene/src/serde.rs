@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::Project;
 
 type Res<T> = Result<T, String>;
@@ -10,7 +8,7 @@ struct Save {
     data: Vec<u8>,
 }
 
-fn bincode_serialise(val: impl Serialize) -> Res<Vec<u8>> {
+fn bincode_serialise(val: impl serde::Serialize) -> Res<Vec<u8>> {
     bincode::serialize(&val).map_err(|e| format!("Serialisation failed, error: {e:?}"))
 }
 
@@ -19,7 +17,7 @@ pub fn serialise(project: &Project) -> Res<Vec<u8>> {
     bincode_serialise(Save { version: 1, data })
 }
 
-fn bincode_deserialise<'a, T: Deserialize<'a>>(data: &'a [u8]) -> Res<T> {
+fn bincode_deserialise<'a, T: serde::Deserialize<'a>>(data: &'a [u8]) -> Res<T> {
     bincode::deserialize(data).map_err(|e| format!("Deserialisation failed, error: {e:?}"))
 }
 
