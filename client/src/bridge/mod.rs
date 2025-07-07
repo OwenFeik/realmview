@@ -18,6 +18,7 @@ use crate::dom::element::Element;
 use crate::err;
 use crate::render::Gl;
 use crate::render::WebGlRenderer;
+use crate::viewport;
 use crate::Res;
 
 #[wasm_bindgen]
@@ -813,7 +814,7 @@ fn project_save_url() -> Res<Option<String>> {
     }
 }
 
-pub fn load_project(vp: crate::start::VpRef) -> Res<()> {
+pub fn load_project() -> Res<()> {
     const METHOD: &str = "GET";
 
     let Some(path) = project_save_url()? else {
@@ -827,15 +828,11 @@ pub fn load_project(vp: crate::start::VpRef) -> Res<()> {
     let req = Request::new_with_str_and_init(&path, &init).map_err(js_err)?;
     let promise = window()?.fetch_with_request(&req);
 
-    let cb_vp = vp.clone();
     let state = ReqState::body(
         move |buf: JsValue| {
             let bytes = Uint8Array::new(&buf).to_vec();
             match scene::serde::deserialise(&bytes) {
-                Ok(project) => match cb_vp.lock() {
-                    Ok(mut vp) => vp.set_project(project),
-                    Err(_) => console_err("Failed to lock viewport to update project."),
-                },
+                Ok(project) => viewport::lock_and(|vp| vp.set_project(project)),
                 Err(e) => console_err(&format!("Failed to decode project: {e}")),
             }
         },
@@ -843,11 +840,6 @@ pub fn load_project(vp: crate::start::VpRef) -> Res<()> {
         promise,
     );
 
-    match vp.lock() {
-        Ok(mut vp) => {
-            vp.set_save_state(state);
-            Ok(())
-        }
-        Err(_) => err("Failed to lock viewport to set request state."),
-    }
+    viewport::lock_and(|vp| vp.set_save_state(state));
+    Ok(())
 }

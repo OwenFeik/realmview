@@ -2,15 +2,14 @@ use crate::dom::element::Element;
 use crate::dom::icon::Icon;
 use crate::dom::input::InputGroup;
 use crate::interactor::details::SceneDetails;
-use crate::start::VpRef;
 
 pub struct SceneMenu {
     inputs: InputGroup,
 }
 
 impl SceneMenu {
-    pub fn new(vp: VpRef) -> Self {
-        let mut inputs = InputGroup::new(vp);
+    pub fn new() -> Self {
+        let mut inputs = InputGroup::new();
 
         inputs.add_toggle_string("Title", true, |vp, title| {
             vp.int.scene_details(SceneDetails {

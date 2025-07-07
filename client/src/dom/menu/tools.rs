@@ -2,7 +2,6 @@ use scene::perms::Role;
 
 use crate::{
     dom::{element::Element, icon::Icon, input::InputGroup},
-    start::VpRef,
     viewport::Tool,
 };
 
@@ -16,8 +15,8 @@ impl ToolsMenu {
     const EDITOR_TOOLS: &'static [Icon] = &[Icon::Cursor, Icon::Arrows, Icon::Brush, Icon::Fog];
     const PLAYER_TOOLS: &'static [Icon] = &[Icon::Cursor, Icon::Arrows, Icon::Brush];
 
-    pub fn new(vp: VpRef, role: Role) -> Self {
-        let mut inputs = InputGroup::new(vp);
+    pub fn new(role: Role) -> Self {
+        let mut inputs = InputGroup::new();
         inputs.add_icon_radio_handler(
             Self::KEY,
             if role.editor() {

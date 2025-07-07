@@ -6,7 +6,6 @@ use std::{
 use crate::{
     dom::{element::Element, input::InputGroup},
     interactor::details::SpriteDetails,
-    start::VpRef,
 };
 
 pub struct SpriteMenu {
@@ -28,8 +27,8 @@ impl SpriteMenu {
     const CAP_END: &'static str = "End";
     const SHAPE: &'static str = "Shape";
 
-    pub fn new(vp: VpRef) -> Self {
-        let mut inputs = InputGroup::new(vp);
+    pub fn new() -> Self {
+        let mut inputs = InputGroup::new();
 
         let selected_id = Rc::new(AtomicI64::new(Self::NO_SELECTION));
 

@@ -3,7 +3,6 @@ use std::ops::Sub;
 use crate::{
     dom::{element::Element, icon::Icon, input::InputGroup},
     interactor::details::SpriteDetails,
-    start::VpRef,
     viewport::DrawTool,
 };
 
@@ -20,8 +19,8 @@ impl DrawMenu {
     const STROKE: &'static str = "Stroke";
     const SOLID: &'static str = "Solid";
 
-    pub fn new(vp: VpRef) -> Self {
-        let mut inputs = InputGroup::new(vp);
+    pub fn new() -> Self {
+        let mut inputs = InputGroup::new();
 
         inputs.add_colour(Self::COLOUR);
         inputs.set_colour(Self::COLOUR, random_bright_colour());

@@ -3,7 +3,7 @@ use ::scene::{perms::Role, Id};
 pub use self::dropdown::CanvasDropdownEvent;
 pub use self::layers::LayerInfo;
 use super::{element::Element, set_visible};
-use crate::{interactor::details::SceneDetails, start::VpRef, viewport::ViewportPoint};
+use crate::{interactor::details::SceneDetails, viewport::ViewportPoint};
 
 mod draw;
 mod dropdown;
@@ -102,7 +102,6 @@ pub struct Menu {
     draw: draw::DrawMenu,
     sprite: sprite::SpriteMenu,
     tools: tools::ToolsMenu,
-    vp: VpRef,
     role: Role,
 }
 
@@ -113,15 +112,14 @@ impl Menu {
     const SPRITE: &'static str = "Sprite";
     const TOOLS: &'static str = "Tools";
 
-    pub fn new(vp: VpRef, role: Role) -> Self {
+    pub fn new(role: Role) -> Self {
         let menu = Self {
             dropdown: dropdown::Dropdown::new(),
-            layers: layers::LayersMenu::new(vp.clone()),
-            scene: scene::SceneMenu::new(vp.clone()),
-            draw: draw::DrawMenu::new(vp.clone()),
-            sprite: sprite::SpriteMenu::new(vp.clone()),
-            tools: tools::ToolsMenu::new(vp.clone(), role),
-            vp,
+            layers: layers::LayersMenu::new(),
+            scene: scene::SceneMenu::new(),
+            draw: draw::DrawMenu::new(),
+            sprite: sprite::SpriteMenu::new(),
+            tools: tools::ToolsMenu::new(role),
             role,
         };
 
@@ -215,7 +213,7 @@ impl Menu {
         }
 
         // Need to recreate tools menu as Bootstrap CSS uses :last-child.
-        let new = tools::ToolsMenu::new(self.vp.clone(), role);
+        let new = tools::ToolsMenu::new(role);
         if let Some(el) = menu_element() {
             let menu = el.raw();
             if let Some(old) = menu.first_element_child() {

@@ -3,14 +3,13 @@ use std::collections::HashMap;
 use scene::Colour;
 
 use super::{element::Element, icon::Icon};
-use crate::{bridge::console_log, start::VpRef, viewport::Viewport};
+use crate::viewport::{self, Viewport};
 
 pub trait Handler = Fn(&mut Viewport) + 'static;
 pub trait ValueHandler<T> = Fn(&mut Viewport, T) + 'static;
 
 pub struct InputGroup {
     root: Element,
-    vp: VpRef,
     line: Element,
     inputs: HashMap<String, Element>,
 }
@@ -18,13 +17,12 @@ pub struct InputGroup {
 impl InputGroup {
     const OPACITY_ATTR: &'static str = "data-opacity";
 
-    pub fn new(vp: VpRef) -> InputGroup {
+    pub fn new() -> InputGroup {
         let root = Element::default();
         let line = input_group();
         root.append_child(&line);
         InputGroup {
             root,
-            vp,
             line,
             inputs: HashMap::new(),
         }
@@ -169,14 +167,9 @@ impl InputGroup {
 
     fn set_input_handler<H: Fn(&mut Viewport, Element) + 'static>(&mut self, key: &str, action: H) {
         if let Some(element) = self.inputs.get_mut(key) {
-            let vp_ref = self.vp.clone();
             element.set_oninput(Box::new(move |event: web_sys::Event| {
                 if let Some(el) = event.target().map(Element::from) {
-                    if let Ok(mut lock) = vp_ref.try_lock() {
-                        action(&mut lock, el);
-                    } else {
-                        console_log("Failed to lock viewport for input event.");
-                    }
+                    viewport::lock_and(|vp| action(vp, el));
                 }
             }));
         }
@@ -278,9 +271,8 @@ impl InputGroup {
         // Toggle icon and input when clicked
         let i = el.child("i").with_class(&a.class());
         let input_ref = input.clone();
-        let vp_ref = self.vp.clone();
         el.set_onclick(Box::new(move |_| {
-            if let Ok(mut lock) = vp_ref.try_lock() {
+            viewport::lock_and(|vp| {
                 let value = !input_ref.checked(); // Initially true
 
                 let (from, to) = if value { (a, b) } else { (b, a) };
@@ -288,10 +280,8 @@ impl InputGroup {
                 i.add_class(&to.class());
                 input_ref.toggle_checked();
 
-                action(&mut lock, value);
-            } else {
-                console_log("Failed to lock viewport for toggle button click.");
-            }
+                action(vp, value);
+            })
         }));
 
         self.add_input(key, input);
@@ -301,13 +291,8 @@ impl InputGroup {
         let mut el = button();
         el.child("i").with_class(&icon.class());
 
-        let vp = self.vp.clone();
         el.set_onclick(Box::new(move |_| {
-            if let Ok(mut lock) = vp.try_lock() {
-                action(&mut lock);
-            } else {
-                console_log("Failed to lock viewport for button click.");
-            }
+            viewport::lock_and(|vp| action(vp));
         }));
 
         self.line.append_child(&el);
@@ -409,14 +394,9 @@ impl InputGroup {
                 .with_attr("for", &id)
                 .with_classes(&["btn", "btn-sm", "btn-outline-primary"])
                 .with_child(&icon.element());
-            let vp_ref = self.vp.clone();
             let action_ref = action_ref.clone();
             input.set_oninput(Box::new(move |_| {
-                if let Ok(mut lock) = vp_ref.lock() {
-                    action_ref(&mut lock, icon);
-                } else {
-                    console_log("Failed to lock viewport for icon radio input.");
-                }
+                viewport::lock_and(|vp| action_ref(vp, icon));
             }));
         }
     }

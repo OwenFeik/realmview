@@ -1,9 +1,8 @@
 use scene::{Id, Layer};
 
 use crate::{
-    bridge::console_log,
     dom::{element::Element, icon::Icon, input::InputGroup},
-    start::VpRef,
+    viewport,
 };
 
 pub struct LayerInfo {
@@ -31,11 +30,10 @@ impl LayerInfo {
 pub struct LayersMenu {
     root: Element,
     list: Element,
-    vp: VpRef,
 }
 
 impl LayersMenu {
-    pub fn new(vp: VpRef) -> Self {
+    pub fn new() -> Self {
         let root = Element::default();
 
         let list = root
@@ -48,16 +46,11 @@ impl LayersMenu {
             .with_attr("type", "button");
         button.child("span").set_text("Add");
         button.icon(Icon::Plus);
-        let vp_ref = vp.clone();
         button.set_onclick(Box::new(move |_| {
-            if let Ok(mut lock) = vp_ref.try_lock() {
-                lock.int.new_layer();
-            } else {
-                console_log("Failed to lock viewport to add layer.");
-            }
+            viewport::lock_and(|vp| vp.int.new_layer())
         }));
 
-        Self { root, list, vp }
+        Self { root, list }
     }
 
     pub fn root(&self) -> &Element {
@@ -73,7 +66,7 @@ impl LayersMenu {
                 background = true;
             }
 
-            let mut input = InputGroup::new(self.vp.clone());
+            let mut input = InputGroup::new();
             input.root().add_class("mt-1");
             self.list.append_child(input.root());
 

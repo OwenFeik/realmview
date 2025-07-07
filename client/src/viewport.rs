@@ -12,6 +12,14 @@ use crate::{
     interactor::Interactor,
 };
 
+thread_local! {
+    static VP: std::cell::LazyCell<std::rc::Rc<std::sync::Mutex<Viewport>>> =
+        std::cell::LazyCell::new(|| std::rc::Rc::new(std::sync::Mutex::new(
+            Viewport::new(None)
+                .expect("failed to initialise rendering context")
+        )));
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Tool {
     Draw,
@@ -83,6 +91,7 @@ impl ViewportPoint {
         )
     }
 }
+
 pub struct Viewport {
     pub int: Interactor,
 
@@ -702,4 +711,14 @@ impl Viewport {
     pub fn set_project(&mut self, project: scene::Project) {
         self.int.change_project(project);
     }
+}
+
+pub fn lock_and<T: Default, F: FnOnce(&mut Viewport) -> T>(func: F) -> T {
+    VP.with(|mutex| match mutex.lock() {
+        Ok(mut vp) => func(&mut vp),
+        Err(e) => {
+            crate::bridge::log!("Failed to lock VP mutex: {e}");
+            Default::default()
+        }
+    })
 }
