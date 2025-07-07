@@ -779,9 +779,12 @@ pub fn save_project(project: &Project, active_scene: &str) -> Res<ReqState> {
                 loading.remove_class("loading-loading");
                 let bytes = js_sys::Uint8Array::new(&buf).to_vec();
                 if let Ok(resp) =
-                    serde_json::de::from_slice::<scene::requests::ProjectResponse>(&bytes)
+                    serde_json::de::from_slice::<scene::requests::ProjectSaveResponse>(&bytes)
                     && resp.success
                 {
+                    viewport::lock_and(|vp| {
+                        vp.int.update_project(resp.project_old, resp.project_new);
+                    });
                     loading.hide();
                 } else {
                     loading.add_class("loading-error");

@@ -18,6 +18,14 @@ impl Project {
         }
     }
 
+    pub fn with_uuid(self, uuid: Uuid) -> Self {
+        Self {
+            uuid: uuid,
+            title: self.title,
+            scenes: self.scenes,
+        }
+    }
+
     pub fn titled(uuid: Uuid, title: String) -> Self {
         Self {
             uuid,

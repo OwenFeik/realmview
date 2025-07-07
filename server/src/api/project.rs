@@ -31,6 +31,23 @@ async fn save(
         return res_unproc("Failed to decode project.");
     };
 
+    let scene_list = project
+        .scenes
+        .iter()
+        .map(|s| SceneListEntry {
+            uuid: format_uuid(s.uuid),
+            title: s.title.clone(),
+            updated_time: 0,
+            thumbnail: None,
+        })
+        .collect();
+    let project_old = ProjectListEntry {
+        uuid: format_uuid(project.uuid),
+        title: project.title.clone(),
+        updated_time: 0,
+        scene_list,
+    };
+
     let (record, scenes) = match Project::save(conn, &user, project).await {
         Ok(record) => record,
         Err(e) => return Err(e500(e)),
@@ -38,18 +55,20 @@ async fn save(
 
     let updated_time = record.updated_timestamp();
     let scene_list = scenes.into_iter().map(scene_list_entry).collect();
-    let project = ProjectListEntry {
+    let project_new = ProjectListEntry {
         uuid: format_uuid(record.uuid),
         title: record.title,
         updated_time,
         scene_list,
     };
 
-    Ok(HttpResponse::Ok().json(scene::requests::ProjectResponse {
+    let resp = HttpResponse::Ok().json(scene::requests::ProjectSaveResponse {
         message: "Project saved successfully.".to_string(),
         success: true,
-        project,
-    }))
+        project_old,
+        project_new,
+    });
+    Ok(resp)
 }
 
 fn scene_list_entry(scene: Scene) -> SceneListEntry {

@@ -861,6 +861,23 @@ impl Interactor {
         &self.project
     }
 
+    pub fn update_project(
+        &mut self,
+        old: scene::requests::ProjectListEntry,
+        new: scene::requests::ProjectListEntry,
+    ) {
+        for (old, new) in old.scene_list.iter().zip(new.scene_list.iter()) {
+            if let Ok(old) = uuid::Uuid::parse_str(&old.uuid)
+                && self.scene.uuid == old
+            {
+                if let Ok(new) = uuid::Uuid::parse_str(&new.uuid) {
+                    self.scene.uuid = new;
+                }
+            }
+        }
+        scene::requests::update_project_from_save(&mut self.project, old, new);
+    }
+
     pub fn new_scene(&mut self) {
         self.scene = self.project.new_scene().clone();
         self.changes.all_change();
