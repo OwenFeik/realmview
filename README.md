@@ -23,6 +23,7 @@
 * Scale battlemap by dragging 3*3 on grid.
 * Add a playground for non-logged-in users.
 * Add button to project page to launch game.
+* When creating a new project, should go straight to scene editor.
 
 ## Bugs
 

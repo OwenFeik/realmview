@@ -749,7 +749,7 @@ fn headers() -> Res<Headers> {
     Ok(headers)
 }
 
-pub fn save_project(project: &Project, active_scene: &str) -> Res<ReqState> {
+pub fn save_project(project: &Project) -> Res<ReqState> {
     const METHOD: &str = "POST";
     const PATH: &str = "/api/project/save";
 
@@ -771,10 +771,8 @@ pub fn save_project(project: &Project, active_scene: &str) -> Res<ReqState> {
     let req = Request::new_with_str_and_init(PATH, &init).map_err(js_err)?;
     let promise = window()?.fetch_with_request(&req);
 
-    upload_thumbnail(active_scene);
-
     let state = ReqState::body(
-        |buf: JsValue| {
+        move |buf: JsValue| {
             if let Some(loading) = Element::by_id("canvas_loading_icon") {
                 loading.remove_class("loading-loading");
                 let bytes = js_sys::Uint8Array::new(&buf).to_vec();
@@ -784,6 +782,7 @@ pub fn save_project(project: &Project, active_scene: &str) -> Res<ReqState> {
                 {
                     viewport::lock_and(|vp| {
                         vp.int.update_project(resp.project_old, resp.project_new);
+                        upload_thumbnail(&vp.int.scene_uuid());
                     });
                     loading.hide();
                 } else {

@@ -698,7 +698,7 @@ impl Viewport {
     pub fn save(&mut self) {
         if self.int.save_required() {
             let active_scene = self.int.scene_uuid();
-            self.save_state = save_project(self.int.export_project(), &active_scene).ok();
+            self.save_state = save_project(self.int.export_project()).ok();
             self.last_save = timestamp_ms();
             self.int.save_done();
         }
